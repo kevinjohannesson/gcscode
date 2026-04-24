@@ -9,5 +9,8 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json && tsc --noEmit",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@gcscode/plugin-api": "workspace:*"
   }
 }
