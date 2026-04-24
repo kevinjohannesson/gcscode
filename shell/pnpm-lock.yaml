@@ -78,6 +78,15 @@ importers:
         specifier: ^5.0.0
         version: 5.55.5(@typescript-eslint/types@8.59.0)
 
+  packages/plugin-example:
+    dependencies:
+      '@gcscode/plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      svelte:
+        specifier: ^5.0.0
+        version: 5.55.5(@typescript-eslint/types@8.59.0)
+
   packages/shell:
     dependencies:
       '@gcscode/plugin-api':
