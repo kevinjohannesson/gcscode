@@ -5,6 +5,10 @@ export interface Registry {
   listContributions(kind?: ContributionKind): readonly Contribution[];
 }
 
+// Invariant: all plugin.activate(host) calls must complete before App mounts.
+// Registration is not reactive — the store is a plain array, and consumers
+// read via $derived(registry.listContributions(...)) which snapshots at mount
+// time. Post-mount registration is out of scope (see docs/out-of-scope.md).
 export function createRegistry(): Registry {
   const contributions: Contribution[] = [];
 
