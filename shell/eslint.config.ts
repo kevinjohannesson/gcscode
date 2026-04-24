@@ -14,5 +14,5 @@ export default [
     files: ['**/*.svelte'],
     languageOptions: { parserOptions: { parser: ts.parser } },
   },
-  { ignores: ['dist/', 'node_modules/'] },
+  { ignores: ['**/node_modules/**', '**/dist/**', '**/.svelte-kit/**'] },
 ];
