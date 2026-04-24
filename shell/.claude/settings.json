@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": {
+    "chrome-devtools-mcp@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true
+  },
+  "enabledMcpjsonServers": ["svelte"],
+  "enableAllProjectMcpServers": true
+}
