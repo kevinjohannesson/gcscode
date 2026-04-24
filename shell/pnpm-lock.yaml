@@ -72,7 +72,11 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5(@types/node@24.12.2)(jsdom@29.0.2)(vite@8.0.10(@types/node@24.12.2)(jiti@2.6.1))
 
-  packages/plugin-api: {}
+  packages/plugin-api:
+    dependencies:
+      svelte:
+        specifier: ^5.0.0
+        version: 5.55.5(@typescript-eslint/types@8.59.0)
 
   packages/shell:
     dependencies:
