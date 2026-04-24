@@ -14,5 +14,8 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
   }
 }
