@@ -14,9 +14,7 @@ describe('app.svelte', () => {
 
   it("renders every registered 'content' contribution", () => {
     const registry = createRegistry();
-    registry
-      .createHost()
-      .registerContribution({ kind: 'content', component: MockContent });
+    registry.createHost().registerContribution({ kind: 'content', component: MockContent });
 
     render(App, { props: { registry } });
 
