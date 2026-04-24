@@ -1,16 +1,16 @@
 {
-  "name": "shell",
+  "name": "gcscode",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "dev": "pnpm --filter @gcscode/shell dev",
+    "build": "pnpm -r build",
+    "preview": "pnpm --filter @gcscode/shell preview",
+    "check": "pnpm -r check",
+    "test": "pnpm -r test",
     "lint": "eslint . && prettier --check .",
-    "format": "prettier --write .",
-    "test": "vitest"
+    "format": "prettier --write ."
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -34,5 +34,8 @@
     "typescript-eslint": "^8.59.0",
     "vite": "^8.0.10",
     "vitest": "^4.1.5"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
