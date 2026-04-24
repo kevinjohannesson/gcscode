@@ -92,6 +92,9 @@ importers:
       '@gcscode/plugin-api':
         specifier: workspace:*
         version: link:../plugin-api
+      '@gcscode/plugin-example':
+        specifier: workspace:*
+        version: link:../plugin-example
 
 packages:
 
