@@ -1,6 +1,6 @@
 # @gcscode/shell
 
-The GCScode application shell. Boots Svelte, constructs the plugin registry, activates plugins, and renders their contributions.
+The GCScode application shell — boots Svelte and (once the plugin system lands) hosts the plugin registry.
 
 ## Scripts
 - `pnpm --filter @gcscode/shell dev` — run the dev server
@@ -8,7 +8,6 @@ The GCScode application shell. Boots Svelte, constructs the plugin registry, act
 - `pnpm --filter @gcscode/shell test` — unit + component tests
 - `pnpm --filter @gcscode/shell check` — svelte-check + tsc
 
-## Architecture notes
-- `src/plugin-host/registry.ts` owns contributions.
-- `src/main.ts` creates the registry, activates plugins, and mounts `app.svelte` with the registry as a prop.
-- The shell imports plugins by package name (e.g., `@gcscode/plugin-example`). Static import is intentional for this step; dynamic loading is out of scope.
+## Status
+
+Minimal shell only. The plugin-host / registry wiring lands in later tasks of the MVP plan; this README will be expanded once those files exist.
