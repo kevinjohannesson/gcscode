@@ -18,7 +18,8 @@ A1 is structurally a clone of the existing view contribution: same shape (id + c
 ## Non-goals
 
 - **Commands**, `executeCommand`, or any way to fire actions from a status bar click — deferred to A2.
-- **Status bar item fields beyond `id`, `component`, `alignment`, `priority`** — no `text`, `tooltip`, `command`, `backgroundColor`, etc. The component renders whatever the plugin needs.
+- **Status bar item fields beyond `id`, `component`, `alignment`** — no `text`, `tooltip`, `command`, `backgroundColor`, etc. The component renders whatever the plugin needs.
+- **Numeric `priority` field.** Ordering within a side is insertion order (= plugin activation order in `main.ts`, plus the order of `register*` calls within `activate`). Deterministic and code-reviewable for trusted plugins; not abuse-able the way a `priority: 9999999` field would be. When untrusted plugins arrive, the right answer is likely zones / user-controlled ordering, not a numeric race; defer the design until there is a concrete need.
 - **Visual polish.** Minimal flex layout so left/right line up on opposite ends; decorative styling (borders, colors, hover states) is out of scope for A1.
 - **Multiple status bars.** There is exactly one status bar at the shell footer.
 
@@ -31,7 +32,6 @@ export interface StatusBarItemContribution {
   id: string;
   component: Component;
   alignment: 'left' | 'right';
-  priority?: number; // higher = closer to the edge; default 0
 }
 
 export interface PluginHost {
@@ -40,7 +40,7 @@ export interface PluginHost {
 }
 ```
 
-Naming chosen for consistency with `ViewContribution`. `alignment` is required (authors must be intentional about left vs right); `priority` is optional with default 0. The component renders all visual content; the host imposes no layout fields beyond alignment + priority.
+Naming chosen for consistency with `ViewContribution`. `alignment` is required — authors must be intentional about left vs right. The component renders all visual content; the host imposes no layout fields beyond alignment. **Ordering within a side is insertion order**, deterministic from `main.ts` activation order plus the order of `register*` calls inside each plugin's `activate`. See non-goals for why no `priority` field.
 
 ## Registry changes (`packages/shell/src/plugin-host/registry.ts`)
 
@@ -79,16 +79,8 @@ Derived groups in the script block:
 
 ```ts
 const statusBarItems = $derived(registry.listStatusBarItems());
-const leftStatus = $derived(
-  statusBarItems
-    .filter((i) => i.alignment === 'left')
-    .toSorted((a, b) => (b.priority ?? 0) - (a.priority ?? 0)),
-);
-const rightStatus = $derived(
-  statusBarItems
-    .filter((i) => i.alignment === 'right')
-    .toSorted((a, b) => (b.priority ?? 0) - (a.priority ?? 0)),
-);
+const leftStatus = $derived(statusBarItems.filter((i) => i.alignment === 'left'));
+const rightStatus = $derived(statusBarItems.filter((i) => i.alignment === 'right'));
 ```
 
 Markup:
@@ -108,7 +100,7 @@ Markup:
 </footer>
 ```
 
-`.toSorted()` (ES2023) is non-mutating and stable, so equal priorities preserve insertion order. Minimal Tailwind utility classes are added inline on the footer for flex layout so left and right line up on opposite ends; decoration is deferred.
+`Array.prototype.filter` preserves order, and `registry.listStatusBarItems()` returns items in insertion order, so left/right groups render in registration order. Minimal Tailwind utility classes are added inline on the footer for flex layout so left and right line up on opposite ends; decoration is deferred.
 
 ## Plugin example (`packages/plugin-example`)
 
@@ -156,7 +148,7 @@ Demonstrates: a single plugin contributing to two surfaces; spreading multiple d
 
 - Footer with `data-testid="statusbar"` is in the DOM even when no items are registered.
 - Left and right sections populate from `alignment`.
-- Priority orders correctly within a side (higher first), insertion order tie-breaks.
+- Multiple items in the same side render in registration order.
 
 **`packages/plugin-example/src/index.test.ts`** — extend the contract test:
 
@@ -189,4 +181,5 @@ Demonstrates: a single plugin contributing to two surfaces; spreading multiple d
 
 - **A2 — commands.** `registerCommand` + `executeCommand`. No UI trigger required for the smallest scope; tests assert register-then-execute round-trip.
 - **A3 — wire status bar item to fire a command.** Requires both A1 and A2; either via a new `command?: string` field on `StatusBarItemContribution`, or by letting the component call `host.executeCommand` itself.
+- **Item ordering knobs.** Revisit if/when activation-order ordering becomes insufficient — likely once untrusted plugins arrive. Probable shape: zones (`'system' | 'plugin'`) plus user-controlled reordering, not a numeric priority field.
 - **Visual styling.** Decorative footer (borders, theme colors, fonts) once there is a real GCS look-and-feel.
