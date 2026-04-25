@@ -1,29 +1,64 @@
-import type { Contribution, ContributionKind, PluginHost } from '@gcscode/plugin-api';
+import type {
+  Disposable,
+  Plugin,
+  PluginContext,
+  PluginHost,
+  PluginIdentity,
+  ViewContribution,
+} from '@gcscode/plugin-api';
 
 export interface Registry {
-  createHost(): PluginHost;
-  listContributions(kind?: ContributionKind): readonly Contribution[];
+  activate(plugin: Plugin): void;
+  listViews(): readonly ViewContribution[];
 }
 
-// Invariant: all plugin.activate(host) calls must complete before App mounts.
-// Registration is not reactive — the store is a plain array, and consumers
-// read via $derived(registry.listContributions(...)) which snapshots at mount
-// time. Post-mount registration is out of scope (see docs/out-of-scope.md).
+// Invariant: all registry.activate(plugin) calls must complete before App
+// mounts. Registration is not reactive — consumers read via
+// $derived(registry.listViews()), which snapshots at mount time. Post-mount
+// registration is out of scope (see docs/out-of-scope.md).
 export function createRegistry(): Registry {
-  const contributions: Contribution[] = [];
+  const views = new Map<string, ViewContribution>();
+  const subscriptionsByPlugin = new Map<string, readonly Disposable[]>();
+
+  function createHost(plugin: PluginIdentity): PluginHost {
+    return {
+      registerView(view) {
+        if (views.has(view.id)) {
+          throw new Error(
+            `View id "${view.id}" is already registered (attempted by plugin "${plugin.id}").`,
+          );
+        }
+        views.set(view.id, view);
+        return {
+          dispose() {
+            // Idempotent and safe under re-registration: only delete if the
+            // entry currently in the map is the one this disposable owns.
+            if (views.get(view.id) === view) {
+              views.delete(view.id);
+            }
+          },
+        };
+      },
+    };
+  }
 
   return {
-    createHost() {
-      return {
-        registerContribution(contribution) {
-          contributions.push(contribution);
-        },
+    activate(plugin) {
+      const identity: PluginIdentity = {
+        id: plugin.id,
+        displayName: plugin.displayName,
+        version: plugin.version,
       };
+      const context: PluginContext = {
+        host: createHost(identity),
+        subscriptions: [],
+        plugin: identity,
+      };
+      plugin.activate(context);
+      subscriptionsByPlugin.set(identity.id, context.subscriptions);
     },
-    listContributions(kind) {
-      return kind === undefined
-        ? contributions.slice()
-        : contributions.filter((c) => c.kind === kind);
+    listViews() {
+      return Array.from(views.values());
     },
   };
 }

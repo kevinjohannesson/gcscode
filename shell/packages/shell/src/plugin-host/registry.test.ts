@@ -1,45 +1,128 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Contribution } from '@gcscode/plugin-api';
+import type {
+  Disposable,
+  Plugin,
+  PluginContext,
+  PluginIdentity,
+  ViewContribution,
+} from '@gcscode/plugin-api';
 
 import { createRegistry } from './registry';
 
-const fakeComponent = {} as Contribution['component'];
+const fakeComponent = {} as ViewContribution['component'];
+
+function plugin(id: string, activate: (context: PluginContext) => void): Plugin {
+  return { id, displayName: id, version: '0.0.0', activate };
+}
 
 describe('createRegistry', () => {
-  it('starts with no contributions', () => {
+  it('starts with no views', () => {
     const registry = createRegistry();
-    expect(registry.listContributions()).toHaveLength(0);
+    expect(registry.listViews()).toHaveLength(0);
   });
 
-  it('records contributions registered through a host', () => {
+  it('records views registered through host.registerView', () => {
     const registry = createRegistry();
-    const host = registry.createHost();
-
-    host.registerContribution({ kind: 'content', component: fakeComponent });
-
-    expect(registry.listContributions()).toEqual([{ kind: 'content', component: fakeComponent }]);
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerView({ id: 'plugin.a.view', component: fakeComponent });
+      }),
+    );
+    expect(registry.listViews()).toEqual([{ id: 'plugin.a.view', component: fakeComponent }]);
   });
 
-  it('filters contributions by kind', () => {
+  it('keeps registrations from multiple plugins', () => {
     const registry = createRegistry();
-    const host = registry.createHost();
-
-    host.registerContribution({ kind: 'content', component: fakeComponent });
-
-    expect(registry.listContributions('content')).toHaveLength(1);
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerView({ id: 'plugin.a.view', component: fakeComponent });
+      }),
+    );
+    registry.activate(
+      plugin('plugin.b', (ctx) => {
+        ctx.host.registerView({ id: 'plugin.b.view', component: fakeComponent });
+      }),
+    );
+    expect(registry.listViews()).toHaveLength(2);
   });
 
-  it('gives each plugin its own host object', () => {
+  it('returns a disposable from registerView that removes the view', () => {
     const registry = createRegistry();
-    const hostA = registry.createHost();
-    const hostB = registry.createHost();
+    let disposable: Disposable | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        disposable = ctx.host.registerView({
+          id: 'plugin.a.view',
+          component: fakeComponent,
+        });
+      }),
+    );
+    expect(registry.listViews()).toHaveLength(1);
+    disposable!.dispose();
+    expect(registry.listViews()).toHaveLength(0);
+  });
 
-    expect(hostA).not.toBe(hostB);
+  it('disposable.dispose() is idempotent', () => {
+    const registry = createRegistry();
+    let disposable: Disposable | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        disposable = ctx.host.registerView({
+          id: 'plugin.a.view',
+          component: fakeComponent,
+        });
+      }),
+    );
+    disposable!.dispose();
+    expect(() => disposable!.dispose()).not.toThrow();
+    expect(registry.listViews()).toHaveLength(0);
+  });
 
-    hostA.registerContribution({ kind: 'content', component: fakeComponent });
-    hostB.registerContribution({ kind: 'content', component: fakeComponent });
+  it('throws when two plugins register the same view id', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerView({ id: 'shared', component: fakeComponent });
+      }),
+    );
+    expect(() =>
+      registry.activate(
+        plugin('plugin.b', (ctx) => {
+          ctx.host.registerView({ id: 'shared', component: fakeComponent });
+        }),
+      ),
+    ).toThrow(/shared/);
+  });
 
-    expect(registry.listContributions()).toHaveLength(2);
+  it('passes plugin identity through context.plugin', () => {
+    const registry = createRegistry();
+    let captured: PluginIdentity | undefined;
+    registry.activate({
+      id: 'plugin.a',
+      displayName: 'Plugin A',
+      version: '1.2.3',
+      activate(ctx) {
+        captured = ctx.plugin;
+      },
+    });
+    expect(captured).toEqual({
+      id: 'plugin.a',
+      displayName: 'Plugin A',
+      version: '1.2.3',
+    });
+  });
+
+  it('exposes a fresh subscriptions array on the context', () => {
+    const registry = createRegistry();
+    let subs: Disposable[] | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        subs = ctx.subscriptions;
+        subs.push(ctx.host.registerView({ id: 'plugin.a.view', component: fakeComponent }));
+      }),
+    );
+    expect(subs).toHaveLength(1);
+    expect(typeof subs![0].dispose).toBe('function');
   });
 });

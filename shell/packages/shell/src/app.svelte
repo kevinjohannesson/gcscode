@@ -3,16 +3,16 @@
 
   let { registry }: { registry: Registry } = $props();
 
-  const contributions = $derived(registry.listContributions('content'));
+  const views = $derived(registry.listViews());
 </script>
 
 <main class="shell">
   <header class="shell__header">GCScode</header>
   <section class="shell__content">
-    {#if contributions.length === 0}
+    {#if views.length === 0}
       <p data-testid="empty-state">No plugins registered.</p>
     {:else}
-      {#each contributions as { component: Component }, index (index)}
+      {#each views as { id, component: Component } (id)}
         <Component />
       {/each}
     {/if}

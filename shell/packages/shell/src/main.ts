@@ -7,7 +7,7 @@ import App from './app.svelte';
 import { createRegistry } from './plugin-host/registry';
 
 const registry = createRegistry();
-examplePlugin.activate(registry.createHost());
+registry.activate(examplePlugin);
 
 mount(App, {
   target: document.getElementById('app')!,

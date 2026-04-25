@@ -1,26 +1,60 @@
 import type { Component } from 'svelte';
 
 /**
- * The named surface a contribution targets. One kind today; the union is the
- * extension point for adding more (e.g. 'status-bar', 'sidebar') in later
- * steps without reshaping the API.
+ * Standard cleanup primitive. `dispose()` must be idempotent — calling it a
+ * second time is a no-op.
  */
-export type ContributionKind = 'content';
+export interface Disposable {
+  dispose(): void;
+}
 
-export interface Contribution {
-  kind: ContributionKind;
+/**
+ * A view contribution renders a Svelte component into the shell's main
+ * content surface. `id` is a stable identifier (usually
+ * `<plugin-id>.<local-name>`) used for diagnostics, lookups, and disposal.
+ */
+export interface ViewContribution {
+  id: string;
   component: Component;
 }
 
 /**
- * The per-plugin gate. Today it only exposes registration; future steps will
- * wrap this object with permission scopes so each plugin's capabilities can
- * be limited without changing the plugin-facing API.
+ * Identity metadata for a plugin — stable across activations; used by the
+ * host for logs, errors, and (later) per-plugin permission scoping.
  */
-export interface PluginHost {
-  registerContribution(contribution: Contribution): void;
+export interface PluginIdentity {
+  readonly id: string;
+  readonly displayName: string;
+  readonly version: string;
 }
 
-export interface Plugin {
-  activate(host: PluginHost): void;
+/**
+ * The per-plugin gate. Each `register*` method returns a `Disposable` whose
+ * `dispose()` removes the registration. New contribution kinds slot in as
+ * further `register*` methods. Future steps will wrap this object to enforce
+ * per-plugin permission scopes without changing the plugin-facing API.
+ */
+export interface PluginHost {
+  registerView(view: ViewContribution): Disposable;
+}
+
+/**
+ * The activation context — mirrors VS Code's `ExtensionContext`:
+ *   - `host` is the registration gate.
+ *   - `subscriptions` is a sink for disposables; the host disposes them when
+ *     the plugin is (eventually) deactivated.
+ *   - `plugin` is read-only identity for the activating plugin.
+ */
+export interface PluginContext {
+  host: PluginHost;
+  subscriptions: Disposable[];
+  plugin: PluginIdentity;
+}
+
+/**
+ * A plugin module's named export. Identity fields give the host plugin
+ * identity for diagnostics; `activate(context)` is the single entry point.
+ */
+export interface Plugin extends PluginIdentity {
+  activate(context: PluginContext): void;
 }

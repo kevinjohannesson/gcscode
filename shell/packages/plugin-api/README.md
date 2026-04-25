@@ -13,16 +13,32 @@ import type { Plugin } from '@gcscode/plugin-api';
 import View from './view.svelte';
 
 export const myPlugin: Plugin = {
-  activate(host) {
-    host.registerContribution({ kind: 'content', component: View });
+  id: 'my-namespace.my-plugin',
+  displayName: 'My Plugin',
+  version: '0.0.0',
+  activate(context) {
+    const view = context.host.registerView({
+      id: 'my-namespace.my-plugin.main',
+      component: View,
+    });
+    context.subscriptions.push(view);
   },
 };
 ```
 
 See `packages/plugin-example/` for the canonical worked example.
 
+## The activation context
+
+`activate(context)` receives a `PluginContext`:
+
+- **`context.host`** — the per-plugin gate. Exposes one `register*` method per contribution kind (today: `registerView`). Each call returns a `Disposable`.
+- **`context.subscriptions`** — push every `Disposable` here. The host disposes them when the plugin is (eventually) deactivated. See ADR-0003.
+- **`context.plugin`** — read-only identity (`id`, `displayName`, `version`) for the activating plugin, in case you need it for log prefixes or error messages.
+
 ## Conventions for plugin authors
 
 - Your package's main export must be a named `const` matching your plugin's slug (e.g. `examplePlugin`, not `plugin` or `default`).
+- Provide stable, namespaced ids: `<plugin-id>.<local-name>` (e.g. `gcscode.example.main`). Duplicate view ids throw at registration.
 - Your package must list `@gcscode/plugin-api` as a dependency (`workspace:*` inside this monorepo; `peerDependency` once plugins are published externally).
 - Never import from `@gcscode/shell`. Never use relative paths that escape your package root. ESLint enforces this (see root `eslint.config.ts`).

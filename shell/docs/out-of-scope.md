@@ -1,15 +1,18 @@
 # Out of scope (for this step)
 
-This is the canonical list of things intentionally NOT built in the first plugin-architecture iteration. When an agent or contributor is tempted to add one of these, the answer is "not yet — re-confirm before reopening." Add items here when you defer work; remove them when the work lands.
+This is the canonical list of things intentionally NOT built in the current plugin-architecture iteration. When an agent or contributor is tempted to add one of these, the answer is "not yet — re-confirm before reopening." Add items here when you defer work; remove them when the work lands.
+
+See `docs/decisions/ADR-0003-plugin-api-refinements.md` for the load-bearing reasoning behind the manifest-shaped deferrals.
 
 ## Plugin machinery
 
-- **Manifests / plugin metadata.** No declarative `plugin.json` or similar. The TypeScript `Plugin` interface is the contract.
-- **Permission model.** No capability scoping. The `PluginHost` is the seam where this will plug in; do not pre-build it.
-- **Lifecycle.** No `deactivate`, no enable/disable, no reload. Plugins activate once at bootstrap.
+- **Declarative `contributes` manifest.** No statically-parseable list of contributions (commands, views, etc.) that the host can read without executing `activate()`. The TypeScript `Plugin` interface plus imperative `register*` calls are the contract. _Trigger to revisit:_ a settings UI that toggles individual contributions, a marketplace preview, or the first untrusted plugin module. (ADR-0003)
+- **Activation events / lazy activation.** No `activationEvents: ["onCommand:..."]`. Plugins activate once at bootstrap, eagerly. _Trigger to revisit:_ cold-start time becomes a problem (~50+ plugins). (ADR-0003)
+- **Capability / permission declarations.** No declared-capabilities schema and no runtime enforcement. The `PluginHost` is the seam where this will plug in (see ADR-0002); do not pre-build the schema. _Trigger to revisit:_ the first untrusted plugin module. (ADR-0003)
+- **`deactivate` orchestration.** Disposables are in place (every `register*` returns a `Disposable`, plugins push to `context.subscriptions`), but the host does not yet iterate `subscriptions` to tear plugins down. No `Plugin.deactivate`, no enable/disable, no reload. _Trigger to revisit:_ dev-time hot reload, a "disable plugin" UI, or a teardown path needed for tests. (ADR-0003)
 - **Hot module reload for plugins.** Changing a plugin requires a full page refresh (same as any Vite change to shell code).
-- **Multiple contribution kinds.** The `ContributionKind` union has exactly one member (`'content'`). Add members when there is a real second surface; do not pre-declare surfaces that have no consumer.
-- **Command system, event bus, settings, themes, i18n.** Plugins have one verb: `registerContribution`.
+- **Additional contribution kinds.** Today: one `register*` method on `PluginHost` (`registerView`). Add another (`registerCommand`, `registerStatusBarItem`, etc.) when there is a real consumer; do not pre-declare surfaces that have no contributor.
+- **Command system, event bus, settings, themes, i18n.** Plugins have one verb today: `host.registerView`.
 - **Third-party sandboxing.** No iframe / worker isolation, CSP hardening, or trusted-types. All plugins currently execute in the shell's JS realm. Safe because all plugins are first-party + in-tree.
 - **Dynamic / runtime plugin loading.** Plugins are imported by package name at shell build time. Filesystem discovery, plugin marketplaces, runtime `import(...)` are all deferred.
 - **Versioning, dependency resolution, peer-compat checks.** Not applicable — everything is `workspace:*`.
