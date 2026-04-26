@@ -4,7 +4,7 @@ The only import path for plugins. Everything a plugin is allowed to do flows thr
 
 ## Stability
 
-Experimental. The surface is expected to change as permissions, lifecycle, and additional contribution kinds are added. Current version intentionally exposes the minimum needed to register one kind of UI contribution.
+Experimental. The surface is expected to change as permissions, lifecycle, and additional contribution kinds are added. The current version exposes a small, deliberately minimal set of UI contribution kinds.
 
 ## Usage
 
@@ -46,6 +46,6 @@ See `packages/plugin-example/` for the canonical worked example.
 ## Conventions for plugin authors
 
 - Your package's main export must be a named `const` matching your plugin's slug (e.g. `examplePlugin`, not `plugin` or `default`).
-- Provide stable, namespaced ids: `<plugin-id>.<local-name>` (e.g. `gcscode.example.main`). Duplicate view ids throw at registration.
+- Provide stable, namespaced ids: `<plugin-id>.<local-name>` (e.g. `gcscode.example.main`). Duplicate ids throw at registration (per contribution kind — view ids and status bar item ids live in separate namespaces).
 - Your package must list `@gcscode/plugin-api` as a dependency (`workspace:*` inside this monorepo; `peerDependency` once plugins are published externally).
 - Never import from `@gcscode/shell`. Never use relative paths that escape your package root. ESLint enforces this (see root `eslint.config.ts`).
