@@ -16,12 +16,12 @@
 
 ## File structure
 
-| Path                                                | Responsibility                                                                                                                              |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path                                                | Responsibility                                                                                                                                 |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/shell/src/plugin-host/registry.ts`        | Add `deactivate(pluginId): void` to the `Registry` interface and to the returned object. Extend the invariant comment at lines 22–25 (Task 2). |
-| `packages/shell/src/plugin-host/registry.test.ts`   | Add seven `deactivate` test cases (Task 2).                                                                                                  |
-| `docs/out-of-scope.md`                              | Propagate B1 cross-cutting non-goals (Task 3).                                                                                              |
-| `docs/decisions/ADR-0003-plugin-api-refinements.md` | Refresh the Phase B follow-up bullet to reflect the B1/B2/B3 split (Task 3).                                                                |
+| `packages/shell/src/plugin-host/registry.test.ts`   | Add seven `deactivate` test cases (Task 2).                                                                                                    |
+| `docs/out-of-scope.md`                              | Propagate B1 cross-cutting non-goals (Task 3).                                                                                                 |
+| `docs/decisions/ADR-0003-plugin-api-refinements.md` | Refresh the Phase B follow-up bullet to reflect the B1/B2/B3 split (Task 3).                                                                   |
 
 No changes to `@gcscode/plugin-api`, `@gcscode/plugin-example`, `packages/shell/src/main.ts`, the keybinding dispatcher, or any README. The plugin-facing contract is unchanged.
 
@@ -76,7 +76,7 @@ import { describe, expect, it, vi } from 'vitest';
 Then append the seven test cases inside the `describe` block:
 
 ```ts
-it('deactivate removes all of the plugin\'s contributions across kinds', () => {
+it("deactivate removes all of the plugin's contributions across kinds", () => {
   const registry = createRegistry();
   registry.activate(
     plugin('plugin.a', (ctx) => {

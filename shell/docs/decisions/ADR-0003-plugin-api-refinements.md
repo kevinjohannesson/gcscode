@@ -16,7 +16,7 @@ This ADR is a refinement _within_ the imperative-`activate` model from ADR-0002,
 
 ## Decisions adopted
 
-1. **`Disposable` return on every `register*` method.** `Disposable = { dispose(): void }`. `dispose()` must be idempotent. Even though `deactivate` is still out of scope, the _return type_ is the load-bearing change — when `deactivate` lands in phase B, plugin code already written keeps working. Today, calling `dispose()` actually removes the registration from the registry; only the host-driven _orchestration_ of disposing on deactivate is parked.
+1. **`Disposable` return on every `register*` method.** `Disposable = { dispose(): void }`. `dispose()` must be idempotent. Even though `deactivate` was out of scope at this ADR's writing, the _return type_ is the load-bearing change — when `deactivate` lands in phase B, plugin code already written keeps working. Today, calling `dispose()` actually removes the registration from the registry; only the host-driven _orchestration_ of disposing on deactivate is parked.
 
 2. **`PluginContext` instead of bare `host`.** `activate(context: PluginContext)` where `context = { host, subscriptions, plugin }`. Mirrors VS Code's `ExtensionContext`:
    - `host` — the registration gate (per-plugin instance).
@@ -39,7 +39,7 @@ The single line "Manifests / plugin metadata" in the previous out-of-scope list 
 
 - **Capability / permission declarations.** Manifest declares what APIs the plugin uses; host enforces before running plugin code. Cost: capability schema, permission model, runtime enforcement. **Trigger to revisit:** the first untrusted plugin module is loaded.
 
-- **`deactivate` orchestration.** The disposable plumbing is in place; the host doesn't yet iterate `subscriptions` because there's no deactivate trigger. **Trigger to revisit:** dev-time hot reload, a "disable plugin" UI, or a teardown path needed for tests.
+- **`deactivate` orchestration.** Shipped in Phase B1 (`docs/specs/2026-04-26-phase-b1-deactivate-orchestration.md`). The remaining deferred items from this cluster are the `Plugin.deactivate?()` plugin-side hook (non-disposable / async cleanup; trigger: first plugin needing it — named on-deck consumer is a future SITL listener), plugin enable/disable runtime state (Phase B2), and dev-time hot reload (Phase B3). See Follow-ups below.
 
 ## Consequences
 
@@ -56,5 +56,5 @@ The single line "Manifests / plugin metadata" in the previous out-of-scope list 
 ## Follow-ups
 
 - Phase A (in flight): adding more `register*` methods, one kind at a time. A1 added `registerStatusBarItem` (`docs/specs/2026-04-26-phase-a1-status-bar.md`); A2 added `registerCommand` plus the verb `executeCommand` (`docs/specs/2026-04-26-phase-a2-commands.md`); A3 adds `registerKeybinding` plus the host-side `registry.executeCommand` mirror and a shell keyboard dispatcher (`docs/specs/2026-04-26-phase-a3-keybindings.md`). Continue this pattern for future kinds; revisit naming conventions if the host surface starts to feel crowded (see also the Phase C bullet below on namespacing).
-- Phase B: `Plugin.deactivate?` (optional). The registry iterates `subscriptionsByPlugin` and calls `dispose()` on each in registration order.
+- Phase B: split into B1 (deactivate orchestration, shipped — `docs/specs/2026-04-26-phase-b1-deactivate-orchestration.md`), B2 (plugin enable/disable runtime state, deferred), B3 (dev-time hot module reload, deferred). B1 added `registry.deactivate(pluginId)`: iterates the plugin's recorded subscriptions in reverse registration order (LIFO, refining this ADR's original "registration order" framing) and calls `dispose()` on each, with per-disposable error resilience (caught + logged + continue). The optional `Plugin.deactivate?()` plugin-side hook (for non-disposable / async cleanup) is split off and still deferred — trigger to revisit: first plugin needing non-disposable cleanup (named on-deck consumer: a future SITL listener plugin).
 - Phase C: probably namespace the host (`host.commands.register(...)`) once the flat surface exceeds ~5–7 methods. Decide then; not now.
