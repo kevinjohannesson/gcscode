@@ -609,6 +609,7 @@ describe('createRegistry', () => {
   it('deactivate logs and continues when a dispose() throws', () => {
     const registry = createRegistry();
     const order: string[] = [];
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     registry.activate(
       plugin('plugin.a', (ctx) => {
         ctx.subscriptions.push({
@@ -629,7 +630,6 @@ describe('createRegistry', () => {
         });
       }),
     );
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(() => registry.deactivate('plugin.a')).not.toThrow();
 
@@ -652,7 +652,9 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       plugin('plugin.a', (ctx) => {
-        ctx.host.registerView({ id: 'plugin.a.view', component: fakeComponent });
+        ctx.subscriptions.push(
+          ctx.host.registerView({ id: 'plugin.a.view', component: fakeComponent }),
+        );
       }),
     );
 
