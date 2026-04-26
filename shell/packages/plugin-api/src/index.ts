@@ -32,6 +32,18 @@ export interface StatusBarItemContribution {
 }
 
 /**
+ * A command contribution registers a callable handler under a stable string
+ * id. Commands are the integration backbone for future kinds (keybindings,
+ * menu items, palette entries) which reference commands by id rather than
+ * carrying their own handlers. Cross-plugin execute is intentional — any
+ * plugin can fire any registered command.
+ */
+export interface CommandContribution {
+  id: string;
+  run: (...args: unknown[]) => unknown;
+}
+
+/**
  * Identity metadata for a plugin — stable across activations; used by the
  * host for logs, errors, and (later) per-plugin permission scoping.
  */
@@ -50,6 +62,7 @@ export interface PluginIdentity {
 export interface PluginHost {
   registerView(view: ViewContribution): Disposable;
   registerStatusBarItem(item: StatusBarItemContribution): Disposable;
+  registerCommand(command: CommandContribution): Disposable;
 }
 
 /**

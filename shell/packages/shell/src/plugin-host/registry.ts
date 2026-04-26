@@ -1,4 +1,5 @@
 import type {
+  CommandContribution,
   Disposable,
   Plugin,
   PluginContext,
@@ -12,6 +13,7 @@ export interface Registry {
   activate(plugin: Plugin): void;
   listViews(): readonly ViewContribution[];
   listStatusBarItems(): readonly StatusBarItemContribution[];
+  listCommands(): readonly CommandContribution[];
 }
 
 // Invariant: all registry.activate(plugin) calls must complete before App
@@ -21,6 +23,7 @@ export interface Registry {
 export function createRegistry(): Registry {
   const views = new Map<string, ViewContribution>();
   const statusBarItems = new Map<string, StatusBarItemContribution>();
+  const commands = new Map<string, CommandContribution>();
   const subscriptionsByPlugin = new Map<string, readonly Disposable[]>();
 
   function createHost(plugin: PluginIdentity): PluginHost {
@@ -59,6 +62,23 @@ export function createRegistry(): Registry {
           },
         };
       },
+      registerCommand(command) {
+        if (commands.has(command.id)) {
+          throw new Error(
+            `Command id "${command.id}" is already registered (attempted by plugin "${plugin.id}").`,
+          );
+        }
+        commands.set(command.id, command);
+        return {
+          dispose() {
+            // Idempotent and safe under re-registration: only delete if the
+            // entry currently in the map is the one this disposable owns.
+            if (commands.get(command.id) === command) {
+              commands.delete(command.id);
+            }
+          },
+        };
+      },
     };
   }
 
@@ -82,6 +102,9 @@ export function createRegistry(): Registry {
     },
     listStatusBarItems() {
       return Array.from(statusBarItems.values());
+    },
+    listCommands() {
+      return Array.from(commands.values());
     },
   };
 }
