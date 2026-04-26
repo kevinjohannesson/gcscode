@@ -28,7 +28,14 @@ export const myPlugin: Plugin = {
         component: StatusBadge,
         alignment: 'right',
       }),
+      context.host.registerCommand({
+        id: 'my-namespace.my-plugin.greet',
+        run: (...args) => 'Hello',
+      }),
     );
+
+    // Commands can be invoked by id from anywhere on the host:
+    //   context.host.executeCommand('my-namespace.my-plugin.greet')
   },
 };
 ```
@@ -39,13 +46,13 @@ See `packages/plugin-example/` for the canonical worked example.
 
 `activate(context)` receives a `PluginContext`:
 
-- **`context.host`** — the per-plugin gate. Exposes one `register*` method per contribution kind (today: `registerView`, `registerStatusBarItem`). Each call returns a `Disposable`.
+- **`context.host`** — the per-plugin gate. Exposes one `register*` method per UI contribution kind (today: `registerView`, `registerStatusBarItem`, `registerCommand`) plus the verb `executeCommand<T>(id, ...args): Promise<T>` for firing any registered command by id. Each `register*` call returns a `Disposable`.
 - **`context.subscriptions`** — push every `Disposable` here. The host disposes them when the plugin is (eventually) deactivated. See ADR-0003.
 - **`context.plugin`** — read-only identity (`id`, `displayName`, `version`) for the activating plugin, in case you need it for log prefixes or error messages.
 
 ## Conventions for plugin authors
 
 - Your package's main export must be a named `const` matching your plugin's slug (e.g. `examplePlugin`, not `plugin` or `default`).
-- Provide stable, namespaced ids: `<plugin-id>.<local-name>` (e.g. `gcscode.example.main`). Duplicate ids throw at registration (one id can be reused across contribution kinds — a view and a status bar item may share the same id).
+- Provide stable, namespaced ids: `<plugin-id>.<local-name>` (e.g. `gcscode.example.main`). Duplicate ids throw at registration (one id can be reused across contribution kinds — a view, a status bar item, and a command may all share the same id).
 - Your package must list `@gcscode/plugin-api` as a dependency (`workspace:*` inside this monorepo; `peerDependency` once plugins are published externally).
 - Never import from `@gcscode/shell`. Never use relative paths that escape your package root. ESLint enforces this (see root `eslint.config.ts`).
