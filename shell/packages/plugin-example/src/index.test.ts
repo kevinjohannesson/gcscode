@@ -15,10 +15,11 @@ describe('examplePlugin', () => {
   it('registers a view for ExampleView and pushes the disposable to subscriptions', () => {
     const fakeDisposable = { dispose: vi.fn() };
     const registerView = vi.fn().mockReturnValue(fakeDisposable);
+    const registerStatusBarItem = vi.fn().mockReturnValue(fakeDisposable);
     const subscriptions: PluginContext['subscriptions'] = [];
 
     examplePlugin.activate({
-      host: { registerView },
+      host: { registerView, registerStatusBarItem },
       subscriptions,
       plugin: {
         id: examplePlugin.id,
