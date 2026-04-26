@@ -60,6 +60,14 @@ describe('parseKey', () => {
   it('throws on input with multiple non-modifier keys', () => {
     expect(() => parseKey('g+h')).toThrow(/more than one non-modifier key/);
   });
+
+  it('throws on empty input', () => {
+    expect(() => parseKey('')).toThrow(/empty token|no non-modifier key/);
+  });
+
+  it('throws on empty token from a stray "+" (e.g. "Ctrl++G")', () => {
+    expect(() => parseKey('Ctrl++G')).toThrow(/empty token/);
+  });
 });
 
 describe('matchesKey', () => {
@@ -86,6 +94,12 @@ describe('matchesKey', () => {
     const parsed = parseKey('Ctrl+G');
     expect(matchesKey(event({ key: 'G', ctrlKey: true }), parsed)).toBe(true);
     expect(matchesKey(event({ key: 'g', ctrlKey: true }), parsed)).toBe(true);
+  });
+
+  it('matches multi-character named keys (Enter, ArrowLeft, Escape)', () => {
+    expect(matchesKey(event({ key: 'Enter' }), parseKey('Enter'))).toBe(true);
+    expect(matchesKey(event({ key: 'ArrowLeft' }), parseKey('ArrowLeft'))).toBe(true);
+    expect(matchesKey(event({ key: 'Escape', ctrlKey: true }), parseKey('Ctrl+Escape'))).toBe(true);
   });
 });
 
@@ -173,7 +187,7 @@ describe('attachKeybindingDispatcher', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it('first registration with a matching key wins', async () => {
+  it('only the keybinding whose key matches the event fires (other registrations are skipped)', async () => {
     const registry = createRegistry();
     const target = document.createElement('div');
     const runFirst = vi.fn();
@@ -209,6 +223,28 @@ describe('attachKeybindingDispatcher', () => {
       target.dispatchEvent(new KeyboardEvent('keydown', { key: 'g', ctrlKey: true })),
     ).not.toThrow();
     expect(consoleErrorSpy).toHaveBeenCalled();
+  });
+
+  it('logs a parse error and continues iterating subsequent keybindings', async () => {
+    const registry = createRegistry();
+    const target = document.createElement('div');
+    const run = vi.fn();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({ id: 'plugin.a.cmd', run });
+        // First keybinding has a malformed key (empty token from a stray "+");
+        // dispatcher should log and continue, then match the second one.
+        ctx.host.registerKeybinding({ key: 'Ctrl++G', command: 'plugin.a.cmd' });
+        ctx.host.registerKeybinding({ key: 'Ctrl+H', command: 'plugin.a.cmd' });
+      }),
+    );
+    attachKeybindingDispatcher(registry, target);
+
+    target.dispatchEvent(new KeyboardEvent('keydown', { key: 'h', ctrlKey: true }));
+    await Promise.resolve();
+
+    expect(consoleErrorSpy).toHaveBeenCalled(); // logged the parse failure
+    expect(run).toHaveBeenCalledTimes(1); // and still fired the well-formed match
   });
 
   it('logs and does not throw when the bound command rejects asynchronously', async () => {

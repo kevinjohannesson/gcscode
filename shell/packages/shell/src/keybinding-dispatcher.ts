@@ -15,6 +15,11 @@ export function parseKey(input: string): ParsedKey {
   const parsed: ParsedKey = { ctrl: false, shift: false, alt: false, meta: false, key: '' };
   for (const token of tokens) {
     const lower = token.toLowerCase();
+    if (lower === '') {
+      throw new Error(
+        `Keybinding "${input}" has an empty token (likely a stray "+" or whitespace-only segment)`,
+      );
+    }
     if (lower === 'ctrl' || lower === 'control') parsed.ctrl = true;
     else if (lower === 'shift') parsed.shift = true;
     else if (lower === 'alt') parsed.alt = true;
