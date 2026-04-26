@@ -91,7 +91,7 @@ describe('app.svelte', () => {
     render(App, { props: { registry } });
 
     const left = screen.getByTestId('statusbar-left');
-    const texts = Array.from(left.querySelectorAll('p, span')).map((el) => el.textContent);
+    const texts = Array.from(left.children).map((el) => el.textContent);
     expect(texts).toEqual(['mock-left', 'mock-right']);
   });
 });
