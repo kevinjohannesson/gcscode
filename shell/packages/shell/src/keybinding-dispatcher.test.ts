@@ -101,6 +101,33 @@ describe('matchesKey', () => {
     expect(matchesKey(event({ key: 'ArrowLeft' }), parseKey('ArrowLeft'))).toBe(true);
     expect(matchesKey(event({ key: 'Escape', ctrlKey: true }), parseKey('Ctrl+Escape'))).toBe(true);
   });
+
+  it('falls back to event.code for letter keys when event.key is mangled (macOS Alt/layout)', () => {
+    // Reproduces: macOS Option+Shift+G yields key='˝' but code='KeyG'.
+    const parsed = parseKey('Alt+Shift+G');
+    expect(
+      matchesKey(event({ key: '˝', code: 'KeyG', altKey: true, shiftKey: true }), parsed),
+    ).toBe(true);
+  });
+
+  it('falls back to event.code for letter keys under Ctrl when event.key is mangled', () => {
+    // Reproduces user's report: Ctrl+Shift+G on their Mac yields key='Ì' but code='KeyG'.
+    const parsed = parseKey('Ctrl+Shift+G');
+    expect(
+      matchesKey(event({ key: 'Ì', code: 'KeyG', ctrlKey: true, shiftKey: true }), parsed),
+    ).toBe(true);
+  });
+
+  it('falls back to event.code for digit keys when event.key is mangled', () => {
+    const parsed = parseKey('Alt+1');
+    expect(matchesKey(event({ key: '¡', code: 'Digit1', altKey: true }), parsed)).toBe(true);
+  });
+
+  it('does not fall back when event.code points at a different physical key', () => {
+    // event.key is 'q' (no match for 'g') and code='KeyH' (not 'KeyG') — must not match.
+    const parsed = parseKey('g');
+    expect(matchesKey(event({ key: 'q', code: 'KeyH' }), parsed)).toBe(false);
+  });
 });
 
 describe('attachKeybindingDispatcher', () => {
