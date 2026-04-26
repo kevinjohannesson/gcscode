@@ -55,6 +55,6 @@ The single line "Manifests / plugin metadata" in the previous out-of-scope list 
 
 ## Follow-ups
 
-- Phase A (in flight): adding more `register*` methods, one kind at a time. A1 added `registerStatusBarItem` (`docs/specs/2026-04-26-phase-a1-status-bar.md`); A2 adds `registerCommand` plus the verb `executeCommand` (`docs/specs/2026-04-26-phase-a2-commands.md`). Continue this pattern for future kinds; revisit naming conventions if the host surface starts to feel crowded (see also the Phase C bullet below on namespacing).
+- Phase A (in flight): adding more `register*` methods, one kind at a time. A1 added `registerStatusBarItem` (`docs/specs/2026-04-26-phase-a1-status-bar.md`); A2 added `registerCommand` plus the verb `executeCommand` (`docs/specs/2026-04-26-phase-a2-commands.md`); A3 adds `registerKeybinding` plus the host-side `registry.executeCommand` mirror and a shell keyboard dispatcher (`docs/specs/2026-04-26-phase-a3-keybindings.md`). Continue this pattern for future kinds; revisit naming conventions if the host surface starts to feel crowded (see also the Phase C bullet below on namespacing).
 - Phase B: `Plugin.deactivate?` (optional). The registry iterates `subscriptionsByPlugin` and calls `dispose()` on each in registration order.
 - Phase C: probably namespace the host (`host.commands.register(...)`) once the flat surface exceeds ~5–7 methods. Decide then; not now.

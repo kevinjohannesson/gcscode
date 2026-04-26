@@ -33,14 +33,28 @@ export interface StatusBarItemContribution {
 
 /**
  * A command contribution registers a callable handler under a stable string
- * id. Commands are the integration backbone for future kinds (keybindings,
- * menu items, palette entries) which reference commands by id rather than
- * carrying their own handlers. Cross-plugin execute is intentional — any
- * plugin can fire any registered command.
+ * id. Commands are the integration backbone for kinds that reference commands
+ * by id rather than carrying their own handlers (keybindings today; menu
+ * items and palette entries to come). Cross-plugin execute is intentional —
+ * any plugin can fire any registered command.
  */
 export interface CommandContribution {
   id: string;
   run: (...args: unknown[]) => unknown;
+}
+
+/**
+ * A keybinding contribution maps a key combo (e.g. 'Ctrl+Shift+G') to a
+ * registered command id. Modifiers are 'Ctrl', 'Shift', 'Alt', 'Meta'
+ * (case-insensitive at match time); the key portion is also case-insensitive.
+ * One non-modifier key per binding. The shell's keyboard dispatcher fires
+ * the referenced command on first match. The `command` field is resolved at
+ * fire time, not at registration — cross-plugin command references are
+ * intentional.
+ */
+export interface KeybindingContribution {
+  key: string;
+  command: string;
 }
 
 /**
@@ -63,6 +77,7 @@ export interface PluginHost {
   registerView(view: ViewContribution): Disposable;
   registerStatusBarItem(item: StatusBarItemContribution): Disposable;
   registerCommand(command: CommandContribution): Disposable;
+  registerKeybinding(keybinding: KeybindingContribution): Disposable;
   executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
 }
 

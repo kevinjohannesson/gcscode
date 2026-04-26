@@ -418,4 +418,141 @@ describe('createRegistry', () => {
 
     await expect(executor!.executeCommand('plugin.a.async-boom')).rejects.toThrow(/async-boom/);
   });
+
+  it('starts with no keybindings', () => {
+    const registry = createRegistry();
+    expect(registry.listKeybindings()).toHaveLength(0);
+  });
+
+  it('records keybindings registered through host.registerKeybinding', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'plugin.a.cmd' });
+      }),
+    );
+    expect(registry.listKeybindings()).toEqual([{ key: 'Ctrl+Shift+G', command: 'plugin.a.cmd' }]);
+  });
+
+  it('returns a disposable from registerKeybinding that removes the keybinding', () => {
+    const registry = createRegistry();
+    let disposable: Disposable | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        disposable = ctx.host.registerKeybinding({
+          key: 'Ctrl+Shift+G',
+          command: 'plugin.a.cmd',
+        });
+      }),
+    );
+    expect(registry.listKeybindings()).toHaveLength(1);
+    disposable!.dispose();
+    expect(registry.listKeybindings()).toHaveLength(0);
+  });
+
+  it('disposable.dispose() is idempotent for keybindings', () => {
+    const registry = createRegistry();
+    let disposable: Disposable | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        disposable = ctx.host.registerKeybinding({
+          key: 'Ctrl+Shift+G',
+          command: 'plugin.a.cmd',
+        });
+      }),
+    );
+    disposable!.dispose();
+    expect(() => disposable!.dispose()).not.toThrow();
+    expect(registry.listKeybindings()).toHaveLength(0);
+  });
+
+  it('throws when two plugins register the same keybinding key', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'plugin.a.cmd' });
+      }),
+    );
+    expect(() =>
+      registry.activate(
+        plugin('plugin.b', (ctx) => {
+          ctx.host.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'plugin.b.cmd' });
+        }),
+      ),
+    ).toThrow(/Ctrl\+Shift\+G.*plugin\.b/);
+  });
+
+  it('preserves registration order in listKeybindings', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerKeybinding({ key: 'Ctrl+A', command: 'plugin.a.first' });
+        ctx.host.registerKeybinding({ key: 'Ctrl+B', command: 'plugin.a.second' });
+      }),
+    );
+    expect(registry.listKeybindings().map((k) => k.key)).toEqual(['Ctrl+A', 'Ctrl+B']);
+  });
+
+  it('registry.executeCommand resolves with the run return value', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.greet',
+          run: () => 'hello',
+        });
+      }),
+    );
+
+    await expect(registry.executeCommand('plugin.a.greet')).resolves.toBe('hello');
+  });
+
+  it('registry.executeCommand threads variadic args through to run', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.add',
+          run: (...args) => (args[0] as number) + (args[1] as number),
+        });
+      }),
+    );
+
+    await expect(registry.executeCommand('plugin.a.add', 2, 3)).resolves.toBe(5);
+  });
+
+  it('registry.executeCommand throws synchronously when the id is not registered (attribution: host)', () => {
+    const registry = createRegistry();
+    expect(() => registry.executeCommand('does-not-exist')).toThrow(/does-not-exist.*host/);
+  });
+
+  it('registry.executeCommand surfaces sync throws inside run as rejected Promises', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.boom',
+          run: () => {
+            throw new Error('boom');
+          },
+        });
+      }),
+    );
+
+    await expect(registry.executeCommand('plugin.a.boom')).rejects.toThrow(/boom/);
+  });
+
+  it('registry.executeCommand passes async rejections from run through unchanged', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.async-boom',
+          run: () => Promise.reject(new Error('async-boom')),
+        });
+      }),
+    );
+
+    await expect(registry.executeCommand('plugin.a.async-boom')).rejects.toThrow(/async-boom/);
+  });
 });
