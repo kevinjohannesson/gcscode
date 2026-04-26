@@ -492,4 +492,67 @@ describe('createRegistry', () => {
     );
     expect(registry.listKeybindings().map((k) => k.key)).toEqual(['Ctrl+A', 'Ctrl+B']);
   });
+
+  it('registry.executeCommand resolves with the run return value', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.greet',
+          run: () => 'hello',
+        });
+      }),
+    );
+
+    await expect(registry.executeCommand('plugin.a.greet')).resolves.toBe('hello');
+  });
+
+  it('registry.executeCommand threads variadic args through to run', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.add',
+          run: (...args) => (args[0] as number) + (args[1] as number),
+        });
+      }),
+    );
+
+    await expect(registry.executeCommand('plugin.a.add', 2, 3)).resolves.toBe(5);
+  });
+
+  it('registry.executeCommand throws synchronously when the id is not registered (attribution: host)', () => {
+    const registry = createRegistry();
+    expect(() => registry.executeCommand('does-not-exist')).toThrow(/does-not-exist.*host/);
+  });
+
+  it('registry.executeCommand surfaces sync throws inside run as rejected Promises', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.boom',
+          run: () => {
+            throw new Error('boom');
+          },
+        });
+      }),
+    );
+
+    await expect(registry.executeCommand('plugin.a.boom')).rejects.toThrow(/boom/);
+  });
+
+  it('registry.executeCommand passes async rejections from run through unchanged', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.async-boom',
+          run: () => Promise.reject(new Error('async-boom')),
+        });
+      }),
+    );
+
+    await expect(registry.executeCommand('plugin.a.async-boom')).rejects.toThrow(/async-boom/);
+  });
 });

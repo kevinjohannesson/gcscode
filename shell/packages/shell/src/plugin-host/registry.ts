@@ -16,6 +16,7 @@ export interface Registry {
   listStatusBarItems(): readonly StatusBarItemContribution[];
   listCommands(): readonly CommandContribution[];
   listKeybindings(): readonly KeybindingContribution[];
+  executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
 }
 
 // Invariant: all registry.activate(plugin) calls must complete before App
@@ -28,6 +29,14 @@ export function createRegistry(): Registry {
   const commands = new Map<string, CommandContribution>();
   const keybindings = new Map<string, KeybindingContribution>();
   const subscriptionsByPlugin = new Map<string, readonly Disposable[]>();
+
+  function execute<T>(id: string, args: unknown[], attribution: string): Promise<T> {
+    const command = commands.get(id);
+    if (command === undefined) {
+      throw new Error(`Command id "${id}" is not registered (attempted by ${attribution}).`);
+    }
+    return Promise.resolve().then(() => command.run(...args)) as Promise<T>;
+  }
 
   function createHost(plugin: PluginIdentity): PluginHost {
     return {
@@ -100,13 +109,7 @@ export function createRegistry(): Registry {
         };
       },
       executeCommand<T>(id: string, ...args: unknown[]): Promise<T> {
-        const command = commands.get(id);
-        if (command === undefined) {
-          throw new Error(
-            `Command id "${id}" is not registered (attempted by plugin "${plugin.id}").`,
-          );
-        }
-        return Promise.resolve().then(() => command.run(...args)) as Promise<T>;
+        return execute<T>(id, args, `plugin "${plugin.id}"`);
       },
     };
   }
@@ -137,6 +140,9 @@ export function createRegistry(): Registry {
     },
     listKeybindings() {
       return Array.from(keybindings.values());
+    },
+    executeCommand<T>(id: string, ...args: unknown[]): Promise<T> {
+      return execute<T>(id, args, 'host');
     },
   };
 }
