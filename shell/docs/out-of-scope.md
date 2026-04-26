@@ -20,8 +20,8 @@ See `docs/decisions/ADR-0003-plugin-api-refinements.md` for the load-bearing rea
 - **Async cancellation tokens.** No `CancellationToken` (or equivalent) for long-running command callbacks or future async APIs. _Trigger to revisit:_ the first command (or future async kind) that takes long enough to be worth cancelling.
 - **Sequential / chord keybindings.** No support for `Ctrl+K Ctrl+S`-style two-step keybindings; one combo per registration. _Trigger to revisit:_ a real consumer wants chord shortcuts (typically a settings/file palette).
 - **User-overridable keybindings.** No `keybindings.json`-equivalent override file or settings UI. Plugin-registered keybindings are the only source. _Trigger to revisit:_ users complain about plugin keybinding conflicts, or a settings system lands.
-- **Cross-platform key aliasing (`Mod`, `mac:` overlay).** Literal `Ctrl` / `Cmd` only; no automatic platform mapping. _Trigger to revisit:_ first concrete Mac usage of the app.
-- **Focus-aware keybinding suppression.** No mechanism to disable a keybinding while a text input is focused, a modal is open, or a `when` condition is false. _Trigger to revisit:_ first text input or modal where the dispatcher's keydown interception causes user-visible bugs.
+- **Cross-platform key aliasing (`Mod`, `mac:` overlay).** Literal `Ctrl` / `Cmd` only; no automatic platform mapping. _Trigger to revisit:_ first Mac user reports a plugin keybinding doesn't work as expected (e.g. expecting `Cmd+S`, getting nothing because the registered binding is `Ctrl+S`).
+- **Focus-aware keybinding suppression.** No mechanism to disable a keybinding while a text input is focused, a modal is open, or a `when` condition is false. _Trigger to revisit:_ first text input or modal where the dispatcher's keydown interception fires a command unintentionally (e.g. typing `Ctrl+G` in a search field accidentally invokes the bound command).
 - **Versioning, dependency resolution, peer-compat checks.** Not applicable — everything is `workspace:*`.
 
 ## Tooling / process
