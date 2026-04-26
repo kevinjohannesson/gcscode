@@ -12,6 +12,7 @@ import type {
 
 export interface Registry {
   activate(plugin: Plugin): void;
+  deactivate(pluginId: string): void;
   listViews(): readonly ViewContribution[];
   listStatusBarItems(): readonly StatusBarItemContribution[];
   listCommands(): readonly CommandContribution[];
@@ -19,10 +20,13 @@ export interface Registry {
   executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
 }
 
-// Invariant: all registry.activate(plugin) calls must complete before App
-// mounts. Registration is not reactive — consumers read via
-// $derived(registry.listViews()), which snapshots at mount time. Post-mount
-// registration is out of scope (see docs/out-of-scope.md).
+// Invariant: registry mutations (activate, deactivate, individual dispose
+// calls) do not propagate reactively to mounted consumers. Consumers read
+// via $derived(registry.listViews()), which snapshots at mount time. Post-
+// mount mutation works at the registry level but the rendered UI will not
+// update. Reactive propagation is out of scope (see docs/out-of-scope.md);
+// pre-mount activation and test-only deactivation are the supported callers
+// today.
 export function createRegistry(): Registry {
   const views = new Map<string, ViewContribution>();
   const statusBarItems = new Map<string, StatusBarItemContribution>();
@@ -128,6 +132,23 @@ export function createRegistry(): Registry {
       };
       plugin.activate(context);
       subscriptionsByPlugin.set(identity.id, context.subscriptions);
+    },
+    deactivate(pluginId) {
+      const subscriptions = subscriptionsByPlugin.get(pluginId);
+      if (subscriptions === undefined) {
+        throw new Error(`Cannot deactivate plugin: id "${pluginId}" is not active.`);
+      }
+      // LIFO: dispose in reverse registration order. A plugin that registers a
+      // higher-level disposable later may depend on lower-level ones registered
+      // earlier; reverse order tears down the higher-level layer first.
+      for (let i = subscriptions.length - 1; i >= 0; i--) {
+        try {
+          subscriptions[i].dispose();
+        } catch (error) {
+          console.error(`Error disposing subscription for plugin "${pluginId}":`, error);
+        }
+      }
+      subscriptionsByPlugin.delete(pluginId);
     },
     listViews() {
       return Array.from(views.values());

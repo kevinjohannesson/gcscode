@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type {
   Disposable,
@@ -554,5 +554,154 @@ describe('createRegistry', () => {
     );
 
     await expect(registry.executeCommand('plugin.a.async-boom')).rejects.toThrow(/async-boom/);
+  });
+
+  it("deactivate removes all of the plugin's contributions across kinds", () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.subscriptions.push(
+          ctx.host.registerView({ id: 'plugin.a.view', component: fakeComponent }),
+          ctx.host.registerStatusBarItem({
+            id: 'plugin.a.status',
+            component: fakeComponent,
+            alignment: 'right',
+          }),
+          ctx.host.registerCommand({ id: 'plugin.a.cmd', run: () => undefined }),
+          ctx.host.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'plugin.a.cmd' }),
+        );
+      }),
+    );
+    expect(registry.listViews()).toHaveLength(1);
+    expect(registry.listStatusBarItems()).toHaveLength(1);
+    expect(registry.listCommands()).toHaveLength(1);
+    expect(registry.listKeybindings()).toHaveLength(1);
+
+    registry.deactivate('plugin.a');
+
+    expect(registry.listViews()).toHaveLength(0);
+    expect(registry.listStatusBarItems()).toHaveLength(0);
+    expect(registry.listCommands()).toHaveLength(0);
+    expect(registry.listKeybindings()).toHaveLength(0);
+  });
+
+  it('deactivate disposes subscriptions in reverse registration order (LIFO)', () => {
+    const registry = createRegistry();
+    const order: number[] = [];
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        for (let i = 0; i < 4; i++) {
+          const idx = i;
+          ctx.subscriptions.push({
+            dispose() {
+              order.push(idx);
+            },
+          });
+        }
+      }),
+    );
+
+    registry.deactivate('plugin.a');
+
+    expect(order).toEqual([3, 2, 1, 0]);
+  });
+
+  it('deactivate logs and continues when a dispose() throws', () => {
+    const registry = createRegistry();
+    const order: string[] = [];
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.subscriptions.push({
+          dispose() {
+            order.push('first');
+          },
+        });
+        ctx.subscriptions.push({
+          dispose() {
+            order.push('middle');
+            throw new Error('boom');
+          },
+        });
+        ctx.subscriptions.push({
+          dispose() {
+            order.push('last');
+          },
+        });
+      }),
+    );
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    expect(() => registry.deactivate('plugin.a')).not.toThrow();
+
+    // LIFO: last → middle → first; all three attempted despite middle throwing.
+    expect(order).toEqual(['last', 'middle', 'first']);
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    expect(consoleErrorSpy.mock.calls[0][0]).toContain('plugin.a');
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('deactivate throws when called with an unknown / not-active plugin id', () => {
+    const registry = createRegistry();
+    expect(() => registry.deactivate('not-active.plugin')).toThrow(
+      /Cannot deactivate plugin: id "not-active\.plugin" is not active/,
+    );
+  });
+
+  it('deactivate throws on the second call (id is no longer active)', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerView({ id: 'plugin.a.view', component: fakeComponent });
+      }),
+    );
+
+    registry.deactivate('plugin.a');
+
+    expect(() => registry.deactivate('plugin.a')).toThrow(
+      /Cannot deactivate plugin: id "plugin\.a" is not active/,
+    );
+  });
+
+  it('re-activating a deactivated plugin works without duplicate-id errors', () => {
+    const registry = createRegistry();
+    const p = plugin('plugin.a', (ctx) => {
+      ctx.subscriptions.push(
+        ctx.host.registerView({ id: 'plugin.a.view', component: fakeComponent }),
+      );
+    });
+
+    registry.activate(p);
+    expect(registry.listViews().map((v) => v.id)).toEqual(['plugin.a.view']);
+
+    registry.deactivate('plugin.a');
+    expect(registry.listViews()).toHaveLength(0);
+
+    // The same plugin can be re-activated against a clean slate.
+    expect(() => registry.activate(p)).not.toThrow();
+    expect(registry.listViews().map((v) => v.id)).toEqual(['plugin.a.view']);
+  });
+
+  it('deactivate isolates plugins — deactivating one does not affect another', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.subscriptions.push(
+          ctx.host.registerView({ id: 'plugin.a.view', component: fakeComponent }),
+        );
+      }),
+    );
+    registry.activate(
+      plugin('plugin.b', (ctx) => {
+        ctx.subscriptions.push(
+          ctx.host.registerView({ id: 'plugin.b.view', component: fakeComponent }),
+        );
+      }),
+    );
+    expect(registry.listViews()).toHaveLength(2);
+
+    registry.deactivate('plugin.a');
+
+    expect(registry.listViews().map((v) => v.id)).toEqual(['plugin.b.view']);
   });
 });
