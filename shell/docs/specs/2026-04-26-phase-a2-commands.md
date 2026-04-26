@@ -180,6 +180,20 @@ Execute round-trip:
 | `docs/out-of-scope.md`                            | Update "two register\* methods" → "three" in the deferral list.                                                                      |
 | `CLAUDE.md`                                       | Add the "Long-term alignment with the VS Code extension model" section (the spirit-not-byte rule) plus the alignment snapshot table. |
 
+## `docs/out-of-scope.md` propagation
+
+Cross-cutting non-goals from this spec — concepts the architecture is deliberately deferring, not just per-iteration scope cuts — must land in the canonical deferral list when A2 ships. The specific edits:
+
+- **Update existing "Additional contribution kinds" bullet** to acknowledge commands shipped: "Today: three `register*` methods on `PluginHost` (`registerView`, `registerStatusBarItem`, `registerCommand`). Add another (e.g. `registerKeybinding`, `registerMenuItem`) when there is a real consumer."
+- **Update existing "Command system, event bus, …" bullet** to drop the "command system" prefix (commands shipped) and update the "verbs today" list to three: `registerView`, `registerStatusBarItem`, `registerCommand` plus the verb `executeCommand`.
+- **Update existing "Declarative `contributes` manifest" bullet** to mention concretely what manifest fields commands would gain there: titles, categories, icons, descriptions. Trigger to revisit unchanged (palette UI, settings UI, untrusted plugins).
+- **Add new bullet — `when` clauses.** Visibility / enablement of contributions in menus, palettes, status bar. Cost: an expression evaluator plus an evaluation context binding host state. Trigger to revisit: the first menu/palette consumer that needs conditional visibility.
+- **Add new bullet — Built-in / shell-registered commands.** No host-side command registration today. The shell exposes no actions to plugins. Trigger to revisit: the shell needs to expose a host-level capability (e.g. "open settings", "reload window") via the same command system plugins use.
+- **Add new bullet — Async cancellation tokens.** No `CancellationToken` or equivalent for long-running command callbacks or future async APIs. Trigger to revisit: the first command (or future async kind) that takes long enough to be worth cancelling.
+- **`onDidExecuteCommand` / command telemetry events** are subsumed by the existing event-bus deferral — no new bullet needed; once an event bus lands, command-level events fall out for free.
+
+The "sandboxing on `run`" non-goal in this spec is already covered by the existing **Third-party sandboxing** bullet (no per-kind addition needed).
+
 ## Verification
 
 - `pnpm check` clean across packages.
@@ -196,6 +210,8 @@ Execute round-trip:
 - **Built-in / shell commands.** When the shell exposes actions ("open settings"), it registers commands too — gives commands a host-side registration path.
 - **Cancellation tokens.** When any command actually needs to be cancellable.
 
-## Cross-cutting note
+## Cross-cutting notes
 
-A2 is the first iteration where three contribution kinds coexist. If the three `register*` blocks in `registry.ts` end up line-for-line identical except for the noun (`view` / `item` / `command`), that is the signal — flagged in earlier reviews — to consider extracting a `makeRegistrar<T>` helper. **Decide during the implementation review, not during planning.** YAGNI loses to symmetry only after we see the third copy and judge it.
+**Registrar duplication.** A2 is the first iteration where three contribution kinds coexist. If the three `register*` blocks in `registry.ts` end up line-for-line identical except for the noun (`view` / `item` / `command`), that is the signal — flagged in earlier reviews — to consider extracting a `makeRegistrar<T>` helper. **Decide during the implementation review, not during planning.** YAGNI loses to symmetry only after we see the third copy and judge it.
+
+**Non-goal propagation as a planning convention.** A1's final review caught two stale "today: one register\* method" claims in `docs/out-of-scope.md` because the deferrals listed in the A1 spec's non-goals were not propagated when A1 shipped. This spec's `docs/out-of-scope.md propagation` section is the corrective: every cross-cutting non-goal becomes a bullet (or update) in the canonical deferral list when the iteration lands. The CLAUDE.md update in A2 also captures this rule for future planning sessions.
