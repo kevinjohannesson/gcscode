@@ -4,6 +4,7 @@ import type { PluginContext } from '@gcscode/plugin-api';
 
 import { examplePlugin } from './index';
 import ExampleView from './example-view.svelte';
+import ExampleStatus from './example-status.svelte';
 
 describe('examplePlugin', () => {
   it('declares stable identity metadata', () => {
@@ -12,13 +13,15 @@ describe('examplePlugin', () => {
     expect(typeof examplePlugin.version).toBe('string');
   });
 
-  it('registers a view for ExampleView and pushes the disposable to subscriptions', () => {
-    const fakeDisposable = { dispose: vi.fn() };
-    const registerView = vi.fn().mockReturnValue(fakeDisposable);
+  it('registers a view, a status bar item, and pushes both disposables', () => {
+    const viewDisposable = { dispose: vi.fn() };
+    const statusDisposable = { dispose: vi.fn() };
+    const registerView = vi.fn().mockReturnValue(viewDisposable);
+    const registerStatusBarItem = vi.fn().mockReturnValue(statusDisposable);
     const subscriptions: PluginContext['subscriptions'] = [];
 
     examplePlugin.activate({
-      host: { registerView },
+      host: { registerView, registerStatusBarItem },
       subscriptions,
       plugin: {
         id: examplePlugin.id,
@@ -27,11 +30,15 @@ describe('examplePlugin', () => {
       },
     });
 
-    expect(registerView).toHaveBeenCalledTimes(1);
     expect(registerView).toHaveBeenCalledWith({
       id: 'gcscode.example.main',
       component: ExampleView,
     });
-    expect(subscriptions).toContain(fakeDisposable);
+    expect(registerStatusBarItem).toHaveBeenCalledWith({
+      id: 'gcscode.example.status',
+      component: ExampleStatus,
+      alignment: 'right',
+    });
+    expect(subscriptions).toEqual([viewDisposable, statusDisposable]);
   });
 });

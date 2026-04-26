@@ -92,7 +92,7 @@ describe('createRegistry', () => {
           ctx.host.registerView({ id: 'shared', component: fakeComponent });
         }),
       ),
-    ).toThrow(/shared/);
+    ).toThrow(/shared.*plugin\.b/);
   });
 
   it('passes plugin identity through context.plugin', () => {
@@ -124,5 +124,122 @@ describe('createRegistry', () => {
     );
     expect(subs).toHaveLength(1);
     expect(typeof subs![0].dispose).toBe('function');
+  });
+
+  it('starts with no status bar items', () => {
+    const registry = createRegistry();
+    expect(registry.listStatusBarItems()).toHaveLength(0);
+  });
+
+  it('records status bar items registered through host.registerStatusBarItem', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerStatusBarItem({
+          id: 'plugin.a.status',
+          component: fakeComponent,
+          alignment: 'right',
+        });
+      }),
+    );
+    expect(registry.listStatusBarItems()).toEqual([
+      { id: 'plugin.a.status', component: fakeComponent, alignment: 'right' },
+    ]);
+  });
+
+  it('returns a disposable from registerStatusBarItem that removes the item', () => {
+    const registry = createRegistry();
+    let disposable: Disposable | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        disposable = ctx.host.registerStatusBarItem({
+          id: 'plugin.a.status',
+          component: fakeComponent,
+          alignment: 'left',
+        });
+      }),
+    );
+    expect(registry.listStatusBarItems()).toHaveLength(1);
+    disposable!.dispose();
+    expect(registry.listStatusBarItems()).toHaveLength(0);
+  });
+
+  it('disposable.dispose() is idempotent for status bar items', () => {
+    const registry = createRegistry();
+    let disposable: Disposable | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        disposable = ctx.host.registerStatusBarItem({
+          id: 'plugin.a.status',
+          component: fakeComponent,
+          alignment: 'left',
+        });
+      }),
+    );
+    disposable!.dispose();
+    expect(() => disposable!.dispose()).not.toThrow();
+    expect(registry.listStatusBarItems()).toHaveLength(0);
+  });
+
+  it('throws when two plugins register the same status bar item id', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerStatusBarItem({
+          id: 'shared',
+          component: fakeComponent,
+          alignment: 'left',
+        });
+      }),
+    );
+    expect(() =>
+      registry.activate(
+        plugin('plugin.b', (ctx) => {
+          ctx.host.registerStatusBarItem({
+            id: 'shared',
+            component: fakeComponent,
+            alignment: 'right',
+          });
+        }),
+      ),
+    ).toThrow(/shared.*plugin\.b/);
+  });
+
+  it('allows the same id across kinds (view and status bar item namespaces are separate)', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerView({ id: 'shared', component: fakeComponent });
+        ctx.host.registerStatusBarItem({
+          id: 'shared',
+          component: fakeComponent,
+          alignment: 'left',
+        });
+      }),
+    );
+    expect(registry.listViews()).toHaveLength(1);
+    expect(registry.listStatusBarItems()).toHaveLength(1);
+  });
+
+  it('preserves registration order in listStatusBarItems', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerStatusBarItem({
+          id: 'plugin.a.first',
+          component: fakeComponent,
+          alignment: 'left',
+        });
+        ctx.host.registerStatusBarItem({
+          id: 'plugin.a.second',
+          component: fakeComponent,
+          alignment: 'left',
+        });
+      }),
+    );
+    expect(registry.listStatusBarItems().map((i) => i.id)).toEqual([
+      'plugin.a.first',
+      'plugin.a.second',
+    ]);
   });
 });

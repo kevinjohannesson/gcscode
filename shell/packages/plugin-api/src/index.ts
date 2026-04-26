@@ -19,6 +19,19 @@ export interface ViewContribution {
 }
 
 /**
+ * A status bar item contribution renders a Svelte component into one side of
+ * the shell's footer status bar. `id` is a stable identifier (usually
+ * `<plugin-id>.<local-name>`) used for diagnostics, lookups, and disposal.
+ * `alignment` decides which side of the bar the item sits on; ordering within
+ * a side follows registration order.
+ */
+export interface StatusBarItemContribution {
+  id: string;
+  component: Component;
+  alignment: 'left' | 'right';
+}
+
+/**
  * Identity metadata for a plugin — stable across activations; used by the
  * host for logs, errors, and (later) per-plugin permission scoping.
  */
@@ -36,6 +49,7 @@ export interface PluginIdentity {
  */
 export interface PluginHost {
   registerView(view: ViewContribution): Disposable;
+  registerStatusBarItem(item: StatusBarItemContribution): Disposable;
 }
 
 /**
