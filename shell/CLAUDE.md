@@ -26,6 +26,16 @@ Corollary: if a plugin needs a capability the host doesn't yet expose, add it to
 - **Tests:** co-located `*.test.ts` next to the code they test.
 - **Plugin export name:** named `const` matching the plugin's slug (`examplePlugin`, `telemetryPlugin`, ...). Never `default`, never generic `plugin`.
 - **ADRs:** `docs/decisions/ADR-NNNN-<slug>.md`.
+- **Specs:** `docs/specs/YYYY-MM-DD-<topic>.md` (not the brainstorming-skill default of `docs/superpowers/specs/`).
+- **Plans:** `docs/plans/YYYY-MM-DD-<topic>.md` (not the writing-plans-skill default of `docs/superpowers/plans/`).
+- **Scratch:** `scratch/` is reserved for one-off exploration that shouldn't become real code. Gitignored.
+
+## Branching and merging
+
+- **Feature branches.** Implementation work runs on `feat/<topic>` branches off master. Spec/plan commits can land on master directly (they're metadata about future work); code commits live on a branch.
+- **Merge with `--no-ff`.** Land a feature branch via `git merge --no-ff feat/<topic>` so the feature boundary survives in `git log`. Matches the `f448ddc Merge branch 'feat/plugin-architecture-mvp'` precedent.
+- **Never `--no-verify`.** Don't bypass commit hooks. If a hook fails, fix the underlying issue. (The repo currently has no commit hooks; the rule is in place for when it does.)
+- **No force pushes to master.** Even with explicit user consent, prefer fixing the underlying issue over force-pushing.
 
 ## Plugin shape
 
@@ -38,6 +48,12 @@ A plugin module exports a named `const` of type `Plugin` with `{ id, displayName
 GCScode mirrors VS Code's extension architecture in spirit, not by byte. Adopt VS Code's load-bearing patterns — disposables, activation contexts, named/disposable contributions, register-then-execute, commands as the integration backbone — but feel free to diverge on syntax/style/ergonomics when the local context warrants. Extension-code portability is **not** a goal.
 
 During brainstorming and planning, surface every API divergence from VS Code as a labeled decision (with the trade-off articulated), not as a default. When picking a divergence, capture it in the spec or ADR explicitly. Specs should include a "VS Code alignment" section that lists what is aligned, what diverges (and why), and what is deferred — see `docs/specs/2026-04-26-phase-a2-commands.md` for the canonical table-format example.
+
+### Subagent-driven plan execution
+
+When executing a plan, use the `superpowers:subagent-driven-development` skill: dispatch a fresh implementer subagent per task, follow with a spec compliance review then a code quality review, and address review feedback in separate `Code-review-followup:` commits on the same branch (not amends). After all tasks land, dispatch a final cross-cutting code review over the full branch before merging via `superpowers:finishing-a-development-branch`.
+
+This pattern surfaces the same class of issues at three different points (implementer self-review, per-task spec/quality review, final cross-cutting review), and produces a legible `git log` where every followup is traced to the review note that prompted it. Don't squash followups into the originating commit — the review trail is part of the history.
 
 ### Non-goals propagate to `docs/out-of-scope.md`
 
