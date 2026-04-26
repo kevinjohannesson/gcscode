@@ -418,4 +418,78 @@ describe('createRegistry', () => {
 
     await expect(executor!.executeCommand('plugin.a.async-boom')).rejects.toThrow(/async-boom/);
   });
+
+  it('starts with no keybindings', () => {
+    const registry = createRegistry();
+    expect(registry.listKeybindings()).toHaveLength(0);
+  });
+
+  it('records keybindings registered through host.registerKeybinding', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'plugin.a.cmd' });
+      }),
+    );
+    expect(registry.listKeybindings()).toEqual([{ key: 'Ctrl+Shift+G', command: 'plugin.a.cmd' }]);
+  });
+
+  it('returns a disposable from registerKeybinding that removes the keybinding', () => {
+    const registry = createRegistry();
+    let disposable: Disposable | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        disposable = ctx.host.registerKeybinding({
+          key: 'Ctrl+Shift+G',
+          command: 'plugin.a.cmd',
+        });
+      }),
+    );
+    expect(registry.listKeybindings()).toHaveLength(1);
+    disposable!.dispose();
+    expect(registry.listKeybindings()).toHaveLength(0);
+  });
+
+  it('disposable.dispose() is idempotent for keybindings', () => {
+    const registry = createRegistry();
+    let disposable: Disposable | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        disposable = ctx.host.registerKeybinding({
+          key: 'Ctrl+Shift+G',
+          command: 'plugin.a.cmd',
+        });
+      }),
+    );
+    disposable!.dispose();
+    expect(() => disposable!.dispose()).not.toThrow();
+    expect(registry.listKeybindings()).toHaveLength(0);
+  });
+
+  it('throws when two plugins register the same keybinding key', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'plugin.a.cmd' });
+      }),
+    );
+    expect(() =>
+      registry.activate(
+        plugin('plugin.b', (ctx) => {
+          ctx.host.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'plugin.b.cmd' });
+        }),
+      ),
+    ).toThrow(/Ctrl\+Shift\+G.*plugin\.b/);
+  });
+
+  it('preserves registration order in listKeybindings', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerKeybinding({ key: 'Ctrl+A', command: 'plugin.a.first' });
+        ctx.host.registerKeybinding({ key: 'Ctrl+B', command: 'plugin.a.second' });
+      }),
+    );
+    expect(registry.listKeybindings().map((k) => k.key)).toEqual(['Ctrl+A', 'Ctrl+B']);
+  });
 });

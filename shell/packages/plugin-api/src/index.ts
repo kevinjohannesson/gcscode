@@ -44,6 +44,20 @@ export interface CommandContribution {
 }
 
 /**
+ * A keybinding contribution maps a key combo (e.g. 'Ctrl+Shift+G') to a
+ * registered command id. Modifiers are 'Ctrl', 'Shift', 'Alt', 'Meta'
+ * (case-insensitive at match time); the key portion is also case-insensitive.
+ * One non-modifier key per binding. The shell's keyboard dispatcher fires
+ * the referenced command on first match. The `command` field is resolved at
+ * fire time, not at registration — cross-plugin command references are
+ * intentional.
+ */
+export interface KeybindingContribution {
+  key: string;
+  command: string;
+}
+
+/**
  * Identity metadata for a plugin — stable across activations; used by the
  * host for logs, errors, and (later) per-plugin permission scoping.
  */
@@ -63,6 +77,7 @@ export interface PluginHost {
   registerView(view: ViewContribution): Disposable;
   registerStatusBarItem(item: StatusBarItemContribution): Disposable;
   registerCommand(command: CommandContribution): Disposable;
+  registerKeybinding(keybinding: KeybindingContribution): Disposable;
   executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
 }
 

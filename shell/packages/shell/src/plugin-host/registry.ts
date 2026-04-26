@@ -1,6 +1,7 @@
 import type {
   CommandContribution,
   Disposable,
+  KeybindingContribution,
   Plugin,
   PluginContext,
   PluginHost,
@@ -14,6 +15,7 @@ export interface Registry {
   listViews(): readonly ViewContribution[];
   listStatusBarItems(): readonly StatusBarItemContribution[];
   listCommands(): readonly CommandContribution[];
+  listKeybindings(): readonly KeybindingContribution[];
 }
 
 // Invariant: all registry.activate(plugin) calls must complete before App
@@ -24,6 +26,7 @@ export function createRegistry(): Registry {
   const views = new Map<string, ViewContribution>();
   const statusBarItems = new Map<string, StatusBarItemContribution>();
   const commands = new Map<string, CommandContribution>();
+  const keybindings = new Map<string, KeybindingContribution>();
   const subscriptionsByPlugin = new Map<string, readonly Disposable[]>();
 
   function createHost(plugin: PluginIdentity): PluginHost {
@@ -79,6 +82,23 @@ export function createRegistry(): Registry {
           },
         };
       },
+      registerKeybinding(keybinding) {
+        if (keybindings.has(keybinding.key)) {
+          throw new Error(
+            `Keybinding "${keybinding.key}" is already registered (attempted by plugin "${plugin.id}").`,
+          );
+        }
+        keybindings.set(keybinding.key, keybinding);
+        return {
+          dispose() {
+            // Idempotent and safe under re-registration: only delete if the
+            // entry currently in the map is the one this disposable owns.
+            if (keybindings.get(keybinding.key) === keybinding) {
+              keybindings.delete(keybinding.key);
+            }
+          },
+        };
+      },
       executeCommand<T>(id: string, ...args: unknown[]): Promise<T> {
         const command = commands.get(id);
         if (command === undefined) {
@@ -114,6 +134,9 @@ export function createRegistry(): Registry {
     },
     listCommands() {
       return Array.from(commands.values());
+    },
+    listKeybindings() {
+      return Array.from(keybindings.values());
     },
   };
 }

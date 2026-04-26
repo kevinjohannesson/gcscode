@@ -20,11 +20,18 @@ describe('examplePlugin', () => {
     const registerView = vi.fn().mockReturnValue(viewDisposable);
     const registerStatusBarItem = vi.fn().mockReturnValue(statusDisposable);
     const registerCommand = vi.fn().mockReturnValue(commandDisposable);
+    const registerKeybinding = vi.fn().mockReturnValue({ dispose: vi.fn() });
     const executeCommand = vi.fn().mockResolvedValue(undefined);
     const subscriptions: PluginContext['subscriptions'] = [];
 
     examplePlugin.activate({
-      host: { registerView, registerStatusBarItem, registerCommand, executeCommand },
+      host: {
+        registerView,
+        registerStatusBarItem,
+        registerCommand,
+        executeCommand,
+        registerKeybinding,
+      },
       subscriptions,
       plugin: {
         id: examplePlugin.id,
@@ -53,10 +60,17 @@ describe('examplePlugin', () => {
     const registerView = vi.fn().mockReturnValue({ dispose: vi.fn() });
     const registerStatusBarItem = vi.fn().mockReturnValue({ dispose: vi.fn() });
     const registerCommand = vi.fn().mockReturnValue({ dispose: vi.fn() });
+    const registerKeybinding = vi.fn().mockReturnValue({ dispose: vi.fn() });
     const executeCommand = vi.fn().mockResolvedValue(undefined);
 
     examplePlugin.activate({
-      host: { registerView, registerStatusBarItem, registerCommand, executeCommand },
+      host: {
+        registerView,
+        registerStatusBarItem,
+        registerCommand,
+        executeCommand,
+        registerKeybinding,
+      },
       subscriptions: [],
       plugin: {
         id: examplePlugin.id,
