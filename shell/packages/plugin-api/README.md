@@ -32,10 +32,15 @@ export const myPlugin: Plugin = {
         id: 'my-namespace.my-plugin.greet',
         run: () => 'Hello',
       }),
+      context.host.registerKeybinding({
+        key: 'Alt+Shift+G',
+        command: 'my-namespace.my-plugin.greet',
+      }),
     );
 
     // Commands can be invoked by id from anywhere on the host:
     //   context.host.executeCommand('my-namespace.my-plugin.greet')
+    // — or fired by a registered keybinding when the user presses Alt+Shift+G.
   },
 };
 ```
@@ -46,7 +51,7 @@ See `packages/plugin-example/` for the canonical worked example.
 
 `activate(context)` receives a `PluginContext`:
 
-- **`context.host`** — the per-plugin gate. Exposes one `register*` method per contribution kind (today: `registerView`, `registerStatusBarItem`, `registerCommand`) plus the verb `executeCommand<T>(id, ...args): Promise<T>` for firing any registered command by id. Each `register*` call returns a `Disposable`. The `run` callback on a command is variadic (`(...args: unknown[]) => unknown`); arguments threaded through `executeCommand(id, ...args)` arrive there.
+- **`context.host`** — the per-plugin gate. Exposes one `register*` method per contribution kind (today: `registerView`, `registerStatusBarItem`, `registerCommand`, `registerKeybinding`) plus the verb `executeCommand<T>(id, ...args): Promise<T>` for firing any registered command by id. Each `register*` call returns a `Disposable`. The `run` callback on a command is variadic (`(...args: unknown[]) => unknown`); arguments threaded through `executeCommand(id, ...args)` arrive there. The shell's keyboard dispatcher fires keybindings by calling `executeCommand` from the host side directly (it isn't a plugin), via the same shared implementation.
 - **`context.subscriptions`** — push every `Disposable` here. The host disposes them when the plugin is (eventually) deactivated. See ADR-0003.
 - **`context.plugin`** — read-only identity (`id`, `displayName`, `version`) for the activating plugin, in case you need it for log prefixes or error messages.
 
