@@ -33,10 +33,10 @@ export interface StatusBarItemContribution {
 
 /**
  * A command contribution registers a callable handler under a stable string
- * id. Commands are the integration backbone for future kinds (keybindings,
- * menu items, palette entries) which reference commands by id rather than
- * carrying their own handlers. Cross-plugin execute is intentional — any
- * plugin can fire any registered command.
+ * id. Commands are the integration backbone for kinds that reference commands
+ * by id rather than carrying their own handlers (keybindings today; menu
+ * items and palette entries to come). Cross-plugin execute is intentional —
+ * any plugin can fire any registered command.
  */
 export interface CommandContribution {
   id: string;
