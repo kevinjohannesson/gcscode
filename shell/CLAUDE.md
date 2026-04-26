@@ -18,7 +18,7 @@ Package root is the repo root. Shared tooling at the root: ESLint flat config, P
 
 **Plugin packages import ONLY from `@gcscode/plugin-api`.** No imports from `@gcscode/shell`. No relative imports that escape the package root. ESLint enforces this; package boundaries in pnpm workspaces reinforce it. Don't work around either.
 
-Corollary: if a plugin needs a capability the host doesn't yet expose, add it to `@gcscode/plugin-api` first (as a new `register*` method on `PluginHost`, or a new field on `PluginContext`), land that, then use it. Never reach around the API.
+Corollary: if a plugin needs a capability the host doesn't yet expose, add it to `@gcscode/plugin-api` first (as a new method on `PluginHost` — typically a `register*` for a new kind, or a verb like `executeCommand` — or a new field on `PluginContext`), land that, then use it. Never reach around the API.
 
 ## Conventions
 
