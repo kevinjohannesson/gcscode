@@ -16,7 +16,7 @@ This ADR is a refinement _within_ the imperative-`activate` model from ADR-0002,
 
 ## Decisions adopted
 
-1. **`Disposable` return on every `register*` method.** `Disposable = { dispose(): void }`. `dispose()` must be idempotent. Even though `deactivate` is still out of scope, the _return type_ is the load-bearing change — when `deactivate` lands in phase B, plugin code already written keeps working. Today, calling `dispose()` actually removes the registration from the registry; only the host-driven _orchestration_ of disposing on deactivate is parked.
+1. **`Disposable` return on every `register*` method.** `Disposable = { dispose(): void }`. `dispose()` must be idempotent. Even though `deactivate` was out of scope at this ADR's writing, the _return type_ is the load-bearing change — when `deactivate` lands in phase B, plugin code already written keeps working. Today, calling `dispose()` actually removes the registration from the registry; only the host-driven _orchestration_ of disposing on deactivate is parked.
 
 2. **`PluginContext` instead of bare `host`.** `activate(context: PluginContext)` where `context = { host, subscriptions, plugin }`. Mirrors VS Code's `ExtensionContext`:
    - `host` — the registration gate (per-plugin instance).
@@ -39,7 +39,7 @@ The single line "Manifests / plugin metadata" in the previous out-of-scope list 
 
 - **Capability / permission declarations.** Manifest declares what APIs the plugin uses; host enforces before running plugin code. Cost: capability schema, permission model, runtime enforcement. **Trigger to revisit:** the first untrusted plugin module is loaded.
 
-- **`deactivate` orchestration.** The disposable plumbing is in place; the host doesn't yet iterate `subscriptions` because there's no deactivate trigger. **Trigger to revisit:** dev-time hot reload, a "disable plugin" UI, or a teardown path needed for tests.
+- **`deactivate` orchestration.** Shipped in Phase B1 (`docs/specs/2026-04-26-phase-b1-deactivate-orchestration.md`). The remaining deferred items from this cluster are the `Plugin.deactivate?()` plugin-side hook (non-disposable / async cleanup; trigger: first plugin needing it — named on-deck consumer is a future SITL listener), plugin enable/disable runtime state (Phase B2), and dev-time hot reload (Phase B3). See Follow-ups below.
 
 ## Consequences
 
