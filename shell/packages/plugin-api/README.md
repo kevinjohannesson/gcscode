@@ -4,7 +4,7 @@ The only import path for plugins. Everything a plugin is allowed to do flows thr
 
 ## Stability
 
-Experimental. The surface is expected to change as permissions, lifecycle, and additional contribution kinds are added. The current version exposes a small, deliberately minimal set of UI contribution kinds.
+Experimental. The surface is expected to change as permissions, lifecycle, and additional contribution kinds are added. The current version exposes a small, deliberately minimal set of contribution kinds.
 
 ## Usage
 
@@ -30,7 +30,7 @@ export const myPlugin: Plugin = {
       }),
       context.host.registerCommand({
         id: 'my-namespace.my-plugin.greet',
-        run: (...args) => 'Hello',
+        run: () => 'Hello',
       }),
     );
 
@@ -46,7 +46,7 @@ See `packages/plugin-example/` for the canonical worked example.
 
 `activate(context)` receives a `PluginContext`:
 
-- **`context.host`** — the per-plugin gate. Exposes one `register*` method per UI contribution kind (today: `registerView`, `registerStatusBarItem`, `registerCommand`) plus the verb `executeCommand<T>(id, ...args): Promise<T>` for firing any registered command by id. Each `register*` call returns a `Disposable`.
+- **`context.host`** — the per-plugin gate. Exposes one `register*` method per contribution kind (today: `registerView`, `registerStatusBarItem`, `registerCommand`) plus the verb `executeCommand<T>(id, ...args): Promise<T>` for firing any registered command by id. Each `register*` call returns a `Disposable`. The `run` callback on a command is variadic (`(...args: unknown[]) => unknown`); arguments threaded through `executeCommand(id, ...args)` arrive there.
 - **`context.subscriptions`** — push every `Disposable` here. The host disposes them when the plugin is (eventually) deactivated. See ADR-0003.
 - **`context.plugin`** — read-only identity (`id`, `displayName`, `version`) for the activating plugin, in case you need it for log prefixes or error messages.
 

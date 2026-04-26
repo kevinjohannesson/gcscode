@@ -7,7 +7,7 @@ The canonical minimal plugin. Mirror this shape when writing a new plugin.
 - A plugin lives in its own workspace package.
 - Its only dependency on the host app is `@gcscode/plugin-api`.
 - It exports a named `const` (`examplePlugin`) of type `Plugin` carrying identity metadata (`id`, `displayName`, `version`) plus an `activate(context)` function.
-- Inside `activate`, it calls `context.host.registerView`, `context.host.registerStatusBarItem`, and `context.host.registerCommand`, then pushes all three returned `Disposable`s onto `context.subscriptions` — demonstrating multi-surface contributions from a single plugin and showing how a command (the integration backbone) sits alongside UI contributions.
+- Inside `activate`, it calls `context.host.registerView`, `context.host.registerStatusBarItem`, and `context.host.registerCommand`, then pushes all three returned `Disposable`s onto `context.subscriptions` — demonstrating multi-surface contributions from a single plugin and showing how a command (called by id from elsewhere; the integration backbone for future palette / keybinding / menu contributions) sits alongside the UI contributions.
 
 ## Anatomy
 
