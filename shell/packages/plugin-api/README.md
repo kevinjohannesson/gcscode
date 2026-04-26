@@ -11,17 +11,24 @@ Experimental. The surface is expected to change as permissions, lifecycle, and a
 ```ts
 import type { Plugin } from '@gcscode/plugin-api';
 import View from './view.svelte';
+import StatusBadge from './status-badge.svelte';
 
 export const myPlugin: Plugin = {
   id: 'my-namespace.my-plugin',
   displayName: 'My Plugin',
   version: '0.0.0',
   activate(context) {
-    const view = context.host.registerView({
-      id: 'my-namespace.my-plugin.main',
-      component: View,
-    });
-    context.subscriptions.push(view);
+    context.subscriptions.push(
+      context.host.registerView({
+        id: 'my-namespace.my-plugin.main',
+        component: View,
+      }),
+      context.host.registerStatusBarItem({
+        id: 'my-namespace.my-plugin.status',
+        component: StatusBadge,
+        alignment: 'right',
+      }),
+    );
   },
 };
 ```
@@ -32,7 +39,7 @@ See `packages/plugin-example/` for the canonical worked example.
 
 `activate(context)` receives a `PluginContext`:
 
-- **`context.host`** — the per-plugin gate. Exposes one `register*` method per contribution kind (today: `registerView`). Each call returns a `Disposable`.
+- **`context.host`** — the per-plugin gate. Exposes one `register*` method per contribution kind (today: `registerView`, `registerStatusBarItem`). Each call returns a `Disposable`.
 - **`context.subscriptions`** — push every `Disposable` here. The host disposes them when the plugin is (eventually) deactivated. See ADR-0003.
 - **`context.plugin`** — read-only identity (`id`, `displayName`, `version`) for the activating plugin, in case you need it for log prefixes or error messages.
 
