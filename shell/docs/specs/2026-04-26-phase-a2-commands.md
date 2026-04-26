@@ -167,18 +167,18 @@ Execute round-trip:
 
 ## Files modified / added
 
-| Path                                              | Change                                                                                                                               |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `packages/plugin-api/src/index.ts`                | Add `CommandContribution`; add `registerCommand` + `executeCommand` on `PluginHost`.                                                 |
-| `packages/shell/src/plugin-host/registry.ts`      | Add `commands` Map, `registerCommand` + `executeCommand` on host, `listCommands` on Registry.                                        |
-| `packages/shell/src/plugin-host/registry.test.ts` | Tests for register + execute.                                                                                                        |
-| `packages/plugin-example/src/index.ts`            | Register the third contribution (`gcscode.example.greet`).                                                                           |
-| `packages/plugin-example/src/index.test.ts`       | Update contract test for the third registration + execute round-trip.                                                                |
-| `packages/plugin-api/README.md`                   | Update Usage snippet + activation-context bullet to show the command.                                                                |
-| `packages/plugin-example/README.md`               | Update "What it demonstrates" + "Anatomy" to mention the command.                                                                    |
-| `packages/shell/README.md`                        | Update the listX summary to mention `listCommands()`.                                                                                |
-| `docs/out-of-scope.md`                            | Update "two register\* methods" → "three" in the deferral list.                                                                      |
-| `CLAUDE.md`                                       | Add the "Long-term alignment with the VS Code extension model" section (the spirit-not-byte rule) plus the alignment snapshot table. |
+| Path                                              | Change                                                                                                                                                                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/plugin-api/src/index.ts`                | Add `CommandContribution`; add `registerCommand` + `executeCommand` on `PluginHost`.                                                                                                                                      |
+| `packages/shell/src/plugin-host/registry.ts`      | Add `commands` Map, `registerCommand` + `executeCommand` on host, `listCommands` on Registry.                                                                                                                             |
+| `packages/shell/src/plugin-host/registry.test.ts` | Tests for register + execute.                                                                                                                                                                                             |
+| `packages/plugin-example/src/index.ts`            | Register the third contribution (`gcscode.example.greet`).                                                                                                                                                                |
+| `packages/plugin-example/src/index.test.ts`       | Update contract test for the third registration + execute round-trip.                                                                                                                                                     |
+| `packages/plugin-api/README.md`                   | Update Usage snippet + activation-context bullet to show the command.                                                                                                                                                     |
+| `packages/plugin-example/README.md`               | Update "What it demonstrates" + "Anatomy" to mention the command.                                                                                                                                                         |
+| `packages/shell/README.md`                        | Update the listX summary to mention `listCommands()`.                                                                                                                                                                     |
+| `docs/out-of-scope.md`                            | Propagate A2 cross-cutting non-goals (see "`docs/out-of-scope.md` propagation" section below).                                                                                                                            |
+| `CLAUDE.md`                                       | Add a "Planning conventions and long-term alignment" section: VS Code "in spirit, not by byte" rule + the rule that cross-cutting non-goals from specs must propagate to `docs/out-of-scope.md` when the iteration ships. |
 
 ## `docs/out-of-scope.md` propagation
 
