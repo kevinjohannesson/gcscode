@@ -92,7 +92,7 @@ describe('createRegistry', () => {
           ctx.host.registerView({ id: 'shared', component: fakeComponent });
         }),
       ),
-    ).toThrow(/shared/);
+    ).toThrow(/shared.*plugin\.b/);
   });
 
   it('passes plugin identity through context.plugin', () => {
@@ -202,7 +202,7 @@ describe('createRegistry', () => {
           });
         }),
       ),
-    ).toThrow(/shared/);
+    ).toThrow(/shared.*plugin\.b/);
   });
 
   it('allows the same id across kinds (view and status bar item namespaces are separate)', () => {
