@@ -19,10 +19,11 @@ describe('examplePlugin', () => {
     const registerView = vi.fn().mockReturnValue(viewDisposable);
     const registerStatusBarItem = vi.fn().mockReturnValue(statusDisposable);
     const registerCommand = vi.fn().mockReturnValue({ dispose: vi.fn() });
+    const executeCommand = vi.fn().mockResolvedValue(undefined);
     const subscriptions: PluginContext['subscriptions'] = [];
 
     examplePlugin.activate({
-      host: { registerView, registerStatusBarItem, registerCommand },
+      host: { registerView, registerStatusBarItem, registerCommand, executeCommand },
       subscriptions,
       plugin: {
         id: examplePlugin.id,

@@ -79,6 +79,15 @@ export function createRegistry(): Registry {
           },
         };
       },
+      executeCommand<T>(id: string, ...args: unknown[]): Promise<T> {
+        const command = commands.get(id);
+        if (command === undefined) {
+          throw new Error(
+            `Command id "${id}" is not registered (attempted by plugin "${plugin.id}").`,
+          );
+        }
+        return Promise.resolve().then(() => command.run(...args)) as Promise<T>;
+      },
     };
   }
 

@@ -4,6 +4,7 @@ import type {
   Disposable,
   Plugin,
   PluginContext,
+  PluginHost,
   PluginIdentity,
   ViewContribution,
 } from '@gcscode/plugin-api';
@@ -318,5 +319,103 @@ describe('createRegistry', () => {
       }),
     );
     expect(registry.listCommands().map((c) => c.id)).toEqual(['plugin.a.first', 'plugin.a.second']);
+  });
+
+  it('executeCommand resolves with the run return value', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.greet',
+          run: () => 'hello',
+        });
+      }),
+    );
+
+    let executor: PluginHost | undefined;
+    registry.activate(
+      plugin('plugin.b', (ctx) => {
+        executor = ctx.host;
+      }),
+    );
+
+    await expect(executor!.executeCommand('plugin.a.greet')).resolves.toBe('hello');
+  });
+
+  it('executeCommand threads variadic args through to run', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.add',
+          run: (...args) => (args[0] as number) + (args[1] as number),
+        });
+      }),
+    );
+
+    let executor: PluginHost | undefined;
+    registry.activate(
+      plugin('plugin.b', (ctx) => {
+        executor = ctx.host;
+      }),
+    );
+
+    await expect(executor!.executeCommand('plugin.a.add', 2, 3)).resolves.toBe(5);
+  });
+
+  it('executeCommand throws synchronously when the id is not registered', () => {
+    const registry = createRegistry();
+    let executor: PluginHost | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        executor = ctx.host;
+      }),
+    );
+
+    expect(() => executor!.executeCommand('does-not-exist')).toThrow(/does-not-exist.*plugin\.a/);
+  });
+
+  it('executeCommand surfaces sync throws inside run as rejected Promises', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.boom',
+          run: () => {
+            throw new Error('boom');
+          },
+        });
+      }),
+    );
+
+    let executor: PluginHost | undefined;
+    registry.activate(
+      plugin('plugin.b', (ctx) => {
+        executor = ctx.host;
+      }),
+    );
+
+    await expect(executor!.executeCommand('plugin.a.boom')).rejects.toThrow(/boom/);
+  });
+
+  it('executeCommand passes async rejections from run through unchanged', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.async-boom',
+          run: () => Promise.reject(new Error('async-boom')),
+        });
+      }),
+    );
+
+    let executor: PluginHost | undefined;
+    registry.activate(
+      plugin('plugin.b', (ctx) => {
+        executor = ctx.host;
+      }),
+    );
+
+    await expect(executor!.executeCommand('plugin.a.async-boom')).rejects.toThrow(/async-boom/);
   });
 });

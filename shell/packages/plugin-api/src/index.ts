@@ -63,6 +63,7 @@ export interface PluginHost {
   registerView(view: ViewContribution): Disposable;
   registerStatusBarItem(item: StatusBarItemContribution): Disposable;
   registerCommand(command: CommandContribution): Disposable;
+  executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
 }
 
 /**
