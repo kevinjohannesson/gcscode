@@ -37,7 +37,7 @@ GCScode mirrors VS Code's extension architecture **in spirit, not by byte**. The
 - `executeCommand<T>(id, ...args)` round-trips through the registry: looks up the command, calls `run(...args)`, returns `Promise<T>` of the result. Sync errors and async rejections both surface as rejected Promises.
 - Plugin example grows a registered command (`gcscode.example.greet`), demonstrating the pattern in the worked example.
 - All existing tests continue to pass; new tests cover the new surface end-to-end including the execute round-trip.
-- `CLAUDE.md` gains a "Long-term alignment with the VS Code extension model" section (the spirit-not-byte rule), so future planning sessions thread VS Code alignment through every API decision.
+- `CLAUDE.md` gains a "Planning conventions and long-term alignment" section that captures both (a) the VS Code "in spirit, not by byte" rule, so future sessions thread VS Code alignment through every API decision, and (b) the rule that cross-cutting non-goals from specs must propagate to `docs/out-of-scope.md` when the iteration ships.
 
 ## Non-goals
 
