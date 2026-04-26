@@ -31,6 +31,20 @@ Corollary: if a plugin needs a capability the host doesn't yet expose, add it to
 
 A plugin module exports a named `const` of type `Plugin` with `{ id, displayName, version, activate(context) }`. Inside `activate`, call `context.host.register*` (each returns a `Disposable`) and push every disposable to `context.subscriptions`. Long-form contract: `packages/plugin-api/README.md`.
 
+## Planning conventions and long-term alignment
+
+### VS Code alignment (in spirit, not by byte)
+
+GCScode mirrors VS Code's extension architecture in spirit, not by byte. Adopt VS Code's load-bearing patterns — disposables, activation contexts, named/disposable contributions, register-then-execute, commands as the integration backbone — but feel free to diverge on syntax/style/ergonomics when the local context warrants. Extension-code portability is **not** a goal.
+
+During brainstorming and planning, surface every API divergence from VS Code as a labeled decision (with the trade-off articulated), not as a default. When picking a divergence, capture it in the spec or ADR explicitly. Specs should include a "VS Code alignment" section that lists what is aligned, what diverges (and why), and what is deferred.
+
+### Non-goals propagate to `docs/out-of-scope.md`
+
+When a spec lists cross-cutting deferrals — concepts the architecture is deliberately deferring, not just per-iteration scope cuts — those deferrals must land in `docs/out-of-scope.md` when the iteration ships, with an explicit trigger to revisit. Per-iteration scope omissions stay in the spec only; cross-cutting deferrals are the canonical list in `out-of-scope.md`.
+
+The judgment: does this non-goal apply only to this iteration, or is it a deliberate "we're deferring this concept" decision affecting the whole architecture? Cross-cutting → propagate to `out-of-scope.md`. Specs should include a `docs/out-of-scope.md` propagation section listing the exact edits the iteration's docs commit will make.
+
 ## Commands
 
 - `pnpm dev` — run the shell's dev server
