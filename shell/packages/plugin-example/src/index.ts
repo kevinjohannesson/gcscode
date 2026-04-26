@@ -18,6 +18,10 @@ export const examplePlugin: Plugin = {
         component: ExampleStatus,
         alignment: 'right',
       }),
+      context.host.registerCommand({
+        id: 'gcscode.example.greet',
+        run: () => 'Hello from gcscode.example',
+      }),
     );
   },
 };

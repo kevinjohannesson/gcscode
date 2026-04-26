@@ -4,6 +4,7 @@ import type {
   Disposable,
   Plugin,
   PluginContext,
+  PluginHost,
   PluginIdentity,
   ViewContribution,
 } from '@gcscode/plugin-api';
@@ -63,7 +64,7 @@ describe('createRegistry', () => {
     expect(registry.listViews()).toHaveLength(0);
   });
 
-  it('disposable.dispose() is idempotent', () => {
+  it('disposable.dispose() is idempotent for views', () => {
     const registry = createRegistry();
     let disposable: Disposable | undefined;
     registry.activate(
@@ -205,22 +206,6 @@ describe('createRegistry', () => {
     ).toThrow(/shared.*plugin\.b/);
   });
 
-  it('allows the same id across kinds (view and status bar item namespaces are separate)', () => {
-    const registry = createRegistry();
-    registry.activate(
-      plugin('plugin.a', (ctx) => {
-        ctx.host.registerView({ id: 'shared', component: fakeComponent });
-        ctx.host.registerStatusBarItem({
-          id: 'shared',
-          component: fakeComponent,
-          alignment: 'left',
-        });
-      }),
-    );
-    expect(registry.listViews()).toHaveLength(1);
-    expect(registry.listStatusBarItems()).toHaveLength(1);
-  });
-
   it('preserves registration order in listStatusBarItems', () => {
     const registry = createRegistry();
     registry.activate(
@@ -241,5 +226,196 @@ describe('createRegistry', () => {
       'plugin.a.first',
       'plugin.a.second',
     ]);
+  });
+
+  it('starts with no commands', () => {
+    const registry = createRegistry();
+    expect(registry.listCommands()).toHaveLength(0);
+  });
+
+  it('records commands registered through host.registerCommand', () => {
+    const registry = createRegistry();
+    const run = () => undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({ id: 'plugin.a.cmd', run });
+      }),
+    );
+    expect(registry.listCommands()).toEqual([{ id: 'plugin.a.cmd', run }]);
+  });
+
+  it('returns a disposable from registerCommand that removes the command', () => {
+    const registry = createRegistry();
+    let disposable: Disposable | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        disposable = ctx.host.registerCommand({
+          id: 'plugin.a.cmd',
+          run: () => undefined,
+        });
+      }),
+    );
+    expect(registry.listCommands()).toHaveLength(1);
+    disposable!.dispose();
+    expect(registry.listCommands()).toHaveLength(0);
+  });
+
+  it('disposable.dispose() is idempotent for commands', () => {
+    const registry = createRegistry();
+    let disposable: Disposable | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        disposable = ctx.host.registerCommand({
+          id: 'plugin.a.cmd',
+          run: () => undefined,
+        });
+      }),
+    );
+    disposable!.dispose();
+    expect(() => disposable!.dispose()).not.toThrow();
+    expect(registry.listCommands()).toHaveLength(0);
+  });
+
+  it('throws when two plugins register the same command id', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({ id: 'shared', run: () => undefined });
+      }),
+    );
+    expect(() =>
+      registry.activate(
+        plugin('plugin.b', (ctx) => {
+          ctx.host.registerCommand({ id: 'shared', run: () => undefined });
+        }),
+      ),
+    ).toThrow(/shared.*plugin\.b/);
+  });
+
+  it('allows the same id across all three kinds (view, status bar, command)', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerView({ id: 'shared', component: fakeComponent });
+        ctx.host.registerStatusBarItem({
+          id: 'shared',
+          component: fakeComponent,
+          alignment: 'left',
+        });
+        ctx.host.registerCommand({ id: 'shared', run: () => undefined });
+      }),
+    );
+    expect(registry.listViews()).toHaveLength(1);
+    expect(registry.listStatusBarItems()).toHaveLength(1);
+    expect(registry.listCommands()).toHaveLength(1);
+  });
+
+  it('preserves registration order in listCommands', () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({ id: 'plugin.a.first', run: () => undefined });
+        ctx.host.registerCommand({ id: 'plugin.a.second', run: () => undefined });
+      }),
+    );
+    expect(registry.listCommands().map((c) => c.id)).toEqual(['plugin.a.first', 'plugin.a.second']);
+  });
+
+  it('executeCommand resolves with the run return value', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.greet',
+          run: () => 'hello',
+        });
+      }),
+    );
+
+    let executor: PluginHost | undefined;
+    registry.activate(
+      plugin('plugin.b', (ctx) => {
+        executor = ctx.host;
+      }),
+    );
+
+    await expect(executor!.executeCommand('plugin.a.greet')).resolves.toBe('hello');
+  });
+
+  it('executeCommand threads variadic args through to run', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.add',
+          run: (...args) => (args[0] as number) + (args[1] as number),
+        });
+      }),
+    );
+
+    let executor: PluginHost | undefined;
+    registry.activate(
+      plugin('plugin.b', (ctx) => {
+        executor = ctx.host;
+      }),
+    );
+
+    await expect(executor!.executeCommand('plugin.a.add', 2, 3)).resolves.toBe(5);
+  });
+
+  it('executeCommand throws synchronously when the id is not registered', () => {
+    const registry = createRegistry();
+    let executor: PluginHost | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        executor = ctx.host;
+      }),
+    );
+
+    expect(() => executor!.executeCommand('does-not-exist')).toThrow(/does-not-exist.*plugin\.a/);
+  });
+
+  it('executeCommand surfaces sync throws inside run as rejected Promises', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.boom',
+          run: () => {
+            throw new Error('boom');
+          },
+        });
+      }),
+    );
+
+    let executor: PluginHost | undefined;
+    registry.activate(
+      plugin('plugin.b', (ctx) => {
+        executor = ctx.host;
+      }),
+    );
+
+    await expect(executor!.executeCommand('plugin.a.boom')).rejects.toThrow(/boom/);
+  });
+
+  it('executeCommand passes async rejections from run through unchanged', async () => {
+    const registry = createRegistry();
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        ctx.host.registerCommand({
+          id: 'plugin.a.async-boom',
+          run: () => Promise.reject(new Error('async-boom')),
+        });
+      }),
+    );
+
+    let executor: PluginHost | undefined;
+    registry.activate(
+      plugin('plugin.b', (ctx) => {
+        executor = ctx.host;
+      }),
+    );
+
+    await expect(executor!.executeCommand('plugin.a.async-boom')).rejects.toThrow(/async-boom/);
   });
 });
