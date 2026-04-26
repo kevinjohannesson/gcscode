@@ -58,6 +58,6 @@ See `packages/plugin-example/` for the canonical worked example.
 ## Conventions for plugin authors
 
 - Your package's main export must be a named `const` matching your plugin's slug (e.g. `examplePlugin`, not `plugin` or `default`).
-- Provide stable, namespaced ids: `<plugin-id>.<local-name>` (e.g. `gcscode.example.main`). Duplicate ids throw at registration (one id can be reused across contribution kinds — a view, a status bar item, and a command may all share the same id).
+- Provide stable, namespaced ids: `<plugin-id>.<local-name>` (e.g. `gcscode.example.main`). Duplicate ids throw at registration; one id can be reused across the three id-keyed kinds (a view, a status bar item, and a command may all share the same id). Keybindings are keyed by their `key` field instead — duplicate keys throw separately.
 - Your package must list `@gcscode/plugin-api` as a dependency (`workspace:*` inside this monorepo; `peerDependency` once plugins are published externally).
 - Never import from `@gcscode/shell`. Never use relative paths that escape your package root. ESLint enforces this (see root `eslint.config.ts`).
