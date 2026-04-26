@@ -836,11 +836,12 @@ EOF
 
 ---
 
-### Task 6: Propagate non-goals to `docs/out-of-scope.md` and add planning conventions to `CLAUDE.md`
+### Task 6: Propagate non-goals to `docs/out-of-scope.md`, refresh ADR-0003 follow-ups, and add planning conventions to `CLAUDE.md`
 
 **Files:**
 
 - Modify: `docs/out-of-scope.md`
+- Modify: `docs/decisions/ADR-0003-plugin-api-refinements.md`
 - Modify: `CLAUDE.md`
 
 - [ ] **Step 1: Update the existing "Additional contribution kinds" bullet in `docs/out-of-scope.md`**
