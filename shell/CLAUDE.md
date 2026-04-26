@@ -72,6 +72,7 @@ The judgment: does this non-goal apply only to this iteration, or is it a delibe
 
 ## Further reading
 
+- `docs/roadmap.md` — phase plan + iteration status + planned feature plugins. Start here for "where are we now / what's next".
 - `docs/out-of-scope.md` — canonical list of what is intentionally NOT built yet. Check here before building anything new.
 - `docs/decisions/` — architecture decision records.
 - `packages/plugin-api/README.md` — how to write a plugin.
