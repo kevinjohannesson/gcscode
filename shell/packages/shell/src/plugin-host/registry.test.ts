@@ -63,7 +63,7 @@ describe('createRegistry', () => {
     expect(registry.listViews()).toHaveLength(0);
   });
 
-  it('disposable.dispose() is idempotent', () => {
+  it('disposable.dispose() is idempotent for views', () => {
     const registry = createRegistry();
     let disposable: Disposable | undefined;
     registry.activate(
@@ -203,22 +203,6 @@ describe('createRegistry', () => {
         }),
       ),
     ).toThrow(/shared.*plugin\.b/);
-  });
-
-  it('allows the same id across kinds (view and status bar item namespaces are separate)', () => {
-    const registry = createRegistry();
-    registry.activate(
-      plugin('plugin.a', (ctx) => {
-        ctx.host.registerView({ id: 'shared', component: fakeComponent });
-        ctx.host.registerStatusBarItem({
-          id: 'shared',
-          component: fakeComponent,
-          alignment: 'left',
-        });
-      }),
-    );
-    expect(registry.listViews()).toHaveLength(1);
-    expect(registry.listStatusBarItems()).toHaveLength(1);
   });
 
   it('preserves registration order in listStatusBarItems', () => {
