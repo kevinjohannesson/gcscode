@@ -20,7 +20,15 @@ export const examplePlugin: Plugin = {
       }),
       context.host.registerCommand({
         id: 'gcscode.example.greet',
-        run: () => 'Hello from gcscode.example',
+        run: () => {
+          const message = 'Hello from gcscode.example';
+          console.log(message);
+          return message;
+        },
+      }),
+      context.host.registerKeybinding({
+        key: 'Alt+Shift+G',
+        command: 'gcscode.example.greet',
       }),
     );
   },
