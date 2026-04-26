@@ -38,13 +38,23 @@ export function parseKey(input: string): ParsedKey {
 }
 
 export function matchesKey(event: KeyboardEvent, parsed: ParsedKey): boolean {
-  return (
-    event.ctrlKey === parsed.ctrl &&
-    event.shiftKey === parsed.shift &&
-    event.altKey === parsed.alt &&
-    event.metaKey === parsed.meta &&
-    event.key.toLowerCase() === parsed.key
-  );
+  if (event.ctrlKey !== parsed.ctrl) return false;
+  if (event.shiftKey !== parsed.shift) return false;
+  if (event.altKey !== parsed.alt) return false;
+  if (event.metaKey !== parsed.meta) return false;
+
+  if (event.key.toLowerCase() === parsed.key) return true;
+
+  // macOS mangles event.key for letter/digit registrations under certain
+  // modifiers (Option/Alt as a compose key; some layouts under Ctrl too —
+  // e.g. Ctrl+Shift+G producing 'Ì'). event.code reports the physical key,
+  // layout/modifier-independent, so use it as a backstop for single ASCII
+  // letters and digits. Multi-char registrations (Enter, ArrowLeft) and
+  // punctuation are unaffected.
+  if (/^[a-z]$/.test(parsed.key)) return event.code === `Key${parsed.key.toUpperCase()}`;
+  if (/^[0-9]$/.test(parsed.key)) return event.code === `Digit${parsed.key}`;
+
+  return false;
 }
 
 export function attachKeybindingDispatcher(registry: Registry, target: EventTarget): Disposable {
