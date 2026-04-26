@@ -16,18 +16,19 @@
 
 ## File structure
 
-| Path                                              | Responsibility                                                                                                                    |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/plugin-api/src/index.ts`                | Add `CommandContribution` type; extend `PluginHost` with `registerCommand` (Task 2) and `executeCommand` (Task 3).                |
-| `packages/shell/src/plugin-host/registry.ts`      | Add `commands` Map, `registerCommand` method on host, `listCommands` on Registry (Task 2); add `executeCommand` on host (Task 3). |
-| `packages/shell/src/plugin-host/registry.test.ts` | Register-side tests in Task 2; execute round-trip tests in Task 3.                                                                |
-| `packages/plugin-example/src/index.ts`            | Register a third contribution (`gcscode.example.greet`) — Task 4.                                                                 |
-| `packages/plugin-example/src/index.test.ts`       | Stub mock for new methods in Tasks 2 and 3 (minimal type-keepalive); contract test rewritten in Task 4.                           |
-| `packages/plugin-api/README.md`                   | Update Usage snippet + activation-context bullet — Task 5.                                                                        |
-| `packages/plugin-example/README.md`               | Update "What it demonstrates" + "Anatomy" — Task 5.                                                                               |
-| `packages/shell/README.md`                        | Mention `listCommands()` in the listX summary — Task 5.                                                                           |
-| `docs/out-of-scope.md`                            | Propagate A2 cross-cutting non-goals — Task 6.                                                                                    |
-| `CLAUDE.md`                                       | Add "Planning conventions and long-term alignment" section — Task 6.                                                              |
+| Path                                                | Responsibility                                                                                                                    |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/plugin-api/src/index.ts`                  | Add `CommandContribution` type; extend `PluginHost` with `registerCommand` (Task 2) and `executeCommand` (Task 3).                |
+| `packages/shell/src/plugin-host/registry.ts`        | Add `commands` Map, `registerCommand` method on host, `listCommands` on Registry (Task 2); add `executeCommand` on host (Task 3). |
+| `packages/shell/src/plugin-host/registry.test.ts`   | Register-side tests in Task 2; execute round-trip tests in Task 3.                                                                |
+| `packages/plugin-example/src/index.ts`              | Register a third contribution (`gcscode.example.greet`) — Task 4.                                                                 |
+| `packages/plugin-example/src/index.test.ts`         | Stub mock for new methods in Tasks 2 and 3 (minimal type-keepalive); contract test rewritten in Task 4.                           |
+| `packages/plugin-api/README.md`                     | Update Usage snippet + activation-context bullet — Task 5.                                                                        |
+| `packages/plugin-example/README.md`                 | Update "What it demonstrates" + "Anatomy" — Task 5.                                                                               |
+| `packages/shell/README.md`                          | Mention `listCommands()` in the listX summary — Task 5.                                                                           |
+| `docs/out-of-scope.md`                              | Propagate A2 cross-cutting non-goals — Task 6.                                                                                    |
+| `docs/decisions/ADR-0003-plugin-api-refinements.md` | Replace the now-stale "Phase A: add the second `register*` method" follow-up bullet with a retrospective pointer — Task 6.        |
+| `CLAUDE.md`                                         | Add "Planning conventions and long-term alignment" section — Task 6.                                                              |
 
 ---
 
@@ -894,6 +895,22 @@ Find the bullet about "Versioning, dependency resolution, peer-compat checks." I
 - **Async cancellation tokens.** No `CancellationToken` (or equivalent) for long-running command callbacks or future async APIs. _Trigger to revisit:_ the first command (or future async kind) that takes long enough to be worth cancelling.
 ```
 
+- [ ] **Step 4b: Refresh ADR-0003's stale Phase A follow-up**
+
+In `docs/decisions/ADR-0003-plugin-api-refinements.md`, find the bullet under `## Follow-ups`:
+
+```md
+- Phase A: add the second `register*` method when the second surface lands. Naming convention: `registerView`, `registerCommand`, `registerStatusBarItem`, etc.
+```
+
+This bullet predates A1 and A2 — both phases are now shipping or have shipped, so the forecast has aged out. Replace it with a retrospective pointer:
+
+```md
+- Phase A (in flight): adding more `register*` methods, one kind at a time. A1 added `registerStatusBarItem` (`docs/specs/2026-04-26-phase-a1-status-bar.md`); A2 adds `registerCommand` plus the verb `executeCommand` (`docs/specs/2026-04-26-phase-a2-commands.md`). Continue this pattern for future kinds; revisit naming conventions if the host surface starts to feel crowded (see also the Phase C bullet below on namespacing).
+```
+
+Leave the Phase B and Phase C follow-up bullets unchanged — they are still accurate.
+
 - [ ] **Step 5: Add the "Planning conventions and long-term alignment" section to `CLAUDE.md`**
 
 Append a new section to `CLAUDE.md`. Add it after the existing `## Plugin shape` section and before the `## Commands` section. Insert:
@@ -922,9 +939,9 @@ Expected: clean.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add docs/out-of-scope.md CLAUDE.md
+git add docs/out-of-scope.md docs/decisions/ADR-0003-plugin-api-refinements.md CLAUDE.md
 git commit -m "$(cat <<'EOF'
-docs: propagate A2 non-goals + add planning conventions to CLAUDE.md
+docs: propagate A2 non-goals + refresh ADR-0003 + planning conventions
 
 docs/out-of-scope.md:
 - Update the "Additional contribution kinds" bullet to acknowledge
@@ -935,6 +952,11 @@ docs/out-of-scope.md:
   declarative-contributes deferral.
 - Add three new bullets: when clauses, built-in shell-registered
   commands, async cancellation tokens.
+
+ADR-0003:
+- Replace the stale "Phase A: add the second register* method" Follow-ups
+  bullet with a retrospective pointer to the A1 and A2 specs. Phase B
+  and Phase C bullets remain unchanged — still accurate.
 
 CLAUDE.md:
 - New "Planning conventions and long-term alignment" section captures
