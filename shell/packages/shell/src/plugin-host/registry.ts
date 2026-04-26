@@ -51,6 +51,8 @@ export function createRegistry(): Registry {
         statusBarItems.set(item.id, item);
         return {
           dispose() {
+            // Idempotent and safe under re-registration: only delete if the
+            // entry currently in the map is the one this disposable owns.
             if (statusBarItems.get(item.id) === item) {
               statusBarItems.delete(item.id);
             }

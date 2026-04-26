@@ -164,6 +164,23 @@ describe('createRegistry', () => {
     expect(registry.listStatusBarItems()).toHaveLength(0);
   });
 
+  it('disposable.dispose() is idempotent for status bar items', () => {
+    const registry = createRegistry();
+    let disposable: Disposable | undefined;
+    registry.activate(
+      plugin('plugin.a', (ctx) => {
+        disposable = ctx.host.registerStatusBarItem({
+          id: 'plugin.a.status',
+          component: fakeComponent,
+          alignment: 'left',
+        });
+      }),
+    );
+    disposable!.dispose();
+    expect(() => disposable!.dispose()).not.toThrow();
+    expect(registry.listStatusBarItems()).toHaveLength(0);
+  });
+
   it('throws when two plugins register the same status bar item id', () => {
     const registry = createRegistry();
     registry.activate(
