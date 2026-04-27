@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/svelte';
+import { flushSync } from 'svelte';
 import { describe, expect, it } from 'vitest';
 
 import type { Plugin } from '@gcscode/plugin-api';
@@ -93,5 +94,59 @@ describe('app.svelte', () => {
     const left = screen.getByTestId('statusbar-left');
     const texts = Array.from(left.children).map((el) => el.textContent);
     expect(texts).toEqual(['mock-left', 'mock-right']);
+  });
+
+  it('reflects post-mount view registration in the rendered UI', () => {
+    const registry = createRegistry();
+    render(App, { props: { registry } });
+    expect(screen.getByTestId('empty-state')).toBeInTheDocument();
+
+    registry.activate(
+      makePlugin((ctx) => {
+        ctx.host.registerView({ id: 'late.view', component: MockContent });
+      }),
+    );
+    flushSync();
+
+    expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument();
+    expect(screen.getByText('mock-content')).toBeInTheDocument();
+  });
+
+  it('reflects post-mount view deactivation in the rendered UI', () => {
+    const registry = createRegistry();
+    registry.activate(
+      makePlugin((ctx) => {
+        ctx.subscriptions.push(ctx.host.registerView({ id: 'test.view', component: MockContent }));
+      }),
+    );
+    render(App, { props: { registry } });
+    expect(screen.getByText('mock-content')).toBeInTheDocument();
+
+    registry.deactivate('test');
+    flushSync();
+
+    expect(screen.queryByText('mock-content')).not.toBeInTheDocument();
+    expect(screen.getByTestId('empty-state')).toBeInTheDocument();
+  });
+
+  it('reflects post-mount status bar item registration on the matching side', () => {
+    const registry = createRegistry();
+    render(App, { props: { registry } });
+
+    registry.activate(
+      makePlugin((ctx) => {
+        ctx.host.registerStatusBarItem({
+          id: 'late.left',
+          component: MockLeft,
+          alignment: 'left',
+        });
+      }),
+    );
+    flushSync();
+
+    const left = screen.getByTestId('statusbar-left');
+    const right = screen.getByTestId('statusbar-right');
+    expect(within(left).getByText('mock-left')).toBeInTheDocument();
+    expect(within(right).queryByText('mock-left')).not.toBeInTheDocument();
   });
 });
