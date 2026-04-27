@@ -16,13 +16,13 @@
 
 ## File structure
 
-| Path                                                          | Responsibility                                                                                                                                                                                                                                                                                |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/shell/src/extension-host/extension-manager.ts`      | **New.** Exports `createExtensionManager(registry)`, `ExtensionManager` interface, `ExtensionRecord` interface. Internal `ExtensionState` not exported. Owns the per-extension `enabled` state and the retained `Extension` references. (Task 2.)                                            |
+| Path                                                          | Responsibility                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/shell/src/extension-host/extension-manager.ts`      | **New.** Exports `createExtensionManager(registry)`, `ExtensionManager` interface, `ExtensionRecord` interface. Internal `ExtensionState` not exported. Owns the per-extension `enabled` state and the retained `Extension` references. (Task 2.)                                                                                                            |
 | `packages/shell/src/extension-host/extension-manager.test.ts` | **New.** Co-located tests covering: register adds + activates; register on duplicate id throws; setEnabled false deactivates and clears contributions; setEnabled true on disabled re-activates with fresh context; same-value setEnabled is a no-op; setEnabled on unknown id throws; listExtensions returns a snapshot reflecting current state. (Task 2.) |
-| `packages/shell/src/main.ts`                                  | Modify the bootstrap to construct the manager and call `manager.register(exampleExtension)` instead of `registry.activate(exampleExtension)`. The `App` mount and the keybinding dispatcher continue to receive the registry. (Task 3.)                                                       |
-| `docs/out-of-scope.md`                                        | Update the trailing parenthetical of the `Extension.deactivate?()` hook bullet to drop the "extension enable/disable runtime state" mention. (Task 4.)                                                                                                                                         |
-| `docs/roadmap.md`                                             | Flip the B2b checkbox; replace the trigger description with a one-line summary linking this spec. (Task 4.)                                                                                                                                                                                    |
+| `packages/shell/src/main.ts`                                  | Modify the bootstrap to construct the manager and call `manager.register(exampleExtension)` instead of `registry.activate(exampleExtension)`. The `App` mount and the keybinding dispatcher continue to receive the registry. (Task 3.)                                                                                                                      |
+| `docs/out-of-scope.md`                                        | Update the trailing parenthetical of the `Extension.deactivate?()` hook bullet to drop the "extension enable/disable runtime state" mention. (Task 4.)                                                                                                                                                                                                       |
+| `docs/roadmap.md`                                             | Flip the B2b checkbox; replace the trigger description with a one-line summary linking this spec. (Task 4.)                                                                                                                                                                                                                                                  |
 
 No changes to `@gcscode/extension-api`, `@gcscode/extension-example`, `packages/shell/src/extension-host/registry.ts`, `packages/shell/src/extension-host/registry.test.ts`, `packages/shell/src/app.svelte`, `packages/shell/src/app.test.ts`, `packages/shell/src/keybinding-dispatcher.ts`, `packages/shell/src/keybinding-dispatcher.test.ts`, or any README. The cross-package contract is unchanged.
 
@@ -65,11 +65,7 @@ Create the file `packages/shell/src/extension-host/extension-manager.test.ts` wi
 ```ts
 import { describe, expect, it, vi } from 'vitest';
 
-import type {
-  Extension,
-  ExtensionContext,
-  ViewContribution,
-} from '@gcscode/extension-api';
+import type { Extension, ExtensionContext, ViewContribution } from '@gcscode/extension-api';
 
 import { createExtensionManager } from './extension-manager';
 import { createRegistry } from './registry';
@@ -78,9 +74,7 @@ const fakeComponent = {} as ViewContribution['component'];
 
 function makeViewExtension(id: string) {
   const activate = vi.fn((ctx: ExtensionContext) => {
-    ctx.subscriptions.push(
-      ctx.host.registerView({ id: `${id}.view`, component: fakeComponent }),
-    );
+    ctx.subscriptions.push(ctx.host.registerView({ id: `${id}.view`, component: fakeComponent }));
   });
   const extension: Extension = {
     id,
@@ -100,9 +94,7 @@ describe('createExtensionManager', () => {
     manager.register(extension);
 
     expect(activate).toHaveBeenCalledTimes(1);
-    expect(registry.listViews()).toEqual([
-      { id: 'ext.a.view', component: fakeComponent },
-    ]);
+    expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent }]);
     expect(manager.listExtensions()).toEqual([
       { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
     ]);
@@ -116,14 +108,12 @@ describe('createExtensionManager', () => {
 
     manager.register(first);
 
-    expect(() => manager.register(second)).toThrow(
-      'Extension id "ext.a" is already registered.',
-    );
+    expect(() => manager.register(second)).toThrow('Extension id "ext.a" is already registered.');
     expect(manager.listExtensions()).toHaveLength(1);
     expect(registry.listViews()).toHaveLength(1);
   });
 
-  it('setEnabled(id, false) deactivates and clears the extension\'s contributions', () => {
+  it("setEnabled(id, false) deactivates and clears the extension's contributions", () => {
     const registry = createRegistry();
     const manager = createExtensionManager(registry);
     const { extension } = makeViewExtension('ext.a');
@@ -151,9 +141,7 @@ describe('createExtensionManager', () => {
     const secondContext = activate.mock.calls[1][0];
     expect(secondContext).not.toBe(firstContext);
     expect(secondContext.subscriptions).toHaveLength(1);
-    expect(registry.listViews()).toEqual([
-      { id: 'ext.a.view', component: fakeComponent },
-    ]);
+    expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent }]);
     expect(manager.listExtensions()).toEqual([
       { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
     ]);
@@ -292,9 +280,7 @@ export function createExtensionManager(registry: Registry): ExtensionManager {
     setEnabled(id, enabled) {
       const state = extensions.get(id);
       if (state === undefined) {
-        throw new Error(
-          `Cannot set enabled state: extension id "${id}" is not registered.`,
-        );
+        throw new Error(`Cannot set enabled state: extension id "${id}" is not registered.`);
       }
       if (state.enabled === enabled) {
         return;
@@ -483,7 +469,7 @@ EOF
 
 - [ ] **Step 1: Update the `Extension.deactivate?()` hook bullet in `docs/out-of-scope.md`**
 
-The bullet's current trailing parenthetical mentions both extension enable/disable runtime state (B2) and HMR (B3) as still deferred. Find the bullet in the "Extension machinery" section (currently around line 12, beginning with `- **\`Extension.deactivate?()\` hook (non-disposable / async cleanup).**`). Its body ends with the sentence:
+The bullet's current trailing parenthetical mentions both extension enable/disable runtime state (B2) and HMR (B3) as still deferred. Find the bullet in the "Extension machinery" section (currently around line 12, beginning with `- **\`Extension.deactivate?()\` hook (non-disposable / async cleanup).\*\*`). Its body ends with the sentence:
 
 ```md
 Extension enable/disable runtime state and dev-time hot reload are still deferred (Phases B2 and B3 — separate iterations). (ADR-0003)

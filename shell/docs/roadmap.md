@@ -17,7 +17,7 @@ The extension architecture grows in phases: **A** (contribution kinds), **B** (l
 
 - [x] **B1: Deactivate orchestration** — `registry.deactivate(extensionId)` iterates subscriptions LIFO with error resilience. Spec: [`specs/2026-04-26-phase-b1-deactivate-orchestration.md`](specs/2026-04-26-phase-b1-deactivate-orchestration.md)
 - [x] **B2a: Reactive plumbing** — registry mutations propagate to mounted UI via `SvelteMap`. Spec: [`specs/2026-04-27-phase-b2a-reactive-plumbing.md`](specs/2026-04-27-phase-b2a-reactive-plumbing.md)
-- [ ] **B2b: Extension enable/disable** — runtime `enabled` state per extension + a toggle that drives activate/deactivate. Trigger: a "disable extension" UI or visible per-extension state change need.
+- [x] **B2b: Extension enable/disable** — `ExtensionManager` layer above the registry; `manager.register` / `setEnabled` / `listExtensions`. Spec: [`specs/2026-04-27-phase-b2b-extension-enable-disable.md`](specs/2026-04-27-phase-b2b-extension-enable-disable.md)
 - [ ] **B3: Dev-time hot module reload** — Vite HMR boundary that re-imports an extension module on edit and replays activate. Trigger: extension-author iteration friction.
 - [ ] **`Extension.deactivate?()` hook** — optional extension-side hook for non-disposable / async cleanup. Split off from B1 by design. Trigger: first extension needing it (named on-deck consumer: SITL listener — see Feature extensions below).
 
