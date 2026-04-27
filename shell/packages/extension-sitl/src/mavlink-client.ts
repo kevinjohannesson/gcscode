@@ -25,12 +25,17 @@ export function createMavlinkClient(options: {
   };
 
   socket.onmessage = (event) => {
+    // Narrow the try/catch to the parse boundary only. A throwing onMessage
+    // (e.g. a bug in the downstream reducer) must surface as itself, not be
+    // misattributed as a parse failure.
+    let parsed: unknown;
     try {
-      const parsed = JSON.parse((event as MessageEvent).data);
-      onMessage(parsed);
+      parsed = JSON.parse((event as MessageEvent).data);
     } catch {
       console.warn('[mavlink-client] Failed to parse message:', (event as MessageEvent).data);
+      return;
     }
+    onMessage(parsed);
   };
 
   socket.onerror = () => {
