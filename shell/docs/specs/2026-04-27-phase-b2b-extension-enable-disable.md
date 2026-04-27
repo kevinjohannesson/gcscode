@@ -278,7 +278,7 @@ After B2b ships, edit the trailing sentence to drop the enable/disable mention:
 
 > Dev-time hot reload is still deferred (Phase B3 — separate iteration). (ADR-0003)
 
-The bullet's primary subject — the deactivate hook itself — is unchanged. No new bullet to add (B2b is shipping enable/disable, not deferring it). The `Declarative \`contributes\` manifest`bullet, the`Activation events / lazy activation`bullet, the`Capability / permission declarations`bullet, the`Hot module reload for extensions`bullet, the`registry.deactivateAll()` bullet, and the rest of the list stay as-is.
+The bullet's primary subject — the deactivate hook itself — is unchanged. No new bullet to add (B2b is shipping enable/disable, not deferring it). The "Declarative contributes manifest" bullet, the "Activation events / lazy activation" bullet, the "Capability / permission declarations" bullet, the "Hot module reload for extensions" bullet, the `registry.deactivateAll()` bullet, and the rest of the list stay as-is.
 
 The new non-goals introduced by this spec (no persistence, no `unregister`, no initial-disabled flag, no toggle UI, no `getExtension(id)` / `isEnabled(id)`, no public reactivity surface for extensions, no async `setEnabled`) are per-iteration scope cuts internal to the manager. Per CLAUDE.md ("does this non-goal apply only to this iteration, or is it a deliberate 'we're deferring this concept' decision affecting the whole architecture?"), they stay in this spec only.
 
