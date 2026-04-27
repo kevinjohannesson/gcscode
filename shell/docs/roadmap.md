@@ -16,7 +16,8 @@ The plugin architecture grows in phases: **A** (contribution kinds), **B** (life
 ### Phase B — Lifecycle and cleanup
 
 - [x] **B1: Deactivate orchestration** — `registry.deactivate(pluginId)` iterates subscriptions LIFO with error resilience. Spec: [`specs/2026-04-26-phase-b1-deactivate-orchestration.md`](specs/2026-04-26-phase-b1-deactivate-orchestration.md)
-- [ ] **B2: Plugin enable/disable + reactive plumbing** — adds runtime `enabled` state per plugin and the reactive plumbing so mounted UI reflects state changes. Trigger: a "disable plugin" UI or any visible state-change need.
+- [x] **B2a: Reactive plumbing** — registry mutations propagate to mounted UI via `SvelteMap`. Spec: [`specs/2026-04-27-phase-b2a-reactive-plumbing.md`](specs/2026-04-27-phase-b2a-reactive-plumbing.md)
+- [ ] **B2b: Plugin enable/disable** — runtime `enabled` state per plugin + a toggle that drives activate/deactivate. Trigger: a "disable plugin" UI or visible per-plugin state change need.
 - [ ] **B3: Dev-time hot module reload** — Vite HMR boundary that re-imports a plugin module on edit and replays activate. Trigger: plugin-author iteration friction.
 - [ ] **`Plugin.deactivate?()` hook** — optional plugin-side hook for non-disposable / async cleanup. Split off from B1 by design. Trigger: first plugin needing it (named on-deck consumer: SITL listener — see Feature plugins below).
 
