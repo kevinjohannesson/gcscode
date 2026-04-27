@@ -32,6 +32,7 @@ The first-party extensions planned for the app. Each is a future consumer of the
 
 ### Coming (committed — will ship)
 
+- [x] **SITL stub** — placeholder view + `gcscode.sitl.getLocation` command, hardcoded coordinates, no connection. Spec: [`specs/2026-04-27-extension-sitl-stub.md`](specs/2026-04-27-extension-sitl-stub.md)
 - [ ] **SITL listener** — software-in-the-loop data-feed listener. First consumer of `Extension.deactivate?()` hook (will hold a connection that needs explicit close); likely first to want a Phase C streaming/connection service.
 - [ ] **Map** — geographical view + selection state. Likely fits the existing view contribution kind; may surface a need for shared map state.
 - [ ] **Video feed** — live video stream display. Likely a Phase C streaming-source consumer alongside SITL.
