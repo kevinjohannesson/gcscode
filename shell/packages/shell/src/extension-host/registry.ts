@@ -14,7 +14,7 @@ import { SvelteMap } from 'svelte/reactivity';
 
 export interface Registry {
   activate(extension: Extension): void;
-  deactivate(extensionId: string): void;
+  deactivate(extensionId: string): Promise<void>;
   listViews(): readonly ViewContribution[];
   listStatusBarItems(): readonly StatusBarItemContribution[];
   listCommands(): readonly CommandContribution[];
@@ -25,15 +25,16 @@ export interface Registry {
 // Invariant: registry mutations propagate reactively to mounted consumers.
 // The four contribution maps are SvelteMap instances (from svelte/reactivity),
 // so $derived(registry.list*()) re-tracks on set/delete and the rendered UI
-// updates without remount. subscriptionsByExtension stays a plain Map because
-// no UI consumer reads it — the registry uses it internally for deactivate
-// orchestration only.
+// updates without remount. subscriptionsByExtension and deactivateHooksByExtension
+// stay plain Maps because no UI consumer reads them — the registry uses them
+// internally for deactivate orchestration only.
 export function createRegistry(): Registry {
   const views = new SvelteMap<string, ViewContribution>();
   const statusBarItems = new SvelteMap<string, StatusBarItemContribution>();
   const commands = new SvelteMap<string, CommandContribution>();
   const keybindings = new SvelteMap<string, KeybindingContribution>();
   const subscriptionsByExtension = new Map<string, readonly Disposable[]>();
+  const deactivateHooksByExtension = new Map<string, () => void | Promise<void>>();
 
   function execute<T>(id: string, args: unknown[], attribution: string): Promise<T> {
     const command = commands.get(id);
@@ -133,12 +134,25 @@ export function createRegistry(): Registry {
       };
       extension.activate(context);
       subscriptionsByExtension.set(identity.id, context.subscriptions);
+      if (extension.deactivate) {
+        deactivateHooksByExtension.set(identity.id, extension.deactivate.bind(extension));
+      }
     },
-    deactivate(extensionId) {
+    async deactivate(extensionId) {
       const subscriptions = subscriptionsByExtension.get(extensionId);
       if (subscriptions === undefined) {
         throw new Error(`Cannot deactivate extension: id "${extensionId}" is not active.`);
       }
+
+      const hook = deactivateHooksByExtension.get(extensionId);
+      if (hook !== undefined) {
+        try {
+          await hook();
+        } catch (error) {
+          console.error(`Error in extension "${extensionId}" deactivate hook:`, error);
+        }
+      }
+
       // LIFO: dispose in reverse registration order. An extension that registers a
       // higher-level disposable later may depend on lower-level ones registered
       // earlier; reverse order tears down the higher-level layer first.
@@ -150,6 +164,7 @@ export function createRegistry(): Registry {
         }
       }
       subscriptionsByExtension.delete(extensionId);
+      deactivateHooksByExtension.delete(extensionId);
     },
     listViews() {
       return Array.from(views.values());
