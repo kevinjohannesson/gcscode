@@ -15,6 +15,10 @@ export default [
     languageOptions: { parserOptions: { parser: ts.parser } },
   },
   {
+    files: ['**/*.svelte.ts'],
+    languageOptions: { parser: ts.parser },
+  },
+  {
     files: ['packages/extension-*/**/*.{ts,svelte}'],
     ignores: ['packages/extension-api/**'],
     rules: {
