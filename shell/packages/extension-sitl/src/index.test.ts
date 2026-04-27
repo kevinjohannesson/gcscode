@@ -8,8 +8,18 @@ import { applyMessage, reset, telemetryState } from './telemetry-store.svelte';
 
 // ---------------------------------------------------------------------------
 // MockWebSocket — minimal browser WebSocket interface for tests.
-// Duplicated from mavlink-client.test.ts per plan guidance (duplicate until
-// a 3rd consumer triggers extraction).
+//
+// VARIANT (not duplicate) of the MockWebSocket in mavlink-client.test.ts.
+// The divergence is in close(): this variant AUTO-FIRES the onclose callback
+// synchronously inside close(), so `await sitlExtension.deactivate?.()`
+// (which awaits client.close() internally) resolves without manual driving.
+// The mavlink-client.test.ts mock keeps close() inert and uses _fireClose()
+// to test pending-close timing — that distinction does not matter here, where
+// the deactivate tests just need close to resolve cleanly.
+//
+// If a third test file ever needs a WebSocket mock, extracting a shared helper
+// becomes the right call. Today: two purpose-built variants, each minimal for
+// its file's needs.
 // ---------------------------------------------------------------------------
 
 const mockInstances: MockWebSocket[] = [];
@@ -30,27 +40,9 @@ class MockWebSocket {
 
   close(code?: number, reason?: string) {
     this.closeArgs = { code, reason };
-    // Simulate real WebSocket: closing fires the close event
+    // Auto-fire onclose synchronously — see file header comment for rationale.
     this.readyState = 3;
     this.onclose?.({ type: 'close', code, reason });
-  }
-
-  _fireOpen() {
-    this.readyState = 1;
-    this.onopen?.({ type: 'open' });
-  }
-
-  _fireMessage(data: string) {
-    this.onmessage?.({ data });
-  }
-
-  _fireError() {
-    this.onerror?.({ type: 'error' });
-  }
-
-  _fireClose() {
-    this.readyState = 3;
-    this.onclose?.({ type: 'close' });
   }
 }
 
@@ -204,6 +196,7 @@ describe('sitlExtension', () => {
     // close() should have been called with code 1000
     expect(mock.closeArgs).not.toBeNull();
     expect(mock.closeArgs!.code).toBe(1000);
+    expect(mock.closeArgs!.reason).toBe('extension-deactivate');
 
     // Store should be reset — connection back to 'connecting' (reset() is called)
     expect(telemetryState.connection).toBe('connecting');
