@@ -112,7 +112,7 @@ describe('app.svelte', () => {
     expect(screen.getByText('mock-content')).toBeInTheDocument();
   });
 
-  it('reflects post-mount view deactivation in the rendered UI', () => {
+  it('reflects post-mount view deactivation in the rendered UI', async () => {
     const registry = createRegistry();
     registry.activate(
       makeExtension((ctx) => {
@@ -122,7 +122,7 @@ describe('app.svelte', () => {
     render(App, { props: { registry } });
     expect(screen.getByText('mock-content')).toBeInTheDocument();
 
-    registry.deactivate('test');
+    await registry.deactivate('test');
     flushSync();
 
     expect(screen.queryByText('mock-content')).not.toBeInTheDocument();

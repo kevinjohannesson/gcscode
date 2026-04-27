@@ -553,7 +553,7 @@ describe('createRegistry', () => {
     await expect(registry.executeCommand('ext.a.async-boom')).rejects.toThrow(/async-boom/);
   });
 
-  it("deactivate removes all of the extension's contributions across kinds", () => {
+  it("deactivate removes all of the extension's contributions across kinds", async () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
@@ -574,7 +574,7 @@ describe('createRegistry', () => {
     expect(registry.listCommands()).toHaveLength(1);
     expect(registry.listKeybindings()).toHaveLength(1);
 
-    registry.deactivate('ext.a');
+    await registry.deactivate('ext.a');
 
     expect(registry.listViews()).toHaveLength(0);
     expect(registry.listStatusBarItems()).toHaveLength(0);
@@ -582,7 +582,7 @@ describe('createRegistry', () => {
     expect(registry.listKeybindings()).toHaveLength(0);
   });
 
-  it('deactivate disposes subscriptions in reverse registration order (LIFO)', () => {
+  it('deactivate disposes subscriptions in reverse registration order (LIFO)', async () => {
     const registry = createRegistry();
     const order: number[] = [];
     registry.activate(
@@ -598,12 +598,12 @@ describe('createRegistry', () => {
       }),
     );
 
-    registry.deactivate('ext.a');
+    await registry.deactivate('ext.a');
 
     expect(order).toEqual([3, 2, 1, 0]);
   });
 
-  it('deactivate logs and continues when a dispose() throws', () => {
+  it('deactivate logs and continues when a dispose() throws', async () => {
     const registry = createRegistry();
     const order: string[] = [];
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -628,7 +628,7 @@ describe('createRegistry', () => {
       }),
     );
 
-    expect(() => registry.deactivate('ext.a')).not.toThrow();
+    await expect(registry.deactivate('ext.a')).resolves.toBeUndefined();
 
     // LIFO: last → middle → first; all three attempted despite middle throwing.
     expect(order).toEqual(['last', 'middle', 'first']);
@@ -638,14 +638,14 @@ describe('createRegistry', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('deactivate throws when called with an unknown / not-active extension id', () => {
+  it('deactivate throws when called with an unknown / not-active extension id', async () => {
     const registry = createRegistry();
-    expect(() => registry.deactivate('not-active.ext')).toThrow(
+    await expect(registry.deactivate('not-active.ext')).rejects.toThrow(
       /Cannot deactivate extension: id "not-active\.ext" is not active/,
     );
   });
 
-  it('deactivate throws on the second call (id is no longer active)', () => {
+  it('deactivate throws on the second call (id is no longer active)', async () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
@@ -655,14 +655,14 @@ describe('createRegistry', () => {
       }),
     );
 
-    registry.deactivate('ext.a');
+    await registry.deactivate('ext.a');
 
-    expect(() => registry.deactivate('ext.a')).toThrow(
+    await expect(registry.deactivate('ext.a')).rejects.toThrow(
       /Cannot deactivate extension: id "ext\.a" is not active/,
     );
   });
 
-  it('re-activating a deactivated extension works without duplicate-id errors', () => {
+  it('re-activating a deactivated extension works without duplicate-id errors', async () => {
     const registry = createRegistry();
     const e = extension('ext.a', (ctx) => {
       ctx.subscriptions.push(ctx.host.registerView({ id: 'ext.a.view', component: fakeComponent }));
@@ -671,7 +671,7 @@ describe('createRegistry', () => {
     registry.activate(e);
     expect(registry.listViews().map((v) => v.id)).toEqual(['ext.a.view']);
 
-    registry.deactivate('ext.a');
+    await registry.deactivate('ext.a');
     expect(registry.listViews()).toHaveLength(0);
 
     // The same extension can be re-activated against a clean slate.
@@ -679,7 +679,7 @@ describe('createRegistry', () => {
     expect(registry.listViews().map((v) => v.id)).toEqual(['ext.a.view']);
   });
 
-  it('deactivate isolates extensions — deactivating one does not affect another', () => {
+  it('deactivate isolates extensions — deactivating one does not affect another', async () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
@@ -697,8 +697,151 @@ describe('createRegistry', () => {
     );
     expect(registry.listViews()).toHaveLength(2);
 
-    registry.deactivate('ext.a');
+    await registry.deactivate('ext.a');
 
     expect(registry.listViews().map((v) => v.id)).toEqual(['ext.b.view']);
+  });
+
+  it("deactivate calls the extension's deactivate hook", async () => {
+    const registry = createRegistry();
+    const deactivate = vi.fn();
+    registry.activate({
+      id: 'ext.a',
+      displayName: 'ext.a',
+      version: '0.0.0',
+      activate: () => {},
+      deactivate,
+    });
+
+    await registry.deactivate('ext.a');
+
+    expect(deactivate).toHaveBeenCalledTimes(1);
+  });
+
+  it('deactivate awaits an async deactivate hook', async () => {
+    const registry = createRegistry();
+    let resolveHook!: () => void;
+    const hookPromise = new Promise<void>((res) => {
+      resolveHook = res;
+    });
+    const deactivate = vi.fn(() => hookPromise);
+    registry.activate({
+      id: 'ext.a',
+      displayName: 'ext.a',
+      version: '0.0.0',
+      activate: () => {},
+      deactivate,
+    });
+
+    let settled = false;
+    const deactivatePromise = registry.deactivate('ext.a');
+    deactivatePromise.then(() => {
+      settled = true;
+    });
+
+    // Hook has not resolved yet — deactivate promise should not be settled.
+    await Promise.resolve(); // flush microtasks
+    expect(settled).toBe(false);
+
+    resolveHook();
+    await deactivatePromise;
+
+    expect(settled).toBe(true);
+  });
+
+  it('deactivate hook runs before disposables', async () => {
+    const registry = createRegistry();
+    const order: string[] = [];
+    const deactivate = vi.fn(() => {
+      order.push('hook');
+    });
+    registry.activate({
+      id: 'ext.a',
+      displayName: 'ext.a',
+      version: '0.0.0',
+      activate(ctx) {
+        ctx.subscriptions.push({
+          dispose() {
+            order.push('dispose');
+          },
+        });
+      },
+      deactivate,
+    });
+
+    await registry.deactivate('ext.a');
+
+    expect(order).toEqual(['hook', 'dispose']);
+  });
+
+  it('sync throw in deactivate hook is caught and disposables still run', async () => {
+    const registry = createRegistry();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const disposeSpy = vi.fn();
+    const deactivate = vi.fn(() => {
+      throw new Error('hook-sync-throw');
+    });
+    registry.activate({
+      id: 'ext.a',
+      displayName: 'ext.a',
+      version: '0.0.0',
+      activate(ctx) {
+        ctx.subscriptions.push({ dispose: disposeSpy });
+      },
+      deactivate,
+    });
+
+    try {
+      await expect(registry.deactivate('ext.a')).resolves.toBeUndefined();
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      expect(consoleErrorSpy.mock.calls[0][0]).toContain('ext.a');
+      expect(disposeSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('async rejection in deactivate hook is caught and disposables still run', async () => {
+    const registry = createRegistry();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const disposeSpy = vi.fn();
+    const deactivate = vi.fn(() => Promise.reject(new Error('hook-async-rejection')));
+    registry.activate({
+      id: 'ext.a',
+      displayName: 'ext.a',
+      version: '0.0.0',
+      activate(ctx) {
+        ctx.subscriptions.push({ dispose: disposeSpy });
+      },
+      deactivate,
+    });
+
+    try {
+      await expect(registry.deactivate('ext.a')).resolves.toBeUndefined();
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      expect(consoleErrorSpy.mock.calls[0][0]).toContain('ext.a');
+      expect(disposeSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('extension without a deactivate hook behaves as before', async () => {
+    const registry = createRegistry();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const disposeSpy = vi.fn();
+    registry.activate(
+      extension('ext.a', (ctx) => {
+        ctx.subscriptions.push({ dispose: disposeSpy });
+      }),
+    );
+
+    try {
+      await registry.deactivate('ext.a');
+      expect(disposeSpy).toHaveBeenCalledTimes(1);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 });

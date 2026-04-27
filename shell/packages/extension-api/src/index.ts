@@ -97,7 +97,10 @@ export interface ExtensionContext {
 /**
  * An extension module's named export. Identity fields give the host extension
  * identity for diagnostics; `activate(context)` is the single entry point.
+ * `deactivate?()` is an optional hook for non-disposable / async cleanup. The
+ * host awaits the returned Promise (if any) before tearing down subscriptions.
  */
 export interface Extension extends ExtensionIdentity {
   activate(context: ExtensionContext): void;
+  deactivate?(): void | Promise<void>;
 }
