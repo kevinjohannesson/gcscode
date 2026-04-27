@@ -55,6 +55,23 @@ When executing a plan, use the `superpowers:subagent-driven-development` skill: 
 
 This pattern surfaces the same class of issues at three different points (implementer self-review, per-task spec/quality review, final cross-cutting review), and produces a legible `git log` where every followup is traced to the review note that prompted it. Don't squash followups into the originating commit — the review trail is part of the history.
 
+### Subagent worktree discipline
+
+When a subagent is dispatched to work in a feature worktree (e.g. `.worktrees/feat-foo/`), the bash tool **resets cwd between calls**. A single `cd <worktree>` does NOT persist across subsequent bash calls — the next call defaults back to the controller's original cwd, which is typically the main checkout (where `master` is checked out).
+
+Two real failure modes have been observed:
+
+- **Commits land on master instead of the feat branch.** The subagent runs `cd <worktree> && edit && pnpm test` (works), then a separate `git add && git commit` call (runs on the main checkout, lands on master).
+- **Main checkout's working tree drifts.** The subagent runs `pnpm format` from the main checkout's path; Prettier rewrites docs files that should have been edited in the worktree only.
+
+**Discipline (required for every subagent dispatched to a worktree):**
+
+1. **Prepend `cd <worktree-path>/<package-root> &&` to every bash command.** Don't rely on cwd persistence.
+2. **Before every `git commit`, chain `git branch --show-current`** and verify the output matches the expected feat branch. If it reads `master`, STOP — the cwd is wrong.
+3. **Run `pnpm format`, `pnpm test`, `pnpm check`, `pnpm lint` only with the `cd <worktree>/<package-root> &&` prefix.** Otherwise these commands modify or read from the main checkout.
+
+Controllers dispatching subagents to worktrees should restate these rules in the prompt explicitly when the iteration involves git commits — the discipline is project-wide policy but the subagent has no automatic awareness of which worktree it's in.
+
 ### Non-goals propagate to `docs/out-of-scope.md`
 
 When a spec lists cross-cutting deferrals — concepts the architecture is deliberately deferring, not just per-iteration scope cuts — those deferrals must land in `docs/out-of-scope.md` when the iteration ships, with an explicit trigger to revisit. Per-iteration scope omissions stay in the spec only; cross-cutting deferrals are the canonical list in `out-of-scope.md`.
