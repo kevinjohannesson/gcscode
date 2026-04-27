@@ -1,0 +1,144 @@
+import { describe, expect, it, vi } from 'vitest';
+
+import type { Extension, ExtensionContext, ViewContribution } from '@gcscode/extension-api';
+
+import { createExtensionManager } from './extension-manager';
+import { createRegistry } from './registry';
+
+const fakeComponent = {} as ViewContribution['component'];
+
+function makeViewExtension(id: string) {
+  const activate = vi.fn((ctx: ExtensionContext) => {
+    ctx.subscriptions.push(ctx.host.registerView({ id: `${id}.view`, component: fakeComponent }));
+  });
+  const extension: Extension = {
+    id,
+    displayName: id,
+    version: '0.0.0',
+    activate,
+  };
+  return { extension, activate };
+}
+
+describe('createExtensionManager', () => {
+  it('register adds the extension and activates it', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const { extension, activate } = makeViewExtension('ext.a');
+
+    manager.register(extension);
+
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent }]);
+    expect(manager.listExtensions()).toEqual([
+      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+    ]);
+  });
+
+  it('register on a duplicate id throws and leaves the original untouched', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const { extension: first } = makeViewExtension('ext.a');
+    const { extension: second } = makeViewExtension('ext.a');
+
+    manager.register(first);
+
+    expect(() => manager.register(second)).toThrow('Extension id "ext.a" is already registered.');
+    expect(manager.listExtensions()).toHaveLength(1);
+    expect(registry.listViews()).toHaveLength(1);
+  });
+
+  it("setEnabled(id, false) deactivates and clears the extension's contributions", () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const { extension } = makeViewExtension('ext.a');
+    manager.register(extension);
+
+    manager.setEnabled('ext.a', false);
+
+    expect(registry.listViews()).toHaveLength(0);
+    expect(manager.listExtensions()).toEqual([
+      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: false },
+    ]);
+  });
+
+  it('setEnabled(id, true) on a disabled extension re-activates with a fresh context', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const { extension, activate } = makeViewExtension('ext.a');
+    manager.register(extension);
+    manager.setEnabled('ext.a', false);
+
+    manager.setEnabled('ext.a', true);
+
+    expect(activate).toHaveBeenCalledTimes(2);
+    const firstContext = activate.mock.calls[0][0];
+    const secondContext = activate.mock.calls[1][0];
+    expect(secondContext).not.toBe(firstContext);
+    expect(secondContext.subscriptions).toHaveLength(1);
+    expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent }]);
+    expect(manager.listExtensions()).toEqual([
+      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+    ]);
+  });
+
+  it('same-value setEnabled is a true no-op', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const { extension, activate } = makeViewExtension('ext.a');
+    manager.register(extension);
+
+    manager.setEnabled('ext.a', true);
+
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(registry.listViews()).toHaveLength(1);
+
+    manager.setEnabled('ext.a', false);
+    manager.setEnabled('ext.a', false);
+
+    expect(registry.listViews()).toHaveLength(0);
+    expect(manager.listExtensions()).toEqual([
+      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: false },
+    ]);
+  });
+
+  it('setEnabled on an unknown id throws', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+
+    expect(() => manager.setEnabled('does-not-exist', false)).toThrow(
+      'Cannot set enabled state: extension id "does-not-exist" is not registered.',
+    );
+    expect(() => manager.setEnabled('does-not-exist', true)).toThrow(
+      'Cannot set enabled state: extension id "does-not-exist" is not registered.',
+    );
+  });
+
+  it('listExtensions returns a snapshot reflecting current state', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const { extension: a } = makeViewExtension('ext.a');
+    const { extension: b } = makeViewExtension('ext.b');
+    manager.register(a);
+    manager.register(b);
+
+    expect(manager.listExtensions()).toEqual([
+      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+      { id: 'ext.b', displayName: 'ext.b', version: '0.0.0', enabled: true },
+    ]);
+
+    manager.setEnabled('ext.a', false);
+
+    expect(manager.listExtensions()).toEqual([
+      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: false },
+      { id: 'ext.b', displayName: 'ext.b', version: '0.0.0', enabled: true },
+    ]);
+
+    manager.setEnabled('ext.a', true);
+
+    expect(manager.listExtensions()).toEqual([
+      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+      { id: 'ext.b', displayName: 'ext.b', version: '0.0.0', enabled: true },
+    ]);
+  });
+});
