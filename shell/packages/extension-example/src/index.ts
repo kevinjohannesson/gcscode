@@ -1,11 +1,11 @@
-import type { Plugin } from '@gcscode/plugin-api';
+import type { Extension } from '@gcscode/extension-api';
 
 import ExampleStatus from './example-status.svelte';
 import ExampleView from './example-view.svelte';
 
-export const examplePlugin: Plugin = {
+export const exampleExtension: Extension = {
   id: 'gcscode.example',
-  displayName: 'Example Plugin',
+  displayName: 'Example Extension',
   version: '0.0.0',
   activate(context) {
     context.subscriptions.push(

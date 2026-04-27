@@ -2,29 +2,29 @@
 
 ## What this repo is
 
-A Svelte 5 SPA scaffolded as the shell for a VS Code–style ground control station (GCS). Plugins contribute UI fragments into named extension surfaces. First-party features will be built as plugins against the same public API used by third-party plugins later.
+A Svelte 5 SPA scaffolded as the shell for a VS Code–style ground control station (GCS). Extensions contribute UI fragments into named extension surfaces. First-party features will be built as extensions against the same public API used by third-party extensions later.
 
 ## Layout
 
 pnpm workspace with three packages:
 
-- `@gcscode/shell` — the app. Owns bootstrapping and the plugin registry.
-- `@gcscode/plugin-api` — the **only** import path for plugins. Types and contracts.
-- `@gcscode/plugin-example` — the first plugin. Canonical worked example.
+- `@gcscode/shell` — the app. Owns bootstrapping and the extension registry.
+- `@gcscode/extension-api` — the **only** import path for extensions. Types and contracts.
+- `@gcscode/extension-example` — the first extension. Canonical worked example.
 
 Package root is the repo root. Shared tooling at the root: ESLint flat config, Prettier, and `tsconfig.base.json`. Each package extends these. `svelte.config.js` and `vite.config.ts` live in `packages/shell/` (Vite looks for them at its config's directory).
 
 ## Boundary rule — load bearing
 
-**Plugin packages import ONLY from `@gcscode/plugin-api`.** No imports from `@gcscode/shell`. No relative imports that escape the package root. ESLint enforces this; package boundaries in pnpm workspaces reinforce it. Don't work around either.
+**Extension packages import ONLY from `@gcscode/extension-api`.** No imports from `@gcscode/shell`. No relative imports that escape the package root. ESLint enforces this; package boundaries in pnpm workspaces reinforce it. Don't work around either.
 
-Corollary: if a plugin needs a capability the host doesn't yet expose, add it to `@gcscode/plugin-api` first (as a new method on `PluginHost` — typically a `register*` for a new kind, or a verb like `executeCommand` — or a new field on `PluginContext`), land that, then use it. Never reach around the API.
+Corollary: if an extension needs a capability the host doesn't yet expose, add it to `@gcscode/extension-api` first (as a new method on `ExtensionHost` — typically a `register*` for a new kind, or a verb like `executeCommand` — or a new field on `ExtensionContext`), land that, then use it. Never reach around the API.
 
 ## Conventions
 
 - **Filenames:** kebab-case for everything, including `.svelte` components. Component import bindings remain PascalCase: `import ExampleView from './example-view.svelte'`.
 - **Tests:** co-located `*.test.ts` next to the code they test.
-- **Plugin export name:** named `const` matching the plugin's slug (`examplePlugin`, `telemetryPlugin`, ...). Never `default`, never generic `plugin`.
+- **Extension export name:** named `const` matching the extension's slug (`exampleExtension`, `telemetryExtension`, ...). Never `default`, never generic `extension`.
 - **ADRs:** `docs/decisions/ADR-NNNN-<slug>.md`.
 - **Specs:** `docs/specs/YYYY-MM-DD-<topic>.md` (not the brainstorming-skill default of `docs/superpowers/specs/`).
 - **Plans:** `docs/plans/YYYY-MM-DD-<topic>.md` (not the writing-plans-skill default of `docs/superpowers/plans/`).
@@ -37,9 +37,9 @@ Corollary: if a plugin needs a capability the host doesn't yet expose, add it to
 - **Never `--no-verify`.** Don't bypass commit hooks. If a hook fails, fix the underlying issue. (The repo currently has no commit hooks; the rule is in place for when it does.)
 - **No force pushes to master.** Even with explicit user consent, prefer fixing the underlying issue over force-pushing.
 
-## Plugin shape
+## Extension shape
 
-A plugin module exports a named `const` of type `Plugin` with `{ id, displayName, version, activate(context) }`. Inside `activate`, call `context.host.register*` (each returns a `Disposable`) and push every disposable to `context.subscriptions`. Long-form contract: `packages/plugin-api/README.md`.
+An extension module exports a named `const` of type `Extension` with `{ id, displayName, version, activate(context) }`. Inside `activate`, call `context.host.register*` (each returns a `Disposable`) and push every disposable to `context.subscriptions`. Long-form contract: `packages/extension-api/README.md`.
 
 ## Planning conventions and long-term alignment
 
@@ -72,11 +72,11 @@ The judgment: does this non-goal apply only to this iteration, or is it a delibe
 
 ## Further reading
 
-- `docs/roadmap.md` — phase plan + iteration status + planned feature plugins. Start here for "where are we now / what's next".
+- `docs/roadmap.md` — phase plan + iteration status + planned feature extensions. Start here for "where are we now / what's next".
 - `docs/out-of-scope.md` — canonical list of what is intentionally NOT built yet. Check here before building anything new.
 - `docs/decisions/` — architecture decision records.
-- `packages/plugin-api/README.md` — how to write a plugin.
-- `packages/plugin-example/README.md` — the worked example to mirror.
+- `packages/extension-api/README.md` — how to write an extension.
+- `packages/extension-example/README.md` — the worked example to mirror.
 
 ---
 

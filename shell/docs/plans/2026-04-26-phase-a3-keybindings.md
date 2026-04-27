@@ -1,5 +1,7 @@
 # Phase A3 — Keybinding contribution implementation plan
 
+_Note: The term "plugin" was renamed to "extension" in [ADR-0004](../decisions/ADR-0004-rename-plugin-to-extension.md). This document records the original terminology._
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a fourth contribution kind (keybindings) to the gcscode plugin architecture: plugins contribute `{ key, command }` and a shell-level keyboard dispatcher fires the matching command when the user presses the combo. Adds `registry.executeCommand` as a host-side mirror of `host.executeCommand` (one shared internal helper) so the dispatcher — which is shell-core code, not a plugin — can fire commands.

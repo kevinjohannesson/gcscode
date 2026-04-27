@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { PluginContext } from '@gcscode/plugin-api';
+import type { ExtensionContext } from '@gcscode/extension-api';
 
-import { examplePlugin } from './index';
+import { exampleExtension } from './index';
 import ExampleView from './example-view.svelte';
 import ExampleStatus from './example-status.svelte';
 
-describe('examplePlugin', () => {
+describe('exampleExtension', () => {
   it('declares stable identity metadata', () => {
-    expect(examplePlugin.id).toBe('gcscode.example');
-    expect(examplePlugin.displayName).toBe('Example Plugin');
-    expect(typeof examplePlugin.version).toBe('string');
+    expect(exampleExtension.id).toBe('gcscode.example');
+    expect(exampleExtension.displayName).toBe('Example Extension');
+    expect(typeof exampleExtension.version).toBe('string');
   });
 
   it('registers a view, a status bar item, a command, and a keybinding, pushing all four disposables', () => {
@@ -23,9 +23,9 @@ describe('examplePlugin', () => {
     const registerCommand = vi.fn().mockReturnValue(commandDisposable);
     const registerKeybinding = vi.fn().mockReturnValue(keybindingDisposable);
     const executeCommand = vi.fn().mockResolvedValue(undefined);
-    const subscriptions: PluginContext['subscriptions'] = [];
+    const subscriptions: ExtensionContext['subscriptions'] = [];
 
-    examplePlugin.activate({
+    exampleExtension.activate({
       host: {
         registerView,
         registerStatusBarItem,
@@ -34,10 +34,10 @@ describe('examplePlugin', () => {
         executeCommand,
       },
       subscriptions,
-      plugin: {
-        id: examplePlugin.id,
-        displayName: examplePlugin.displayName,
-        version: examplePlugin.version,
+      extension: {
+        id: exampleExtension.id,
+        displayName: exampleExtension.displayName,
+        version: exampleExtension.version,
       },
     });
 
@@ -75,7 +75,7 @@ describe('examplePlugin', () => {
     const registerKeybinding = vi.fn().mockReturnValue({ dispose: vi.fn() });
     const executeCommand = vi.fn().mockResolvedValue(undefined);
 
-    examplePlugin.activate({
+    exampleExtension.activate({
       host: {
         registerView,
         registerStatusBarItem,
@@ -84,10 +84,10 @@ describe('examplePlugin', () => {
         executeCommand,
       },
       subscriptions: [],
-      plugin: {
-        id: examplePlugin.id,
-        displayName: examplePlugin.displayName,
-        version: examplePlugin.version,
+      extension: {
+        id: exampleExtension.id,
+        displayName: exampleExtension.displayName,
+        version: exampleExtension.version,
       },
     });
 

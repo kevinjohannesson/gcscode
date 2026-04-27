@@ -2,7 +2,7 @@
   "files": [],
   "references": [
     { "path": "./packages/shell" },
-    { "path": "./packages/plugin-api" },
-    { "path": "./packages/plugin-example" }
+    { "path": "./packages/extension-api" },
+    { "path": "./packages/extension-example" }
   ]
 }

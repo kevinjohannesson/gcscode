@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@gcscode/plugin-api": "workspace:*",
-    "@gcscode/plugin-example": "workspace:*"
+    "@gcscode/extension-api": "workspace:*",
+    "@gcscode/extension-example": "workspace:*"
   }
 }

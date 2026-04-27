@@ -1,6 +1,6 @@
-import type { Disposable } from '@gcscode/plugin-api';
+import type { Disposable } from '@gcscode/extension-api';
 
-import type { Registry } from './plugin-host/registry';
+import type { Registry } from './extension-host/registry';
 
 interface ParsedKey {
   ctrl: boolean;

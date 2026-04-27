@@ -1,5 +1,5 @@
 {
-  "name": "@gcscode/plugin-example",
+  "name": "@gcscode/extension-example",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -16,7 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@gcscode/plugin-api": "workspace:*"
+    "@gcscode/extension-api": "workspace:*"
   },
   "peerDependencies": {
     "svelte": "^5.0.0"

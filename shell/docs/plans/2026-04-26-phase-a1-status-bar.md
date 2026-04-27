@@ -1,5 +1,7 @@
 # Phase A1 — Status bar item contribution implementation plan
 
+_Note: The term "plugin" was renamed to "extension" in [ADR-0004](../decisions/ADR-0004-rename-plugin-to-extension.md). This document records the original terminology._
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a status bar item contribution kind to the plugin architecture: plugins can register a Svelte component aligned to the left or right side of a footer status bar.

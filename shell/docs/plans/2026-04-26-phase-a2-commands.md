@@ -1,5 +1,7 @@
 # Phase A2 — Command contribution implementation plan
 
+_Note: The term "plugin" was renamed to "extension" in [ADR-0004](../decisions/ADR-0004-rename-plugin-to-extension.md). This document records the original terminology._
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a third contribution kind to the gcscode plugin architecture: `registerCommand` plus an `executeCommand` round-trip on `PluginHost`. Commands are the integration backbone for future kinds (keybindings, menu items, palette entries) which all reference commands by string id.

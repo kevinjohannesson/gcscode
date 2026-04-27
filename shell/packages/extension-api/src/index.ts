@@ -11,7 +11,7 @@ export interface Disposable {
 /**
  * A view contribution renders a Svelte component into the shell's main
  * content surface. `id` is a stable identifier (usually
- * `<plugin-id>.<local-name>`) used for diagnostics, lookups, and disposal.
+ * `<extension-id>.<local-name>`) used for diagnostics, lookups, and disposal.
  */
 export interface ViewContribution {
   id: string;
@@ -21,7 +21,7 @@ export interface ViewContribution {
 /**
  * A status bar item contribution renders a Svelte component into one side of
  * the shell's footer status bar. `id` is a stable identifier (usually
- * `<plugin-id>.<local-name>`) used for diagnostics, lookups, and disposal.
+ * `<extension-id>.<local-name>`) used for diagnostics, lookups, and disposal.
  * `alignment` decides which side of the bar the item sits on; ordering within
  * a side follows registration order.
  */
@@ -35,8 +35,8 @@ export interface StatusBarItemContribution {
  * A command contribution registers a callable handler under a stable string
  * id. Commands are the integration backbone for kinds that reference commands
  * by id rather than carrying their own handlers (keybindings today; menu
- * items and palette entries to come). Cross-plugin execute is intentional —
- * any plugin can fire any registered command.
+ * items and palette entries to come). Cross-extension execute is intentional —
+ * any extension can fire any registered command.
  */
 export interface CommandContribution {
   id: string;
@@ -49,7 +49,7 @@ export interface CommandContribution {
  * (case-insensitive at match time); the key portion is also case-insensitive.
  * One non-modifier key per binding. The shell's keyboard dispatcher fires
  * the referenced command on first match. The `command` field is resolved at
- * fire time, not at registration — cross-plugin command references are
+ * fire time, not at registration — cross-extension command references are
  * intentional.
  */
 export interface KeybindingContribution {
@@ -58,22 +58,22 @@ export interface KeybindingContribution {
 }
 
 /**
- * Identity metadata for a plugin — stable across activations; used by the
- * host for logs, errors, and (later) per-plugin permission scoping.
+ * Identity metadata for an extension — stable across activations; used by the
+ * host for logs, errors, and (later) per-extension permission scoping.
  */
-export interface PluginIdentity {
+export interface ExtensionIdentity {
   readonly id: string;
   readonly displayName: string;
   readonly version: string;
 }
 
 /**
- * The per-plugin gate. Each `register*` method returns a `Disposable` whose
+ * The per-extension gate. Each `register*` method returns a `Disposable` whose
  * `dispose()` removes the registration. New contribution kinds slot in as
  * further `register*` methods. Future steps will wrap this object to enforce
- * per-plugin permission scopes without changing the plugin-facing API.
+ * per-extension permission scopes without changing the extension-facing API.
  */
-export interface PluginHost {
+export interface ExtensionHost {
   registerView(view: ViewContribution): Disposable;
   registerStatusBarItem(item: StatusBarItemContribution): Disposable;
   registerCommand(command: CommandContribution): Disposable;
@@ -85,19 +85,19 @@ export interface PluginHost {
  * The activation context — mirrors VS Code's `ExtensionContext`:
  *   - `host` is the registration gate.
  *   - `subscriptions` is a sink for disposables; the host disposes them when
- *     the plugin is (eventually) deactivated.
- *   - `plugin` is read-only identity for the activating plugin.
+ *     the extension is (eventually) deactivated.
+ *   - `extension` is read-only identity for the activating extension.
  */
-export interface PluginContext {
-  host: PluginHost;
+export interface ExtensionContext {
+  host: ExtensionHost;
   subscriptions: Disposable[];
-  plugin: PluginIdentity;
+  extension: ExtensionIdentity;
 }
 
 /**
- * A plugin module's named export. Identity fields give the host plugin
+ * An extension module's named export. Identity fields give the host extension
  * identity for diagnostics; `activate(context)` is the single entry point.
  */
-export interface Plugin extends PluginIdentity {
-  activate(context: PluginContext): void;
+export interface Extension extends ExtensionIdentity {
+  activate(context: ExtensionContext): void;
 }
