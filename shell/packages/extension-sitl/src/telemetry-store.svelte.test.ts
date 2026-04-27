@@ -14,6 +14,12 @@ describe('telemetry-store', () => {
     expect(telemetryState.lng).toBeNull();
     expect(telemetryState.alt).toBeNull();
     expect(telemetryState.heading).toBeNull();
+    expect(telemetryState.roll).toBeNull();
+    expect(telemetryState.pitch).toBeNull();
+    expect(telemetryState.yaw).toBeNull();
+    expect(telemetryState.groundspeed).toBeNull();
+    expect(telemetryState.voltageBattery).toBeNull();
+    expect(telemetryState.batteryRemaining).toBeNull();
     expect(telemetryState.connection).toBe('connecting');
   });
 
@@ -135,6 +141,27 @@ describe('telemetry-store', () => {
         hdg: 9000,
       },
     });
+    applyMessage({
+      message: {
+        type: 'ATTITUDE',
+        roll: 0.1,
+        pitch: -0.2,
+        yaw: 1.5,
+      },
+    });
+    applyMessage({
+      message: {
+        type: 'VFR_HUD',
+        groundspeed: 4.5,
+      },
+    });
+    applyMessage({
+      message: {
+        type: 'SYS_STATUS',
+        voltage_battery: 12450,
+        battery_remaining: 87,
+      },
+    });
     setConnectionState('connected');
 
     reset();
@@ -145,6 +172,60 @@ describe('telemetry-store', () => {
     expect(telemetryState.lng).toBeNull();
     expect(telemetryState.alt).toBeNull();
     expect(telemetryState.heading).toBeNull();
+    expect(telemetryState.roll).toBeNull();
+    expect(telemetryState.pitch).toBeNull();
+    expect(telemetryState.yaw).toBeNull();
+    expect(telemetryState.groundspeed).toBeNull();
+    expect(telemetryState.voltageBattery).toBeNull();
+    expect(telemetryState.batteryRemaining).toBeNull();
     expect(telemetryState.connection).toBe('connecting');
+  });
+
+  it('applyMessage with ATTITUDE updates roll/pitch/yaw', () => {
+    applyMessage({
+      message: {
+        type: 'ATTITUDE',
+        roll: 0.1,
+        pitch: -0.2,
+        yaw: 1.5,
+      },
+    });
+    expect(telemetryState.roll).toBeCloseTo(0.1, 6);
+    expect(telemetryState.pitch).toBeCloseTo(-0.2, 6);
+    expect(telemetryState.yaw).toBeCloseTo(1.5, 6);
+  });
+
+  it('applyMessage with VFR_HUD updates groundspeed', () => {
+    applyMessage({
+      message: {
+        type: 'VFR_HUD',
+        groundspeed: 4.5,
+      },
+    });
+    expect(telemetryState.groundspeed).toBeCloseTo(4.5, 6);
+  });
+
+  it('applyMessage with SYS_STATUS scales mV to V and stores remaining', () => {
+    applyMessage({
+      message: {
+        type: 'SYS_STATUS',
+        voltage_battery: 12450,
+        battery_remaining: 87,
+      },
+    });
+    expect(telemetryState.voltageBattery).toBeCloseTo(12.45, 6);
+    expect(telemetryState.batteryRemaining).toBe(87);
+  });
+
+  it('applyMessage with SYS_STATUS battery_remaining=-1 stores null', () => {
+    applyMessage({
+      message: {
+        type: 'SYS_STATUS',
+        voltage_battery: 12450,
+        battery_remaining: -1,
+      },
+    });
+    expect(telemetryState.voltageBattery).toBeCloseTo(12.45, 6);
+    expect(telemetryState.batteryRemaining).toBeNull();
   });
 });

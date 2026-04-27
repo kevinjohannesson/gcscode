@@ -4,7 +4,7 @@ import { createMavlinkClient, type MavlinkClient } from './mavlink-client';
 import SitlView from './sitl-view.svelte';
 import { applyMessage, reset, setConnectionState, telemetryState } from './telemetry-store.svelte';
 
-const FILTER = '^(HEARTBEAT|GLOBAL_POSITION_INT)$';
+const FILTER = '^(HEARTBEAT|GLOBAL_POSITION_INT|ATTITUDE|VFR_HUD|SYS_STATUS)$';
 const WS_URL = `ws://localhost:8088/v1/ws/mavlink?filter=${encodeURIComponent(FILTER)}`;
 
 let client: MavlinkClient | null = null;
