@@ -5,6 +5,15 @@ export interface TelemetryState {
   lng: number | null;
   alt: number | null;
   heading: number | null;
+  // new — ATTITUDE
+  roll: number | null; // radians
+  pitch: number | null; // radians
+  yaw: number | null; // radians
+  // new — VFR_HUD
+  groundspeed: number | null; // m/s
+  // new — SYS_STATUS
+  voltageBattery: number | null; // V (from voltage_battery / 1000 mV)
+  batteryRemaining: number | null; // %, null when MAVLink reports -1 (unknown)
   connection: 'connecting' | 'connected' | 'disconnected';
 }
 
@@ -31,6 +40,12 @@ export const telemetryState: TelemetryState = $state({
   lng: null,
   alt: null,
   heading: null,
+  roll: null,
+  pitch: null,
+  yaw: null,
+  groundspeed: null,
+  voltageBattery: null,
+  batteryRemaining: null,
   connection: 'connecting',
 });
 
@@ -63,6 +78,29 @@ export function applyMessage(json: unknown): void {
     return;
   }
 
+  if (type === 'ATTITUDE') {
+    if (typeof msg['roll'] === 'number') telemetryState.roll = msg['roll'];
+    if (typeof msg['pitch'] === 'number') telemetryState.pitch = msg['pitch'];
+    if (typeof msg['yaw'] === 'number') telemetryState.yaw = msg['yaw'];
+    return;
+  }
+
+  if (type === 'VFR_HUD') {
+    if (typeof msg['groundspeed'] === 'number') telemetryState.groundspeed = msg['groundspeed'];
+    return;
+  }
+
+  if (type === 'SYS_STATUS') {
+    if (typeof msg['voltage_battery'] === 'number') {
+      telemetryState.voltageBattery = msg['voltage_battery'] / 1000;
+    }
+    if (typeof msg['battery_remaining'] === 'number') {
+      telemetryState.batteryRemaining =
+        msg['battery_remaining'] === -1 ? null : msg['battery_remaining'];
+    }
+    return;
+  }
+
   // Unknown message type — silently ignored
 }
 
@@ -77,5 +115,11 @@ export function reset(): void {
   telemetryState.lng = null;
   telemetryState.alt = null;
   telemetryState.heading = null;
+  telemetryState.roll = null;
+  telemetryState.pitch = null;
+  telemetryState.yaw = null;
+  telemetryState.groundspeed = null;
+  telemetryState.voltageBattery = null;
+  telemetryState.batteryRemaining = null;
   telemetryState.connection = 'connecting';
 }
