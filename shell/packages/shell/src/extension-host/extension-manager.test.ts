@@ -20,6 +20,20 @@ function makeViewExtension(id: string) {
   return { extension, activate };
 }
 
+function makeViewExtensionWithDeactivate(id: string, deactivate: () => void | Promise<void>) {
+  const activate = vi.fn((ctx: ExtensionContext) => {
+    ctx.subscriptions.push(ctx.host.registerView({ id: `${id}.view`, component: fakeComponent }));
+  });
+  const extension: Extension = {
+    id,
+    displayName: id,
+    version: '0.0.0',
+    activate,
+    deactivate,
+  };
+  return { extension, activate };
+}
+
 describe('createExtensionManager', () => {
   it('register adds the extension and activates it', () => {
     const registry = createRegistry();
@@ -48,13 +62,13 @@ describe('createExtensionManager', () => {
     expect(registry.listViews()).toHaveLength(1);
   });
 
-  it("setEnabled(id, false) deactivates and clears the extension's contributions", () => {
+  it("setEnabled(id, false) deactivates and clears the extension's contributions", async () => {
     const registry = createRegistry();
     const manager = createExtensionManager(registry);
     const { extension } = makeViewExtension('ext.a');
     manager.register(extension);
 
-    manager.setEnabled('ext.a', false);
+    await manager.setEnabled('ext.a', false);
 
     expect(registry.listViews()).toHaveLength(0);
     expect(manager.listExtensions()).toEqual([
@@ -62,14 +76,14 @@ describe('createExtensionManager', () => {
     ]);
   });
 
-  it('setEnabled(id, true) on a disabled extension re-activates with a fresh context', () => {
+  it('setEnabled(id, true) on a disabled extension re-activates with a fresh context', async () => {
     const registry = createRegistry();
     const manager = createExtensionManager(registry);
     const { extension, activate } = makeViewExtension('ext.a');
     manager.register(extension);
-    manager.setEnabled('ext.a', false);
+    await manager.setEnabled('ext.a', false);
 
-    manager.setEnabled('ext.a', true);
+    await manager.setEnabled('ext.a', true);
 
     expect(activate).toHaveBeenCalledTimes(2);
     const firstContext = activate.mock.calls[0][0];
@@ -82,19 +96,19 @@ describe('createExtensionManager', () => {
     ]);
   });
 
-  it('same-value setEnabled is a true no-op', () => {
+  it('same-value setEnabled is a true no-op', async () => {
     const registry = createRegistry();
     const manager = createExtensionManager(registry);
     const { extension, activate } = makeViewExtension('ext.a');
     manager.register(extension);
 
-    manager.setEnabled('ext.a', true);
+    await manager.setEnabled('ext.a', true);
 
     expect(activate).toHaveBeenCalledTimes(1);
     expect(registry.listViews()).toHaveLength(1);
 
-    manager.setEnabled('ext.a', false);
-    manager.setEnabled('ext.a', false);
+    await manager.setEnabled('ext.a', false);
+    await manager.setEnabled('ext.a', false);
 
     expect(registry.listViews()).toHaveLength(0);
     expect(manager.listExtensions()).toEqual([
@@ -102,19 +116,19 @@ describe('createExtensionManager', () => {
     ]);
   });
 
-  it('setEnabled on an unknown id throws', () => {
+  it('setEnabled on an unknown id throws', async () => {
     const registry = createRegistry();
     const manager = createExtensionManager(registry);
 
-    expect(() => manager.setEnabled('does-not-exist', false)).toThrow(
+    await expect(manager.setEnabled('does-not-exist', false)).rejects.toThrow(
       'Cannot set enabled state: extension id "does-not-exist" is not registered.',
     );
-    expect(() => manager.setEnabled('does-not-exist', true)).toThrow(
+    await expect(manager.setEnabled('does-not-exist', true)).rejects.toThrow(
       'Cannot set enabled state: extension id "does-not-exist" is not registered.',
     );
   });
 
-  it('listExtensions returns a snapshot reflecting current state', () => {
+  it('listExtensions returns a snapshot reflecting current state', async () => {
     const registry = createRegistry();
     const manager = createExtensionManager(registry);
     const { extension: a } = makeViewExtension('ext.a');
@@ -127,14 +141,14 @@ describe('createExtensionManager', () => {
       { id: 'ext.b', displayName: 'ext.b', version: '0.0.0', enabled: true },
     ]);
 
-    manager.setEnabled('ext.a', false);
+    await manager.setEnabled('ext.a', false);
 
     expect(manager.listExtensions()).toEqual([
       { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: false },
       { id: 'ext.b', displayName: 'ext.b', version: '0.0.0', enabled: true },
     ]);
 
-    manager.setEnabled('ext.a', true);
+    await manager.setEnabled('ext.a', true);
 
     expect(manager.listExtensions()).toEqual([
       { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
@@ -156,39 +170,39 @@ describe('createExtensionManager', () => {
     ]);
   });
 
-  it('register(ext, { enabled: false }) followed by setEnabled(id, true) activates', () => {
+  it('register(ext, { enabled: false }) followed by setEnabled(id, true) activates', async () => {
     const registry = createRegistry();
     const manager = createExtensionManager(registry);
     const { extension, activate } = makeViewExtension('ext.a');
 
     manager.register(extension, { enabled: false });
-    manager.setEnabled('ext.a', true);
+    await manager.setEnabled('ext.a', true);
 
     expect(activate).toHaveBeenCalledTimes(1);
     expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent }]);
   });
 
-  it('onEnabledChanged fires from setEnabled with matching (id, enabled) arguments', () => {
+  it('onEnabledChanged fires from setEnabled with matching (id, enabled) arguments', async () => {
     const registry = createRegistry();
     const onEnabledChanged = vi.fn();
     const manager = createExtensionManager(registry, { onEnabledChanged });
     const { extension } = makeViewExtension('ext.a');
 
     manager.register(extension);
-    manager.setEnabled('ext.a', false);
+    await manager.setEnabled('ext.a', false);
 
     expect(onEnabledChanged).toHaveBeenCalledTimes(1);
     expect(onEnabledChanged).toHaveBeenCalledWith('ext.a', false);
   });
 
-  it('onEnabledChanged does NOT fire from same-value setEnabled (no-op path)', () => {
+  it('onEnabledChanged does NOT fire from same-value setEnabled (no-op path)', async () => {
     const registry = createRegistry();
     const onEnabledChanged = vi.fn();
     const manager = createExtensionManager(registry, { onEnabledChanged });
     const { extension } = makeViewExtension('ext.a');
 
     manager.register(extension);
-    manager.setEnabled('ext.a', true); // already true — no-op
+    await manager.setEnabled('ext.a', true); // already true — no-op
 
     expect(onEnabledChanged).not.toHaveBeenCalled();
   });
@@ -226,6 +240,45 @@ describe('createExtensionManager', () => {
     ]);
     expect(manager2.listExtensions()).toEqual([
       { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+    ]);
+  });
+
+  it('setEnabled(id, false) awaits the deactivate hook before resolving', async () => {
+    const registry = createRegistry();
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+
+    let resolveHook!: () => void;
+    const hookPromise = new Promise<void>((res) => {
+      resolveHook = res;
+    });
+    const deactivate = () => hookPromise;
+
+    const { extension } = makeViewExtensionWithDeactivate('ext.a', deactivate);
+    manager.register(extension);
+
+    // Start setEnabled but do NOT await yet
+    const setEnabledPromise = manager.setEnabled('ext.a', false);
+
+    // Mid-flight: hook has not resolved yet — callback should NOT have fired
+    expect(onEnabledChanged).not.toHaveBeenCalled();
+    // Mid-flight: listExtensions still shows enabled: true
+    expect(manager.listExtensions()).toEqual([
+      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+    ]);
+
+    // Resolve the hook's promise
+    resolveHook();
+
+    // Now await the setEnabled promise
+    await setEnabledPromise;
+
+    // After resolution: callback must have fired with (id, false)
+    expect(onEnabledChanged).toHaveBeenCalledTimes(1);
+    expect(onEnabledChanged).toHaveBeenCalledWith('ext.a', false);
+    // And listExtensions reflects the new state
+    expect(manager.listExtensions()).toEqual([
+      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: false },
     ]);
   });
 });

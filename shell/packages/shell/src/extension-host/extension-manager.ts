@@ -18,7 +18,7 @@ export interface ExtensionRecord {
 
 export interface ExtensionManager {
   register(extension: Extension, options?: { enabled?: boolean }): void;
-  setEnabled(id: string, enabled: boolean): void;
+  setEnabled(id: string, enabled: boolean): Promise<void>;
   listExtensions(): readonly ExtensionRecord[];
 }
 
@@ -55,7 +55,7 @@ export function createExtensionManager(
         registry.activate(extension);
       }
     },
-    setEnabled(id, enabled) {
+    async setEnabled(id, enabled) {
       const state = extensions.get(id);
       if (state === undefined) {
         throw new Error(`Cannot set enabled state: extension id "${id}" is not registered.`);
@@ -66,7 +66,7 @@ export function createExtensionManager(
       if (enabled) {
         registry.activate(state.extension);
       } else {
-        registry.deactivate(id);
+        await registry.deactivate(id);
       }
       extensions.set(id, { ...state, enabled });
       onEnabledChanged?.(id, enabled);
