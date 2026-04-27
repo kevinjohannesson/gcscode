@@ -1,5 +1,7 @@
 # ADR-0002 — Plugin API is imperative `activate(host)`, not declarative
 
+_Note: The term "plugin" was renamed to "extension" in [ADR-0004](ADR-0004-rename-plugin-to-extension.md). This document records the original terminology._
+
 **Status:** Accepted (2026-04-25)
 
 ## Context

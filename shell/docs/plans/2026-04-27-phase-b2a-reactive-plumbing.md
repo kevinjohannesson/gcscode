@@ -1,5 +1,7 @@
 # Phase B2a — Reactive plumbing implementation plan
 
+_Note: The term "plugin" was renamed to "extension" in [ADR-0004](../decisions/ADR-0004-rename-plugin-to-extension.md). This document records the original terminology._
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the registry's four contribution `Map` instances with `SvelteMap` so that `$derived(registry.list*())` consumers in `app.svelte` recompute when the registry mutates post-mount, then prove the reactivity end-to-end with three new tests in `app.test.ts`.

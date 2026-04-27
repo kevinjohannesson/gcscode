@@ -1,5 +1,7 @@
 # Phase B1 — Deactivate orchestration implementation plan
 
+_Note: The term "plugin" was renamed to "extension" in [ADR-0004](../decisions/ADR-0004-rename-plugin-to-extension.md). This document records the original terminology._
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a single new method `deactivate(pluginId: string): void` to the host-side `Registry` interface that iterates a plugin's recorded subscriptions in reverse registration order (LIFO) and calls `dispose()` on each, with per-disposable error resilience. The plugin-facing contract is unchanged.
