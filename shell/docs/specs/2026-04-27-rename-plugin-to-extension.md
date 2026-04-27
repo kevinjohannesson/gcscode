@@ -26,15 +26,15 @@ Adjacent concepts that could plausibly land here, but do not:
 
 ## VS Code alignment
 
-| VS Code feature | Rename iteration in GCScode | Status |
-| --------------- | --------------------------- | ------ |
-| Vocabulary "extension" for the unit of extensibility | ✓ — `Extension`, `ExtensionHost`, `ExtensionContext`, `ExtensionIdentity`; `@gcscode/extension-api`, `@gcscode/extension-example` | Aligned. |
-| `ExtensionContext` name | ✓ — `ExtensionContext` mirrors `vscode.ExtensionContext` | Aligned in name. |
-| `ExtensionContext` shape | ➤ Ours — `{ host, subscriptions, extension }` | Diverges. VS Code's `ExtensionContext` exposes `extensionPath`, `globalState`, `workspaceState`, etc. We expose only what the registry needs today. Per ADR-0003. |
-| Extension authoring shape | ➤ Ours — named `const extensionFoo: Extension` with `activate(context)` | Diverges. VS Code authors export `activate()` from a module; we keep the imperative-object shape from ADR-0002. The rename adopts VS Code's vocabulary for an adjacent concept; it does not adopt VS Code's authoring model. Documented in ADR-0004. |
-| `host.register*` flat surface | ➤ Ours — flat methods on `ExtensionHost` | Diverges (unchanged). VS Code namespaces (`vscode.commands.registerCommand`); ADR-0003 keeps flat until ~5–7 methods. |
-| Manifest / `contributes` | ✗ Deferred | `out-of-scope.md` continues to track. Rename does not change deferral. |
-| `package.json` extension manifest fields (`name`, `displayName`, `version`, `engines`, `contributes`) | ✗ Deferred | Same trigger as manifest above. |
+| VS Code feature                                                                                       | Rename iteration in GCScode                                                                                                       | Status                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vocabulary "extension" for the unit of extensibility                                                  | ✓ — `Extension`, `ExtensionHost`, `ExtensionContext`, `ExtensionIdentity`; `@gcscode/extension-api`, `@gcscode/extension-example` | Aligned.                                                                                                                                                                                                                                             |
+| `ExtensionContext` name                                                                               | ✓ — `ExtensionContext` mirrors `vscode.ExtensionContext`                                                                          | Aligned in name.                                                                                                                                                                                                                                     |
+| `ExtensionContext` shape                                                                              | ➤ Ours — `{ host, subscriptions, extension }`                                                                                     | Diverges. VS Code's `ExtensionContext` exposes `extensionPath`, `globalState`, `workspaceState`, etc. We expose only what the registry needs today. Per ADR-0003.                                                                                    |
+| Extension authoring shape                                                                             | ➤ Ours — named `const extensionFoo: Extension` with `activate(context)`                                                           | Diverges. VS Code authors export `activate()` from a module; we keep the imperative-object shape from ADR-0002. The rename adopts VS Code's vocabulary for an adjacent concept; it does not adopt VS Code's authoring model. Documented in ADR-0004. |
+| `host.register*` flat surface                                                                         | ➤ Ours — flat methods on `ExtensionHost`                                                                                          | Diverges (unchanged). VS Code namespaces (`vscode.commands.registerCommand`); ADR-0003 keeps flat until ~5–7 methods.                                                                                                                                |
+| Manifest / `contributes`                                                                              | ✗ Deferred                                                                                                                        | `out-of-scope.md` continues to track. Rename does not change deferral.                                                                                                                                                                               |
+| `package.json` extension manifest fields (`name`, `displayName`, `version`, `engines`, `contributes`) | ✗ Deferred                                                                                                                        | Same trigger as manifest above.                                                                                                                                                                                                                      |
 
 ## Goals
 
@@ -60,58 +60,58 @@ Adjacent concepts that could plausibly land here, but do not:
 
 ### Types (in `@gcscode/extension-api`)
 
-| Old | New |
-| --- | --- |
-| `Plugin` | `Extension` |
-| `PluginHost` | `ExtensionHost` |
-| `PluginContext` | `ExtensionContext` |
+| Old              | New                 |
+| ---------------- | ------------------- |
+| `Plugin`         | `Extension`         |
+| `PluginHost`     | `ExtensionHost`     |
+| `PluginContext`  | `ExtensionContext`  |
 | `PluginIdentity` | `ExtensionIdentity` |
 
 Unchanged (already neutral): `Disposable`, `ViewContribution`, `StatusBarItemContribution`, `CommandContribution`, `KeybindingContribution`. The `host.register*` method names and `host.executeCommand` are unchanged.
 
 ### Fields, parameters, internal names
 
-| Old | New | Where |
-| --- | --- | --- |
-| `PluginContext.plugin` | `ExtensionContext.extension` | `@gcscode/extension-api` interface; reads in `registry.ts`'s `activate` and in tests if any |
-| parameter `plugin: Plugin` | `extension: Extension` | `Registry.activate(extension)` and any caller |
-| parameter / variable `pluginId: string` | `extensionId: string` | `Registry.deactivate(extensionId)` and internal helpers |
-| `subscriptionsByPlugin` | `subscriptionsByExtension` | `registry.ts` internal Map |
-| `createHost(plugin: PluginIdentity)` | `createHost(extension: ExtensionIdentity)` | `registry.ts` internal helper |
-| `examplePlugin` (named export) | `exampleExtension` | `@gcscode/extension-example` `src/index.ts`; consumer in `packages/shell/src/main.ts` |
-| Error / log strings: `attempted by plugin "..."`, `Cannot deactivate plugin: id "..."`, `Error disposing subscription for plugin "..."` | `attempted by extension "..."`, `Cannot deactivate extension: id "..."`, `Error disposing subscription for extension "..."` | `registry.ts` (and any test that asserts on substring) |
-| JSDoc / inline comments containing "plugin" | "extension" | All source files |
+| Old                                                                                                                                     | New                                                                                                                         | Where                                                                                       |
+| --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `PluginContext.plugin`                                                                                                                  | `ExtensionContext.extension`                                                                                                | `@gcscode/extension-api` interface; reads in `registry.ts`'s `activate` and in tests if any |
+| parameter `plugin: Plugin`                                                                                                              | `extension: Extension`                                                                                                      | `Registry.activate(extension)` and any caller                                               |
+| parameter / variable `pluginId: string`                                                                                                 | `extensionId: string`                                                                                                       | `Registry.deactivate(extensionId)` and internal helpers                                     |
+| `subscriptionsByPlugin`                                                                                                                 | `subscriptionsByExtension`                                                                                                  | `registry.ts` internal Map                                                                  |
+| `createHost(plugin: PluginIdentity)`                                                                                                    | `createHost(extension: ExtensionIdentity)`                                                                                  | `registry.ts` internal helper                                                               |
+| `examplePlugin` (named export)                                                                                                          | `exampleExtension`                                                                                                          | `@gcscode/extension-example` `src/index.ts`; consumer in `packages/shell/src/main.ts`       |
+| Error / log strings: `attempted by plugin "..."`, `Cannot deactivate plugin: id "..."`, `Error disposing subscription for plugin "..."` | `attempted by extension "..."`, `Cannot deactivate extension: id "..."`, `Error disposing subscription for extension "..."` | `registry.ts` (and any test that asserts on substring)                                      |
+| JSDoc / inline comments containing "plugin"                                                                                             | "extension"                                                                                                                 | All source files                                                                            |
 
 ### Filenames and directories
 
-| Old | New |
-| --- | --- |
-| `packages/plugin-api/` | `packages/extension-api/` |
-| `packages/plugin-example/` | `packages/extension-example/` |
+| Old                               | New                                  |
+| --------------------------------- | ------------------------------------ |
+| `packages/plugin-api/`            | `packages/extension-api/`            |
+| `packages/plugin-example/`        | `packages/extension-example/`        |
 | `packages/shell/src/plugin-host/` | `packages/shell/src/extension-host/` |
 
 `registry.ts` and `registry.test.ts` keep their filenames (they do not contain "plugin"). All renames performed via `git mv` so blame survives.
 
 ### Package names
 
-| Old | New |
-| --- | --- |
-| `@gcscode/plugin-api` | `@gcscode/extension-api` |
+| Old                       | New                          |
+| ------------------------- | ---------------------------- |
+| `@gcscode/plugin-api`     | `@gcscode/extension-api`     |
 | `@gcscode/plugin-example` | `@gcscode/extension-example` |
 
 ### Configuration touched
 
-| File | Change |
-| --- | --- |
-| `package.json` (root) | Workspace deps and scripts referencing the two package names |
-| `packages/shell/package.json` | `dependencies` for `@gcscode/extension-api`, `@gcscode/extension-example` |
-| `packages/extension-api/package.json` | `name` field |
-| `packages/extension-example/package.json` | `name` field; `dependencies` referencing `@gcscode/extension-api` |
-| `eslint.config.ts` | The boundary block: glob `packages/plugin-*` → `packages/extension-*`; `ignores` glob `packages/plugin-api/**` → `packages/extension-api/**`; the message text `'Plugins must only import from @gcscode/plugin-api...'` → `'Extensions must only import from @gcscode/extension-api...'`; the second message `'Plugins must not use relative imports...'` → `'Extensions must not use relative imports...'` |
-| `pnpm-lock.yaml` | Regenerated via `pnpm install` |
-| `pnpm-workspace.yaml` | Already `packages/*` — no change needed |
-| `tsconfig.json`, `tsconfig.base.json` | Verify no path mappings reference the old names; expected: no change |
-| `packages/shell/vite.config.ts`, `svelte.config.js`, `vitest.config.ts`, `packages/extension-example/vitest.config.ts` | Verify no path refs; expected: no change |
+| File                                                                                                                   | Change                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `package.json` (root)                                                                                                  | Workspace deps and scripts referencing the two package names                                                                                                                                                                                                                                                                                                                                                |
+| `packages/shell/package.json`                                                                                          | `dependencies` for `@gcscode/extension-api`, `@gcscode/extension-example`                                                                                                                                                                                                                                                                                                                                   |
+| `packages/extension-api/package.json`                                                                                  | `name` field                                                                                                                                                                                                                                                                                                                                                                                                |
+| `packages/extension-example/package.json`                                                                              | `name` field; `dependencies` referencing `@gcscode/extension-api`                                                                                                                                                                                                                                                                                                                                           |
+| `eslint.config.ts`                                                                                                     | The boundary block: glob `packages/plugin-*` → `packages/extension-*`; `ignores` glob `packages/plugin-api/**` → `packages/extension-api/**`; the message text `'Plugins must only import from @gcscode/plugin-api...'` → `'Extensions must only import from @gcscode/extension-api...'`; the second message `'Plugins must not use relative imports...'` → `'Extensions must not use relative imports...'` |
+| `pnpm-lock.yaml`                                                                                                       | Regenerated via `pnpm install`                                                                                                                                                                                                                                                                                                                                                                              |
+| `pnpm-workspace.yaml`                                                                                                  | Already `packages/*` — no change needed                                                                                                                                                                                                                                                                                                                                                                     |
+| `tsconfig.json`, `tsconfig.base.json`                                                                                  | Verify no path mappings reference the old names; expected: no change                                                                                                                                                                                                                                                                                                                                        |
+| `packages/shell/vite.config.ts`, `svelte.config.js`, `vitest.config.ts`, `packages/extension-example/vitest.config.ts` | Verify no path refs; expected: no change                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Doc strategy
 
@@ -150,22 +150,22 @@ Pointer-note recipients:
 
 ## Files modified / added / renamed
 
-| Path | Change |
-| ---- | ------ |
-| `docs/decisions/ADR-0004-rename-plugin-to-extension.md` | **Added.** New ADR. |
-| `docs/decisions/ADR-0001-monorepo-plugin-boundary.md`, `ADR-0002-imperative-activate-api.md`, `ADR-0003-plugin-api-refinements.md` | Pointer-note added after H1; body unchanged. |
-| All shipped specs under `docs/specs/` (date-prefixed `2026-04-26-*` and `2026-04-27-*`, **excluding** this rename spec itself) | Pointer-note added after H1; body unchanged. |
-| All shipped plans under `docs/plans/` (date-prefixed `2026-04-26-*` and `2026-04-27-*`, **excluding** the rename plan added by the writing-plans phase) | Pointer-note added after H1; body unchanged. |
-| `docs/specs/2026-04-27-rename-plugin-to-extension.md` | **Added.** This spec. (No pointer-note: this spec is the rename spec, not a historical record predating it.) |
-| `docs/plans/2026-04-27-rename-plugin-to-extension.md` | **Added** by the writing-plans phase that follows this spec. (No pointer-note, same reason.) |
-| `CLAUDE.md`, `docs/roadmap.md`, `docs/out-of-scope.md` | Rewritten in place. (Root `README.md` is untouched — see Doc strategy.) |
-| `packages/extension-api/` | **Renamed** from `packages/plugin-api/` via `git mv`. Internals: `package.json` (`name`), `README.md`, `src/index.ts` (type renames, JSDoc), tests. |
-| `packages/extension-example/` | **Renamed** from `packages/plugin-example/` via `git mv`. Internals: `package.json` (`name`, deps), `README.md`, `src/index.ts` (`examplePlugin` → `exampleExtension`, type imports), tests. |
-| `packages/shell/src/extension-host/` | **Renamed** from `packages/shell/src/plugin-host/` via `git mv`. `registry.ts` and `registry.test.ts` keep filenames; rename the `Map` variable, error strings, JSDoc, type imports inside. |
-| `packages/shell/src/main.ts` | Update import paths (`@gcscode/plugin-example` → `@gcscode/extension-example`; `./plugin-host/registry` → `./extension-host/registry`; `examplePlugin` → `exampleExtension`). |
-| `packages/shell/src/app.svelte`, `packages/shell/src/app.test.ts`, `packages/shell/src/keybinding-dispatcher.ts`, `packages/shell/src/keybinding-dispatcher.test.ts`, `packages/shell/package.json`, `packages/shell/svelte.config.js`, `packages/shell/vite.config.ts` | Any "plugin" references updated (mostly in comments, JSDoc, import paths, deps). |
-| Root `package.json`, `tsconfig.json`, `tsconfig.base.json`, `eslint.config.ts` | "Plugin" → "extension" wherever referenced (ESLint glob and message in particular). |
-| `pnpm-lock.yaml` | Regenerated via `pnpm install`. |
+| Path                                                                                                                                                                                                                                                                    | Change                                                                                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/decisions/ADR-0004-rename-plugin-to-extension.md`                                                                                                                                                                                                                 | **Added.** New ADR.                                                                                                                                                                          |
+| `docs/decisions/ADR-0001-monorepo-plugin-boundary.md`, `ADR-0002-imperative-activate-api.md`, `ADR-0003-plugin-api-refinements.md`                                                                                                                                      | Pointer-note added after H1; body unchanged.                                                                                                                                                 |
+| All shipped specs under `docs/specs/` (date-prefixed `2026-04-26-*` and `2026-04-27-*`, **excluding** this rename spec itself)                                                                                                                                          | Pointer-note added after H1; body unchanged.                                                                                                                                                 |
+| All shipped plans under `docs/plans/` (date-prefixed `2026-04-26-*` and `2026-04-27-*`, **excluding** the rename plan added by the writing-plans phase)                                                                                                                 | Pointer-note added after H1; body unchanged.                                                                                                                                                 |
+| `docs/specs/2026-04-27-rename-plugin-to-extension.md`                                                                                                                                                                                                                   | **Added.** This spec. (No pointer-note: this spec is the rename spec, not a historical record predating it.)                                                                                 |
+| `docs/plans/2026-04-27-rename-plugin-to-extension.md`                                                                                                                                                                                                                   | **Added** by the writing-plans phase that follows this spec. (No pointer-note, same reason.)                                                                                                 |
+| `CLAUDE.md`, `docs/roadmap.md`, `docs/out-of-scope.md`                                                                                                                                                                                                                  | Rewritten in place. (Root `README.md` is untouched — see Doc strategy.)                                                                                                                      |
+| `packages/extension-api/`                                                                                                                                                                                                                                               | **Renamed** from `packages/plugin-api/` via `git mv`. Internals: `package.json` (`name`), `README.md`, `src/index.ts` (type renames, JSDoc), tests.                                          |
+| `packages/extension-example/`                                                                                                                                                                                                                                           | **Renamed** from `packages/plugin-example/` via `git mv`. Internals: `package.json` (`name`, deps), `README.md`, `src/index.ts` (`examplePlugin` → `exampleExtension`, type imports), tests. |
+| `packages/shell/src/extension-host/`                                                                                                                                                                                                                                    | **Renamed** from `packages/shell/src/plugin-host/` via `git mv`. `registry.ts` and `registry.test.ts` keep filenames; rename the `Map` variable, error strings, JSDoc, type imports inside.  |
+| `packages/shell/src/main.ts`                                                                                                                                                                                                                                            | Update import paths (`@gcscode/plugin-example` → `@gcscode/extension-example`; `./plugin-host/registry` → `./extension-host/registry`; `examplePlugin` → `exampleExtension`).                |
+| `packages/shell/src/app.svelte`, `packages/shell/src/app.test.ts`, `packages/shell/src/keybinding-dispatcher.ts`, `packages/shell/src/keybinding-dispatcher.test.ts`, `packages/shell/package.json`, `packages/shell/svelte.config.js`, `packages/shell/vite.config.ts` | Any "plugin" references updated (mostly in comments, JSDoc, import paths, deps).                                                                                                             |
+| Root `package.json`, `tsconfig.json`, `tsconfig.base.json`, `eslint.config.ts`                                                                                                                                                                                          | "Plugin" → "extension" wherever referenced (ESLint glob and message in particular).                                                                                                          |
+| `pnpm-lock.yaml`                                                                                                                                                                                                                                                        | Regenerated via `pnpm install`.                                                                                                                                                              |
 
 ## `docs/out-of-scope.md` propagation
 

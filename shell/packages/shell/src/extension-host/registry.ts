@@ -1,20 +1,20 @@
 import type {
   CommandContribution,
   Disposable,
+  Extension,
+  ExtensionContext,
+  ExtensionHost,
+  ExtensionIdentity,
   KeybindingContribution,
-  Plugin,
-  PluginContext,
-  PluginHost,
-  PluginIdentity,
   StatusBarItemContribution,
   ViewContribution,
-} from '@gcscode/plugin-api';
+} from '@gcscode/extension-api';
 
 import { SvelteMap } from 'svelte/reactivity';
 
 export interface Registry {
-  activate(plugin: Plugin): void;
-  deactivate(pluginId: string): void;
+  activate(extension: Extension): void;
+  deactivate(extensionId: string): void;
   listViews(): readonly ViewContribution[];
   listStatusBarItems(): readonly StatusBarItemContribution[];
   listCommands(): readonly CommandContribution[];
@@ -25,15 +25,15 @@ export interface Registry {
 // Invariant: registry mutations propagate reactively to mounted consumers.
 // The four contribution maps are SvelteMap instances (from svelte/reactivity),
 // so $derived(registry.list*()) re-tracks on set/delete and the rendered UI
-// updates without remount. subscriptionsByPlugin stays a plain Map because no
-// UI consumer reads it — the registry uses it internally for deactivate
+// updates without remount. subscriptionsByExtension stays a plain Map because
+// no UI consumer reads it — the registry uses it internally for deactivate
 // orchestration only.
 export function createRegistry(): Registry {
   const views = new SvelteMap<string, ViewContribution>();
   const statusBarItems = new SvelteMap<string, StatusBarItemContribution>();
   const commands = new SvelteMap<string, CommandContribution>();
   const keybindings = new SvelteMap<string, KeybindingContribution>();
-  const subscriptionsByPlugin = new Map<string, readonly Disposable[]>();
+  const subscriptionsByExtension = new Map<string, readonly Disposable[]>();
 
   function execute<T>(id: string, args: unknown[], attribution: string): Promise<T> {
     const command = commands.get(id);
@@ -43,12 +43,12 @@ export function createRegistry(): Registry {
     return Promise.resolve().then(() => command.run(...args)) as Promise<T>;
   }
 
-  function createHost(plugin: PluginIdentity): PluginHost {
+  function createHost(extension: ExtensionIdentity): ExtensionHost {
     return {
       registerView(view) {
         if (views.has(view.id)) {
           throw new Error(
-            `View id "${view.id}" is already registered (attempted by plugin "${plugin.id}").`,
+            `View id "${view.id}" is already registered (attempted by extension "${extension.id}").`,
           );
         }
         views.set(view.id, view);
@@ -65,7 +65,7 @@ export function createRegistry(): Registry {
       registerStatusBarItem(item) {
         if (statusBarItems.has(item.id)) {
           throw new Error(
-            `Status bar item id "${item.id}" is already registered (attempted by plugin "${plugin.id}").`,
+            `Status bar item id "${item.id}" is already registered (attempted by extension "${extension.id}").`,
           );
         }
         statusBarItems.set(item.id, item);
@@ -82,7 +82,7 @@ export function createRegistry(): Registry {
       registerCommand(command) {
         if (commands.has(command.id)) {
           throw new Error(
-            `Command id "${command.id}" is already registered (attempted by plugin "${plugin.id}").`,
+            `Command id "${command.id}" is already registered (attempted by extension "${extension.id}").`,
           );
         }
         commands.set(command.id, command);
@@ -99,7 +99,7 @@ export function createRegistry(): Registry {
       registerKeybinding(keybinding) {
         if (keybindings.has(keybinding.key)) {
           throw new Error(
-            `Keybinding "${keybinding.key}" is already registered (attempted by plugin "${plugin.id}").`,
+            `Keybinding "${keybinding.key}" is already registered (attempted by extension "${extension.id}").`,
           );
         }
         keybindings.set(keybinding.key, keybinding);
@@ -114,42 +114,42 @@ export function createRegistry(): Registry {
         };
       },
       executeCommand<T>(id: string, ...args: unknown[]): Promise<T> {
-        return execute<T>(id, args, `plugin "${plugin.id}"`);
+        return execute<T>(id, args, `extension "${extension.id}"`);
       },
     };
   }
 
   return {
-    activate(plugin) {
-      const identity: PluginIdentity = {
-        id: plugin.id,
-        displayName: plugin.displayName,
-        version: plugin.version,
+    activate(extension) {
+      const identity: ExtensionIdentity = {
+        id: extension.id,
+        displayName: extension.displayName,
+        version: extension.version,
       };
-      const context: PluginContext = {
+      const context: ExtensionContext = {
         host: createHost(identity),
         subscriptions: [],
-        plugin: identity,
+        extension: identity,
       };
-      plugin.activate(context);
-      subscriptionsByPlugin.set(identity.id, context.subscriptions);
+      extension.activate(context);
+      subscriptionsByExtension.set(identity.id, context.subscriptions);
     },
-    deactivate(pluginId) {
-      const subscriptions = subscriptionsByPlugin.get(pluginId);
+    deactivate(extensionId) {
+      const subscriptions = subscriptionsByExtension.get(extensionId);
       if (subscriptions === undefined) {
-        throw new Error(`Cannot deactivate plugin: id "${pluginId}" is not active.`);
+        throw new Error(`Cannot deactivate extension: id "${extensionId}" is not active.`);
       }
-      // LIFO: dispose in reverse registration order. A plugin that registers a
+      // LIFO: dispose in reverse registration order. An extension that registers a
       // higher-level disposable later may depend on lower-level ones registered
       // earlier; reverse order tears down the higher-level layer first.
       for (let i = subscriptions.length - 1; i >= 0; i--) {
         try {
           subscriptions[i].dispose();
         } catch (error) {
-          console.error(`Error disposing subscription for plugin "${pluginId}":`, error);
+          console.error(`Error disposing subscription for extension "${extensionId}":`, error);
         }
       }
-      subscriptionsByPlugin.delete(pluginId);
+      subscriptionsByExtension.delete(extensionId);
     },
     listViews() {
       return Array.from(views.values());

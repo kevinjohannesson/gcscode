@@ -1,11 +1,11 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-import type { Plugin, PluginContext } from '@gcscode/plugin-api';
+import type { Extension, ExtensionContext } from '@gcscode/extension-api';
 
-import { createRegistry } from './plugin-host/registry';
+import { createRegistry } from './extension-host/registry';
 import { parseKey, matchesKey, attachKeybindingDispatcher } from './keybinding-dispatcher';
 
-function plugin(id: string, activate: (context: PluginContext) => void): Plugin {
+function extension(id: string, activate: (context: ExtensionContext) => void): Extension {
   return { id, displayName: id, version: '0.0.0', activate };
 }
 
@@ -146,9 +146,9 @@ describe('attachKeybindingDispatcher', () => {
     const target = document.createElement('div');
     const run = vi.fn();
     registry.activate(
-      plugin('plugin.a', (ctx) => {
-        ctx.host.registerCommand({ id: 'plugin.a.cmd', run });
-        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'plugin.a.cmd' });
+      extension('ext.a', (ctx) => {
+        ctx.host.registerCommand({ id: 'ext.a.cmd', run });
+        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'ext.a.cmd' });
       }),
     );
 
@@ -165,9 +165,9 @@ describe('attachKeybindingDispatcher', () => {
     const target = document.createElement('div');
     const run = vi.fn();
     registry.activate(
-      plugin('plugin.a', (ctx) => {
-        ctx.host.registerCommand({ id: 'plugin.a.cmd', run });
-        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'plugin.a.cmd' });
+      extension('ext.a', (ctx) => {
+        ctx.host.registerCommand({ id: 'ext.a.cmd', run });
+        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'ext.a.cmd' });
       }),
     );
     attachKeybindingDispatcher(registry, target);
@@ -183,9 +183,9 @@ describe('attachKeybindingDispatcher', () => {
     const registry = createRegistry();
     const target = document.createElement('div');
     registry.activate(
-      plugin('plugin.a', (ctx) => {
-        ctx.host.registerCommand({ id: 'plugin.a.cmd', run: () => undefined });
-        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'plugin.a.cmd' });
+      extension('ext.a', (ctx) => {
+        ctx.host.registerCommand({ id: 'ext.a.cmd', run: () => undefined });
+        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'ext.a.cmd' });
       }),
     );
     attachKeybindingDispatcher(registry, target);
@@ -201,9 +201,9 @@ describe('attachKeybindingDispatcher', () => {
     const target = document.createElement('div');
     const run = vi.fn();
     registry.activate(
-      plugin('plugin.a', (ctx) => {
-        ctx.host.registerCommand({ id: 'plugin.a.cmd', run });
-        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'plugin.a.cmd' });
+      extension('ext.a', (ctx) => {
+        ctx.host.registerCommand({ id: 'ext.a.cmd', run });
+        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'ext.a.cmd' });
       }),
     );
     attachKeybindingDispatcher(registry, target);
@@ -220,11 +220,11 @@ describe('attachKeybindingDispatcher', () => {
     const runFirst = vi.fn();
     const runSecond = vi.fn();
     registry.activate(
-      plugin('plugin.a', (ctx) => {
-        ctx.host.registerCommand({ id: 'plugin.a.first', run: runFirst });
-        ctx.host.registerCommand({ id: 'plugin.a.second', run: runSecond });
-        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'plugin.a.first' });
-        ctx.host.registerKeybinding({ key: 'Ctrl+H', command: 'plugin.a.second' });
+      extension('ext.a', (ctx) => {
+        ctx.host.registerCommand({ id: 'ext.a.first', run: runFirst });
+        ctx.host.registerCommand({ id: 'ext.a.second', run: runSecond });
+        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'ext.a.first' });
+        ctx.host.registerKeybinding({ key: 'Ctrl+H', command: 'ext.a.second' });
       }),
     );
     attachKeybindingDispatcher(registry, target);
@@ -240,8 +240,8 @@ describe('attachKeybindingDispatcher', () => {
     const registry = createRegistry();
     const target = document.createElement('div');
     registry.activate(
-      plugin('plugin.a', (ctx) => {
-        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'plugin.a.does-not-exist' });
+      extension('ext.a', (ctx) => {
+        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'ext.a.does-not-exist' });
       }),
     );
     attachKeybindingDispatcher(registry, target);
@@ -257,12 +257,12 @@ describe('attachKeybindingDispatcher', () => {
     const target = document.createElement('div');
     const run = vi.fn();
     registry.activate(
-      plugin('plugin.a', (ctx) => {
-        ctx.host.registerCommand({ id: 'plugin.a.cmd', run });
+      extension('ext.a', (ctx) => {
+        ctx.host.registerCommand({ id: 'ext.a.cmd', run });
         // First keybinding has a malformed key (empty token from a stray "+");
         // dispatcher should log and continue, then match the second one.
-        ctx.host.registerKeybinding({ key: 'Ctrl++G', command: 'plugin.a.cmd' });
-        ctx.host.registerKeybinding({ key: 'Ctrl+H', command: 'plugin.a.cmd' });
+        ctx.host.registerKeybinding({ key: 'Ctrl++G', command: 'ext.a.cmd' });
+        ctx.host.registerKeybinding({ key: 'Ctrl+H', command: 'ext.a.cmd' });
       }),
     );
     attachKeybindingDispatcher(registry, target);
@@ -278,12 +278,12 @@ describe('attachKeybindingDispatcher', () => {
     const registry = createRegistry();
     const target = document.createElement('div');
     registry.activate(
-      plugin('plugin.a', (ctx) => {
+      extension('ext.a', (ctx) => {
         ctx.host.registerCommand({
-          id: 'plugin.a.async-boom',
+          id: 'ext.a.async-boom',
           run: () => Promise.reject(new Error('async-boom')),
         });
-        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'plugin.a.async-boom' });
+        ctx.host.registerKeybinding({ key: 'Ctrl+G', command: 'ext.a.async-boom' });
       }),
     );
     attachKeybindingDispatcher(registry, target);

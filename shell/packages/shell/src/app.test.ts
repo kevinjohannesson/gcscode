@@ -2,15 +2,15 @@ import { render, screen, within } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import { describe, expect, it } from 'vitest';
 
-import type { Plugin } from '@gcscode/plugin-api';
+import type { Extension } from '@gcscode/extension-api';
 
-import { createRegistry } from './plugin-host/registry';
+import { createRegistry } from './extension-host/registry';
 import App from './app.svelte';
 import MockContent from './__fixtures__/mock-content.svelte';
 import MockLeft from './__fixtures__/mock-left.svelte';
 import MockRight from './__fixtures__/mock-right.svelte';
 
-function makePlugin(activate: Plugin['activate']): Plugin {
+function makeExtension(activate: Extension['activate']): Extension {
   return {
     id: 'test',
     displayName: 'Test',
@@ -20,7 +20,7 @@ function makePlugin(activate: Plugin['activate']): Plugin {
 }
 
 describe('app.svelte', () => {
-  it('shows the empty state when no plugins are registered', () => {
+  it('shows the empty state when no extensions are registered', () => {
     const registry = createRegistry();
     render(App, { props: { registry } });
     expect(screen.getByTestId('empty-state')).toBeInTheDocument();
@@ -29,7 +29,7 @@ describe('app.svelte', () => {
   it('renders every registered view', () => {
     const registry = createRegistry();
     registry.activate(
-      makePlugin((ctx) => {
+      makeExtension((ctx) => {
         ctx.host.registerView({ id: 'test.view', component: MockContent });
       }),
     );
@@ -48,7 +48,7 @@ describe('app.svelte', () => {
   it('places status bar items in the side that matches alignment', () => {
     const registry = createRegistry();
     registry.activate(
-      makePlugin((ctx) => {
+      makeExtension((ctx) => {
         ctx.host.registerStatusBarItem({
           id: 'test.left',
           component: MockLeft,
@@ -75,7 +75,7 @@ describe('app.svelte', () => {
   it('renders multiple items on the same side in registration order', () => {
     const registry = createRegistry();
     registry.activate(
-      makePlugin((ctx) => {
+      makeExtension((ctx) => {
         ctx.host.registerStatusBarItem({
           id: 'test.first',
           component: MockLeft,
@@ -102,7 +102,7 @@ describe('app.svelte', () => {
     expect(screen.getByTestId('empty-state')).toBeInTheDocument();
 
     registry.activate(
-      makePlugin((ctx) => {
+      makeExtension((ctx) => {
         ctx.host.registerView({ id: 'late.view', component: MockContent });
       }),
     );
@@ -115,7 +115,7 @@ describe('app.svelte', () => {
   it('reflects post-mount view deactivation in the rendered UI', () => {
     const registry = createRegistry();
     registry.activate(
-      makePlugin((ctx) => {
+      makeExtension((ctx) => {
         ctx.subscriptions.push(ctx.host.registerView({ id: 'test.view', component: MockContent }));
       }),
     );
@@ -134,7 +134,7 @@ describe('app.svelte', () => {
     render(App, { props: { registry } });
 
     registry.activate(
-      makePlugin((ctx) => {
+      makeExtension((ctx) => {
         ctx.host.registerStatusBarItem({
           id: 'late.left',
           component: MockLeft,

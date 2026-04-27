@@ -15,8 +15,8 @@ export default [
     languageOptions: { parserOptions: { parser: ts.parser } },
   },
   {
-    files: ['packages/plugin-*/**/*.{ts,svelte}'],
-    ignores: ['packages/plugin-api/**'],
+    files: ['packages/extension-*/**/*.{ts,svelte}'],
+    ignores: ['packages/extension-api/**'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -25,11 +25,11 @@ export default [
             {
               group: ['@gcscode/shell', '@gcscode/shell/*'],
               message:
-                'Plugins must only import from @gcscode/plugin-api. Shell internals are not part of the plugin API.',
+                'Extensions must only import from @gcscode/extension-api. Shell internals are not part of the extension API.',
             },
             {
               group: ['../../*', '../../../*'],
-              message: 'Plugins must not use relative imports that escape the package root.',
+              message: 'Extensions must not use relative imports that escape the package root.',
             },
           ],
         },
