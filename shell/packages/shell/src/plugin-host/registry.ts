@@ -10,6 +10,8 @@ import type {
   ViewContribution,
 } from '@gcscode/plugin-api';
 
+import { SvelteMap } from 'svelte/reactivity';
+
 export interface Registry {
   activate(plugin: Plugin): void;
   deactivate(pluginId: string): void;
@@ -20,18 +22,17 @@ export interface Registry {
   executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
 }
 
-// Invariant: registry mutations (activate, deactivate, individual dispose
-// calls) do not propagate reactively to mounted consumers. Consumers read
-// via $derived(registry.listViews()), which snapshots at mount time. Post-
-// mount mutation works at the registry level but the rendered UI will not
-// update. Reactive propagation is out of scope (see docs/out-of-scope.md);
-// pre-mount activation and test-only deactivation are the supported callers
-// today.
+// Invariant: registry mutations propagate reactively to mounted consumers.
+// The four contribution maps are SvelteMap instances (from svelte/reactivity),
+// so $derived(registry.list*()) re-tracks on set/delete and the rendered UI
+// updates without remount. subscriptionsByPlugin stays a plain Map because no
+// UI consumer reads it — the registry uses it internally for deactivate
+// orchestration only.
 export function createRegistry(): Registry {
-  const views = new Map<string, ViewContribution>();
-  const statusBarItems = new Map<string, StatusBarItemContribution>();
-  const commands = new Map<string, CommandContribution>();
-  const keybindings = new Map<string, KeybindingContribution>();
+  const views = new SvelteMap<string, ViewContribution>();
+  const statusBarItems = new SvelteMap<string, StatusBarItemContribution>();
+  const commands = new SvelteMap<string, CommandContribution>();
+  const keybindings = new SvelteMap<string, KeybindingContribution>();
   const subscriptionsByPlugin = new Map<string, readonly Disposable[]>();
 
   function execute<T>(id: string, args: unknown[], attribution: string): Promise<T> {
