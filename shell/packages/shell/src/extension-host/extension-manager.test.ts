@@ -141,4 +141,91 @@ describe('createExtensionManager', () => {
       { id: 'ext.b', displayName: 'ext.b', version: '0.0.0', enabled: true },
     ]);
   });
+
+  it('register(ext, { enabled: false }) stores entry with enabled: false and does NOT activate', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const { extension, activate } = makeViewExtension('ext.a');
+
+    manager.register(extension, { enabled: false });
+
+    expect(activate).not.toHaveBeenCalled();
+    expect(registry.listViews()).toHaveLength(0);
+    expect(manager.listExtensions()).toEqual([
+      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: false },
+    ]);
+  });
+
+  it('register(ext, { enabled: false }) followed by setEnabled(id, true) activates', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const { extension, activate } = makeViewExtension('ext.a');
+
+    manager.register(extension, { enabled: false });
+    manager.setEnabled('ext.a', true);
+
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent }]);
+  });
+
+  it('onEnabledChanged fires from setEnabled with matching (id, enabled) arguments', () => {
+    const registry = createRegistry();
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    const { extension } = makeViewExtension('ext.a');
+
+    manager.register(extension);
+    manager.setEnabled('ext.a', false);
+
+    expect(onEnabledChanged).toHaveBeenCalledTimes(1);
+    expect(onEnabledChanged).toHaveBeenCalledWith('ext.a', false);
+  });
+
+  it('onEnabledChanged does NOT fire from same-value setEnabled (no-op path)', () => {
+    const registry = createRegistry();
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    const { extension } = makeViewExtension('ext.a');
+
+    manager.register(extension);
+    manager.setEnabled('ext.a', true); // already true — no-op
+
+    expect(onEnabledChanged).not.toHaveBeenCalled();
+  });
+
+  it('onEnabledChanged does NOT fire from register regardless of enabled option', () => {
+    const registry = createRegistry();
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    const { extension: a } = makeViewExtension('ext.a');
+    const { extension: b } = makeViewExtension('ext.b');
+
+    manager.register(a, { enabled: true });
+    manager.register(b, { enabled: false });
+
+    expect(onEnabledChanged).not.toHaveBeenCalled();
+  });
+
+  it('register(ext, { enabled: true }) is equivalent to register(ext)', () => {
+    const registry1 = createRegistry();
+    const manager1 = createExtensionManager(registry1);
+    const { extension: ext1, activate: activate1 } = makeViewExtension('ext.a');
+    manager1.register(ext1);
+
+    const registry2 = createRegistry();
+    const manager2 = createExtensionManager(registry2);
+    const { extension: ext2, activate: activate2 } = makeViewExtension('ext.a');
+    manager2.register(ext2, { enabled: true });
+
+    expect(activate1).toHaveBeenCalledTimes(1);
+    expect(activate2).toHaveBeenCalledTimes(1);
+    expect(registry1.listViews()).toHaveLength(1);
+    expect(registry2.listViews()).toHaveLength(1);
+    expect(manager1.listExtensions()).toEqual([
+      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+    ]);
+    expect(manager2.listExtensions()).toEqual([
+      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+    ]);
+  });
 });

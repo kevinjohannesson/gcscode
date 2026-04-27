@@ -17,7 +17,7 @@ export interface ExtensionRecord {
 }
 
 export interface ExtensionManager {
-  register(extension: Extension): void;
+  register(extension: Extension, options?: { enabled?: boolean }): void;
   setEnabled(id: string, enabled: boolean): void;
   listExtensions(): readonly ExtensionRecord[];
 }
@@ -37,16 +37,23 @@ function toRecord(state: ExtensionState): ExtensionRecord {
 // clean state with respect to that extension id; the caller re-passes the
 // extension"). The internal map is a SvelteMap so listExtensions() is reactive
 // to setEnabled mutations — same pattern as Registry.list*() post-B2a.
-export function createExtensionManager(registry: Registry): ExtensionManager {
+export function createExtensionManager(
+  registry: Registry,
+  options: { onEnabledChanged?: (id: string, enabled: boolean) => void } = {},
+): ExtensionManager {
   const extensions = new SvelteMap<string, ExtensionState>();
+  const onEnabledChanged = options.onEnabledChanged;
 
   return {
-    register(extension) {
+    register(extension, registerOptions) {
       if (extensions.has(extension.id)) {
         throw new Error(`Extension id "${extension.id}" is already registered.`);
       }
-      extensions.set(extension.id, { extension, enabled: true });
-      registry.activate(extension);
+      const enabled = registerOptions?.enabled ?? true;
+      extensions.set(extension.id, { extension, enabled });
+      if (enabled) {
+        registry.activate(extension);
+      }
     },
     setEnabled(id, enabled) {
       const state = extensions.get(id);
@@ -62,6 +69,7 @@ export function createExtensionManager(registry: Registry): ExtensionManager {
         registry.deactivate(id);
       }
       extensions.set(id, { ...state, enabled });
+      onEnabledChanged?.(id, enabled);
     },
     listExtensions() {
       return Array.from(extensions.values()).map(toRecord);
