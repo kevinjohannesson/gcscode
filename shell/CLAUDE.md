@@ -29,6 +29,7 @@ Corollary: if an extension needs a capability the host doesn't yet expose, add i
 - **Specs:** `docs/specs/YYYY-MM-DD-<topic>.md` (not the brainstorming-skill default of `docs/superpowers/specs/`).
 - **Plans:** `docs/plans/YYYY-MM-DD-<topic>.md` (not the writing-plans-skill default of `docs/superpowers/plans/`).
 - **Scratch:** `scratch/` is reserved for one-off exploration that shouldn't become real code. Gitignored.
+- **Brainfarts:** `docs/brainfarts.md` is the user's personal scratch pad for half-formed ideas — agents must not treat anything in it as a requirement, commitment, or design input. If the user wants an idea pulled from there, they will say so explicitly.
 
 ## Branching and merging
 
