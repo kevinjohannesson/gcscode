@@ -43,31 +43,31 @@ The orchestrator MUST restate these rules in each subagent's prompt.
 
 **Files to create:**
 
-| Path | Responsibility |
-|---|---|
-| `packages/extension-vehicle-status/package.json` | Package manifest. Workspace deps on `@gcscode/extension-api` and `@gcscode/extension-sitl`; svelte peer dep. |
-| `packages/extension-vehicle-status/tsconfig.json` | Extends root `tsconfig.base.json`. |
-| `packages/extension-vehicle-status/vitest.config.ts` | Vitest config matching `extension-sitl/vitest.config.ts`. |
-| `packages/extension-vehicle-status/README.md` | Package purpose + contributions + dependencies — mirrors `extension-sitl/README.md`. |
-| `packages/extension-vehicle-status/src/index.ts` | Defines `vehicleStatusExtension` + the `getSitlExports` consumer helper. |
-| `packages/extension-vehicle-status/src/index.test.ts` | 3 tests (identity, registration/disposal, getSitlExports helper). |
-| `packages/extension-vehicle-status/src/vehicle-status-item.svelte` | Status bar component. Reads via `$derived(getSitlExports())` and renders the formatted summary. |
+| Path                                                               | Responsibility                                                                                               |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `packages/extension-vehicle-status/package.json`                   | Package manifest. Workspace deps on `@gcscode/extension-api` and `@gcscode/extension-sitl`; svelte peer dep. |
+| `packages/extension-vehicle-status/tsconfig.json`                  | Extends root `tsconfig.base.json`.                                                                           |
+| `packages/extension-vehicle-status/vitest.config.ts`               | Vitest config matching `extension-sitl/vitest.config.ts`.                                                    |
+| `packages/extension-vehicle-status/README.md`                      | Package purpose + contributions + dependencies — mirrors `extension-sitl/README.md`.                         |
+| `packages/extension-vehicle-status/src/index.ts`                   | Defines `vehicleStatusExtension` + the `getSitlExports` consumer helper.                                     |
+| `packages/extension-vehicle-status/src/index.test.ts`              | 3 tests (identity, registration/disposal, getSitlExports helper).                                            |
+| `packages/extension-vehicle-status/src/vehicle-status-item.svelte` | Status bar component. Reads via `$derived(getSitlExports())` and renders the formatted summary.              |
 
 **Files to modify:**
 
-| Path | Responsibility |
-|---|---|
-| `packages/extension-api/src/index.ts` | `Extension.activate()` return type → `unknown`; add `ExtensionHost.getExtension<T>(id)`. |
-| `packages/shell/src/extension-host/registry.ts` | Add `exportsByExtension: SvelteMap<string, unknown>`; capture return value in `activate`; clear in `deactivate`; expose `getExtension` on `createHost`. |
-| `packages/shell/src/extension-host/registry.test.ts` | Add 6 new tests for exports lifecycle. |
-| `packages/shell/src/extension-host/extension-manifest.ts` | Bundle `vehicleStatusExtension` after `sitlExtension`. |
-| `packages/shell/src/extension-host/extension-manifest.test.ts` | Add a test that vehicle-status appears after SITL. |
-| `packages/extension-sitl/src/index.ts` | Add `SitlExports` interface; `activate` returns `{ telemetry: telemetryState }`. |
-| `packages/extension-sitl/src/index.test.ts` | Add 1 test for the new return value. |
-| `eslint.config.ts` | Replace `no-restricted-imports` with `@typescript-eslint/no-restricted-imports`; add the sibling-extension `allowTypeImports` pattern. |
-| `CLAUDE.md` | Boundary-rule paragraph rewrite per ADR-0005. |
-| `docs/out-of-scope.md` | Add bullet about extension activation ordering & `extensionDependencies` deferral. |
-| `docs/roadmap.md` | Add `Vehicle status` checked + `Webview wing + Preact battery widget` unchecked. |
+| Path                                                           | Responsibility                                                                                                                                          |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/extension-api/src/index.ts`                          | `Extension.activate()` return type → `unknown`; add `ExtensionHost.getExtension<T>(id)`.                                                                |
+| `packages/shell/src/extension-host/registry.ts`                | Add `exportsByExtension: SvelteMap<string, unknown>`; capture return value in `activate`; clear in `deactivate`; expose `getExtension` on `createHost`. |
+| `packages/shell/src/extension-host/registry.test.ts`           | Add 6 new tests for exports lifecycle.                                                                                                                  |
+| `packages/shell/src/extension-host/extension-manifest.ts`      | Bundle `vehicleStatusExtension` after `sitlExtension`.                                                                                                  |
+| `packages/shell/src/extension-host/extension-manifest.test.ts` | Add a test that vehicle-status appears after SITL.                                                                                                      |
+| `packages/extension-sitl/src/index.ts`                         | Add `SitlExports` interface; `activate` returns `{ telemetry: telemetryState }`.                                                                        |
+| `packages/extension-sitl/src/index.test.ts`                    | Add 1 test for the new return value.                                                                                                                    |
+| `eslint.config.ts`                                             | Replace `no-restricted-imports` with `@typescript-eslint/no-restricted-imports`; add the sibling-extension `allowTypeImports` pattern.                  |
+| `CLAUDE.md`                                                    | Boundary-rule paragraph rewrite per ADR-0005.                                                                                                           |
+| `docs/out-of-scope.md`                                         | Add bullet about extension activation ordering & `extensionDependencies` deferral.                                                                      |
+| `docs/roadmap.md`                                              | Add `Vehicle status` checked + `Webview wing + Preact battery widget` unchecked.                                                                        |
 
 No other files are touched. `@gcscode/extension-example`, `extension-manager.ts`, `extension-persistence.ts`, `keybinding-dispatcher.ts`, `app.svelte`, `main.ts`, `pnpm-workspace.yaml` (uses `packages/*` glob) all stay as-is.
 
@@ -76,6 +76,7 @@ No other files are touched. `@gcscode/extension-example`, `extension-manager.ts`
 ## Task 1: API contract (`@gcscode/extension-api`)
 
 **Files:**
+
 - Modify: `packages/extension-api/src/index.ts`
 
 Pure type-only change. There is no runtime behavior to test; verification is `pnpm check`. No test file changes for this task.
@@ -161,9 +162,11 @@ export interface Extension extends ExtensionIdentity {
 - [ ] **Step 2: Verify the package type-checks**
 
 Run from the worktree root:
+
 ```bash
 pnpm --filter @gcscode/extension-api check
 ```
+
 Expected: clean exit. No errors.
 
 - [ ] **Step 3: Verify the rest of the workspace still type-checks**
@@ -171,6 +174,7 @@ Expected: clean exit. No errors.
 ```bash
 pnpm check
 ```
+
 Expected: clean exit across all packages. (`@gcscode/extension-example` and `@gcscode/extension-sitl` continue to compile because their `activate()` implementations satisfy `unknown`.)
 
 - [ ] **Step 4: Commit**
@@ -190,6 +194,7 @@ publish exports. Both per ADR-0005."
 ## Task 2: Registry exports plumbing
 
 **Files:**
+
 - Modify: `packages/shell/src/extension-host/registry.ts`
 - Modify: `packages/shell/src/extension-host/registry.test.ts`
 
@@ -313,6 +318,7 @@ The test helper `extension(id, activate)` already exists at the top of the file 
 ```bash
 pnpm --filter @gcscode/shell test registry
 ```
+
 Expected: 6 new failures, all reporting that `host.getExtension` is not a function (or undefined).
 
 - [ ] **Step 3: Implement the registry changes**
@@ -421,6 +427,7 @@ The presence check (`exportsByExtension.has(id)`) is what the SvelteMap reactive
 ```bash
 pnpm --filter @gcscode/shell test registry
 ```
+
 Expected: all tests pass — the 6 new ones plus all existing ones.
 
 - [ ] **Step 5: Run all shell tests to confirm no regression**
@@ -428,6 +435,7 @@ Expected: all tests pass — the 6 new ones plus all existing ones.
 ```bash
 pnpm --filter @gcscode/shell test
 ```
+
 Expected: clean.
 
 - [ ] **Step 6: Type-check**
@@ -435,6 +443,7 @@ Expected: clean.
 ```bash
 pnpm --filter @gcscode/shell check
 ```
+
 Expected: clean.
 
 - [ ] **Step 7: Commit**
@@ -457,6 +466,7 @@ Per ADR-0005 + spec 2026-04-29-iteration-a-extension-exports."
 ## Task 3: SITL exports
 
 **Files:**
+
 - Modify: `packages/extension-sitl/src/index.ts`
 - Modify: `packages/extension-sitl/src/index.test.ts`
 
@@ -529,6 +539,7 @@ If those imports aren't already at the top of the test file, add the missing one
 ```bash
 pnpm --filter @gcscode/extension-sitl test index
 ```
+
 Expected: failure on the import — `SitlExports` is not exported from `./index` yet. (Or, if you skip the import update, the test fails because `activate` returns void.)
 
 - [ ] **Step 3: Add `SitlExports` and return it from `activate`**
@@ -630,6 +641,7 @@ The body is unchanged apart from the explicit `return { telemetry: telemetryStat
 ```bash
 pnpm --filter @gcscode/extension-sitl test index
 ```
+
 Expected: all tests pass.
 
 - [ ] **Step 5: Run all SITL tests to confirm no regression**
@@ -637,6 +649,7 @@ Expected: all tests pass.
 ```bash
 pnpm --filter @gcscode/extension-sitl test
 ```
+
 Expected: clean.
 
 - [ ] **Step 6: Type-check the package**
@@ -644,6 +657,7 @@ Expected: clean.
 ```bash
 pnpm --filter @gcscode/extension-sitl check
 ```
+
 Expected: clean.
 
 - [ ] **Step 7: Commit**
@@ -665,6 +679,7 @@ Per ADR-0005 + spec 2026-04-29-iteration-a-extension-exports."
 ## Task 4: New `@gcscode/extension-vehicle-status` package
 
 **Files:**
+
 - Create: `packages/extension-vehicle-status/package.json`
 - Create: `packages/extension-vehicle-status/tsconfig.json`
 - Create: `packages/extension-vehicle-status/vitest.config.ts`
@@ -832,11 +847,7 @@ Path: `packages/extension-vehicle-status/src/index.test.ts`:
 ```ts
 import { describe, expect, it, vi } from 'vitest';
 
-import type {
-  Disposable,
-  ExtensionHost,
-  StatusBarItemContribution,
-} from '@gcscode/extension-api';
+import type { Disposable, ExtensionHost, StatusBarItemContribution } from '@gcscode/extension-api';
 import type { SitlExports } from '@gcscode/extension-sitl';
 
 import { getSitlExports, vehicleStatusExtension } from './index';
@@ -847,8 +858,7 @@ function makeFakeHost(opts: {
 }): ExtensionHost {
   return {
     registerView: vi.fn(() => ({ dispose: () => {} })),
-    registerStatusBarItem:
-      opts.registerStatusBarItem ?? vi.fn(() => ({ dispose: () => {} })),
+    registerStatusBarItem: opts.registerStatusBarItem ?? vi.fn(() => ({ dispose: () => {} })),
     registerCommand: vi.fn(() => ({ dispose: () => {} })),
     registerKeybinding: vi.fn(() => ({ dispose: () => {} })),
     executeCommand: vi.fn(() => Promise.resolve()),
@@ -960,7 +970,6 @@ Path: `packages/extension-vehicle-status/README.md`. Mirror `packages/extension-
 # @gcscode/extension-vehicle-status
 
 First consumer of cross-extension exports. Registers a footer status bar item that summarises live SITL telemetry as a single line:
-
 ```
 
 SITL: GUIDED • -35.36°/149.17° • 47%
@@ -993,6 +1002,7 @@ SITL: GUIDED • -35.36°/149.17° • 47%
 ```bash
 pnpm install
 ```
+
 Expected: pnpm picks up the new package (the workspace uses a `packages/*` glob in `pnpm-workspace.yaml`).
 
 - [ ] **Step 9: Run the new package's tests**
@@ -1000,6 +1010,7 @@ Expected: pnpm picks up the new package (the workspace uses a `packages/*` glob 
 ```bash
 pnpm --filter @gcscode/extension-vehicle-status test
 ```
+
 Expected: 3 tests pass.
 
 - [ ] **Step 10: Type-check the new package**
@@ -1007,6 +1018,7 @@ Expected: 3 tests pass.
 ```bash
 pnpm --filter @gcscode/extension-vehicle-status check
 ```
+
 Expected: clean.
 
 - [ ] **Step 11: Run all workspace tests to confirm no regression**
@@ -1014,6 +1026,7 @@ Expected: clean.
 ```bash
 pnpm test
 ```
+
 Expected: clean.
 
 - [ ] **Step 12: Commit**
@@ -1041,6 +1054,7 @@ extension packages."
 ## Task 5: Bundle vehicle-status into the manifest
 
 **Files:**
+
 - Modify: `packages/shell/src/extension-host/extension-manifest.ts`
 - Modify: `packages/shell/src/extension-host/extension-manifest.test.ts`
 
@@ -1063,6 +1077,7 @@ it('bundles vehicle-status after sitl so the consumer activates after the produc
 ```bash
 pnpm --filter @gcscode/shell test extension-manifest
 ```
+
 Expected: failure — `gcscode.vehicle-status` is not in the bundle yet (`vehicleStatusIndex === -1`).
 
 - [ ] **Step 3: Add `vehicleStatusExtension` to the manifest**
@@ -1117,6 +1132,7 @@ export const bundledExtensions: readonly ManifestEntry[] = [
 ```bash
 pnpm --filter @gcscode/shell test extension-manifest
 ```
+
 Expected: 3 tests pass (2 existing + 1 new).
 
 - [ ] **Step 5: Run all shell tests**
@@ -1124,6 +1140,7 @@ Expected: 3 tests pass (2 existing + 1 new).
 ```bash
 pnpm --filter @gcscode/shell test
 ```
+
 Expected: clean.
 
 - [ ] **Step 6: Type-check the workspace**
@@ -1131,6 +1148,7 @@ Expected: clean.
 ```bash
 pnpm check
 ```
+
 Expected: clean across all 5 packages.
 
 - [ ] **Step 7: Commit**
@@ -1154,6 +1172,7 @@ expected runtime behaviour."
 ## Task 6: ESLint refinement (sibling-extension type-only imports)
 
 **Files:**
+
 - Modify: `eslint.config.ts`
 
 - [ ] **Step 1: Update `eslint.config.ts`**
@@ -1226,6 +1245,7 @@ The `'no-restricted-imports': 'off'` line disables the built-in rule so it doesn
 ```bash
 pnpm lint
 ```
+
 Expected: clean — `@gcscode/extension-vehicle-status` only `import type`s from `@gcscode/extension-sitl`, so the new rule passes.
 
 - [ ] **Step 3: Verify the rule rejects a deliberate violation**
@@ -1237,29 +1257,37 @@ Temporarily add a value import to confirm the rule fires:
 ```
 
 Edit `packages/extension-vehicle-status/src/index.ts` and change the SITL import line from:
+
 ```ts
 import type { SitlExports } from '@gcscode/extension-sitl';
 ```
+
 to:
+
 ```ts
 import { sitlExtension, type SitlExports } from '@gcscode/extension-sitl';
 ```
 
 Then run:
+
 ```bash
 pnpm lint 2>&1 | grep -A1 "extension-sitl"
 ```
+
 Expected: an error message including the configured text "Extensions may only type-import from sibling extension packages (use \`import type\`). Runtime imports must go through @gcscode/extension-api. (ADR-0005)".
 
 Revert the change:
+
 ```ts
 import type { SitlExports } from '@gcscode/extension-sitl';
 ```
 
 Confirm lint is clean again:
+
 ```bash
 pnpm lint
 ```
+
 Expected: clean.
 
 - [ ] **Step 4: Commit**
@@ -1285,6 +1313,7 @@ Per ADR-0005 + spec 2026-04-29-iteration-a-extension-exports."
 ## Task 7: Doc propagation (CLAUDE.md, out-of-scope, roadmap)
 
 **Files:**
+
 - Modify: `CLAUDE.md`
 - Modify: `docs/out-of-scope.md`
 - Modify: `docs/roadmap.md`
@@ -1348,6 +1377,7 @@ Eyeball the diff for typos, missing newlines, or broken Markdown. If the editor 
 pnpm lint
 pnpm format
 ```
+
 Expected: clean. (Prettier may reformat the `docs/*.md` files; that's fine.)
 
 - [ ] **Step 6: Run all workspace checks one last time**
@@ -1357,6 +1387,7 @@ pnpm check
 pnpm test
 pnpm lint
 ```
+
 Expected: all clean across all 5 packages.
 
 - [ ] **Step 7: Commit**
@@ -1392,6 +1423,7 @@ pnpm test
 pnpm lint
 pnpm --filter @gcscode/shell build
 ```
+
 Expected: all clean. Workspace test count grows from 139 → ~149 (10 new tests across registry, sitl, vehicle-status, manifest).
 
 - [ ] **Dev-server smoke test (manual, with `mavlink2rest` running)**

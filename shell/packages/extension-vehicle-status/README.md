@@ -19,7 +19,7 @@ SITL: GUIDED • -35.36°/149.17° • 47%
 - SITL not active: shows `SITL: —`.
 - SITL active, WebSocket connecting: shows `SITL: connecting…`.
 - SITL active, WebSocket disconnected: shows `SITL: disconnected`.
-- SITL active and connected: shows `SITL: <mode>` plus available coordinates and battery percentage joined by ` • `.
+- SITL active and connected: shows `SITL: <mode>` plus available coordinates and battery percentage joined by `•`.
 
 ## See also
 

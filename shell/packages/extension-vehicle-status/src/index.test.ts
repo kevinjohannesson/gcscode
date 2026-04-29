@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type {
-  Disposable,
-  ExtensionHost,
-  StatusBarItemContribution,
-} from '@gcscode/extension-api';
+import type { Disposable, ExtensionHost, StatusBarItemContribution } from '@gcscode/extension-api';
 import type { SitlExports } from '@gcscode/extension-sitl';
 
 import { getSitlExports, vehicleStatusExtension } from './index';
@@ -15,8 +11,7 @@ function makeFakeHost(opts: {
 }): ExtensionHost {
   return {
     registerView: vi.fn(() => ({ dispose: () => {} })),
-    registerStatusBarItem:
-      opts.registerStatusBarItem ?? vi.fn(() => ({ dispose: () => {} })),
+    registerStatusBarItem: opts.registerStatusBarItem ?? vi.fn(() => ({ dispose: () => {} })),
     registerCommand: vi.fn(() => ({ dispose: () => {} })),
     registerKeybinding: vi.fn(() => ({ dispose: () => {} })),
     executeCommand: vi.fn(() => Promise.resolve()) as ExtensionHost['executeCommand'],

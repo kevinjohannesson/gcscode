@@ -16,7 +16,11 @@ Package root is the repo root. Shared tooling at the root: ESLint flat config, P
 
 ## Boundary rule — load bearing
 
-**Extension packages import ONLY from `@gcscode/extension-api`.** No imports from `@gcscode/shell`. No relative imports that escape the package root. ESLint enforces this; package boundaries in pnpm workspaces reinforce it. Don't work around either.
+**Extension packages import RUNTIME only from `@gcscode/extension-api`.** No runtime imports from `@gcscode/shell` or sibling extension packages. No relative imports that escape the package root.
+
+**Type-only imports from sibling extension packages are allowed**, exclusively for consuming cross-extension `exports` (see [ADR-0005](docs/decisions/ADR-0005-extension-boundaries.md)). The runtime boundary stays preserved — `import type` is erased at compile time. Anything that emits JS at runtime against a sibling extension package is a violation.
+
+ESLint enforces both rules (`@typescript-eslint/no-restricted-imports` with `allowTypeImports: true` for the sibling pattern). Don't work around either.
 
 Corollary: if an extension needs a capability the host doesn't yet expose, add it to `@gcscode/extension-api` first (as a new method on `ExtensionHost` — typically a `register*` for a new kind, or a verb like `executeCommand` — or a new field on `ExtensionContext`), land that, then use it. Never reach around the API.
 
