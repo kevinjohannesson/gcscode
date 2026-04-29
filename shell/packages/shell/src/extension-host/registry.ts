@@ -23,8 +23,9 @@ export interface Registry {
 }
 
 // Invariant: registry mutations propagate reactively to mounted consumers.
-// The four contribution maps are SvelteMap instances (from svelte/reactivity),
-// so $derived(registry.list*()) re-tracks on set/delete and the rendered UI
+// The four contribution maps and the cross-extension exports map are SvelteMap
+// instances (from svelte/reactivity), so $derived(registry.list*()) and
+// $derived(host.getExtension(...)) re-track on set/delete and the rendered UI
 // updates without remount. subscriptionsByExtension and deactivateHooksByExtension
 // stay plain Maps because no UI consumer reads them — the registry uses them
 // internally for deactivate orchestration only.
@@ -33,6 +34,7 @@ export function createRegistry(): Registry {
   const statusBarItems = new SvelteMap<string, StatusBarItemContribution>();
   const commands = new SvelteMap<string, CommandContribution>();
   const keybindings = new SvelteMap<string, KeybindingContribution>();
+  const exportsByExtension = new SvelteMap<string, unknown>();
   const subscriptionsByExtension = new Map<string, readonly Disposable[]>();
   const deactivateHooksByExtension = new Map<string, () => void | Promise<void>>();
 
@@ -117,9 +119,9 @@ export function createRegistry(): Registry {
       executeCommand<T>(id: string, ...args: unknown[]): Promise<T> {
         return execute<T>(id, args, `extension "${extension.id}"`);
       },
-      getExtension<T = unknown>(_id: string): { id: string; exports: T } | undefined {
-        // Stub — Task 2 replaces this with the SvelteMap-backed reader.
-        return undefined;
+      getExtension<T = unknown>(id: string): { id: string; exports: T } | undefined {
+        if (!exportsByExtension.has(id)) return undefined;
+        return { id, exports: exportsByExtension.get(id) as T };
       },
     };
   }
@@ -136,11 +138,12 @@ export function createRegistry(): Registry {
         subscriptions: [],
         extension: identity,
       };
-      extension.activate(context);
+      const exportsValue = extension.activate(context);
       subscriptionsByExtension.set(identity.id, context.subscriptions);
       if (extension.deactivate) {
         deactivateHooksByExtension.set(identity.id, extension.deactivate.bind(extension));
       }
+      exportsByExtension.set(identity.id, exportsValue);
     },
     async deactivate(extensionId) {
       const subscriptions = subscriptionsByExtension.get(extensionId);
@@ -169,6 +172,7 @@ export function createRegistry(): Registry {
       }
       subscriptionsByExtension.delete(extensionId);
       deactivateHooksByExtension.delete(extensionId);
+      exportsByExtension.delete(extensionId);
     },
     listViews() {
       return Array.from(views.values());

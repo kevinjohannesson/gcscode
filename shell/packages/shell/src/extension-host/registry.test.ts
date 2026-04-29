@@ -844,4 +844,109 @@ describe('createRegistry', () => {
       consoleErrorSpy.mockRestore();
     }
   });
+
+  it('exposes activate() return value via host.getExtension', async () => {
+    const registry = createRegistry();
+    let lookupHost: ExtensionHost | undefined;
+    registry.activate({
+      id: 'ext.producer',
+      displayName: 'Producer',
+      version: '0.0.0',
+      activate: (ctx) => {
+        lookupHost = ctx.host;
+        return { hello: 'world' };
+      },
+    });
+    // Lookup from any host instance works — they share the same registry.
+    const wrapper = lookupHost!.getExtension<{ hello: string }>('ext.producer');
+    expect(wrapper).toBeDefined();
+    expect(wrapper!.id).toBe('ext.producer');
+    expect(wrapper!.exports.hello).toBe('world');
+  });
+
+  it('host.getExtension wrapper exists with undefined exports for void activate', () => {
+    const registry = createRegistry();
+    let lookupHost: ExtensionHost | undefined;
+    registry.activate(
+      extension('ext.silent', (ctx) => {
+        lookupHost = ctx.host;
+        // No return value.
+      }),
+    );
+    const wrapper = lookupHost!.getExtension('ext.silent');
+    expect(wrapper).toBeDefined();
+    expect(wrapper!.exports).toBeUndefined();
+  });
+
+  it('deactivate clears exports — getExtension returns undefined afterward', async () => {
+    const registry = createRegistry();
+    let lookupHost: ExtensionHost | undefined;
+    registry.activate({
+      id: 'ext.producer',
+      displayName: 'Producer',
+      version: '0.0.0',
+      activate: (ctx) => {
+        lookupHost = ctx.host;
+        return { hello: 'world' };
+      },
+    });
+    expect(lookupHost!.getExtension('ext.producer')).toBeDefined();
+    await registry.deactivate('ext.producer');
+    expect(lookupHost!.getExtension('ext.producer')).toBeUndefined();
+  });
+
+  it('host.getExtension returns undefined for an unregistered id', () => {
+    const registry = createRegistry();
+    let lookupHost: ExtensionHost | undefined;
+    registry.activate(
+      extension('ext.observer', (ctx) => {
+        lookupHost = ctx.host;
+      }),
+    );
+    expect(lookupHost!.getExtension('ext.never-registered')).toBeUndefined();
+  });
+
+  it('re-activating after deactivate publishes fresh exports', async () => {
+    const registry = createRegistry();
+    let lookupHost: ExtensionHost | undefined;
+    const makeProducer = (payload: string): Extension => ({
+      id: 'ext.producer',
+      displayName: 'Producer',
+      version: '0.0.0',
+      activate: (ctx) => {
+        lookupHost = ctx.host;
+        return { payload };
+      },
+    });
+    registry.activate(makeProducer('first'));
+    expect(lookupHost!.getExtension<{ payload: string }>('ext.producer')!.exports.payload).toBe(
+      'first',
+    );
+    await registry.deactivate('ext.producer');
+    registry.activate(makeProducer('second'));
+    expect(lookupHost!.getExtension<{ payload: string }>('ext.producer')!.exports.payload).toBe(
+      'second',
+    );
+  });
+
+  it('host.getExtension defaults the generic to unknown', () => {
+    const registry = createRegistry();
+    let lookupHost: ExtensionHost | undefined;
+    registry.activate(
+      extension('ext.observer', (ctx) => {
+        lookupHost = ctx.host;
+      }),
+    );
+    registry.activate({
+      id: 'ext.producer',
+      displayName: 'Producer',
+      version: '0.0.0',
+      activate: () => ({ value: 42 }),
+    });
+    // Default generic — exports is `unknown`, narrowing required at use sites.
+    const wrapper = lookupHost!.getExtension('ext.producer');
+    expect(wrapper).toBeDefined();
+    // Cast to the producer's known shape for the assertion.
+    expect((wrapper!.exports as { value: number }).value).toBe(42);
+  });
 });
