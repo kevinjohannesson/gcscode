@@ -19,9 +19,9 @@ function makeFakeHost(opts: {
       opts.registerStatusBarItem ?? vi.fn(() => ({ dispose: () => {} })),
     registerCommand: vi.fn(() => ({ dispose: () => {} })),
     registerKeybinding: vi.fn(() => ({ dispose: () => {} })),
-    executeCommand: vi.fn(() => Promise.resolve()),
+    executeCommand: vi.fn(() => Promise.resolve()) as ExtensionHost['executeCommand'],
     getExtension: opts.getExtension ?? vi.fn(() => undefined),
-  } as unknown as ExtensionHost;
+  };
 }
 
 describe('vehicleStatusExtension', () => {
