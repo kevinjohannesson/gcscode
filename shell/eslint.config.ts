@@ -22,7 +22,8 @@ export default [
     files: ['packages/extension-*/**/*.{ts,svelte}'],
     ignores: ['packages/extension-api/**'],
     rules: {
-      'no-restricted-imports': [
+      'no-restricted-imports': 'off',
+      '@typescript-eslint/no-restricted-imports': [
         'error',
         {
           patterns: [
@@ -34,6 +35,12 @@ export default [
             {
               group: ['../../*', '../../../*'],
               message: 'Extensions must not use relative imports that escape the package root.',
+            },
+            {
+              group: ['@gcscode/extension-*', '!@gcscode/extension-api'],
+              allowTypeImports: true,
+              message:
+                'Extensions may only type-import from sibling extension packages (use `import type`). Runtime imports must go through @gcscode/extension-api. (ADR-0005)',
             },
           ],
         },
