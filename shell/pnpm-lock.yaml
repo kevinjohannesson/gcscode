@@ -119,6 +119,9 @@ importers:
       '@gcscode/extension-sitl':
         specifier: workspace:*
         version: link:../extension-sitl
+      '@gcscode/extension-vehicle-status':
+        specifier: workspace:*
+        version: link:../extension-vehicle-status
 
 packages:
 
