@@ -949,4 +949,34 @@ describe('createRegistry', () => {
     // Cast to the producer's known shape for the assertion.
     expect((wrapper!.exports as { value: number }).value).toBe(42);
   });
+
+  it('isolates exports between concurrently-active extensions', () => {
+    const registry = createRegistry();
+    let lookupHost: ExtensionHost | undefined;
+    registry.activate(
+      extension('ext.observer', (ctx) => {
+        lookupHost = ctx.host;
+      }),
+    );
+    registry.activate({
+      id: 'ext.a',
+      displayName: 'A',
+      version: '0.0.0',
+      activate: () => ({ tag: 'a' }),
+    });
+    registry.activate({
+      id: 'ext.b',
+      displayName: 'B',
+      version: '0.0.0',
+      activate: () => ({ tag: 'b' }),
+    });
+    const a = lookupHost!.getExtension<{ tag: string }>('ext.a');
+    const b = lookupHost!.getExtension<{ tag: string }>('ext.b');
+    expect(a!.id).toBe('ext.a');
+    expect(b!.id).toBe('ext.b');
+    expect(a!.exports.tag).toBe('a');
+    expect(b!.exports.tag).toBe('b');
+    // Identity check — each extension's exports object is its own.
+    expect(a!.exports).not.toBe(b!.exports);
+  });
 });
