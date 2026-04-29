@@ -79,6 +79,22 @@ export interface ExtensionHost {
   registerCommand(command: CommandContribution): Disposable;
   registerKeybinding(keybinding: KeybindingContribution): Disposable;
   executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
+  /**
+   * Look up a currently-activated extension's exports by id. Returns the
+   * wrapper iff the extension is registered AND its `activate()` has been
+   * called and not yet undone by `deactivate()`. Returns `undefined`
+   * otherwise.
+   *
+   * The generic `T` is unsafe sugar — the host stores the activate() return
+   * value as `unknown` and casts to `T` on return. Producers and consumers
+   * commit to a shared type contract via `import type` from the producer's
+   * package; runtime drift is caught by TypeScript at producer-side compile.
+   *
+   * Reads inside reactive contexts (`$derived`, template) auto-track the
+   * underlying `SvelteMap`; consumers re-render when the producer enables /
+   * disables. See ADR-0005 for the full design.
+   */
+  getExtension<T = unknown>(id: string): { id: string; exports: T } | undefined;
 }
 
 /**
@@ -97,10 +113,14 @@ export interface ExtensionContext {
 /**
  * An extension module's named export. Identity fields give the host extension
  * identity for diagnostics; `activate(context)` is the single entry point.
+ * Returning a value from `activate()` publishes that value as the extension's
+ * exports — other extensions can look it up via `host.getExtension(id)` (see
+ * ADR-0005). Producers that don't expose an API may return nothing.
+ *
  * `deactivate?()` is an optional hook for non-disposable / async cleanup. The
  * host awaits the returned Promise (if any) before tearing down subscriptions.
  */
 export interface Extension extends ExtensionIdentity {
-  activate(context: ExtensionContext): void;
+  activate(context: ExtensionContext): unknown;
   deactivate?(): void | Promise<void>;
 }

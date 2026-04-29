@@ -32,6 +32,7 @@ describe('exampleExtension', () => {
         registerCommand,
         registerKeybinding,
         executeCommand,
+        getExtension: vi.fn(() => undefined),
       },
       subscriptions,
       extension: {
@@ -82,6 +83,7 @@ describe('exampleExtension', () => {
         registerCommand,
         registerKeybinding,
         executeCommand,
+        getExtension: vi.fn(() => undefined),
       },
       subscriptions: [],
       extension: {

@@ -12,4 +12,12 @@ describe('bundledExtensions', () => {
       expect(entry.id).toBe(entry.extension.id);
     }
   });
+
+  it('bundles vehicle-status after sitl so the consumer activates after the producer', () => {
+    const ids = bundledExtensions.map((entry) => entry.id);
+    const sitlIndex = ids.indexOf('gcscode.sitl');
+    const vehicleStatusIndex = ids.indexOf('gcscode.vehicle-status');
+    expect(sitlIndex).toBeGreaterThanOrEqual(0);
+    expect(vehicleStatusIndex).toBeGreaterThan(sitlIndex);
+  });
 });

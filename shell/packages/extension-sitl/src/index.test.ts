@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-import type { ExtensionContext } from '@gcscode/extension-api';
+import type { Disposable, ExtensionContext, ExtensionHost } from '@gcscode/extension-api';
 
-import { sitlExtension } from './index';
+import { sitlExtension, type SitlExports } from './index';
 import SitlView from './sitl-view.svelte';
 import { applyMessage, reset, telemetryState } from './telemetry-store.svelte';
 
@@ -79,6 +79,7 @@ function makeContext(): {
       registerCommand,
       registerKeybinding,
       executeCommand,
+      getExtension: vi.fn(() => undefined),
     },
     subscriptions,
     extension: {
@@ -225,5 +226,53 @@ describe('sitlExtension', () => {
     expect(telemetryState.lng).toBeNull();
     expect(telemetryState.alt).toBeNull();
     expect(telemetryState.heading).toBeNull();
+  });
+
+  it('activate returns SitlExports with the live telemetry store', () => {
+    // Stub WebSocket so activate() doesn't open a real connection.
+    vi.stubGlobal(
+      'WebSocket',
+      class {
+        readyState = 0;
+        onopen: (() => void) | null = null;
+        onmessage: ((e: { data: string }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        onclose: (() => void) | null = null;
+        close() {
+          this.readyState = 3;
+          this.onclose?.();
+        }
+      },
+    );
+
+    try {
+      const subscriptions: Disposable[] = [];
+      const fakeHost = {
+        registerView: vi.fn(() => ({ dispose: () => {} })),
+        registerStatusBarItem: vi.fn(() => ({ dispose: () => {} })),
+        registerCommand: vi.fn(() => ({ dispose: () => {} })),
+        registerKeybinding: vi.fn(() => ({ dispose: () => {} })),
+        executeCommand: vi.fn(() => Promise.resolve()),
+        getExtension: vi.fn(() => undefined),
+      } as unknown as ExtensionHost;
+      const exports = sitlExtension.activate({
+        host: fakeHost,
+        subscriptions,
+        extension: {
+          id: sitlExtension.id,
+          displayName: sitlExtension.displayName,
+          version: sitlExtension.version,
+        },
+      }) as SitlExports;
+
+      expect(exports).toBeDefined();
+      expect(exports.telemetry).toBeDefined();
+      // Identity check — the exported telemetry IS the live store, not a snapshot.
+      expect(exports.telemetry).toBe(telemetryState);
+    } finally {
+      vi.unstubAllGlobals();
+      // Clean up — the activate() opened a (mock) WebSocket; close it.
+      void sitlExtension.deactivate?.();
+    }
   });
 });

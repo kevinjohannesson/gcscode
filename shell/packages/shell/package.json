@@ -13,6 +13,7 @@
   "dependencies": {
     "@gcscode/extension-api": "workspace:*",
     "@gcscode/extension-example": "workspace:*",
-    "@gcscode/extension-sitl": "workspace:*"
+    "@gcscode/extension-sitl": "workspace:*",
+    "@gcscode/extension-vehicle-status": "workspace:*"
   }
 }
