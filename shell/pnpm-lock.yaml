@@ -96,6 +96,18 @@ importers:
         specifier: ^5.0.0
         version: 5.55.5(@typescript-eslint/types@8.59.0)
 
+  packages/extension-vehicle-status:
+    dependencies:
+      '@gcscode/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
+      '@gcscode/extension-sitl':
+        specifier: workspace:*
+        version: link:../extension-sitl
+      svelte:
+        specifier: ^5.0.0
+        version: 5.55.5(@typescript-eslint/types@8.59.0)
+
   packages/shell:
     dependencies:
       '@gcscode/extension-api':
