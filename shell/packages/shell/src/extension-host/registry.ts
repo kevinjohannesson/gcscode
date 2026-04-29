@@ -117,6 +117,10 @@ export function createRegistry(): Registry {
       executeCommand<T>(id: string, ...args: unknown[]): Promise<T> {
         return execute<T>(id, args, `extension "${extension.id}"`);
       },
+      getExtension<T = unknown>(_id: string): { id: string; exports: T } | undefined {
+        // Stub — Task 2 replaces this with the SvelteMap-backed reader.
+        return undefined;
+      },
     };
   }
 

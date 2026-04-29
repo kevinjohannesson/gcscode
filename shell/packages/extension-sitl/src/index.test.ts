@@ -79,6 +79,7 @@ function makeContext(): {
       registerCommand,
       registerKeybinding,
       executeCommand,
+      getExtension: vi.fn(() => undefined),
     },
     subscriptions,
     extension: {
