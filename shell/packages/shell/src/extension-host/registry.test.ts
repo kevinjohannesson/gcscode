@@ -23,7 +23,7 @@ describe('createRegistry', () => {
     expect(registry.listViews()).toHaveLength(0);
   });
 
-  it('records views registered through host.registerView', () => {
+  it('records views registered through host.window.registerView', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
@@ -132,7 +132,7 @@ describe('createRegistry', () => {
     expect(registry.listStatusBarItems()).toHaveLength(0);
   });
 
-  it('records status bar items registered through host.registerStatusBarItem', () => {
+  it('records status bar items registered through host.window.registerStatusBarItem', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
@@ -230,7 +230,7 @@ describe('createRegistry', () => {
     expect(registry.listCommands()).toHaveLength(0);
   });
 
-  it('records commands registered through host.registerCommand', () => {
+  it('records commands registered through host.commands.registerCommand', () => {
     const registry = createRegistry();
     const run = () => undefined;
     registry.activate(
@@ -425,7 +425,7 @@ describe('createRegistry', () => {
     expect(registry.listKeybindings()).toHaveLength(0);
   });
 
-  it('records keybindings registered through host.registerKeybinding', () => {
+  it('records keybindings registered through host.keybindings.registerKeybinding', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
@@ -851,7 +851,7 @@ describe('createRegistry', () => {
     }
   });
 
-  it('exposes activate() return value via host.getExtension', async () => {
+  it('exposes activate() return value via host.extensions.getExtension', async () => {
     const registry = createRegistry();
     let lookupHost: ExtensionHost | undefined;
     registry.activate({
@@ -870,7 +870,7 @@ describe('createRegistry', () => {
     expect(wrapper!.exports.hello).toBe('world');
   });
 
-  it('host.getExtension wrapper exists with undefined exports for void activate', () => {
+  it('host.extensions.getExtension wrapper exists with undefined exports for void activate', () => {
     const registry = createRegistry();
     let lookupHost: ExtensionHost | undefined;
     registry.activate(
@@ -901,7 +901,7 @@ describe('createRegistry', () => {
     expect(lookupHost!.extensions.getExtension('ext.producer')).toBeUndefined();
   });
 
-  it('host.getExtension returns undefined for an unregistered id', () => {
+  it('host.extensions.getExtension returns undefined for an unregistered id', () => {
     const registry = createRegistry();
     let lookupHost: ExtensionHost | undefined;
     registry.activate(
@@ -935,7 +935,7 @@ describe('createRegistry', () => {
     ).toBe('second');
   });
 
-  it('host.getExtension defaults the generic to unknown', () => {
+  it('host.extensions.getExtension defaults the generic to unknown', () => {
     const registry = createRegistry();
     let lookupHost: ExtensionHost | undefined;
     registry.activate(

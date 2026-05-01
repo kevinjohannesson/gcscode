@@ -13,7 +13,7 @@ import {
 /**
  * Cross-extension exports for the SITL extension. Consumers `import type` this
  * from `@gcscode/extension-sitl` and look up the live value via
- * `host.getExtension<SitlExports>('gcscode.sitl')?.exports`.
+ * `host.extensions.getExtension<SitlExports>('gcscode.sitl')?.exports`.
  *
  * `telemetry` is the live `$state` proxy from `telemetry-store.svelte.ts` —
  * field reads in `$derived` / template contexts auto-track. Typed `Readonly`
