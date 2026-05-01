@@ -80,6 +80,8 @@ export function createRegistry(): Registry {
           views.set(view.id, view);
           return {
             dispose() {
+              // Idempotent and safe under re-registration: only delete if the
+              // entry currently in the map is the one this disposable owns.
               if (views.get(view.id) === view) {
                 views.delete(view.id);
               }
@@ -95,6 +97,8 @@ export function createRegistry(): Registry {
           statusBarItems.set(item.id, item);
           return {
             dispose() {
+              // Idempotent and safe under re-registration: only delete if the
+              // entry currently in the map is the one this disposable owns.
               if (statusBarItems.get(item.id) === item) {
                 statusBarItems.delete(item.id);
               }
@@ -112,6 +116,8 @@ export function createRegistry(): Registry {
           keybindings.set(keybinding.key, keybinding);
           return {
             dispose() {
+              // Idempotent and safe under re-registration: only delete if the
+              // entry currently in the map is the one this disposable owns.
               if (keybindings.get(keybinding.key) === keybinding) {
                 keybindings.delete(keybinding.key);
               }
