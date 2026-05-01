@@ -130,7 +130,7 @@ export interface ExtensionContext {
  * An extension module's named export. Identity fields give the host extension
  * identity for diagnostics; `activate(context)` is the single entry point.
  * Returning a value from `activate()` publishes that value as the extension's
- * exports — other extensions can look it up via `host.getExtension(id)` (see
+ * exports — other extensions can look it up via `host.extensions.getExtension(id)` (see
  * ADR-0005). Producers that don't expose an API may return nothing.
  *
  * `deactivate?()` is an optional hook for non-disposable / async cleanup. The
