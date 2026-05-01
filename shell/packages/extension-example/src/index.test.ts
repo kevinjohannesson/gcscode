@@ -27,12 +27,10 @@ describe('exampleExtension', () => {
 
     exampleExtension.activate({
       host: {
-        registerView,
-        registerStatusBarItem,
-        registerCommand,
-        registerKeybinding,
-        executeCommand,
-        getExtension: vi.fn(() => undefined),
+        window: { registerView, registerStatusBarItem },
+        commands: { registerCommand, executeCommand },
+        keybindings: { registerKeybinding },
+        extensions: { getExtension: vi.fn(() => undefined) },
       },
       subscriptions,
       extension: {
@@ -78,12 +76,10 @@ describe('exampleExtension', () => {
 
     exampleExtension.activate({
       host: {
-        registerView,
-        registerStatusBarItem,
-        registerCommand,
-        registerKeybinding,
-        executeCommand,
-        getExtension: vi.fn(() => undefined),
+        window: { registerView, registerStatusBarItem },
+        commands: { registerCommand, executeCommand },
+        keybindings: { registerKeybinding },
+        extensions: { getExtension: vi.fn(() => undefined) },
       },
       subscriptions: [],
       extension: {

@@ -30,7 +30,7 @@ describe('app.svelte', () => {
     const registry = createRegistry();
     registry.activate(
       makeExtension((ctx) => {
-        ctx.host.registerView({ id: 'test.view', component: MockContent });
+        ctx.host.window.registerView({ id: 'test.view', component: MockContent });
       }),
     );
 
@@ -49,12 +49,12 @@ describe('app.svelte', () => {
     const registry = createRegistry();
     registry.activate(
       makeExtension((ctx) => {
-        ctx.host.registerStatusBarItem({
+        ctx.host.window.registerStatusBarItem({
           id: 'test.left',
           component: MockLeft,
           alignment: 'left',
         });
-        ctx.host.registerStatusBarItem({
+        ctx.host.window.registerStatusBarItem({
           id: 'test.right',
           component: MockRight,
           alignment: 'right',
@@ -76,12 +76,12 @@ describe('app.svelte', () => {
     const registry = createRegistry();
     registry.activate(
       makeExtension((ctx) => {
-        ctx.host.registerStatusBarItem({
+        ctx.host.window.registerStatusBarItem({
           id: 'test.first',
           component: MockLeft,
           alignment: 'left',
         });
-        ctx.host.registerStatusBarItem({
+        ctx.host.window.registerStatusBarItem({
           id: 'test.second',
           component: MockRight,
           alignment: 'left',
@@ -103,7 +103,7 @@ describe('app.svelte', () => {
 
     registry.activate(
       makeExtension((ctx) => {
-        ctx.host.registerView({ id: 'late.view', component: MockContent });
+        ctx.host.window.registerView({ id: 'late.view', component: MockContent });
       }),
     );
     flushSync();
@@ -116,7 +116,9 @@ describe('app.svelte', () => {
     const registry = createRegistry();
     registry.activate(
       makeExtension((ctx) => {
-        ctx.subscriptions.push(ctx.host.registerView({ id: 'test.view', component: MockContent }));
+        ctx.subscriptions.push(
+          ctx.host.window.registerView({ id: 'test.view', component: MockContent }),
+        );
       }),
     );
     render(App, { props: { registry } });
@@ -135,7 +137,7 @@ describe('app.svelte', () => {
 
     registry.activate(
       makeExtension((ctx) => {
-        ctx.host.registerStatusBarItem({
+        ctx.host.window.registerStatusBarItem({
           id: 'late.left',
           component: MockLeft,
           alignment: 'left',

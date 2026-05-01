@@ -9,16 +9,16 @@ export const exampleExtension: Extension = {
   version: '0.0.0',
   activate(context) {
     context.subscriptions.push(
-      context.host.registerView({
+      context.host.window.registerView({
         id: 'gcscode.example.main',
         component: ExampleView,
       }),
-      context.host.registerStatusBarItem({
+      context.host.window.registerStatusBarItem({
         id: 'gcscode.example.status',
         component: ExampleStatus,
         alignment: 'right',
       }),
-      context.host.registerCommand({
+      context.host.commands.registerCommand({
         id: 'gcscode.example.greet',
         run: () => {
           const message = 'Hello from gcscode.example';
@@ -26,7 +26,7 @@ export const exampleExtension: Extension = {
           return message;
         },
       }),
-      context.host.registerKeybinding({
+      context.host.keybindings.registerKeybinding({
         key: 'Alt+Shift+G',
         command: 'gcscode.example.greet',
       }),

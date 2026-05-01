@@ -6,16 +6,24 @@ import type { SitlExports } from '@gcscode/extension-sitl';
 import { getSitlExports, vehicleStatusExtension } from './index';
 
 function makeFakeHost(opts: {
-  getExtension?: ExtensionHost['getExtension'];
-  registerStatusBarItem?: ExtensionHost['registerStatusBarItem'];
+  getExtension?: ExtensionHost['extensions']['getExtension'];
+  registerStatusBarItem?: ExtensionHost['window']['registerStatusBarItem'];
 }): ExtensionHost {
   return {
-    registerView: vi.fn(() => ({ dispose: () => {} })),
-    registerStatusBarItem: opts.registerStatusBarItem ?? vi.fn(() => ({ dispose: () => {} })),
-    registerCommand: vi.fn(() => ({ dispose: () => {} })),
-    registerKeybinding: vi.fn(() => ({ dispose: () => {} })),
-    executeCommand: vi.fn(() => Promise.resolve()) as ExtensionHost['executeCommand'],
-    getExtension: opts.getExtension ?? vi.fn(() => undefined),
+    window: {
+      registerView: vi.fn(() => ({ dispose: () => {} })),
+      registerStatusBarItem: opts.registerStatusBarItem ?? vi.fn(() => ({ dispose: () => {} })),
+    },
+    commands: {
+      registerCommand: vi.fn(() => ({ dispose: () => {} })),
+      executeCommand: vi.fn(() => Promise.resolve()) as ExtensionHost['commands']['executeCommand'],
+    },
+    keybindings: {
+      registerKeybinding: vi.fn(() => ({ dispose: () => {} })),
+    },
+    extensions: {
+      getExtension: opts.getExtension ?? vi.fn(() => undefined),
+    },
   };
 }
 
@@ -45,7 +53,7 @@ describe('vehicleStatusExtension', () => {
       },
     });
 
-    expect(host.registerStatusBarItem).toHaveBeenCalledTimes(1);
+    expect(host.window.registerStatusBarItem).toHaveBeenCalledTimes(1);
     expect(captured[0].id).toBe('gcscode.vehicle-status.summary');
     expect(captured[0].alignment).toBe('left');
     expect(subscriptions).toHaveLength(1);
@@ -79,7 +87,7 @@ describe('vehicleStatusExtension', () => {
       const host = makeFakeHost({
         getExtension: vi.fn((id: string) =>
           id === 'gcscode.sitl' ? { id, exports: fakeSitlExports as unknown } : undefined,
-        ) as ExtensionHost['getExtension'],
+        ) as ExtensionHost['extensions']['getExtension'],
       });
       vehicleStatusExtension.activate({
         host,

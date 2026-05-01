@@ -42,11 +42,11 @@ export const sitlExtension: Extension = {
     });
 
     context.subscriptions.push(
-      context.host.registerView({
+      context.host.window.registerView({
         id: 'gcscode.sitl.location',
         component: SitlView,
       }),
-      context.host.registerCommand({
+      context.host.commands.registerCommand({
         id: 'gcscode.sitl.getLocation',
         run: () => {
           if (telemetryState.lat === null || telemetryState.lng === null) {
@@ -62,7 +62,7 @@ export const sitlExtension: Extension = {
           return loc;
         },
       }),
-      context.host.registerKeybinding({
+      context.host.keybindings.registerKeybinding({
         key: 'Alt+Shift+L',
         command: 'gcscode.sitl.getLocation',
       }),
