@@ -25,7 +25,7 @@ export interface Registry {
 // Invariant: registry mutations propagate reactively to mounted consumers.
 // The four contribution maps and the cross-extension exports map are SvelteMap
 // instances (from svelte/reactivity), so $derived(registry.list*()) and
-// $derived(host.getExtension(...)) re-track on set/delete and the rendered UI
+// $derived(host.extensions.getExtension(...)) re-track on set/delete and the rendered UI
 // updates without remount. subscriptionsByExtension and deactivateHooksByExtension
 // stay plain Maps because no UI consumer reads them — the registry uses them
 // internally for deactivate orchestration only.
