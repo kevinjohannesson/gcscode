@@ -74,12 +74,10 @@ function makeContext(): {
 
   const context: ExtensionContext = {
     host: {
-      registerView,
-      registerStatusBarItem,
-      registerCommand,
-      registerKeybinding,
-      executeCommand,
-      getExtension: vi.fn(() => undefined),
+      window: { registerView, registerStatusBarItem },
+      commands: { registerCommand, executeCommand },
+      keybindings: { registerKeybinding },
+      extensions: { getExtension: vi.fn(() => undefined) },
     },
     subscriptions,
     extension: {
@@ -248,12 +246,20 @@ describe('sitlExtension', () => {
     try {
       const subscriptions: Disposable[] = [];
       const fakeHost = {
-        registerView: vi.fn(() => ({ dispose: () => {} })),
-        registerStatusBarItem: vi.fn(() => ({ dispose: () => {} })),
-        registerCommand: vi.fn(() => ({ dispose: () => {} })),
-        registerKeybinding: vi.fn(() => ({ dispose: () => {} })),
-        executeCommand: vi.fn(() => Promise.resolve()),
-        getExtension: vi.fn(() => undefined),
+        window: {
+          registerView: vi.fn(() => ({ dispose: () => {} })),
+          registerStatusBarItem: vi.fn(() => ({ dispose: () => {} })),
+        },
+        commands: {
+          registerCommand: vi.fn(() => ({ dispose: () => {} })),
+          executeCommand: vi.fn(() => Promise.resolve()),
+        },
+        keybindings: {
+          registerKeybinding: vi.fn(() => ({ dispose: () => {} })),
+        },
+        extensions: {
+          getExtension: vi.fn(() => undefined),
+        },
       } as unknown as ExtensionHost;
       const exports = sitlExtension.activate({
         host: fakeHost,

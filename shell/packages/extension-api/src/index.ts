@@ -68,33 +68,49 @@ export interface ExtensionIdentity {
 }
 
 /**
- * The per-extension gate. Each `register*` method returns a `Disposable` whose
- * `dispose()` removes the registration. New contribution kinds slot in as
- * further `register*` methods. Future steps will wrap this object to enforce
- * per-extension permission scopes without changing the extension-facing API.
+ * The per-extension gate. Methods are organized into four topic namespaces:
+ *
+ * - `commands` — `registerCommand` (returns `Disposable`) and `executeCommand`
+ *   (fires by id; cross-extension execute is intentional).
+ * - `window` — `registerView` and `registerStatusBarItem` (UI contributions).
+ * - `keybindings` — `registerKeybinding` (key combo → command id).
+ * - `extensions` — `getExtension` (looks up another extension's published exports).
+ *
+ * The host exposes no methods at the top level — every verb lives under one of
+ * the four namespaces. New contribution kinds slot in as further `register*`
+ * methods on the appropriate namespace; new cross-cutting capabilities (events,
+ * settings, themes, i18n) land as new namespaces. See ADR-0006.
  */
 export interface ExtensionHost {
-  registerView(view: ViewContribution): Disposable;
-  registerStatusBarItem(item: StatusBarItemContribution): Disposable;
-  registerCommand(command: CommandContribution): Disposable;
-  registerKeybinding(keybinding: KeybindingContribution): Disposable;
-  executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
-  /**
-   * Look up a currently-activated extension's exports by id. Returns the
-   * wrapper iff the extension is registered AND its `activate()` has been
-   * called and not yet undone by `deactivate()`. Returns `undefined`
-   * otherwise.
-   *
-   * The generic `T` is unsafe sugar — the host stores the activate() return
-   * value as `unknown` and casts to `T` on return. Producers and consumers
-   * commit to a shared type contract via `import type` from the producer's
-   * package; runtime drift is caught by TypeScript at producer-side compile.
-   *
-   * Reads inside reactive contexts (`$derived`, template) auto-track the
-   * underlying `SvelteMap`; consumers re-render when the producer enables /
-   * disables. See ADR-0005 for the full design.
-   */
-  getExtension<T = unknown>(id: string): { id: string; exports: T } | undefined;
+  readonly commands: {
+    registerCommand(command: CommandContribution): Disposable;
+    executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
+  };
+  readonly window: {
+    registerView(view: ViewContribution): Disposable;
+    registerStatusBarItem(item: StatusBarItemContribution): Disposable;
+  };
+  readonly keybindings: {
+    registerKeybinding(keybinding: KeybindingContribution): Disposable;
+  };
+  readonly extensions: {
+    /**
+     * Look up a currently-activated extension's exports by id. Returns the
+     * wrapper iff the extension is registered AND its `activate()` has been
+     * called and not yet undone by `deactivate()`. Returns `undefined`
+     * otherwise.
+     *
+     * The generic `T` is unsafe sugar — the host stores the activate() return
+     * value as `unknown` and casts to `T` on return. Producers and consumers
+     * commit to a shared type contract via `import type` from the producer's
+     * package; runtime drift is caught by TypeScript at producer-side compile.
+     *
+     * Reads inside reactive contexts (`$derived`, template) auto-track the
+     * underlying `SvelteMap`; consumers re-render when the producer enables /
+     * disables. See ADR-0005 for the full design.
+     */
+    getExtension<T = unknown>(id: string): { id: string; exports: T } | undefined;
+  };
 }
 
 /**
@@ -114,7 +130,7 @@ export interface ExtensionContext {
  * An extension module's named export. Identity fields give the host extension
  * identity for diagnostics; `activate(context)` is the single entry point.
  * Returning a value from `activate()` publishes that value as the extension's
- * exports — other extensions can look it up via `host.getExtension(id)` (see
+ * exports — other extensions can look it up via `host.extensions.getExtension(id)` (see
  * ADR-0005). Producers that don't expose an API may return nothing.
  *
  * `deactivate?()` is an optional hook for non-disposable / async cleanup. The

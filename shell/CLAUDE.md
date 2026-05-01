@@ -22,7 +22,7 @@ Package root is the repo root. Shared tooling at the root: ESLint flat config, P
 
 ESLint enforces both rules (`@typescript-eslint/no-restricted-imports` with `allowTypeImports: true` for the sibling pattern). Don't work around either.
 
-Corollary: if an extension needs a capability the host doesn't yet expose, add it to `@gcscode/extension-api` first (as a new method on `ExtensionHost` — typically a `register*` for a new kind, or a verb like `executeCommand` — or a new field on `ExtensionContext`), land that, then use it. Never reach around the API.
+Corollary: if an extension needs a capability the host doesn't yet expose, add it to `@gcscode/extension-api` first (as a new method under one of the existing `ExtensionHost` namespaces — `host.commands.*`, `host.window.*`, `host.keybindings.*`, `host.extensions.*` — or as a new namespace if the capability is cross-cutting; or a new field on `ExtensionContext`), land that, then use it. Never reach around the API.
 
 ## Conventions
 
@@ -44,7 +44,7 @@ Corollary: if an extension needs a capability the host doesn't yet expose, add i
 
 ## Extension shape
 
-An extension module exports a named `const` of type `Extension` with `{ id, displayName, version, activate(context) }`. Inside `activate`, call `context.host.register*` (each returns a `Disposable`) and push every disposable to `context.subscriptions`. Long-form contract: `packages/extension-api/README.md`.
+An extension module exports a named `const` of type `Extension` with `{ id, displayName, version, activate(context) }`. Inside `activate`, call `context.host.<namespace>.register*` (e.g. `context.host.window.registerView`, `context.host.commands.registerCommand`) (each returns a `Disposable`) and push every disposable to `context.subscriptions`. Long-form contract: `packages/extension-api/README.md`.
 
 ## Planning conventions and long-term alignment
 

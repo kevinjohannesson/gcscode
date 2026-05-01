@@ -23,11 +23,11 @@ describe('createRegistry', () => {
     expect(registry.listViews()).toHaveLength(0);
   });
 
-  it('records views registered through host.registerView', () => {
+  it('records views registered through host.window.registerView', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerView({ id: 'ext.a.view', component: fakeComponent });
+        ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent });
       }),
     );
     expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent }]);
@@ -37,12 +37,12 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerView({ id: 'ext.a.view', component: fakeComponent });
+        ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent });
       }),
     );
     registry.activate(
       extension('ext.b', (ctx) => {
-        ctx.host.registerView({ id: 'ext.b.view', component: fakeComponent });
+        ctx.host.window.registerView({ id: 'ext.b.view', component: fakeComponent });
       }),
     );
     expect(registry.listViews()).toHaveLength(2);
@@ -53,7 +53,7 @@ describe('createRegistry', () => {
     let disposable: Disposable | undefined;
     registry.activate(
       extension('ext.a', (ctx) => {
-        disposable = ctx.host.registerView({
+        disposable = ctx.host.window.registerView({
           id: 'ext.a.view',
           component: fakeComponent,
         });
@@ -69,7 +69,7 @@ describe('createRegistry', () => {
     let disposable: Disposable | undefined;
     registry.activate(
       extension('ext.a', (ctx) => {
-        disposable = ctx.host.registerView({
+        disposable = ctx.host.window.registerView({
           id: 'ext.a.view',
           component: fakeComponent,
         });
@@ -84,13 +84,13 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerView({ id: 'shared', component: fakeComponent });
+        ctx.host.window.registerView({ id: 'shared', component: fakeComponent });
       }),
     );
     expect(() =>
       registry.activate(
         extension('ext.b', (ctx) => {
-          ctx.host.registerView({ id: 'shared', component: fakeComponent });
+          ctx.host.window.registerView({ id: 'shared', component: fakeComponent });
         }),
       ),
     ).toThrow(/shared.*ext\.b/);
@@ -120,7 +120,7 @@ describe('createRegistry', () => {
     registry.activate(
       extension('ext.a', (ctx) => {
         subs = ctx.subscriptions;
-        subs.push(ctx.host.registerView({ id: 'ext.a.view', component: fakeComponent }));
+        subs.push(ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent }));
       }),
     );
     expect(subs).toHaveLength(1);
@@ -132,11 +132,11 @@ describe('createRegistry', () => {
     expect(registry.listStatusBarItems()).toHaveLength(0);
   });
 
-  it('records status bar items registered through host.registerStatusBarItem', () => {
+  it('records status bar items registered through host.window.registerStatusBarItem', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerStatusBarItem({
+        ctx.host.window.registerStatusBarItem({
           id: 'ext.a.status',
           component: fakeComponent,
           alignment: 'right',
@@ -153,7 +153,7 @@ describe('createRegistry', () => {
     let disposable: Disposable | undefined;
     registry.activate(
       extension('ext.a', (ctx) => {
-        disposable = ctx.host.registerStatusBarItem({
+        disposable = ctx.host.window.registerStatusBarItem({
           id: 'ext.a.status',
           component: fakeComponent,
           alignment: 'left',
@@ -170,7 +170,7 @@ describe('createRegistry', () => {
     let disposable: Disposable | undefined;
     registry.activate(
       extension('ext.a', (ctx) => {
-        disposable = ctx.host.registerStatusBarItem({
+        disposable = ctx.host.window.registerStatusBarItem({
           id: 'ext.a.status',
           component: fakeComponent,
           alignment: 'left',
@@ -186,7 +186,7 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerStatusBarItem({
+        ctx.host.window.registerStatusBarItem({
           id: 'shared',
           component: fakeComponent,
           alignment: 'left',
@@ -196,7 +196,7 @@ describe('createRegistry', () => {
     expect(() =>
       registry.activate(
         extension('ext.b', (ctx) => {
-          ctx.host.registerStatusBarItem({
+          ctx.host.window.registerStatusBarItem({
             id: 'shared',
             component: fakeComponent,
             alignment: 'right',
@@ -210,12 +210,12 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerStatusBarItem({
+        ctx.host.window.registerStatusBarItem({
           id: 'ext.a.first',
           component: fakeComponent,
           alignment: 'left',
         });
-        ctx.host.registerStatusBarItem({
+        ctx.host.window.registerStatusBarItem({
           id: 'ext.a.second',
           component: fakeComponent,
           alignment: 'left',
@@ -230,12 +230,12 @@ describe('createRegistry', () => {
     expect(registry.listCommands()).toHaveLength(0);
   });
 
-  it('records commands registered through host.registerCommand', () => {
+  it('records commands registered through host.commands.registerCommand', () => {
     const registry = createRegistry();
     const run = () => undefined;
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerCommand({ id: 'ext.a.cmd', run });
+        ctx.host.commands.registerCommand({ id: 'ext.a.cmd', run });
       }),
     );
     expect(registry.listCommands()).toEqual([{ id: 'ext.a.cmd', run }]);
@@ -246,7 +246,7 @@ describe('createRegistry', () => {
     let disposable: Disposable | undefined;
     registry.activate(
       extension('ext.a', (ctx) => {
-        disposable = ctx.host.registerCommand({
+        disposable = ctx.host.commands.registerCommand({
           id: 'ext.a.cmd',
           run: () => undefined,
         });
@@ -262,7 +262,7 @@ describe('createRegistry', () => {
     let disposable: Disposable | undefined;
     registry.activate(
       extension('ext.a', (ctx) => {
-        disposable = ctx.host.registerCommand({
+        disposable = ctx.host.commands.registerCommand({
           id: 'ext.a.cmd',
           run: () => undefined,
         });
@@ -277,13 +277,13 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerCommand({ id: 'shared', run: () => undefined });
+        ctx.host.commands.registerCommand({ id: 'shared', run: () => undefined });
       }),
     );
     expect(() =>
       registry.activate(
         extension('ext.b', (ctx) => {
-          ctx.host.registerCommand({ id: 'shared', run: () => undefined });
+          ctx.host.commands.registerCommand({ id: 'shared', run: () => undefined });
         }),
       ),
     ).toThrow(/shared.*ext\.b/);
@@ -293,13 +293,13 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerView({ id: 'shared', component: fakeComponent });
-        ctx.host.registerStatusBarItem({
+        ctx.host.window.registerView({ id: 'shared', component: fakeComponent });
+        ctx.host.window.registerStatusBarItem({
           id: 'shared',
           component: fakeComponent,
           alignment: 'left',
         });
-        ctx.host.registerCommand({ id: 'shared', run: () => undefined });
+        ctx.host.commands.registerCommand({ id: 'shared', run: () => undefined });
       }),
     );
     expect(registry.listViews()).toHaveLength(1);
@@ -311,8 +311,8 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerCommand({ id: 'ext.a.first', run: () => undefined });
-        ctx.host.registerCommand({ id: 'ext.a.second', run: () => undefined });
+        ctx.host.commands.registerCommand({ id: 'ext.a.first', run: () => undefined });
+        ctx.host.commands.registerCommand({ id: 'ext.a.second', run: () => undefined });
       }),
     );
     expect(registry.listCommands().map((c) => c.id)).toEqual(['ext.a.first', 'ext.a.second']);
@@ -322,7 +322,7 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerCommand({
+        ctx.host.commands.registerCommand({
           id: 'ext.a.greet',
           run: () => 'hello',
         });
@@ -336,14 +336,14 @@ describe('createRegistry', () => {
       }),
     );
 
-    await expect(executor!.executeCommand('ext.a.greet')).resolves.toBe('hello');
+    await expect(executor!.commands.executeCommand('ext.a.greet')).resolves.toBe('hello');
   });
 
   it('executeCommand threads variadic args through to run', async () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerCommand({
+        ctx.host.commands.registerCommand({
           id: 'ext.a.add',
           run: (...args) => (args[0] as number) + (args[1] as number),
         });
@@ -357,7 +357,7 @@ describe('createRegistry', () => {
       }),
     );
 
-    await expect(executor!.executeCommand('ext.a.add', 2, 3)).resolves.toBe(5);
+    await expect(executor!.commands.executeCommand('ext.a.add', 2, 3)).resolves.toBe(5);
   });
 
   it('executeCommand throws synchronously when the id is not registered', () => {
@@ -369,14 +369,16 @@ describe('createRegistry', () => {
       }),
     );
 
-    expect(() => executor!.executeCommand('does-not-exist')).toThrow(/does-not-exist.*ext\.a/);
+    expect(() => executor!.commands.executeCommand('does-not-exist')).toThrow(
+      /does-not-exist.*ext\.a/,
+    );
   });
 
   it('executeCommand surfaces sync throws inside run as rejected Promises', async () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerCommand({
+        ctx.host.commands.registerCommand({
           id: 'ext.a.boom',
           run: () => {
             throw new Error('boom');
@@ -392,14 +394,14 @@ describe('createRegistry', () => {
       }),
     );
 
-    await expect(executor!.executeCommand('ext.a.boom')).rejects.toThrow(/boom/);
+    await expect(executor!.commands.executeCommand('ext.a.boom')).rejects.toThrow(/boom/);
   });
 
   it('executeCommand passes async rejections from run through unchanged', async () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerCommand({
+        ctx.host.commands.registerCommand({
           id: 'ext.a.async-boom',
           run: () => Promise.reject(new Error('async-boom')),
         });
@@ -413,7 +415,9 @@ describe('createRegistry', () => {
       }),
     );
 
-    await expect(executor!.executeCommand('ext.a.async-boom')).rejects.toThrow(/async-boom/);
+    await expect(executor!.commands.executeCommand('ext.a.async-boom')).rejects.toThrow(
+      /async-boom/,
+    );
   });
 
   it('starts with no keybindings', () => {
@@ -421,11 +425,11 @@ describe('createRegistry', () => {
     expect(registry.listKeybindings()).toHaveLength(0);
   });
 
-  it('records keybindings registered through host.registerKeybinding', () => {
+  it('records keybindings registered through host.keybindings.registerKeybinding', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'ext.a.cmd' });
+        ctx.host.keybindings.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'ext.a.cmd' });
       }),
     );
     expect(registry.listKeybindings()).toEqual([{ key: 'Ctrl+Shift+G', command: 'ext.a.cmd' }]);
@@ -436,7 +440,7 @@ describe('createRegistry', () => {
     let disposable: Disposable | undefined;
     registry.activate(
       extension('ext.a', (ctx) => {
-        disposable = ctx.host.registerKeybinding({
+        disposable = ctx.host.keybindings.registerKeybinding({
           key: 'Ctrl+Shift+G',
           command: 'ext.a.cmd',
         });
@@ -452,7 +456,7 @@ describe('createRegistry', () => {
     let disposable: Disposable | undefined;
     registry.activate(
       extension('ext.a', (ctx) => {
-        disposable = ctx.host.registerKeybinding({
+        disposable = ctx.host.keybindings.registerKeybinding({
           key: 'Ctrl+Shift+G',
           command: 'ext.a.cmd',
         });
@@ -467,13 +471,13 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'ext.a.cmd' });
+        ctx.host.keybindings.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'ext.a.cmd' });
       }),
     );
     expect(() =>
       registry.activate(
         extension('ext.b', (ctx) => {
-          ctx.host.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'ext.b.cmd' });
+          ctx.host.keybindings.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'ext.b.cmd' });
         }),
       ),
     ).toThrow(/Ctrl\+Shift\+G.*ext\.b/);
@@ -483,8 +487,8 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerKeybinding({ key: 'Ctrl+A', command: 'ext.a.first' });
-        ctx.host.registerKeybinding({ key: 'Ctrl+B', command: 'ext.a.second' });
+        ctx.host.keybindings.registerKeybinding({ key: 'Ctrl+A', command: 'ext.a.first' });
+        ctx.host.keybindings.registerKeybinding({ key: 'Ctrl+B', command: 'ext.a.second' });
       }),
     );
     expect(registry.listKeybindings().map((k) => k.key)).toEqual(['Ctrl+A', 'Ctrl+B']);
@@ -494,7 +498,7 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerCommand({
+        ctx.host.commands.registerCommand({
           id: 'ext.a.greet',
           run: () => 'hello',
         });
@@ -508,7 +512,7 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerCommand({
+        ctx.host.commands.registerCommand({
           id: 'ext.a.add',
           run: (...args) => (args[0] as number) + (args[1] as number),
         });
@@ -527,7 +531,7 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerCommand({
+        ctx.host.commands.registerCommand({
           id: 'ext.a.boom',
           run: () => {
             throw new Error('boom');
@@ -543,7 +547,7 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.registerCommand({
+        ctx.host.commands.registerCommand({
           id: 'ext.a.async-boom',
           run: () => Promise.reject(new Error('async-boom')),
         });
@@ -558,14 +562,14 @@ describe('createRegistry', () => {
     registry.activate(
       extension('ext.a', (ctx) => {
         ctx.subscriptions.push(
-          ctx.host.registerView({ id: 'ext.a.view', component: fakeComponent }),
-          ctx.host.registerStatusBarItem({
+          ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent }),
+          ctx.host.window.registerStatusBarItem({
             id: 'ext.a.status',
             component: fakeComponent,
             alignment: 'right',
           }),
-          ctx.host.registerCommand({ id: 'ext.a.cmd', run: () => undefined }),
-          ctx.host.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'ext.a.cmd' }),
+          ctx.host.commands.registerCommand({ id: 'ext.a.cmd', run: () => undefined }),
+          ctx.host.keybindings.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'ext.a.cmd' }),
         );
       }),
     );
@@ -650,7 +654,7 @@ describe('createRegistry', () => {
     registry.activate(
       extension('ext.a', (ctx) => {
         ctx.subscriptions.push(
-          ctx.host.registerView({ id: 'ext.a.view', component: fakeComponent }),
+          ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent }),
         );
       }),
     );
@@ -665,7 +669,9 @@ describe('createRegistry', () => {
   it('re-activating a deactivated extension works without duplicate-id errors', async () => {
     const registry = createRegistry();
     const e = extension('ext.a', (ctx) => {
-      ctx.subscriptions.push(ctx.host.registerView({ id: 'ext.a.view', component: fakeComponent }));
+      ctx.subscriptions.push(
+        ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent }),
+      );
     });
 
     registry.activate(e);
@@ -684,14 +690,14 @@ describe('createRegistry', () => {
     registry.activate(
       extension('ext.a', (ctx) => {
         ctx.subscriptions.push(
-          ctx.host.registerView({ id: 'ext.a.view', component: fakeComponent }),
+          ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent }),
         );
       }),
     );
     registry.activate(
       extension('ext.b', (ctx) => {
         ctx.subscriptions.push(
-          ctx.host.registerView({ id: 'ext.b.view', component: fakeComponent }),
+          ctx.host.window.registerView({ id: 'ext.b.view', component: fakeComponent }),
         );
       }),
     );
@@ -845,7 +851,7 @@ describe('createRegistry', () => {
     }
   });
 
-  it('exposes activate() return value via host.getExtension', async () => {
+  it('exposes activate() return value via host.extensions.getExtension', async () => {
     const registry = createRegistry();
     let lookupHost: ExtensionHost | undefined;
     registry.activate({
@@ -858,13 +864,13 @@ describe('createRegistry', () => {
       },
     });
     // Lookup from any host instance works — they share the same registry.
-    const wrapper = lookupHost!.getExtension<{ hello: string }>('ext.producer');
+    const wrapper = lookupHost!.extensions.getExtension<{ hello: string }>('ext.producer');
     expect(wrapper).toBeDefined();
     expect(wrapper!.id).toBe('ext.producer');
     expect(wrapper!.exports.hello).toBe('world');
   });
 
-  it('host.getExtension wrapper exists with undefined exports for void activate', () => {
+  it('host.extensions.getExtension wrapper exists with undefined exports for void activate', () => {
     const registry = createRegistry();
     let lookupHost: ExtensionHost | undefined;
     registry.activate(
@@ -873,7 +879,7 @@ describe('createRegistry', () => {
         // No return value.
       }),
     );
-    const wrapper = lookupHost!.getExtension('ext.silent');
+    const wrapper = lookupHost!.extensions.getExtension('ext.silent');
     expect(wrapper).toBeDefined();
     expect(wrapper!.exports).toBeUndefined();
   });
@@ -890,12 +896,12 @@ describe('createRegistry', () => {
         return { hello: 'world' };
       },
     });
-    expect(lookupHost!.getExtension('ext.producer')).toBeDefined();
+    expect(lookupHost!.extensions.getExtension('ext.producer')).toBeDefined();
     await registry.deactivate('ext.producer');
-    expect(lookupHost!.getExtension('ext.producer')).toBeUndefined();
+    expect(lookupHost!.extensions.getExtension('ext.producer')).toBeUndefined();
   });
 
-  it('host.getExtension returns undefined for an unregistered id', () => {
+  it('host.extensions.getExtension returns undefined for an unregistered id', () => {
     const registry = createRegistry();
     let lookupHost: ExtensionHost | undefined;
     registry.activate(
@@ -903,7 +909,7 @@ describe('createRegistry', () => {
         lookupHost = ctx.host;
       }),
     );
-    expect(lookupHost!.getExtension('ext.never-registered')).toBeUndefined();
+    expect(lookupHost!.extensions.getExtension('ext.never-registered')).toBeUndefined();
   });
 
   it('re-activating after deactivate publishes fresh exports', async () => {
@@ -919,17 +925,17 @@ describe('createRegistry', () => {
       },
     });
     registry.activate(makeProducer('first'));
-    expect(lookupHost!.getExtension<{ payload: string }>('ext.producer')!.exports.payload).toBe(
-      'first',
-    );
+    expect(
+      lookupHost!.extensions.getExtension<{ payload: string }>('ext.producer')!.exports.payload,
+    ).toBe('first');
     await registry.deactivate('ext.producer');
     registry.activate(makeProducer('second'));
-    expect(lookupHost!.getExtension<{ payload: string }>('ext.producer')!.exports.payload).toBe(
-      'second',
-    );
+    expect(
+      lookupHost!.extensions.getExtension<{ payload: string }>('ext.producer')!.exports.payload,
+    ).toBe('second');
   });
 
-  it('host.getExtension defaults the generic to unknown', () => {
+  it('host.extensions.getExtension defaults the generic to unknown', () => {
     const registry = createRegistry();
     let lookupHost: ExtensionHost | undefined;
     registry.activate(
@@ -944,7 +950,7 @@ describe('createRegistry', () => {
       activate: () => ({ value: 42 }),
     });
     // Default generic — exports is `unknown`, narrowing required at use sites.
-    const wrapper = lookupHost!.getExtension('ext.producer');
+    const wrapper = lookupHost!.extensions.getExtension('ext.producer');
     expect(wrapper).toBeDefined();
     // Cast to the producer's known shape for the assertion.
     expect((wrapper!.exports as { value: number }).value).toBe(42);
@@ -970,8 +976,8 @@ describe('createRegistry', () => {
       version: '0.0.0',
       activate: () => ({ tag: 'b' }),
     });
-    const a = lookupHost!.getExtension<{ tag: string }>('ext.a');
-    const b = lookupHost!.getExtension<{ tag: string }>('ext.b');
+    const a = lookupHost!.extensions.getExtension<{ tag: string }>('ext.a');
+    const b = lookupHost!.extensions.getExtension<{ tag: string }>('ext.b');
     expect(a!.id).toBe('ext.a');
     expect(b!.id).toBe('ext.b');
     expect(a!.exports.tag).toBe('a');

@@ -25,7 +25,7 @@ export interface Registry {
 // Invariant: registry mutations propagate reactively to mounted consumers.
 // The four contribution maps and the cross-extension exports map are SvelteMap
 // instances (from svelte/reactivity), so $derived(registry.list*()) and
-// $derived(host.getExtension(...)) re-track on set/delete and the rendered UI
+// $derived(host.extensions.getExtension(...)) re-track on set/delete and the rendered UI
 // updates without remount. subscriptionsByExtension and deactivateHooksByExtension
 // stay plain Maps because no UI consumer reads them — the registry uses them
 // internally for deactivate orchestration only.
@@ -48,80 +48,88 @@ export function createRegistry(): Registry {
 
   function createHost(extension: ExtensionIdentity): ExtensionHost {
     return {
-      registerView(view) {
-        if (views.has(view.id)) {
-          throw new Error(
-            `View id "${view.id}" is already registered (attempted by extension "${extension.id}").`,
-          );
-        }
-        views.set(view.id, view);
-        return {
-          dispose() {
-            // Idempotent and safe under re-registration: only delete if the
-            // entry currently in the map is the one this disposable owns.
-            if (views.get(view.id) === view) {
-              views.delete(view.id);
-            }
-          },
-        };
+      commands: {
+        registerCommand(command) {
+          if (commands.has(command.id)) {
+            throw new Error(
+              `Command id "${command.id}" is already registered (attempted by extension "${extension.id}").`,
+            );
+          }
+          commands.set(command.id, command);
+          return {
+            dispose() {
+              // Idempotent and safe under re-registration: only delete if the
+              // entry currently in the map is the one this disposable owns.
+              if (commands.get(command.id) === command) {
+                commands.delete(command.id);
+              }
+            },
+          };
+        },
+        executeCommand<T>(id: string, ...args: unknown[]): Promise<T> {
+          return execute<T>(id, args, `extension "${extension.id}"`);
+        },
       },
-      registerStatusBarItem(item) {
-        if (statusBarItems.has(item.id)) {
-          throw new Error(
-            `Status bar item id "${item.id}" is already registered (attempted by extension "${extension.id}").`,
-          );
-        }
-        statusBarItems.set(item.id, item);
-        return {
-          dispose() {
-            // Idempotent and safe under re-registration: only delete if the
-            // entry currently in the map is the one this disposable owns.
-            if (statusBarItems.get(item.id) === item) {
-              statusBarItems.delete(item.id);
-            }
-          },
-        };
+      window: {
+        registerView(view) {
+          if (views.has(view.id)) {
+            throw new Error(
+              `View id "${view.id}" is already registered (attempted by extension "${extension.id}").`,
+            );
+          }
+          views.set(view.id, view);
+          return {
+            dispose() {
+              // Idempotent and safe under re-registration: only delete if the
+              // entry currently in the map is the one this disposable owns.
+              if (views.get(view.id) === view) {
+                views.delete(view.id);
+              }
+            },
+          };
+        },
+        registerStatusBarItem(item) {
+          if (statusBarItems.has(item.id)) {
+            throw new Error(
+              `Status bar item id "${item.id}" is already registered (attempted by extension "${extension.id}").`,
+            );
+          }
+          statusBarItems.set(item.id, item);
+          return {
+            dispose() {
+              // Idempotent and safe under re-registration: only delete if the
+              // entry currently in the map is the one this disposable owns.
+              if (statusBarItems.get(item.id) === item) {
+                statusBarItems.delete(item.id);
+              }
+            },
+          };
+        },
       },
-      registerCommand(command) {
-        if (commands.has(command.id)) {
-          throw new Error(
-            `Command id "${command.id}" is already registered (attempted by extension "${extension.id}").`,
-          );
-        }
-        commands.set(command.id, command);
-        return {
-          dispose() {
-            // Idempotent and safe under re-registration: only delete if the
-            // entry currently in the map is the one this disposable owns.
-            if (commands.get(command.id) === command) {
-              commands.delete(command.id);
-            }
-          },
-        };
+      keybindings: {
+        registerKeybinding(keybinding) {
+          if (keybindings.has(keybinding.key)) {
+            throw new Error(
+              `Keybinding "${keybinding.key}" is already registered (attempted by extension "${extension.id}").`,
+            );
+          }
+          keybindings.set(keybinding.key, keybinding);
+          return {
+            dispose() {
+              // Idempotent and safe under re-registration: only delete if the
+              // entry currently in the map is the one this disposable owns.
+              if (keybindings.get(keybinding.key) === keybinding) {
+                keybindings.delete(keybinding.key);
+              }
+            },
+          };
+        },
       },
-      registerKeybinding(keybinding) {
-        if (keybindings.has(keybinding.key)) {
-          throw new Error(
-            `Keybinding "${keybinding.key}" is already registered (attempted by extension "${extension.id}").`,
-          );
-        }
-        keybindings.set(keybinding.key, keybinding);
-        return {
-          dispose() {
-            // Idempotent and safe under re-registration: only delete if the
-            // entry currently in the map is the one this disposable owns.
-            if (keybindings.get(keybinding.key) === keybinding) {
-              keybindings.delete(keybinding.key);
-            }
-          },
-        };
-      },
-      executeCommand<T>(id: string, ...args: unknown[]): Promise<T> {
-        return execute<T>(id, args, `extension "${extension.id}"`);
-      },
-      getExtension<T = unknown>(id: string): { id: string; exports: T } | undefined {
-        if (!exportsByExtension.has(id)) return undefined;
-        return { id, exports: exportsByExtension.get(id) as T };
+      extensions: {
+        getExtension<T = unknown>(id: string): { id: string; exports: T } | undefined {
+          if (!exportsByExtension.has(id)) return undefined;
+          return { id, exports: exportsByExtension.get(id) as T };
+        },
       },
     };
   }

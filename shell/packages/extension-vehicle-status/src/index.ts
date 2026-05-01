@@ -12,7 +12,7 @@ let host: ExtensionHost | null = null;
  * a SvelteMap — see ADR-0005).
  */
 export function getSitlExports(): SitlExports | undefined {
-  return host?.getExtension<SitlExports>('gcscode.sitl')?.exports;
+  return host?.extensions.getExtension<SitlExports>('gcscode.sitl')?.exports;
 }
 
 export const vehicleStatusExtension: Extension = {
@@ -22,7 +22,7 @@ export const vehicleStatusExtension: Extension = {
   activate(context) {
     host = context.host;
     context.subscriptions.push(
-      context.host.registerStatusBarItem({
+      context.host.window.registerStatusBarItem({
         id: 'gcscode.vehicle-status.summary',
         component: VehicleStatusItem,
         alignment: 'left',

@@ -22,6 +22,7 @@ Per-spec "VS Code alignment" sections (see e.g. [`specs/2026-04-27-extension-dea
 | `executeCommand` cross-extension (any extension can fire any registered command)              | ✓                                                         | ✓                                    | [spec 2026-04-26-phase-a2-commands](specs/2026-04-26-phase-a2-commands.md)                                 |
 | LIFO subscription disposal with per-disposable error resilience                               | close enough (VS Code: registration order, errors caught) | ✓                                    | [spec 2026-04-26-phase-b1-deactivate-orchestration](specs/2026-04-26-phase-b1-deactivate-orchestration.md) |
 | Vocabulary — "extension" everywhere in code and docs                                          | ✓                                                         | ✓ (renamed from "plugin" 2026-04-27) | [ADR-0004](decisions/ADR-0004-rename-plugin-to-extension.md)                                               |
+| Topic-namespaced host API (`commands.*`, `window.*`, `extensions.*`)                          | ✓                                                         | ✓                                    | [ADR-0006](decisions/ADR-0006-extensionhost-namespacing.md)                                                |
 
 ## Divergences
 

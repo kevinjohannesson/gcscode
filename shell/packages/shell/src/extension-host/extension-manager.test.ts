@@ -9,7 +9,9 @@ const fakeComponent = {} as ViewContribution['component'];
 
 function makeViewExtension(id: string) {
   const activate = vi.fn((ctx: ExtensionContext) => {
-    ctx.subscriptions.push(ctx.host.registerView({ id: `${id}.view`, component: fakeComponent }));
+    ctx.subscriptions.push(
+      ctx.host.window.registerView({ id: `${id}.view`, component: fakeComponent }),
+    );
   });
   const extension: Extension = {
     id,
@@ -22,7 +24,9 @@ function makeViewExtension(id: string) {
 
 function makeViewExtensionWithDeactivate(id: string, deactivate: () => void | Promise<void>) {
   const activate = vi.fn((ctx: ExtensionContext) => {
-    ctx.subscriptions.push(ctx.host.registerView({ id: `${id}.view`, component: fakeComponent }));
+    ctx.subscriptions.push(
+      ctx.host.window.registerView({ id: `${id}.view`, component: fakeComponent }),
+    );
   });
   const extension: Extension = {
     id,

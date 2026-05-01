@@ -12,7 +12,7 @@ Connects to `ws://localhost:8088/v1/ws/mavlink`, subscribes to `HEARTBEAT`, `GLO
 
 ## Cross-extension exports
 
-Exports `SitlExports = { telemetry: Readonly<TelemetryState> }`. Consumers read live telemetry via `host.getExtension<SitlExports>('gcscode.sitl')?.exports.telemetry`. The `telemetry` field is a Svelte `$state` proxy — reads in `$derived` / template contexts auto-track. See [ADR-0005](../../docs/decisions/ADR-0005-extension-boundaries.md).
+Exports `SitlExports = { telemetry: Readonly<TelemetryState> }`. Consumers read live telemetry via `host.extensions.getExtension<SitlExports>('gcscode.sitl')?.exports.telemetry`. The `telemetry` field is a Svelte `$state` proxy — reads in `$derived` / template contexts auto-track. See [ADR-0005](../../docs/decisions/ADR-0005-extension-boundaries.md).
 
 `@gcscode/extension-vehicle-status` is the canonical consumer.
 
