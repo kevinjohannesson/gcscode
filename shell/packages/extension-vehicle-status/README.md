@@ -8,7 +8,7 @@ SITL: GUIDED • -35.36°/149.17° • 47%
 
 ## Contributions
 
-- **Status bar item** — `gcscode.vehicle-status.summary`, left-aligned. Renders a Svelte component that reads `host.getExtension<SitlExports>('gcscode.sitl')?.exports.telemetry` reactively.
+- **Status bar item** — `gcscode.vehicle-status.summary`, left-aligned. Renders a Svelte component that reads `host.extensions.getExtension<SitlExports>('gcscode.sitl')?.exports.telemetry` reactively.
 
 ## Cross-extension dependencies
 

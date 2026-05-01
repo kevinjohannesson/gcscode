@@ -7,7 +7,7 @@ The canonical minimal extension. Mirror this shape when writing a new extension.
 - An extension lives in its own workspace package.
 - Its only dependency on the host app is `@gcscode/extension-api`.
 - It exports a named `const` (`exampleExtension`) of type `Extension` carrying identity metadata (`id`, `displayName`, `version`) plus an `activate(context)` function.
-- Inside `activate`, it calls `context.host.registerView`, `context.host.registerStatusBarItem`, `context.host.registerCommand`, and `context.host.registerKeybinding`, then pushes all four returned `Disposable`s onto `context.subscriptions` — demonstrating multi-surface contributions from a single extension and showing how a command (called by id from elsewhere; the integration backbone for future palette / menu contributions) sits alongside UI contributions, with a keybinding wiring a key combo to fire the command.
+- Inside `activate`, it calls `context.host.window.registerView`, `context.host.window.registerStatusBarItem`, `context.host.commands.registerCommand`, and `context.host.keybindings.registerKeybinding`, then pushes all four returned `Disposable`s onto `context.subscriptions` — demonstrating multi-surface contributions from a single extension and showing how a command (called by id from elsewhere; the integration backbone for future palette / menu contributions) sits alongside UI contributions, with a keybinding wiring a key combo to fire the command.
 
 ## Anatomy
 

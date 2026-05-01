@@ -19,27 +19,27 @@ export const myExtension: Extension = {
   version: '0.0.0',
   activate(context) {
     context.subscriptions.push(
-      context.host.registerView({
+      context.host.window.registerView({
         id: 'my-namespace.my-extension.main',
         component: View,
       }),
-      context.host.registerStatusBarItem({
+      context.host.window.registerStatusBarItem({
         id: 'my-namespace.my-extension.status',
         component: StatusBadge,
         alignment: 'right',
       }),
-      context.host.registerCommand({
+      context.host.commands.registerCommand({
         id: 'my-namespace.my-extension.greet',
         run: () => 'Hello',
       }),
-      context.host.registerKeybinding({
+      context.host.keybindings.registerKeybinding({
         key: 'Alt+Shift+G',
         command: 'my-namespace.my-extension.greet',
       }),
     );
 
     // Commands can be invoked by id from anywhere on the host:
-    //   context.host.executeCommand('my-namespace.my-extension.greet')
+    //   context.host.commands.executeCommand('my-namespace.my-extension.greet')
     // — or fired by a registered keybinding when the user presses Alt+Shift+G.
   },
 };
@@ -51,13 +51,18 @@ See `packages/extension-example/` for the canonical worked example.
 
 `activate(context)` receives an `ExtensionContext`:
 
-- **`context.host`** — the per-extension gate. Exposes one `register*` method per contribution kind (today: `registerView`, `registerStatusBarItem`, `registerCommand`, `registerKeybinding`); the verb `executeCommand<T>(id, ...args): Promise<T>` for firing any registered command by id; and `getExtension<T>(id): { id; exports: T } | undefined` for looking up another extension's published exports. Each `register*` call returns a `Disposable`. The `run` callback on a command is variadic (`(...args: unknown[]) => unknown`); arguments threaded through `executeCommand(id, ...args)` arrive there. The shell's keyboard dispatcher fires keybindings by calling `executeCommand` from the host side directly (it isn't an extension), via the same shared implementation.
+- **`context.host`** — the per-extension gate. Methods are organized into four topic namespaces:
+  - **`host.commands`** — `registerCommand(command): Disposable` registers a command; `executeCommand<T>(id, ...args): Promise<T>` fires any registered command by id (cross-extension execute is intentional). The `run` callback on a command is variadic (`(...args: unknown[]) => unknown`); arguments threaded through `executeCommand(id, ...args)` arrive there. The shell's keyboard dispatcher fires keybindings by calling `executeCommand` from the host side directly (it isn't an extension), via the same shared implementation.
+  - **`host.window`** — `registerView(view): Disposable` and `registerStatusBarItem(item): Disposable` register UI contributions.
+  - **`host.keybindings`** — `registerKeybinding(keybinding): Disposable` maps a key combo to a command id.
+  - **`host.extensions`** — `getExtension<T>(id): { id; exports: T } | undefined` looks up another extension's published exports.
+    Each `register*` call returns a `Disposable`. The host exposes no verbs at the top level — every method lives under one of the four namespaces. See ADR-0006.
 - **`context.subscriptions`** — push every `Disposable` here. The host disposes them when the extension is (eventually) deactivated. See ADR-0003.
 - **`context.extension`** — read-only identity (`id`, `displayName`, `version`) for the activating extension, in case you need it for log prefixes or error messages.
 
 ## Cross-extension exports
 
-`activate(context)` may return a value that becomes the extension's published exports. Other extensions look it up via `context.host.getExtension<T>(id)?.exports`. Producers that don't expose an API may return nothing.
+`activate(context)` may return a value that becomes the extension's published exports. Other extensions look it up via `context.host.extensions.getExtension<T>(id)?.exports`. Producers that don't expose an API may return nothing.
 
 ```ts
 export interface MyExports {
