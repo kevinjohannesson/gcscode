@@ -12,7 +12,7 @@ SITL: GUIDED • -35.36°/149.17° • 47%
 
 ## Cross-extension dependencies
 
-- **`@gcscode/extension-sitl`** — type-only. Imports `SitlExports` via `import type`. Runtime lookup is via `host.getExtension('gcscode.sitl')` — no runtime coupling.
+- **`@gcscode/extension-sitl`** — type-only. Imports `SitlExports` via `import type`. Runtime lookup is via `host.extensions.getExtension('gcscode.sitl')` — no runtime coupling.
 
 ## Behavior
 
