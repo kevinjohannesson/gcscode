@@ -124,6 +124,8 @@ describe('sitlExtension', () => {
     });
     expect(registerCommand).toHaveBeenCalledWith({
       id: 'gcscode.sitl.getLocation',
+      title: 'Get Location',
+      category: 'SITL',
       run: expect.any(Function),
     });
     expect(registerKeybinding).toHaveBeenCalledWith({

@@ -48,6 +48,8 @@ export const sitlExtension: Extension = {
       }),
       context.host.commands.registerCommand({
         id: 'gcscode.sitl.getLocation',
+        title: 'Get Location',
+        category: 'SITL',
         run: () => {
           if (telemetryState.lat === null || telemetryState.lng === null) {
             console.log('SITL location: (no fix yet)');
