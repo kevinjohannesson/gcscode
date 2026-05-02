@@ -8,9 +8,11 @@ interface CommandPickItem extends QuickPickItem {
 }
 
 /**
- * The shell's built-in extension. Registers the command palette and its
- * default keybinding via the same public APIs any third-party extension
- * uses — the palette appears in itself ("Workbench: Show All Commands").
+ * The shell's built-in extension. Registers the command palette (Ctrl+Shift+P)
+ * and the extensions panel (Ctrl+Shift+X) via the same public APIs any
+ * third-party extension uses — the palette appears in itself ("Workbench: Show
+ * All Commands") and the panel command ("Workbench: Show Installed Extensions")
+ * is fired by the matching keybinding or by selecting it from the palette.
  *
  * Takes a `Registry` so the palette handler can read the live command list
  * via `registry.listCommands()`. Extensions can't introspect the registry
