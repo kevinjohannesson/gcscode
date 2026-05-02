@@ -16,6 +16,9 @@
   $effect(() => {
     if (!open) return;
     function onDocumentClick(event: MouseEvent) {
+      // Selector is tied to QuickPick's hard-coded aria-label. Broaden this if
+      // a non-palette quick pick ever renders with a different aria-label —
+      // today there's only one consumer (the command palette).
       const dialog = document.querySelector('[role="dialog"][aria-label="Command palette"]');
       if (dialog === null) return;
       if (event.target instanceof Node && dialog.contains(event.target)) return;
