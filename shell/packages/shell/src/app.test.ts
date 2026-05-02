@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import type { Extension } from '@gcscode/extension-api';
 
@@ -9,6 +9,8 @@ import App from './app.svelte';
 import MockContent from './__fixtures__/mock-content.svelte';
 import MockLeft from './__fixtures__/mock-left.svelte';
 import MockRight from './__fixtures__/mock-right.svelte';
+import { quickPickState } from './quick-pick/quick-pick-state.svelte';
+import { modalState } from './modal-state.svelte';
 
 function makeExtension(activate: Extension['activate']): Extension {
   return {
@@ -150,5 +152,24 @@ describe('app.svelte', () => {
     const right = screen.getByTestId('statusbar-right');
     expect(within(left).getByText('mock-left')).toBeInTheDocument();
     expect(within(right).queryByText('mock-left')).not.toBeInTheDocument();
+  });
+});
+
+describe('app.svelte — quick pick integration', () => {
+  afterEach(() => {
+    quickPickState.dismiss();
+    modalState.active = false;
+  });
+
+  it('renders the QuickPickHost and shows the palette when state opens', () => {
+    const registry = createRegistry();
+    render(App, { props: { registry } });
+    quickPickState.open({
+      items: [{ label: 'Apple' }],
+      options: undefined,
+      resolve: () => {},
+    });
+    flushSync();
+    expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
   });
 });

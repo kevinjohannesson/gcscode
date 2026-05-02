@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Registry } from './extension-host/registry';
+  import QuickPickHost from './quick-pick/quick-pick-host.svelte';
 
   let { registry }: { registry: Registry } = $props();
 
@@ -41,4 +42,5 @@
       {/each}
     </div>
   </footer>
+  <QuickPickHost />
 </main>
