@@ -30,5 +30,5 @@ attachKeybindingDispatcher(registry, document);
 
 mount(App, {
   target: document.getElementById('app')!,
-  props: { registry },
+  props: { registry, manager },
 });
