@@ -103,9 +103,9 @@ All other interface and helper-type declarations in the file are byte-identical.
 
 Inside `createRegistry`, the `activate(extension)` body builds a local `identity: ExtensionIdentity` from the incoming `extension`. Three reads change source:
 
-| Old (line ~152)            | New                                  |
-| -------------------------- | ------------------------------------ |
-| `id: extension.id`         | `id: extension.manifest.id`          |
+| Old (line ~152)                      | New                                           |
+| ------------------------------------ | --------------------------------------------- |
+| `id: extension.id`                   | `id: extension.manifest.id`                   |
 | `displayName: extension.displayName` | `displayName: extension.manifest.displayName` |
 | `version: extension.version`         | `version: extension.manifest.version`         |
 
@@ -159,11 +159,11 @@ function toRecord(state: ExtensionState): ExtensionRecord {
 
 Inside the returned `register` and `setEnabled` methods, two reads change source:
 
-| Old                                               | New                                                              |
-| ------------------------------------------------- | ---------------------------------------------------------------- |
-| `if (extensions.has(extension.id)) { ... }`       | `if (extensions.has(extension.manifest.id)) { ... }`             |
-| `Extension id "${extension.id}" is already ...`   | `Extension id "${extension.manifest.id}" is already ...`         |
-| `extensions.set(extension.id, { extension, ... })` | `extensions.set(extension.manifest.id, { extension, ... })`     |
+| Old                                                | New                                                         |
+| -------------------------------------------------- | ----------------------------------------------------------- |
+| `if (extensions.has(extension.id)) { ... }`        | `if (extensions.has(extension.manifest.id)) { ... }`        |
+| `Extension id "${extension.id}" is already ...`    | `Extension id "${extension.manifest.id}" is already ...`    |
+| `extensions.set(extension.id, { extension, ... })` | `extensions.set(extension.manifest.id, { extension, ... })` |
 
 All other lines (the `SvelteMap` retention, the `ExtensionState` interface, the `setEnabled` body's `state.enabled` check, the `await registry.deactivate(id)` call, the `onEnabledChanged?.(id, enabled)` notification, the `listExtensions` body) are unchanged.
 
@@ -173,10 +173,10 @@ The `ExtensionManager` interface signature (`register`, `setEnabled`, `listExten
 
 The file is renamed to free the "manifest" term for the public per-extension concept. Same rename applies to the co-located test file:
 
-| Old path                                                 | New path                                                |
-| -------------------------------------------------------- | ------------------------------------------------------- |
-| `extension-host/extension-manifest.ts`                   | `extension-host/bundled-extensions.ts`                  |
-| `extension-host/extension-manifest.test.ts`              | `extension-host/bundled-extensions.test.ts`             |
+| Old path                                    | New path                                    |
+| ------------------------------------------- | ------------------------------------------- |
+| `extension-host/extension-manifest.ts`      | `extension-host/bundled-extensions.ts`      |
+| `extension-host/extension-manifest.test.ts` | `extension-host/bundled-extensions.test.ts` |
 
 Inside the renamed `bundled-extensions.ts`:
 
@@ -194,8 +194,8 @@ Inside `bundled-extensions.test.ts`:
 
 One line:
 
-| Old                                                              | New                                                              |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Old                                                                        | New                                                                        |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | `import { bundledExtensions } from './extension-host/extension-manifest';` | `import { bundledExtensions } from './extension-host/bundled-extensions';` |
 
 The `for (const { id, extension, initialEnabled = true } of bundledExtensions)` loop body is unchanged. Identity reads inside the loop continue against the local `id` destructured from each entry, which is now sourced from `ext.manifest.id` at the entry's construction site.
@@ -212,7 +212,9 @@ export const exampleExtension: Extension = {
   id: 'gcscode.example',
   displayName: 'Example Extension',
   version: '0.0.0',
-  activate(context) { /* unchanged */ },
+  activate(context) {
+    /* unchanged */
+  },
 };
 
 // New
@@ -223,7 +225,9 @@ export const exampleExtension: Extension = {
     version: '0.0.0',
     description: 'Demonstrates view, status bar item, command, and keybinding contributions.',
   },
-  activate(context) { /* unchanged byte-for-byte */ },
+  activate(context) {
+    /* unchanged byte-for-byte */
+  },
 };
 ```
 
@@ -237,8 +241,12 @@ export const sitlExtension: Extension = {
   id: 'gcscode.sitl',
   displayName: 'SITL Telemetry',
   version: '0.0.0',
-  activate(context): SitlExports { /* unchanged */ },
-  async deactivate() { /* unchanged */ },
+  activate(context): SitlExports {
+    /* unchanged */
+  },
+  async deactivate() {
+    /* unchanged */
+  },
 };
 
 // New
@@ -247,10 +255,15 @@ export const sitlExtension: Extension = {
     id: 'gcscode.sitl',
     displayName: 'SITL Telemetry',
     version: '0.0.0',
-    description: 'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export.',
+    description:
+      'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export.',
   },
-  activate(context): SitlExports { /* unchanged byte-for-byte */ },
-  async deactivate() { /* unchanged byte-for-byte */ },
+  activate(context): SitlExports {
+    /* unchanged byte-for-byte */
+  },
+  async deactivate() {
+    /* unchanged byte-for-byte */
+  },
 };
 ```
 
@@ -264,8 +277,12 @@ export const vehicleStatusExtension: Extension = {
   id: 'gcscode.vehicle-status',
   displayName: 'Vehicle Status',
   version: '0.0.0',
-  activate(context) { /* unchanged */ },
-  deactivate() { /* unchanged */ },
+  activate(context) {
+    /* unchanged */
+  },
+  deactivate() {
+    /* unchanged */
+  },
 };
 
 // New
@@ -276,8 +293,12 @@ export const vehicleStatusExtension: Extension = {
     version: '0.0.0',
     description: 'Footer status item that reads SITL telemetry via cross-extension exports.',
   },
-  activate(context) { /* unchanged byte-for-byte */ },
-  deactivate() { /* unchanged byte-for-byte */ },
+  activate(context) {
+    /* unchanged byte-for-byte */
+  },
+  deactivate() {
+    /* unchanged byte-for-byte */
+  },
 };
 ```
 
@@ -296,7 +317,9 @@ export function createWorkbenchExtension(registry: Registry): Extension {
     id: 'workbench',
     displayName: 'Workbench',
     version: '0.0.0',
-    activate(context: ExtensionContext) { /* unchanged */ },
+    activate(context: ExtensionContext) {
+      /* unchanged */
+    },
   };
 }
 
@@ -307,9 +330,12 @@ export function createWorkbenchExtension(registry: Registry): Extension {
       id: 'workbench',
       displayName: 'Workbench',
       version: '0.0.0',
-      description: "The shell's built-in extension. Registers the command palette and Ctrl+Shift+P.",
+      description:
+        "The shell's built-in extension. Registers the command palette and Ctrl+Shift+P.",
     },
-    activate(context: ExtensionContext) { /* unchanged byte-for-byte */ },
+    activate(context: ExtensionContext) {
+      /* unchanged byte-for-byte */
+    },
   };
 }
 ```
@@ -346,15 +372,15 @@ const extension: Extension = {
 
 Tests that assert against `manager.listExtensions()` results update to the new `ExtensionRecord` shape: `{ id, displayName, version, enabled }` becomes `{ manifest: { id, displayName, version }, enabled }`. (`description` is absent from these assertions because the test extensions don't declare one.)
 
-| File                                                                | Update scope                                                                                                                                                                                                                                                                                                |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/shell/src/extension-host/registry.test.ts`                | Heaviest. ~14 `Extension` literals across the file's helpers and tests; each migrates as above. Identity-related assertions (e.g. `expect(extension.id)` if any) flip to `extension.manifest.id`.                                                                                                            |
-| `packages/shell/src/extension-host/extension-manager.test.ts`       | ~17 `Extension` literals (across `makeViewExtension`, `makeViewExtensionWithDeactivate`, and inline literals). Plus assertions against `manager.listExtensions()` flip to the new `ExtensionRecord` shape.                                                                                                   |
-| `packages/shell/src/app.test.ts`                                    | One `Extension` literal in the test extension factory; same migration.                                                                                                                                                                                                                                       |
-| `packages/extension-example/src/index.test.ts`                      | Two literals (the imported `exampleExtension` itself + at most one inline test extension). Updates flow from the source change in `index.ts`; assertions on registered contributions are unchanged.                                                                                                          |
-| `packages/extension-sitl/src/index.test.ts`                         | Two literals; same.                                                                                                                                                                                                                                                                                          |
-| `packages/extension-vehicle-status/src/index.test.ts`               | Three literals; same.                                                                                                                                                                                                                                                                                        |
-| `packages/shell/src/built-in/workbench/index.test.ts`               | Two literals (the workbench plus a test extension that registers a command). Same migration.                                                                                                                                                                                                                 |
+| File                                                                                                       | Update scope                                                                                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/shell/src/extension-host/registry.test.ts`                                                       | Heaviest. ~14 `Extension` literals across the file's helpers and tests; each migrates as above. Identity-related assertions (e.g. `expect(extension.id)` if any) flip to `extension.manifest.id`.                                                      |
+| `packages/shell/src/extension-host/extension-manager.test.ts`                                              | ~17 `Extension` literals (across `makeViewExtension`, `makeViewExtensionWithDeactivate`, and inline literals). Plus assertions against `manager.listExtensions()` flip to the new `ExtensionRecord` shape.                                             |
+| `packages/shell/src/app.test.ts`                                                                           | One `Extension` literal in the test extension factory; same migration.                                                                                                                                                                                 |
+| `packages/extension-example/src/index.test.ts`                                                             | Two literals (the imported `exampleExtension` itself + at most one inline test extension). Updates flow from the source change in `index.ts`; assertions on registered contributions are unchanged.                                                    |
+| `packages/extension-sitl/src/index.test.ts`                                                                | Two literals; same.                                                                                                                                                                                                                                    |
+| `packages/extension-vehicle-status/src/index.test.ts`                                                      | Three literals; same.                                                                                                                                                                                                                                  |
+| `packages/shell/src/built-in/workbench/index.test.ts`                                                      | Two literals (the workbench plus a test extension that registers a command). Same migration.                                                                                                                                                           |
 | `packages/shell/src/extension-host/bundled-extensions.test.ts` (renamed from `extension-manifest.test.ts`) | Import path update only. The existing assertions (`bundledExtensions.length`, every entry has a non-empty `id`, ids are unique) keep referencing `entry.id`, which is now sourced from `entry.extension.manifest.id` at the entry's construction site. |
 
 No new tests are added. The new types are TypeScript-enforced; runtime tests for "manifest is an object on Extension" would be redundant.
@@ -384,7 +410,8 @@ export const myExtension: Extension = {
     id: 'my-namespace.my-extension',
     displayName: 'My Extension',
     version: '0.0.0',
-    description: 'Demo extension that contributes a view, a status item, a command, and a keybinding.',
+    description:
+      'Demo extension that contributes a view, a status item, a command, and a keybinding.',
   },
   activate(context) {
     context.subscriptions.push(
@@ -558,13 +585,13 @@ Two edits.
 **Divergences table — update the existing "Extension shape" row.** The current row:
 
 ```md
-| Extension shape                   | `activate()` exported from module; metadata in `package.json`   | object with `activate()` method; metadata as identity fields on the object | [ADR-0002](decisions/ADR-0002-imperative-activate-api.md), [ADR-0004](decisions/ADR-0004-rename-plugin-to-extension.md)                                  | Manifest deferral lands → re-evaluate                             |
+| Extension shape | `activate()` exported from module; metadata in `package.json` | object with `activate()` method; metadata as identity fields on the object | [ADR-0002](decisions/ADR-0002-imperative-activate-api.md), [ADR-0004](decisions/ADR-0004-rename-plugin-to-extension.md) | Manifest deferral lands → re-evaluate |
 ```
 
 becomes:
 
 ```md
-| Extension shape                   | `activate()` exported from module; metadata in `package.json`   | object with `activate()` method; metadata in a `manifest: ExtensionManifest` field on the object | [ADR-0002](decisions/ADR-0002-imperative-activate-api.md), [ADR-0004](decisions/ADR-0004-rename-plugin-to-extension.md), [ADR-0007](decisions/ADR-0007-extension-manifest.md) | First third-party / out-of-tree extension                         |
+| Extension shape | `activate()` exported from module; metadata in `package.json` | object with `activate()` method; metadata in a `manifest: ExtensionManifest` field on the object | [ADR-0002](decisions/ADR-0002-imperative-activate-api.md), [ADR-0004](decisions/ADR-0004-rename-plugin-to-extension.md), [ADR-0007](decisions/ADR-0007-extension-manifest.md) | First third-party / out-of-tree extension |
 ```
 
 The `deactivate` hook position row, and every other Divergences row, are unchanged.
@@ -572,7 +599,7 @@ The `deactivate` hook position row, and every other Divergences row, are unchang
 **Alignments table — append one new row** at the bottom (after the existing "Topic-namespaced host API" row):
 
 ```md
-| Per-extension manifest carries identity + presentation metadata             | ✓ (`package.json`)                                        | ✓ (`Extension.manifest: ExtensionManifest`, descriptive subset)                                  | [ADR-0007](decisions/ADR-0007-extension-manifest.md)                                                       |
+| Per-extension manifest carries identity + presentation metadata | ✓ (`package.json`) | ✓ (`Extension.manifest: ExtensionManifest`, descriptive subset) | [ADR-0007](decisions/ADR-0007-extension-manifest.md) |
 ```
 
 The Deferrals table is unchanged. (The "Declarative `contributes` manifest" deferral row stays — the `contributes` arrays are still deferred. Trigger language tightens; see the `out-of-scope.md` propagation below.)
@@ -605,32 +632,32 @@ The "Activation events / lazy activation", "Extension activation ordering / depe
 
 ## Files modified / added
 
-| Path                                                          | Change                                                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/decisions/ADR-0007-extension-manifest.md`               | NEW. Records the manifest decision, alternatives considered, iteration scope, and follow-ups. ~110 lines.                                                                                                                                                                                                                                                                    |
-| `packages/extension-api/src/index.ts`                         | New `ExtensionManifest` interface added directly after `ExtensionIdentity`. `Extension` interface rewritten: drops `extends ExtensionIdentity`, gains `readonly manifest: ExtensionManifest`. All other interfaces (`Disposable`, contribution interfaces, `QuickPick*`, `ExtensionHost`, `ExtensionContext`, `ExtensionIdentity`) byte-identical.                            |
-| `packages/shell/src/extension-host/registry.ts`               | Three identity reads inside `activate(extension)` change source from `extension.X` to `extension.manifest.X`. Local `identity: ExtensionIdentity` shape unchanged. Everything else byte-identical.                                                                                                                                                                          |
-| `packages/shell/src/extension-host/extension-manager.ts`      | `ExtensionRecord` reshapes from flat to `{ manifest, enabled }`. `toRecord` updates accordingly. Three `extension.id` reads inside `register` update to `extension.manifest.id`. Top imports add `ExtensionManifest` from `@gcscode/extension-api`. Everything else byte-identical.                                                                                          |
-| `packages/shell/src/extension-host/bundled-extensions.ts` (renamed from `extension-manifest.ts`) | File renamed. `ManifestEntry` → `BundledExtensionEntry`. Each row's `id: ext.id` updates to `id: ext.manifest.id`. Header docstring added explaining this is the host-side bundling list, distinct from the public `ExtensionManifest`.                                                              |
-| `packages/shell/src/extension-host/bundled-extensions.test.ts` (renamed from `extension-manifest.test.ts`) | File renamed. Import path updates from `./extension-manifest` to `./bundled-extensions`. Test bodies byte-identical (the test reads `entry.id`, which still works).                                                                                                                              |
-| `packages/shell/src/main.ts`                                  | One import-path line updates from `./extension-host/extension-manifest` to `./extension-host/bundled-extensions`. Body of the `for` loop unchanged.                                                                                                                                                                                                                            |
-| `packages/shell/src/built-in/workbench/index.ts`              | The `createWorkbenchExtension` factory's returned `Extension` literal moves identity fields into `manifest: { id, displayName, version, description }`. Activate body, JSDoc, `CommandPickItem` interface unchanged.                                                                                                                                                          |
-| `packages/shell/src/built-in/workbench/index.test.ts`         | Two `Extension` literals migrate to manifest shape. No assertion changes beyond following the source.                                                                                                                                                                                                                                                                          |
-| `packages/shell/src/extension-host/registry.test.ts`          | ~14 `Extension` literals migrate to manifest shape. Identity assertions, if any, flip from `extension.id` to `extension.manifest.id`. ~50 tests touched, all mechanical.                                                                                                                                                                                                       |
-| `packages/shell/src/extension-host/extension-manager.test.ts` | ~17 `Extension` literals migrate to manifest shape. `manager.listExtensions()` assertions flip from flat `{ id, displayName, version, enabled }` to nested `{ manifest: {...}, enabled }`. ~14 tests touched.                                                                                                                                                                  |
-| `packages/shell/src/app.test.ts`                              | One `Extension` literal migrates.                                                                                                                                                                                                                                                                                                                                              |
-| `packages/extension-example/src/index.ts`                     | `exampleExtension` literal migrates to manifest shape; gains `description: 'Demonstrates view, status bar item, command, and keybinding contributions.'`.                                                                                                                                                                                                                       |
-| `packages/extension-example/src/index.test.ts`                | Updates flow from the source change.                                                                                                                                                                                                                                                                                                                                            |
-| `packages/extension-sitl/src/index.ts`                        | `sitlExtension` literal migrates; gains `description: 'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export.'`.                                                                                                                                                                                                                                |
-| `packages/extension-sitl/src/index.test.ts`                   | Updates flow from the source change.                                                                                                                                                                                                                                                                                                                                            |
-| `packages/extension-vehicle-status/src/index.ts`              | `vehicleStatusExtension` literal migrates; gains `description: 'Footer status item that reads SITL telemetry via cross-extension exports.'`.                                                                                                                                                                                                                                  |
-| `packages/extension-vehicle-status/src/index.test.ts`         | Updates flow from the source change.                                                                                                                                                                                                                                                                                                                                            |
-| `packages/extension-api/README.md`                            | REPLACED. Usage example, "The extension shape" section (NEW), activation context bullet, Cross-extension exports example all updated to manifest shape. Other sections (Stability, Lifecycle, Conventions) keep current content.                                                                                                                                              |
-| `packages/extension-example/README.md`                        | Three edits: "What it demonstrates" third bullet, Anatomy file-tree comment, "To write your own extension..." paragraph.                                                                                                                                                                                                                                                       |
-| `docs/roadmap.md`                                             | B4 line clarified (rename "Extension manifest" → "Bundled extensions list" + footnote about renamed file). New B5 line added.                                                                                                                                                                                                                                                  |
-| `docs/vs-code-alignment.md`                                   | Existing Divergences row "Extension shape" updated (gcscode column + Trigger column). New Alignments row appended.                                                                                                                                                                                                                                                            |
-| `docs/decisions/ADR-0003-plugin-api-refinements.md`           | One new follow-up bullet at the end of `## Follow-ups` pointing at ADR-0007.                                                                                                                                                                                                                                                                                                    |
-| `docs/out-of-scope.md`                                        | "Declarative `contributes` manifest" entry rewritten with sharper trigger language; clarifies that descriptive metadata is now structured per ADR-0007 and the deferral applies only to `contributes` arrays.                                                                                                                                                                  |
+| Path                                                                                                       | Change                                                                                                                                                                                                                                                                                                                                             |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/decisions/ADR-0007-extension-manifest.md`                                                            | NEW. Records the manifest decision, alternatives considered, iteration scope, and follow-ups. ~110 lines.                                                                                                                                                                                                                                          |
+| `packages/extension-api/src/index.ts`                                                                      | New `ExtensionManifest` interface added directly after `ExtensionIdentity`. `Extension` interface rewritten: drops `extends ExtensionIdentity`, gains `readonly manifest: ExtensionManifest`. All other interfaces (`Disposable`, contribution interfaces, `QuickPick*`, `ExtensionHost`, `ExtensionContext`, `ExtensionIdentity`) byte-identical. |
+| `packages/shell/src/extension-host/registry.ts`                                                            | Three identity reads inside `activate(extension)` change source from `extension.X` to `extension.manifest.X`. Local `identity: ExtensionIdentity` shape unchanged. Everything else byte-identical.                                                                                                                                                 |
+| `packages/shell/src/extension-host/extension-manager.ts`                                                   | `ExtensionRecord` reshapes from flat to `{ manifest, enabled }`. `toRecord` updates accordingly. Three `extension.id` reads inside `register` update to `extension.manifest.id`. Top imports add `ExtensionManifest` from `@gcscode/extension-api`. Everything else byte-identical.                                                                |
+| `packages/shell/src/extension-host/bundled-extensions.ts` (renamed from `extension-manifest.ts`)           | File renamed. `ManifestEntry` → `BundledExtensionEntry`. Each row's `id: ext.id` updates to `id: ext.manifest.id`. Header docstring added explaining this is the host-side bundling list, distinct from the public `ExtensionManifest`.                                                                                                            |
+| `packages/shell/src/extension-host/bundled-extensions.test.ts` (renamed from `extension-manifest.test.ts`) | File renamed. Import path updates from `./extension-manifest` to `./bundled-extensions`. Test bodies byte-identical (the test reads `entry.id`, which still works).                                                                                                                                                                                |
+| `packages/shell/src/main.ts`                                                                               | One import-path line updates from `./extension-host/extension-manifest` to `./extension-host/bundled-extensions`. Body of the `for` loop unchanged.                                                                                                                                                                                                |
+| `packages/shell/src/built-in/workbench/index.ts`                                                           | The `createWorkbenchExtension` factory's returned `Extension` literal moves identity fields into `manifest: { id, displayName, version, description }`. Activate body, JSDoc, `CommandPickItem` interface unchanged.                                                                                                                               |
+| `packages/shell/src/built-in/workbench/index.test.ts`                                                      | Two `Extension` literals migrate to manifest shape. No assertion changes beyond following the source.                                                                                                                                                                                                                                              |
+| `packages/shell/src/extension-host/registry.test.ts`                                                       | ~14 `Extension` literals migrate to manifest shape. Identity assertions, if any, flip from `extension.id` to `extension.manifest.id`. ~50 tests touched, all mechanical.                                                                                                                                                                           |
+| `packages/shell/src/extension-host/extension-manager.test.ts`                                              | ~17 `Extension` literals migrate to manifest shape. `manager.listExtensions()` assertions flip from flat `{ id, displayName, version, enabled }` to nested `{ manifest: {...}, enabled }`. ~14 tests touched.                                                                                                                                      |
+| `packages/shell/src/app.test.ts`                                                                           | One `Extension` literal migrates.                                                                                                                                                                                                                                                                                                                  |
+| `packages/extension-example/src/index.ts`                                                                  | `exampleExtension` literal migrates to manifest shape; gains `description: 'Demonstrates view, status bar item, command, and keybinding contributions.'`.                                                                                                                                                                                          |
+| `packages/extension-example/src/index.test.ts`                                                             | Updates flow from the source change.                                                                                                                                                                                                                                                                                                               |
+| `packages/extension-sitl/src/index.ts`                                                                     | `sitlExtension` literal migrates; gains `description: 'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export.'`.                                                                                                                                                                                                      |
+| `packages/extension-sitl/src/index.test.ts`                                                                | Updates flow from the source change.                                                                                                                                                                                                                                                                                                               |
+| `packages/extension-vehicle-status/src/index.ts`                                                           | `vehicleStatusExtension` literal migrates; gains `description: 'Footer status item that reads SITL telemetry via cross-extension exports.'`.                                                                                                                                                                                                       |
+| `packages/extension-vehicle-status/src/index.test.ts`                                                      | Updates flow from the source change.                                                                                                                                                                                                                                                                                                               |
+| `packages/extension-api/README.md`                                                                         | REPLACED. Usage example, "The extension shape" section (NEW), activation context bullet, Cross-extension exports example all updated to manifest shape. Other sections (Stability, Lifecycle, Conventions) keep current content.                                                                                                                   |
+| `packages/extension-example/README.md`                                                                     | Three edits: "What it demonstrates" third bullet, Anatomy file-tree comment, "To write your own extension..." paragraph.                                                                                                                                                                                                                           |
+| `docs/roadmap.md`                                                                                          | B4 line clarified (rename "Extension manifest" → "Bundled extensions list" + footnote about renamed file). New B5 line added.                                                                                                                                                                                                                      |
+| `docs/vs-code-alignment.md`                                                                                | Existing Divergences row "Extension shape" updated (gcscode column + Trigger column). New Alignments row appended.                                                                                                                                                                                                                                 |
+| `docs/decisions/ADR-0003-plugin-api-refinements.md`                                                        | One new follow-up bullet at the end of `## Follow-ups` pointing at ADR-0007.                                                                                                                                                                                                                                                                       |
+| `docs/out-of-scope.md`                                                                                     | "Declarative `contributes` manifest" entry rewritten with sharper trigger language; clarifies that descriptive metadata is now structured per ADR-0007 and the deferral applies only to `contributes` arrays.                                                                                                                                      |
 
 ## Branching and commit
 
@@ -666,12 +693,12 @@ After all five commits land, merge via `superpowers:finishing-a-development-bran
 
 ## VS Code alignment
 
-| Concern                                       | VS Code                                                                              | gcscode                                                                                          | Notes                                                                                                                                                                              |
-| --------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Per-extension manifest carries identity + presentation metadata | `package.json` (`name`, `displayName`, `version`, `description`, `categories`, `icon`, `engines`, `extensionDependencies`, `activationEvents`, `contributes`) | `Extension.manifest: ExtensionManifest` carries `id`, `displayName`, `version`, `description?` (descriptive subset only this iteration) | Aligned in spirit. New Alignments row in the ledger.                                                                                                                                |
-| Extension shape (Extension object vs `package.json` + module export) | `activate()` exported from module; metadata in `package.json` | object with `activate()` method; metadata in a `manifest: ExtensionManifest` field on the object | Existing Divergences row updated. Trigger narrows from "Manifest deferral lands → re-evaluate" to "First third-party / out-of-tree extension".                                       |
-| Iteration field scope                         | All `package.json` fields available                                                  | `description?` only                                                                              | Future descriptive fields (`category?`, `icon?`, `categories?`) land per-field. The contributes manifest is a separate decision under sharper trigger language.                       |
-| Manifest naming                               | "Extension manifest" = `package.json`                                                | "Extension manifest" = `Extension.manifest`                                                      | Aligned. The host-side `extension-manifest.ts` file (the bundling list) renames to `bundled-extensions.ts` to avoid double-meaning.                                                  |
+| Concern                                                              | VS Code                                                                                                                                                       | gcscode                                                                                                                                 | Notes                                                                                                                                                           |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Per-extension manifest carries identity + presentation metadata      | `package.json` (`name`, `displayName`, `version`, `description`, `categories`, `icon`, `engines`, `extensionDependencies`, `activationEvents`, `contributes`) | `Extension.manifest: ExtensionManifest` carries `id`, `displayName`, `version`, `description?` (descriptive subset only this iteration) | Aligned in spirit. New Alignments row in the ledger.                                                                                                            |
+| Extension shape (Extension object vs `package.json` + module export) | `activate()` exported from module; metadata in `package.json`                                                                                                 | object with `activate()` method; metadata in a `manifest: ExtensionManifest` field on the object                                        | Existing Divergences row updated. Trigger narrows from "Manifest deferral lands → re-evaluate" to "First third-party / out-of-tree extension".                  |
+| Iteration field scope                                                | All `package.json` fields available                                                                                                                           | `description?` only                                                                                                                     | Future descriptive fields (`category?`, `icon?`, `categories?`) land per-field. The contributes manifest is a separate decision under sharper trigger language. |
+| Manifest naming                                                      | "Extension manifest" = `package.json`                                                                                                                         | "Extension manifest" = `Extension.manifest`                                                                                             | Aligned. The host-side `extension-manifest.ts` file (the bundling list) renames to `bundled-extensions.ts` to avoid double-meaning.                             |
 
 No new alignment ledger Divergences are introduced. One Divergences row is updated (Extension shape, narrowed trigger). One new Alignments row is added (per-extension manifest with descriptive subset).
 
