@@ -22,6 +22,7 @@ The extension architecture grows in phases: **A** (contribution kinds), **B** (l
 - [x] **B4: Bundled extensions list + persistence** — host-side `bundledExtensions` array (file renamed to `bundled-extensions.ts` in B5; see ADR-0007); localStorage-backed disabled-id set; `ExtensionManager.register` grows `{ enabled? }`; `createExtensionManager` grows `{ onEnabledChanged }`. Spec: [`specs/2026-04-27-phase-b4-extension-manifest.md`](specs/2026-04-27-phase-b4-extension-manifest.md). NOTE: the original B4 title used "Extension manifest" for the host-side bundling list; the public per-extension manifest is a different concept landed in B5.
 - [x] **`Extension.deactivate?()` hook** — optional `deactivate?(): void | Promise<void>` on `Extension`; `registry.deactivate(id)` and `manager.setEnabled(id, ...)` become async. Spec: [`specs/2026-04-27-extension-deactivate-hook.md`](specs/2026-04-27-extension-deactivate-hook.md)
 - [x] **B5: Per-extension manifest metadata** — public `ExtensionManifest` type in `@gcscode/extension-api`; `Extension.manifest: ExtensionManifest` replaces flat identity fields; first descriptive field is `description?`. Host-side `extension-manifest.ts` renames to `bundled-extensions.ts` to free the term. Spec: [`specs/2026-05-02-extension-manifest.md`](specs/2026-05-02-extension-manifest.md). ADR: [`decisions/ADR-0007-extension-manifest.md`](decisions/ADR-0007-extension-manifest.md).
+- [x] **B6: Extensions panel** — centered overlay opened via `Ctrl+Shift+X` or palette; lists bundled extensions with displayName, version, description, Enable/Disable button; first marketplace UI consumer of `Extension.manifest.description`. Spec: [`specs/2026-05-02-extensions-panel.md`](specs/2026-05-02-extensions-panel.md).
 
 ### Phase C — Cross-cutting capabilities
 
@@ -45,6 +46,7 @@ The first-party extensions planned for the app. Each is a future consumer of the
 ### Considering (not yet committed)
 
 - [ ] **Road scanning** — _description TBD_
+- [ ] **Sidebar / activity-bar chrome** — persistent UI region that would host the extensions panel (sidebar-mounted variant alongside the existing overlay), settings, output, search, etc. Trigger: a second sidebar tenant emerges (settings, output, search), OR operator UX feedback says the overlay is insufficient for longer browsing tasks. Operator-UX framing: floating/disappearing UI is the default; persistent chrome must justify its viewport cost.
 
 ## Maintenance
 
