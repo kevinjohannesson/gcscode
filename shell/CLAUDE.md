@@ -83,6 +83,12 @@ When a spec lists cross-cutting deferrals — concepts the architecture is delib
 
 The judgment: does this non-goal apply only to this iteration, or is it a deliberate "we're deferring this concept" decision affecting the whole architecture? Cross-cutting → propagate to `out-of-scope.md`. Specs should include a `docs/out-of-scope.md` propagation section listing the exact edits the iteration's docs commit will make — see the `## docs/out-of-scope.md propagation` section in `docs/specs/2026-04-26-phase-a2-commands.md` for the canonical bullet-list-of-edits format.
 
+### Periodic housekeeping
+
+After 2–3 feature iterations have shipped, run a housekeeping pass: open survey across alignment / sharpening / gaps, surface findings ordered by leverage, offer A/B/C cuts (smallest / medium / largest), then brainstorm + spec + plan + execute the chosen cut. The full procedure lives at `.claude/commands/housekeeping.md` (invoke via `/housekeeping`). Codified during the 2026-05-01 / 2026-05-02 sequence (`docs/specs/2026-05-01-vs-code-alignment-ledger.md` + `docs/specs/2026-05-01-extensionhost-namespacing.md`).
+
+The pattern catches silent drift (stale READMEs, out-of-date out-of-scope language, unarticulated divergences from VS Code) before it accumulates, and surfaces decisions whose triggers are approaching (e.g., the namespacing 5–7 method threshold) so they get a focused brainstorm rather than a hurried call mid-feature. Don't run this for one-off questions or active feature work — periodic discipline only.
+
 ## Commands
 
 - `pnpm dev` — run the shell's dev server
@@ -100,6 +106,7 @@ The judgment: does this non-goal apply only to this iteration, or is it a delibe
 - `docs/decisions/` — architecture decision records.
 - `packages/extension-api/README.md` — how to write an extension.
 - `packages/extension-example/README.md` — the worked example to mirror.
+- `.claude/commands/housekeeping.md` — `/housekeeping` slash command. Run periodically (every 2–3 iterations) to sweep for drift, sharpen rough edges, fill articulation gaps.
 
 ---
 
