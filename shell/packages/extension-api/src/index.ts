@@ -97,6 +97,24 @@ export interface ExtensionIdentity {
 }
 
 /**
+ * Per-extension declaration metadata. Extends `ExtensionIdentity` with
+ * presentation fields used by host UI (e.g. the marketplace / extensions panel).
+ *
+ * Iteration scope is descriptive metadata only: identity (`id`, `displayName`,
+ * `version`) and `description?`. Future descriptive fields (`category?`,
+ * `icon?`, `categories?`) land per-field on this interface as real consumers
+ * pull on them. Declarative `contributes` arrays (commands, views, keybindings
+ * as static lists) are deferred under sharper trigger language; see ADR-0007.
+ */
+export interface ExtensionManifest extends ExtensionIdentity {
+  /**
+   * One-line user-facing description. Rendered by host UI (extensions panel
+   * rows, marketplace previews) when present. No length cap; UIs may truncate.
+   */
+  readonly description?: string;
+}
+
+/**
  * The per-extension gate. Methods are organized into four topic namespaces:
  *
  * - `commands` — `registerCommand` (returns `Disposable`) and `executeCommand`
@@ -169,16 +187,21 @@ export interface ExtensionContext {
 }
 
 /**
- * An extension module's named export. Identity fields give the host extension
- * identity for diagnostics; `activate(context)` is the single entry point.
+ * An extension module's named export. The `manifest` carries identity and
+ * descriptive metadata; `activate(context)` is the single entry point.
+ *
  * Returning a value from `activate()` publishes that value as the extension's
- * exports — other extensions can look it up via `host.extensions.getExtension(id)` (see
- * ADR-0005). Producers that don't expose an API may return nothing.
+ * exports — other extensions can look it up via
+ * `host.extensions.getExtension(id)` (see ADR-0005). Producers that don't
+ * expose an API may return nothing.
  *
  * `deactivate?()` is an optional hook for non-disposable / async cleanup. The
  * host awaits the returned Promise (if any) before tearing down subscriptions.
+ *
+ * See ADR-0007 for the manifest's shape and growth conventions.
  */
-export interface Extension extends ExtensionIdentity {
+export interface Extension {
+  readonly manifest: ExtensionManifest;
   activate(context: ExtensionContext): unknown;
   deactivate?(): void | Promise<void>;
 }

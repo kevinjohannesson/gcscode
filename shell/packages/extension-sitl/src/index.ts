@@ -31,9 +31,13 @@ const WS_URL = `ws://localhost:8088/v1/ws/mavlink?filter=${encodeURIComponent(FI
 let client: MavlinkClient | null = null;
 
 export const sitlExtension: Extension = {
-  id: 'gcscode.sitl',
-  displayName: 'SITL Telemetry',
-  version: '0.0.0',
+  manifest: {
+    id: 'gcscode.sitl',
+    displayName: 'SITL Telemetry',
+    version: '0.0.0',
+    description:
+      'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export.',
+  },
   activate(context): SitlExports {
     client = createMavlinkClient({
       url: WS_URL,

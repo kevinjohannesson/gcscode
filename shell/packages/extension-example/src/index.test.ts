@@ -8,9 +8,9 @@ import ExampleStatus from './example-status.svelte';
 
 describe('exampleExtension', () => {
   it('declares stable identity metadata', () => {
-    expect(exampleExtension.id).toBe('gcscode.example');
-    expect(exampleExtension.displayName).toBe('Example Extension');
-    expect(typeof exampleExtension.version).toBe('string');
+    expect(exampleExtension.manifest.id).toBe('gcscode.example');
+    expect(exampleExtension.manifest.displayName).toBe('Example Extension');
+    expect(typeof exampleExtension.manifest.version).toBe('string');
   });
 
   it('registers a view, a status bar item, a command, and a keybinding, pushing all four disposables', () => {
@@ -34,9 +34,9 @@ describe('exampleExtension', () => {
       },
       subscriptions,
       extension: {
-        id: exampleExtension.id,
-        displayName: exampleExtension.displayName,
-        version: exampleExtension.version,
+        id: exampleExtension.manifest.id,
+        displayName: exampleExtension.manifest.displayName,
+        version: exampleExtension.manifest.version,
       },
     });
 
@@ -83,9 +83,9 @@ describe('exampleExtension', () => {
       },
       subscriptions: [],
       extension: {
-        id: exampleExtension.id,
-        displayName: exampleExtension.displayName,
-        version: exampleExtension.version,
+        id: exampleExtension.manifest.id,
+        displayName: exampleExtension.manifest.displayName,
+        version: exampleExtension.manifest.version,
       },
     });
 

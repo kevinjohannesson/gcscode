@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bundledExtensions } from './extension-manifest';
+import { bundledExtensions } from './bundled-extensions';
 
 describe('bundledExtensions', () => {
   it('is non-empty', () => {
@@ -9,7 +9,7 @@ describe('bundledExtensions', () => {
 
   it("each entry's id matches its extension's id", () => {
     for (const entry of bundledExtensions) {
-      expect(entry.id).toBe(entry.extension.id);
+      expect(entry.id).toBe(entry.extension.manifest.id);
     }
   });
 

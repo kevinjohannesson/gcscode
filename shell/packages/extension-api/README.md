@@ -14,9 +14,13 @@ import View from './view.svelte';
 import StatusBadge from './status-badge.svelte';
 
 export const myExtension: Extension = {
-  id: 'my-namespace.my-extension',
-  displayName: 'My Extension',
-  version: '0.0.0',
+  manifest: {
+    id: 'my-namespace.my-extension',
+    displayName: 'My Extension',
+    version: '0.0.0',
+    description:
+      'Demo extension that contributes a view, a status item, a command, and a keybinding.',
+  },
   activate(context) {
     context.subscriptions.push(
       context.host.window.registerView({
@@ -47,6 +51,20 @@ export const myExtension: Extension = {
 
 See `packages/extension-example/` for the canonical worked example.
 
+## The extension shape
+
+An extension package exports a named `const` of type `Extension` carrying:
+
+- **`manifest: ExtensionManifest`** — declaration-level metadata.
+  - **`id`** — stable string id; convention is `<namespace>.<slug>` (e.g. `gcscode.example`).
+  - **`displayName`** — user-facing name.
+  - **`version`** — semver string.
+  - **`description?`** — optional one-liner shown by host UI (e.g. the extensions panel) when present.
+- **`activate(context)`** — entry point; called by the host on enable.
+- **`deactivate?()`** — optional non-disposable / async cleanup hook.
+
+The manifest is the structured home for descriptive metadata. It grows per-field as real consumers pull on additional fields (`category?`, `icon?`, etc.). See [ADR-0007](../../docs/decisions/ADR-0007-extension-manifest.md) for the manifest's iteration scope and growth conventions.
+
 ## The activation context
 
 `activate(context)` receives an `ExtensionContext`:
@@ -58,7 +76,7 @@ See `packages/extension-example/` for the canonical worked example.
   - **`host.extensions`** — `getExtension<T>(id): { id; exports: T } | undefined` looks up another extension's published exports.
     Each `register*` call returns a `Disposable`. The host exposes no verbs at the top level — every method lives under one of the four namespaces. See ADR-0006.
 - **`context.subscriptions`** — push every `Disposable` here. The host disposes them when the extension is (eventually) deactivated. See ADR-0003.
-- **`context.extension`** — read-only identity (`id`, `displayName`, `version`) for the activating extension, in case you need it for log prefixes or error messages.
+- **`context.extension`** — read-only identity (`id`, `displayName`, `version`) for the activating extension, in case you need it for log prefixes or error messages. Note this is the read-only `ExtensionIdentity` subset — `description` is on `extension.manifest`, not on `context.extension`.
 
 ## Cross-extension exports
 
@@ -70,9 +88,11 @@ export interface MyExports {
 }
 
 export const myExtension: Extension = {
-  id: 'my-namespace.my-extension',
-  displayName: 'My Extension',
-  version: '0.0.0',
+  manifest: {
+    id: 'my-namespace.my-extension',
+    displayName: 'My Extension',
+    version: '0.0.0',
+  },
   activate(context): MyExports {
     // ...
     return { thing };

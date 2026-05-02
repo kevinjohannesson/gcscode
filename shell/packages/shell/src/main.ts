@@ -4,7 +4,7 @@ import './app.css';
 import App from './app.svelte';
 import { attachKeybindingDispatcher } from './keybinding-dispatcher';
 import { createExtensionManager } from './extension-host/extension-manager';
-import { bundledExtensions } from './extension-host/extension-manifest';
+import { bundledExtensions } from './extension-host/bundled-extensions';
 import { createExtensionPersistence } from './extension-host/extension-persistence';
 import { createRegistry } from './extension-host/registry';
 import { createWorkbenchExtension } from './built-in/workbench';

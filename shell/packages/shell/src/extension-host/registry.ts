@@ -149,9 +149,9 @@ export function createRegistry(): Registry {
   return {
     activate(extension) {
       const identity: ExtensionIdentity = {
-        id: extension.id,
-        displayName: extension.displayName,
-        version: extension.version,
+        id: extension.manifest.id,
+        displayName: extension.manifest.displayName,
+        version: extension.manifest.version,
       };
       const context: ExtensionContext = {
         host: createHost(identity),
