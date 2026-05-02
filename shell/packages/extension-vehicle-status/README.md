@@ -23,5 +23,5 @@ SITL: GUIDED • -35.36°/149.17° • 47%
 
 ## See also
 
-- ADR-0005 — extension boundaries
-- Spec 2026-04-29 — iteration A
+- [ADR-0005](../../docs/decisions/ADR-0005-extension-boundaries.md) — extension boundaries
+- [Spec 2026-04-29-iteration-a-extension-exports](../../docs/specs/2026-04-29-iteration-a-extension-exports.md) — iteration A

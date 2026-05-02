@@ -44,7 +44,7 @@ Corollary: if an extension needs a capability the host doesn't yet expose, add i
 
 ## Extension shape
 
-An extension module exports a named `const` of type `Extension` with `{ id, displayName, version, activate(context) }`. Inside `activate`, call `context.host.<namespace>.register*` (e.g. `context.host.window.registerView`, `context.host.commands.registerCommand`) (each returns a `Disposable`) and push every disposable to `context.subscriptions`. Long-form contract: `packages/extension-api/README.md`.
+An extension module exports a named `const` of type `Extension` with `{ manifest: { id, displayName, version, description? }, activate(context) }`. The `manifest: ExtensionManifest` carries declarative identity + presentation metadata; runtime registration stays imperative. Inside `activate`, call `context.host.<namespace>.register*` (e.g. `context.host.window.registerView`, `context.host.commands.registerCommand`) (each returns a `Disposable`) and push every disposable to `context.subscriptions`. Long-form contract: `packages/extension-api/README.md`. Manifest growth conventions: [ADR-0007](docs/decisions/ADR-0007-extension-manifest.md).
 
 ## Planning conventions and long-term alignment
 
