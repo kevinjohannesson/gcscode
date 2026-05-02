@@ -30,9 +30,9 @@ function makeFakeHost(opts: {
 
 describe('vehicleStatusExtension', () => {
   it('declares stable identity metadata', () => {
-    expect(vehicleStatusExtension.id).toBe('gcscode.vehicle-status');
-    expect(vehicleStatusExtension.displayName).toBe('Vehicle Status');
-    expect(typeof vehicleStatusExtension.version).toBe('string');
+    expect(vehicleStatusExtension.manifest.id).toBe('gcscode.vehicle-status');
+    expect(vehicleStatusExtension.manifest.displayName).toBe('Vehicle Status');
+    expect(typeof vehicleStatusExtension.manifest.version).toBe('string');
   });
 
   it('registers a status bar item and pushes one disposable; deactivate clears the captured host', () => {
@@ -48,9 +48,9 @@ describe('vehicleStatusExtension', () => {
       host,
       subscriptions,
       extension: {
-        id: vehicleStatusExtension.id,
-        displayName: vehicleStatusExtension.displayName,
-        version: vehicleStatusExtension.version,
+        id: vehicleStatusExtension.manifest.id,
+        displayName: vehicleStatusExtension.manifest.displayName,
+        version: vehicleStatusExtension.manifest.version,
       },
     });
 
@@ -94,9 +94,9 @@ describe('vehicleStatusExtension', () => {
         host,
         subscriptions: [],
         extension: {
-          id: vehicleStatusExtension.id,
-          displayName: vehicleStatusExtension.displayName,
-          version: vehicleStatusExtension.version,
+          id: vehicleStatusExtension.manifest.id,
+          displayName: vehicleStatusExtension.manifest.displayName,
+          version: vehicleStatusExtension.manifest.version,
         },
       });
       expect(getSitlExports()).toBe(fakeSitlExports);
@@ -112,9 +112,9 @@ describe('vehicleStatusExtension', () => {
         host,
         subscriptions: [],
         extension: {
-          id: vehicleStatusExtension.id,
-          displayName: vehicleStatusExtension.displayName,
-          version: vehicleStatusExtension.version,
+          id: vehicleStatusExtension.manifest.id,
+          displayName: vehicleStatusExtension.manifest.displayName,
+          version: vehicleStatusExtension.manifest.version,
         },
       });
       expect(getSitlExports()).toBeUndefined();

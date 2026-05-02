@@ -15,7 +15,7 @@ import { createRegistry } from './registry';
 const fakeComponent = {} as ViewContribution['component'];
 
 function extension(id: string, activate: (context: ExtensionContext) => void): Extension {
-  return { id, displayName: id, version: '0.0.0', activate };
+  return { manifest: { id, displayName: id, version: '0.0.0' }, activate };
 }
 
 describe('createRegistry', () => {
@@ -101,9 +101,11 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     let captured: ExtensionIdentity | undefined;
     registry.activate({
-      id: 'ext.a',
-      displayName: 'Extension A',
-      version: '1.2.3',
+      manifest: {
+        id: 'ext.a',
+        displayName: 'Extension A',
+        version: '1.2.3',
+      },
       activate(ctx) {
         captured = ctx.extension;
       },
@@ -713,9 +715,11 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     const deactivate = vi.fn();
     registry.activate({
-      id: 'ext.a',
-      displayName: 'ext.a',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.a',
+        displayName: 'ext.a',
+        version: '0.0.0',
+      },
       activate: () => {},
       deactivate,
     });
@@ -733,9 +737,11 @@ describe('createRegistry', () => {
     });
     const deactivate = vi.fn(() => hookPromise);
     registry.activate({
-      id: 'ext.a',
-      displayName: 'ext.a',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.a',
+        displayName: 'ext.a',
+        version: '0.0.0',
+      },
       activate: () => {},
       deactivate,
     });
@@ -763,9 +769,11 @@ describe('createRegistry', () => {
       order.push('hook');
     });
     registry.activate({
-      id: 'ext.a',
-      displayName: 'ext.a',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.a',
+        displayName: 'ext.a',
+        version: '0.0.0',
+      },
       activate(ctx) {
         ctx.subscriptions.push({
           dispose() {
@@ -789,9 +797,11 @@ describe('createRegistry', () => {
       throw new Error('hook-sync-throw');
     });
     registry.activate({
-      id: 'ext.a',
-      displayName: 'ext.a',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.a',
+        displayName: 'ext.a',
+        version: '0.0.0',
+      },
       activate(ctx) {
         ctx.subscriptions.push({ dispose: disposeSpy });
       },
@@ -814,9 +824,11 @@ describe('createRegistry', () => {
     const disposeSpy = vi.fn();
     const deactivate = vi.fn(() => Promise.reject(new Error('hook-async-rejection')));
     registry.activate({
-      id: 'ext.a',
-      displayName: 'ext.a',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.a',
+        displayName: 'ext.a',
+        version: '0.0.0',
+      },
       activate(ctx) {
         ctx.subscriptions.push({ dispose: disposeSpy });
       },
@@ -856,9 +868,11 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     let lookupHost: ExtensionHost | undefined;
     registry.activate({
-      id: 'ext.producer',
-      displayName: 'Producer',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.producer',
+        displayName: 'Producer',
+        version: '0.0.0',
+      },
       activate: (ctx) => {
         lookupHost = ctx.host;
         return { hello: 'world' };
@@ -889,9 +903,11 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     let lookupHost: ExtensionHost | undefined;
     registry.activate({
-      id: 'ext.producer',
-      displayName: 'Producer',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.producer',
+        displayName: 'Producer',
+        version: '0.0.0',
+      },
       activate: (ctx) => {
         lookupHost = ctx.host;
         return { hello: 'world' };
@@ -917,9 +933,11 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     let lookupHost: ExtensionHost | undefined;
     const makeProducer = (payload: string): Extension => ({
-      id: 'ext.producer',
-      displayName: 'Producer',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.producer',
+        displayName: 'Producer',
+        version: '0.0.0',
+      },
       activate: (ctx) => {
         lookupHost = ctx.host;
         return { payload };
@@ -945,9 +963,11 @@ describe('createRegistry', () => {
       }),
     );
     registry.activate({
-      id: 'ext.producer',
-      displayName: 'Producer',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.producer',
+        displayName: 'Producer',
+        version: '0.0.0',
+      },
       activate: () => ({ value: 42 }),
     });
     // Default generic — exports is `unknown`, narrowing required at use sites.
@@ -966,15 +986,19 @@ describe('createRegistry', () => {
       }),
     );
     registry.activate({
-      id: 'ext.a',
-      displayName: 'A',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.a',
+        displayName: 'A',
+        version: '0.0.0',
+      },
       activate: () => ({ tag: 'a' }),
     });
     registry.activate({
-      id: 'ext.b',
-      displayName: 'B',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.b',
+        displayName: 'B',
+        version: '0.0.0',
+      },
       activate: () => ({ tag: 'b' }),
     });
     const a = lookupHost!.extensions.getExtension<{ tag: string }>('ext.a');

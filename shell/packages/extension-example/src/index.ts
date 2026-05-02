@@ -4,9 +4,12 @@ import ExampleStatus from './example-status.svelte';
 import ExampleView from './example-view.svelte';
 
 export const exampleExtension: Extension = {
-  id: 'gcscode.example',
-  displayName: 'Example Extension',
-  version: '0.0.0',
+  manifest: {
+    id: 'gcscode.example',
+    displayName: 'Example Extension',
+    version: '0.0.0',
+    description: 'Demonstrates view, status bar item, command, and keybinding contributions.',
+  },
   activate(context) {
     context.subscriptions.push(
       context.host.window.registerView({

@@ -12,8 +12,8 @@ describe('workbench built-in extension', () => {
   it('exports a factory that returns an Extension with id "workbench"', () => {
     const registry = createRegistry();
     const ext = createWorkbenchExtension(registry);
-    expect(ext.id).toBe('workbench');
-    expect(ext.displayName).toBe('Workbench');
+    expect(ext.manifest.id).toBe('workbench');
+    expect(ext.manifest.displayName).toBe('Workbench');
     expect(typeof ext.activate).toBe('function');
   });
 
@@ -38,9 +38,11 @@ describe('workbench built-in extension', () => {
     const registry = createRegistry();
     registry.activate(createWorkbenchExtension(registry));
     registry.activate({
-      id: 'ext.demo',
-      displayName: 'Demo',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.demo',
+        displayName: 'Demo',
+        version: '0.0.0',
+      },
       activate(ctx) {
         ctx.host.commands.registerCommand({
           id: 'ext.demo.hello',
@@ -73,9 +75,11 @@ describe('workbench built-in extension', () => {
     registry.activate(createWorkbenchExtension(registry));
     const helloRun = vi.fn();
     registry.activate({
-      id: 'ext.demo',
-      displayName: 'Demo',
-      version: '0.0.0',
+      manifest: {
+        id: 'ext.demo',
+        displayName: 'Demo',
+        version: '0.0.0',
+      },
       activate(ctx) {
         ctx.host.commands.registerCommand({
           id: 'ext.demo.hello',

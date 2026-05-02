@@ -81,9 +81,9 @@ function makeContext(): {
     },
     subscriptions,
     extension: {
-      id: sitlExtension.id,
-      displayName: sitlExtension.displayName,
-      version: sitlExtension.version,
+      id: sitlExtension.manifest.id,
+      displayName: sitlExtension.manifest.displayName,
+      version: sitlExtension.manifest.version,
     },
   };
 
@@ -107,9 +107,9 @@ describe('sitlExtension', () => {
   });
 
   it('declares stable identity metadata', () => {
-    expect(sitlExtension.id).toBe('gcscode.sitl');
-    expect(sitlExtension.displayName).toBe('SITL Telemetry');
-    expect(typeof sitlExtension.version).toBe('string');
+    expect(sitlExtension.manifest.id).toBe('gcscode.sitl');
+    expect(sitlExtension.manifest.displayName).toBe('SITL Telemetry');
+    expect(typeof sitlExtension.manifest.version).toBe('string');
   });
 
   it('registers a view, a command, and a keybinding, pushing all three disposables', () => {
@@ -268,9 +268,9 @@ describe('sitlExtension', () => {
         host: fakeHost,
         subscriptions,
         extension: {
-          id: sitlExtension.id,
-          displayName: sitlExtension.displayName,
-          version: sitlExtension.version,
+          id: sitlExtension.manifest.id,
+          displayName: sitlExtension.manifest.displayName,
+          version: sitlExtension.manifest.version,
         },
       }) as SitlExports;
 

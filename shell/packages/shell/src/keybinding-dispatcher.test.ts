@@ -7,7 +7,7 @@ import { parseKey, matchesKey, attachKeybindingDispatcher } from './keybinding-d
 import { modalState } from './modal-state.svelte';
 
 function extension(id: string, activate: (context: ExtensionContext) => void): Extension {
-  return { id, displayName: id, version: '0.0.0', activate };
+  return { manifest: { id, displayName: id, version: '0.0.0' }, activate };
 }
 
 describe('parseKey', () => {

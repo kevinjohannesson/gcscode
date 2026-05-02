@@ -18,9 +18,13 @@ interface CommandPickItem extends QuickPickItem {
  */
 export function createWorkbenchExtension(registry: Registry): Extension {
   return {
-    id: 'workbench',
-    displayName: 'Workbench',
-    version: '0.0.0',
+    manifest: {
+      id: 'workbench',
+      displayName: 'Workbench',
+      version: '0.0.0',
+      description:
+        "The shell's built-in extension. Registers the command palette and Ctrl+Shift+P.",
+    },
     activate(context: ExtensionContext) {
       const showCommands = context.host.commands.registerCommand({
         id: 'workbench.action.showCommands',

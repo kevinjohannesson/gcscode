@@ -14,9 +14,11 @@ import { modalState } from './modal-state.svelte';
 
 function makeExtension(activate: Extension['activate']): Extension {
   return {
-    id: 'test',
-    displayName: 'Test',
-    version: '0.0.0',
+    manifest: {
+      id: 'test',
+      displayName: 'Test',
+      version: '0.0.0',
+    },
     activate,
   };
 }

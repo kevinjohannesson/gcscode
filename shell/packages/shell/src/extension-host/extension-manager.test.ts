@@ -14,9 +14,11 @@ function makeViewExtension(id: string) {
     );
   });
   const extension: Extension = {
-    id,
-    displayName: id,
-    version: '0.0.0',
+    manifest: {
+      id,
+      displayName: id,
+      version: '0.0.0',
+    },
     activate,
   };
   return { extension, activate };
@@ -29,9 +31,11 @@ function makeViewExtensionWithDeactivate(id: string, deactivate: () => void | Pr
     );
   });
   const extension: Extension = {
-    id,
-    displayName: id,
-    version: '0.0.0',
+    manifest: {
+      id,
+      displayName: id,
+      version: '0.0.0',
+    },
     activate,
     deactivate,
   };
@@ -49,7 +53,7 @@ describe('createExtensionManager', () => {
     expect(activate).toHaveBeenCalledTimes(1);
     expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent }]);
     expect(manager.listExtensions()).toEqual([
-      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+      { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: true },
     ]);
   });
 
@@ -76,7 +80,7 @@ describe('createExtensionManager', () => {
 
     expect(registry.listViews()).toHaveLength(0);
     expect(manager.listExtensions()).toEqual([
-      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: false },
+      { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: false },
     ]);
   });
 
@@ -96,7 +100,7 @@ describe('createExtensionManager', () => {
     expect(secondContext.subscriptions).toHaveLength(1);
     expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent }]);
     expect(manager.listExtensions()).toEqual([
-      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+      { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: true },
     ]);
   });
 
@@ -116,7 +120,7 @@ describe('createExtensionManager', () => {
 
     expect(registry.listViews()).toHaveLength(0);
     expect(manager.listExtensions()).toEqual([
-      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: false },
+      { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: false },
     ]);
   });
 
@@ -141,22 +145,22 @@ describe('createExtensionManager', () => {
     manager.register(b);
 
     expect(manager.listExtensions()).toEqual([
-      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
-      { id: 'ext.b', displayName: 'ext.b', version: '0.0.0', enabled: true },
+      { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: true },
+      { manifest: { id: 'ext.b', displayName: 'ext.b', version: '0.0.0' }, enabled: true },
     ]);
 
     await manager.setEnabled('ext.a', false);
 
     expect(manager.listExtensions()).toEqual([
-      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: false },
-      { id: 'ext.b', displayName: 'ext.b', version: '0.0.0', enabled: true },
+      { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: false },
+      { manifest: { id: 'ext.b', displayName: 'ext.b', version: '0.0.0' }, enabled: true },
     ]);
 
     await manager.setEnabled('ext.a', true);
 
     expect(manager.listExtensions()).toEqual([
-      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
-      { id: 'ext.b', displayName: 'ext.b', version: '0.0.0', enabled: true },
+      { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: true },
+      { manifest: { id: 'ext.b', displayName: 'ext.b', version: '0.0.0' }, enabled: true },
     ]);
   });
 
@@ -170,7 +174,7 @@ describe('createExtensionManager', () => {
     expect(activate).not.toHaveBeenCalled();
     expect(registry.listViews()).toHaveLength(0);
     expect(manager.listExtensions()).toEqual([
-      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: false },
+      { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: false },
     ]);
   });
 
@@ -240,10 +244,10 @@ describe('createExtensionManager', () => {
     expect(registry1.listViews()).toHaveLength(1);
     expect(registry2.listViews()).toHaveLength(1);
     expect(manager1.listExtensions()).toEqual([
-      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+      { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: true },
     ]);
     expect(manager2.listExtensions()).toEqual([
-      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+      { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: true },
     ]);
   });
 
@@ -268,7 +272,7 @@ describe('createExtensionManager', () => {
     expect(onEnabledChanged).not.toHaveBeenCalled();
     // Mid-flight: listExtensions still shows enabled: true
     expect(manager.listExtensions()).toEqual([
-      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: true },
+      { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: true },
     ]);
 
     // Resolve the hook's promise
@@ -282,7 +286,7 @@ describe('createExtensionManager', () => {
     expect(onEnabledChanged).toHaveBeenCalledWith('ext.a', false);
     // And listExtensions reflects the new state
     expect(manager.listExtensions()).toEqual([
-      { id: 'ext.a', displayName: 'ext.a', version: '0.0.0', enabled: false },
+      { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: false },
     ]);
   });
 });

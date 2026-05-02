@@ -16,9 +16,12 @@ export function getSitlExports(): SitlExports | undefined {
 }
 
 export const vehicleStatusExtension: Extension = {
-  id: 'gcscode.vehicle-status',
-  displayName: 'Vehicle Status',
-  version: '0.0.0',
+  manifest: {
+    id: 'gcscode.vehicle-status',
+    displayName: 'Vehicle Status',
+    version: '0.0.0',
+    description: 'Footer status item that reads SITL telemetry via cross-extension exports.',
+  },
   activate(context) {
     host = context.host;
     context.subscriptions.push(

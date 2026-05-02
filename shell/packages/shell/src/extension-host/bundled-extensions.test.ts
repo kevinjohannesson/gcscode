@@ -9,7 +9,7 @@ describe('bundledExtensions', () => {
 
   it("each entry's id matches its extension's id", () => {
     for (const entry of bundledExtensions) {
-      expect(entry.id).toBe(entry.extension.id);
+      expect(entry.id).toBe(entry.extension.manifest.id);
     }
   });
 
