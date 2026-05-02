@@ -74,7 +74,7 @@ function makeContext(): {
 
   const context: ExtensionContext = {
     host: {
-      window: { registerView, registerStatusBarItem },
+      window: { registerView, registerStatusBarItem, showQuickPick: vi.fn() },
       commands: { registerCommand, executeCommand },
       keybindings: { registerKeybinding },
       extensions: { getExtension: vi.fn(() => undefined) },
@@ -249,6 +249,7 @@ describe('sitlExtension', () => {
         window: {
           registerView: vi.fn(() => ({ dispose: () => {} })),
           registerStatusBarItem: vi.fn(() => ({ dispose: () => {} })),
+          showQuickPick: vi.fn(),
         },
         commands: {
           registerCommand: vi.fn(() => ({ dispose: () => {} })),

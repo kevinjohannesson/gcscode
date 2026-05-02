@@ -37,10 +37,16 @@ export interface StatusBarItemContribution {
  * by id rather than carrying their own handlers (keybindings today; menu
  * items and palette entries to come). Cross-extension execute is intentional —
  * any extension can fire any registered command.
+ *
+ * Optional `title` and `category` are the user-facing metadata used by the
+ * command palette. Commands without `title` are still callable via
+ * `executeCommand` and via keybindings, but do not appear in the palette.
  */
 export interface CommandContribution {
   id: string;
   run: (...args: unknown[]) => unknown;
+  title?: string;
+  category?: string;
 }
 
 /**
@@ -55,6 +61,29 @@ export interface CommandContribution {
 export interface KeybindingContribution {
   key: string;
   command: string;
+}
+
+/**
+ * One row in a quick pick list. Extra fields beyond `label` (when the caller
+ * passes a `T extends QuickPickItem` with extra fields) are preserved on the
+ * resolved value so callers can dispatch on them.
+ *
+ * `description` and `detail` are typed but not searched in v1 (matches VS
+ * Code defaults of `matchOnDescription: false` / `matchOnDetail: false`).
+ */
+export interface QuickPickItem {
+  label: string;
+  description?: string;
+  detail?: string;
+}
+
+/**
+ * Options that customize the quick pick presentation. Both fields are
+ * advisory — the host is free to render them or ignore them.
+ */
+export interface QuickPickOptions {
+  placeholder?: string;
+  title?: string;
 }
 
 /**
@@ -89,6 +118,19 @@ export interface ExtensionHost {
   readonly window: {
     registerView(view: ViewContribution): Disposable;
     registerStatusBarItem(item: StatusBarItemContribution): Disposable;
+    /**
+     * Present a filterable picker of `items` to the user. Resolves with the
+     * picked item on selection (Enter / click), or `undefined` if the user
+     * dismisses (Escape / click outside). Generic over `T` so extra fields on
+     * the items survive the round trip.
+     *
+     * Calling while another quick pick is already open rejects with
+     * `Error('Quick pick already open')`. No queueing in v1.
+     */
+    showQuickPick<T extends QuickPickItem>(
+      items: T[],
+      options?: QuickPickOptions,
+    ): Promise<T | undefined>;
   };
   readonly keybindings: {
     registerKeybinding(keybinding: KeybindingContribution): Disposable;

@@ -6,6 +6,8 @@ import type {
   ExtensionHost,
   ExtensionIdentity,
   KeybindingContribution,
+  QuickPickItem,
+  QuickPickOptions,
   StatusBarItemContribution,
   ViewContribution,
 } from '@gcscode/extension-api';
@@ -104,6 +106,14 @@ export function createRegistry(): Registry {
               }
             },
           };
+        },
+        showQuickPick<T extends QuickPickItem>(
+          _items: T[],
+          _options?: QuickPickOptions,
+        ): Promise<T | undefined> {
+          return Promise.reject(
+            new Error('host.window.showQuickPick is not yet implemented (stub)'),
+          );
         },
       },
       keybindings: {

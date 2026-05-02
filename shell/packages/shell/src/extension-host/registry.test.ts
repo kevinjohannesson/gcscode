@@ -985,4 +985,17 @@ describe('createRegistry', () => {
     // Identity check — each extension's exports object is its own.
     expect(a!.exports).not.toBe(b!.exports);
   });
+
+  it('rejects host.window.showQuickPick with a stub-not-implemented error', async () => {
+    const registry = createRegistry();
+    let host: ExtensionHost | undefined;
+    registry.activate(
+      extension('ext.a', (ctx) => {
+        host = ctx.host;
+      }),
+    );
+    await expect(host!.window.showQuickPick([{ label: 'x' }])).rejects.toThrow(
+      /not yet implemented/,
+    );
+  });
 });
