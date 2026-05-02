@@ -28,3 +28,6 @@ scratch/
 
 # Git worktrees for subagent-driven plan execution (CLAUDE.md)
 .worktrees/
+
+# Brainstorming companion artifacts (superpowers:brainstorming visual companion)
+.superpowers/
