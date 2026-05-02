@@ -1,6 +1,7 @@
 import type { Extension, ExtensionContext, QuickPickItem } from '@gcscode/extension-api';
 
 import type { Registry } from '../../extension-host/registry';
+import { extensionsPanelState } from '../../extensions-panel/extensions-panel-state.svelte';
 
 interface CommandPickItem extends QuickPickItem {
   commandId: string;
@@ -23,7 +24,7 @@ export function createWorkbenchExtension(registry: Registry): Extension {
       displayName: 'Workbench',
       version: '0.0.0',
       description:
-        "The shell's built-in extension. Registers the command palette and Ctrl+Shift+P.",
+        "The shell's built-in extension. Registers the command palette (Ctrl+Shift+P) and the extensions panel (Ctrl+Shift+X).",
     },
     activate(context: ExtensionContext) {
       const showCommands = context.host.commands.registerCommand({
@@ -52,7 +53,21 @@ export function createWorkbenchExtension(registry: Registry): Extension {
         command: 'workbench.action.showCommands',
       });
 
-      context.subscriptions.push(showCommands, keybinding);
+      const showExtensions = context.host.commands.registerCommand({
+        id: 'workbench.extensions.action.showInstalledExtensions',
+        title: 'Show Installed Extensions',
+        category: 'Workbench',
+        run: () => {
+          extensionsPanelState.open();
+        },
+      });
+
+      const extensionsKeybinding = context.host.keybindings.registerKeybinding({
+        key: 'Ctrl+Shift+X',
+        command: 'workbench.extensions.action.showInstalledExtensions',
+      });
+
+      context.subscriptions.push(showCommands, keybinding, showExtensions, extensionsKeybinding);
     },
   };
 }

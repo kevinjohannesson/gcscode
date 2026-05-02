@@ -1,12 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createExtensionManager } from '../../extension-host/extension-manager';
 import { createRegistry } from '../../extension-host/registry';
+import { extensionsPanelState } from '../../extensions-panel/extensions-panel-state.svelte';
 import { quickPickState } from '../../quick-pick/quick-pick-state.svelte';
 import { createWorkbenchExtension } from './index';
 
 describe('workbench built-in extension', () => {
   afterEach(() => {
     quickPickState.dismiss();
+    extensionsPanelState.close();
   });
 
   it('exports a factory that returns an Extension with id "workbench"', () => {
@@ -100,5 +103,62 @@ describe('workbench built-in extension', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(helloRun).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers workbench.extensions.action.showInstalledExtensions command', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    manager.register(createWorkbenchExtension(registry));
+
+    const command = registry
+      .listCommands()
+      .find((c) => c.id === 'workbench.extensions.action.showInstalledExtensions');
+    expect(command).toBeDefined();
+    expect(command?.title).toBe('Show Installed Extensions');
+    expect(command?.category).toBe('Workbench');
+  });
+
+  it('registers Ctrl+Shift+X keybinding pointing at the panel command', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    manager.register(createWorkbenchExtension(registry));
+
+    const keybinding = registry.listKeybindings().find((k) => k.key === 'Ctrl+Shift+X');
+    expect(keybinding).toBeDefined();
+    expect(keybinding?.command).toBe('workbench.extensions.action.showInstalledExtensions');
+  });
+
+  it('running the panel command opens the extensions-panel state', async () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    manager.register(createWorkbenchExtension(registry));
+
+    expect(extensionsPanelState.isOpen).toBe(false);
+    await registry.executeCommand('workbench.extensions.action.showInstalledExtensions');
+    expect(extensionsPanelState.isOpen).toBe(true);
+
+    extensionsPanelState.close(); // cleanup
+  });
+
+  it('disposing the workbench subscriptions also disposes the new command + keybinding', async () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    manager.register(createWorkbenchExtension(registry));
+
+    expect(
+      registry
+        .listCommands()
+        .some((c) => c.id === 'workbench.extensions.action.showInstalledExtensions'),
+    ).toBe(true);
+    expect(registry.listKeybindings().some((k) => k.key === 'Ctrl+Shift+X')).toBe(true);
+
+    await manager.setEnabled('workbench', false);
+
+    expect(
+      registry
+        .listCommands()
+        .some((c) => c.id === 'workbench.extensions.action.showInstalledExtensions'),
+    ).toBe(false);
+    expect(registry.listKeybindings().some((k) => k.key === 'Ctrl+Shift+X')).toBe(false);
   });
 });
