@@ -1,6 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
 
-import type { Extension } from '@gcscode/extension-api';
+import type { Extension, ExtensionManifest } from '@gcscode/extension-api';
 
 import type { Registry } from './registry';
 
@@ -10,10 +10,8 @@ interface ExtensionState {
 }
 
 export interface ExtensionRecord {
-  id: string;
-  displayName: string;
-  version: string;
-  enabled: boolean;
+  readonly manifest: ExtensionManifest;
+  readonly enabled: boolean;
 }
 
 export interface ExtensionManager {
@@ -24,9 +22,7 @@ export interface ExtensionManager {
 
 function toRecord(state: ExtensionState): ExtensionRecord {
   return {
-    id: state.extension.id,
-    displayName: state.extension.displayName,
-    version: state.extension.version,
+    manifest: state.extension.manifest,
     enabled: state.enabled,
   };
 }
@@ -46,11 +42,11 @@ export function createExtensionManager(
 
   return {
     register(extension, registerOptions) {
-      if (extensions.has(extension.id)) {
-        throw new Error(`Extension id "${extension.id}" is already registered.`);
+      if (extensions.has(extension.manifest.id)) {
+        throw new Error(`Extension id "${extension.manifest.id}" is already registered.`);
       }
       const enabled = registerOptions?.enabled ?? true;
-      extensions.set(extension.id, { extension, enabled });
+      extensions.set(extension.manifest.id, { extension, enabled });
       if (enabled) {
         registry.activate(extension);
       }
