@@ -25,6 +25,13 @@
       // reach this listener depending on input-dispatch timing), the click
       // belonged to a now-defunct element. Skip dismissal — this click did
       // NOT mean "click outside the panel".
+      //
+      // The parallel listener in `quick-pick-host.svelte` doesn't need this
+      // guard today: the palette is opened only via the `Ctrl+Shift+P`
+      // keybinding (a `keydown`, not a `click`), so no click event can be
+      // mid-flight when the palette mounts. If a future code path opens the
+      // palette from inside a click handler, apply the same defensive guard
+      // there.
       if (event.target instanceof Node && !event.target.isConnected) return;
 
       // Selector is tied to ExtensionsPanel's hard-coded aria-label. Broaden
