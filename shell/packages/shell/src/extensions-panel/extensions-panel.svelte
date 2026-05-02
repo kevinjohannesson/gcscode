@@ -32,9 +32,10 @@
     return fuse.search(query).map((r) => r.item);
   });
 
-  // Reset highlight when the filtered list changes (e.g. user types).
-  // Mirrors quick-pick.svelte; highlightIndex must remain $state because it's
-  // also mutated by ArrowDown/ArrowUp/onmouseenter handlers.
+  // Reset highlight when the FILTERED list changes (e.g. user types). Depends
+  // on `filtered`, NOT `records` — toggling an extension's enabled state mutates
+  // `records` (via the SvelteMap), but the same row should stay highlighted
+  // through the toggle, not jump back to row 0. Mirrors quick-pick.svelte.
   $effect(() => {
     void filtered;
     highlightIndex = 0;
