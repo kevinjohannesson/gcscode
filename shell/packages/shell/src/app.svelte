@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { Registry } from './extension-host/registry';
+  import type { ExtensionManager } from './extension-host/extension-manager';
   import QuickPickHost from './quick-pick/quick-pick-host.svelte';
+  import ExtensionsPanelHost from './extensions-panel/extensions-panel-host.svelte';
 
-  let { registry }: { registry: Registry } = $props();
+  let { registry, manager }: { registry: Registry; manager: ExtensionManager } = $props();
 
   const views = $derived(registry.listViews());
   const statusBarItems = $derived(registry.listStatusBarItems());
@@ -43,4 +45,5 @@
     </div>
   </footer>
   <QuickPickHost />
+  <ExtensionsPanelHost {manager} />
 </main>

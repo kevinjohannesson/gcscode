@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { Extension } from '@gcscode/extension-api';
 
 import { createRegistry } from './extension-host/registry';
+import { createExtensionManager } from './extension-host/extension-manager';
 import App from './app.svelte';
 import MockContent from './__fixtures__/mock-content.svelte';
 import MockLeft from './__fixtures__/mock-left.svelte';
@@ -26,7 +27,8 @@ function makeExtension(activate: Extension['activate']): Extension {
 describe('app.svelte', () => {
   it('shows the empty state when no extensions are registered', () => {
     const registry = createRegistry();
-    render(App, { props: { registry } });
+    const manager = createExtensionManager(registry);
+    render(App, { props: { registry, manager } });
     expect(screen.getByTestId('empty-state')).toBeInTheDocument();
   });
 
@@ -37,15 +39,17 @@ describe('app.svelte', () => {
         ctx.host.window.registerView({ id: 'test.view', component: MockContent });
       }),
     );
+    const manager = createExtensionManager(registry);
 
-    render(App, { props: { registry } });
+    render(App, { props: { registry, manager } });
 
     expect(screen.getByText('mock-content')).toBeInTheDocument();
   });
 
   it('renders the status bar even when no items are registered', () => {
     const registry = createRegistry();
-    render(App, { props: { registry } });
+    const manager = createExtensionManager(registry);
+    render(App, { props: { registry, manager } });
     expect(screen.getByTestId('statusbar')).toBeInTheDocument();
   });
 
@@ -65,8 +69,9 @@ describe('app.svelte', () => {
         });
       }),
     );
+    const manager = createExtensionManager(registry);
 
-    render(App, { props: { registry } });
+    render(App, { props: { registry, manager } });
 
     const left = screen.getByTestId('statusbar-left');
     const right = screen.getByTestId('statusbar-right');
@@ -92,8 +97,9 @@ describe('app.svelte', () => {
         });
       }),
     );
+    const manager = createExtensionManager(registry);
 
-    render(App, { props: { registry } });
+    render(App, { props: { registry, manager } });
 
     const left = screen.getByTestId('statusbar-left');
     const texts = Array.from(left.children).map((el) => el.textContent);
@@ -102,7 +108,8 @@ describe('app.svelte', () => {
 
   it('reflects post-mount view registration in the rendered UI', () => {
     const registry = createRegistry();
-    render(App, { props: { registry } });
+    const manager = createExtensionManager(registry);
+    render(App, { props: { registry, manager } });
     expect(screen.getByTestId('empty-state')).toBeInTheDocument();
 
     registry.activate(
@@ -125,7 +132,8 @@ describe('app.svelte', () => {
         );
       }),
     );
-    render(App, { props: { registry } });
+    const manager = createExtensionManager(registry);
+    render(App, { props: { registry, manager } });
     expect(screen.getByText('mock-content')).toBeInTheDocument();
 
     await registry.deactivate('test');
@@ -137,7 +145,8 @@ describe('app.svelte', () => {
 
   it('reflects post-mount status bar item registration on the matching side', () => {
     const registry = createRegistry();
-    render(App, { props: { registry } });
+    const manager = createExtensionManager(registry);
+    render(App, { props: { registry, manager } });
 
     registry.activate(
       makeExtension((ctx) => {
@@ -165,7 +174,8 @@ describe('app.svelte — quick pick integration', () => {
 
   it('renders the QuickPickHost and shows the palette when state opens', () => {
     const registry = createRegistry();
-    render(App, { props: { registry } });
+    const manager = createExtensionManager(registry);
+    render(App, { props: { registry, manager } });
     quickPickState.open({
       items: [{ label: 'Apple' }],
       options: undefined,
