@@ -19,6 +19,14 @@
   $effect(() => {
     if (!open) return;
     function onDocumentClick(event: MouseEvent) {
+      // Defensive: if the click's target was removed from the DOM during the
+      // same synchronous event processing (e.g. picking a palette item closes
+      // the palette, then this panel mounts; the original click's bubble can
+      // reach this listener depending on input-dispatch timing), the click
+      // belonged to a now-defunct element. Skip dismissal — this click did
+      // NOT mean "click outside the panel".
+      if (event.target instanceof Node && !event.target.isConnected) return;
+
       // Selector is tied to ExtensionsPanel's hard-coded aria-label. Broaden
       // this if a non-extensions panel ever renders with a different aria-label —
       // today there's only one consumer (the extensions panel).
