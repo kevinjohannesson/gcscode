@@ -23,6 +23,7 @@ The controller dispatches subagents into a feature worktree. Per CLAUDE.md "Suba
 ## Class style reminder (every implementer subagent must read this)
 
 `.svelte.ts` modules that own reactive state use class wrappers in **C# style**:
+
 - Explicit `private` / `public` keywords on every member
 - `private _backingField` underscore convention (NOT `#field` syntax)
 - Backing field holds `$state(...)`; getter/setter wraps it
@@ -36,26 +37,27 @@ Memory: `feedback_svelte_class_wrappers.md`. Components stay thin renderers; log
 
 ## File structure (decomposition decisions)
 
-| File | Responsibility | Status |
-|---|---|---|
-| `packages/extension-api/src/index.ts` | Add `title?` + `category?` to `CommandContribution`. Add `QuickPickItem`, `QuickPickOptions`. Add `showQuickPick` to `WindowNamespace`. | Modify |
-| `packages/shell/src/extension-host/registry.ts` | Implement `host.window.showQuickPick` by delegating to `quickPickState.open`. | Modify |
-| `packages/shell/src/modal-state.svelte.ts` | Singleton `modalState` class wrapping a single `_active` boolean. | Create |
-| `packages/shell/src/keybinding-dispatcher.ts` | Read `modalState.active` at top of keydown handler; early-return when `true`. | Modify |
-| `packages/shell/src/quick-pick/quick-pick-state.svelte.ts` | Singleton `quickPickState` class wrapping the open request + lifecycle (`open` / `pick` / `dismiss`). | Create |
-| `packages/shell/src/quick-pick/quick-pick.svelte` | Floating panel component: input, fuse-filtered list with match highlighting, keyboard nav, click-to-pick. | Create |
-| `packages/shell/src/quick-pick/quick-pick-host.svelte` | Single-instance host component: reads `quickPickState.current`, renders `<QuickPick>`, toggles `modalState.active`, handles click-outside-to-dismiss. | Create |
-| `packages/shell/src/built-in/workbench/index.ts` | Built-in `workbench` extension exporting an `Extension` that registers `workbench.action.showCommands` + `Ctrl+Shift+P`. | Create |
-| `packages/shell/src/main.ts` | Register the built-in `workbench` extension before the `bundledExtensions` loop. | Modify |
-| `packages/shell/src/app.svelte` | Mount `<QuickPickHost />` once in the root layout. | Modify |
-| `packages/shell/package.json` | Add `fuse.js` dependency. | Modify |
-| Tests | Co-located `*.test.ts` per CLAUDE.md convention. | Create |
+| File                                                       | Responsibility                                                                                                                                        | Status |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `packages/extension-api/src/index.ts`                      | Add `title?` + `category?` to `CommandContribution`. Add `QuickPickItem`, `QuickPickOptions`. Add `showQuickPick` to `WindowNamespace`.               | Modify |
+| `packages/shell/src/extension-host/registry.ts`            | Implement `host.window.showQuickPick` by delegating to `quickPickState.open`.                                                                         | Modify |
+| `packages/shell/src/modal-state.svelte.ts`                 | Singleton `modalState` class wrapping a single `_active` boolean.                                                                                     | Create |
+| `packages/shell/src/keybinding-dispatcher.ts`              | Read `modalState.active` at top of keydown handler; early-return when `true`.                                                                         | Modify |
+| `packages/shell/src/quick-pick/quick-pick-state.svelte.ts` | Singleton `quickPickState` class wrapping the open request + lifecycle (`open` / `pick` / `dismiss`).                                                 | Create |
+| `packages/shell/src/quick-pick/quick-pick.svelte`          | Floating panel component: input, fuse-filtered list with match highlighting, keyboard nav, click-to-pick.                                             | Create |
+| `packages/shell/src/quick-pick/quick-pick-host.svelte`     | Single-instance host component: reads `quickPickState.current`, renders `<QuickPick>`, toggles `modalState.active`, handles click-outside-to-dismiss. | Create |
+| `packages/shell/src/built-in/workbench/index.ts`           | Built-in `workbench` extension exporting an `Extension` that registers `workbench.action.showCommands` + `Ctrl+Shift+P`.                              | Create |
+| `packages/shell/src/main.ts`                               | Register the built-in `workbench` extension before the `bundledExtensions` loop.                                                                      | Modify |
+| `packages/shell/src/app.svelte`                            | Mount `<QuickPickHost />` once in the root layout.                                                                                                    | Modify |
+| `packages/shell/package.json`                              | Add `fuse.js` dependency.                                                                                                                             | Modify |
+| Tests                                                      | Co-located `*.test.ts` per CLAUDE.md convention.                                                                                                      | Create |
 
 ---
 
 ## Task 1: Extension API additions + stub `showQuickPick`
 
 **Files:**
+
 - Modify: `packages/extension-api/src/index.ts`
 - Modify: `packages/shell/src/extension-host/registry.ts` (add stub implementation so `pnpm check` passes)
 - Test: existing `packages/shell/src/extension-host/registry.test.ts` gets one new test for the stub
@@ -192,9 +194,7 @@ it('rejects host.window.showQuickPick with a stub-not-implemented error', async 
       host = ctx.host;
     }),
   );
-  await expect(host!.window.showQuickPick([{ label: 'x' }])).rejects.toThrow(
-    /not yet implemented/,
-  );
+  await expect(host!.window.showQuickPick([{ label: 'x' }])).rejects.toThrow(/not yet implemented/);
 });
 ```
 
@@ -240,6 +240,7 @@ EOF
 ## Task 2: `ModalState` class
 
 **Files:**
+
 - Create: `packages/shell/src/modal-state.svelte.ts`
 - Create: `packages/shell/src/modal-state.test.ts`
 
@@ -355,6 +356,7 @@ Verify branch before committing.
 ## Task 3: Modal-pause hook in `keybinding-dispatcher`
 
 **Files:**
+
 - Modify: `packages/shell/src/keybinding-dispatcher.ts`
 - Modify: `packages/shell/src/keybinding-dispatcher.test.ts`
 
@@ -531,6 +533,7 @@ EOF
 ## Task 4: `QuickPickState` class
 
 **Files:**
+
 - Create: `packages/shell/src/quick-pick/quick-pick-state.svelte.ts`
 - Create: `packages/shell/src/quick-pick/quick-pick-state.test.ts`
 
@@ -727,6 +730,7 @@ EOF
 ## Task 5: Replace `showQuickPick` stub with real implementation
 
 **Files:**
+
 - Modify: `packages/shell/src/extension-host/registry.ts`
 - Modify: `packages/shell/src/extension-host/registry.test.ts`
 
@@ -885,6 +889,7 @@ EOF
 ## Task 6: `QuickPick` component (the floating panel)
 
 **Files:**
+
 - Create: `packages/shell/src/quick-pick/quick-pick.svelte`
 - Create: `packages/shell/src/quick-pick/quick-pick.test.ts`
 - Modify: `packages/shell/package.json` (add `fuse.js`)
@@ -1214,6 +1219,7 @@ EOF
 ## Task 7: `QuickPickHost` component
 
 **Files:**
+
 - Create: `packages/shell/src/quick-pick/quick-pick-host.svelte`
 - Create: `packages/shell/src/quick-pick/quick-pick-host.test.ts`
 
@@ -1403,6 +1409,7 @@ EOF
 ## Task 8: Built-in `workbench` extension
 
 **Files:**
+
 - Create: `packages/shell/src/built-in/workbench/index.ts`
 - Create: `packages/shell/src/built-in/workbench/index.test.ts`
 
@@ -1440,9 +1447,7 @@ describe('workbench built-in extension', () => {
   it('registers workbench.action.showCommands with title + category', () => {
     const registry = createRegistry();
     registry.activate(workbenchExtension);
-    const cmd = registry
-      .listCommands()
-      .find((c) => c.id === 'workbench.action.showCommands');
+    const cmd = registry.listCommands().find((c) => c.id === 'workbench.action.showCommands');
     expect(cmd).toBeDefined();
     expect(cmd?.title).toBe('Show All Commands');
     expect(cmd?.category).toBe('Workbench');
@@ -1514,9 +1519,7 @@ describe('workbench built-in extension', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    const helloItem = quickPickState.current!.items.find(
-      (i) => i.label === 'Demo: Say Hello',
-    );
+    const helloItem = quickPickState.current!.items.find((i) => i.label === 'Demo: Say Hello');
     expect(helloItem).toBeDefined();
     quickPickState.pick(helloItem!);
     // Promise microtasks: pick -> resolve -> executeCommand
@@ -1727,6 +1730,7 @@ EOF
 ## Task 9: Boot wiring + integration smoke test
 
 **Files:**
+
 - Modify: `packages/shell/src/main.ts`
 - Modify: `packages/shell/src/app.svelte`
 - Modify: `packages/shell/src/app.test.ts` (add a smoke test)
@@ -1862,6 +1866,7 @@ EOF
 ## Task 10: Docs propagation
 
 **Files:**
+
 - Modify: `docs/out-of-scope.md`
 - Modify: `docs/vs-code-alignment.md`
 - Modify: `docs/roadmap.md`

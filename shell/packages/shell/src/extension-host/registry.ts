@@ -108,11 +108,15 @@ export function createRegistry(): Registry {
           };
         },
         showQuickPick<T extends QuickPickItem>(
-          _items: T[],
-          _options?: QuickPickOptions,
+          items: T[],
+          options?: QuickPickOptions,
         ): Promise<T | undefined> {
+          void items;
+          void options;
           return Promise.reject(
-            new Error('host.window.showQuickPick is not yet implemented (stub)'),
+            new Error(
+              'host.window.showQuickPick is not yet implemented — stub replaced in Phase C2 Task 5 (quickPickState wiring)',
+            ),
           );
         },
       },
