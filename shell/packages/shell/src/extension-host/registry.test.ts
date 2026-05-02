@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type {
   Disposable,
@@ -9,6 +9,7 @@ import type {
   ViewContribution,
 } from '@gcscode/extension-api';
 
+import { quickPickState } from '../quick-pick/quick-pick-state.svelte';
 import { createRegistry } from './registry';
 
 const fakeComponent = {} as ViewContribution['component'];
@@ -986,16 +987,64 @@ describe('createRegistry', () => {
     expect(a!.exports).not.toBe(b!.exports);
   });
 
-  it('rejects host.window.showQuickPick with a stub-not-implemented error', async () => {
-    const registry = createRegistry();
-    let host: ExtensionHost | undefined;
-    registry.activate(
-      extension('ext.a', (ctx) => {
-        host = ctx.host;
-      }),
-    );
-    await expect(host!.window.showQuickPick([{ label: 'x' }])).rejects.toThrow(
-      /not yet implemented/,
-    );
+  describe('host.window.showQuickPick', () => {
+    afterEach(() => {
+      quickPickState.dismiss();
+    });
+
+    it('hands the request to quickPickState and returns a promise', () => {
+      const registry = createRegistry();
+      let host: ExtensionHost | undefined;
+      registry.activate(
+        extension('ext.a', (ctx) => {
+          host = ctx.host;
+        }),
+      );
+      const promise = host!.window.showQuickPick([{ label: 'a' }]);
+      expect(promise).toBeInstanceOf(Promise);
+      expect(quickPickState.current).not.toBeNull();
+      expect(quickPickState.current?.items).toEqual([{ label: 'a' }]);
+    });
+
+    it('resolves with the picked item when quickPickState.pick fires', async () => {
+      const registry = createRegistry();
+      let host: ExtensionHost | undefined;
+      registry.activate(
+        extension('ext.a', (ctx) => {
+          host = ctx.host;
+        }),
+      );
+      const item = { label: 'chosen' };
+      const promise = host!.window.showQuickPick([item, { label: 'other' }]);
+      quickPickState.pick(item);
+      await expect(promise).resolves.toEqual(item);
+    });
+
+    it('resolves with undefined when quickPickState.dismiss fires', async () => {
+      const registry = createRegistry();
+      let host: ExtensionHost | undefined;
+      registry.activate(
+        extension('ext.a', (ctx) => {
+          host = ctx.host;
+        }),
+      );
+      const promise = host!.window.showQuickPick([{ label: 'a' }]);
+      quickPickState.dismiss();
+      await expect(promise).resolves.toBeUndefined();
+    });
+
+    it('rejects if a quick pick is already open', async () => {
+      const registry = createRegistry();
+      let host: ExtensionHost | undefined;
+      registry.activate(
+        extension('ext.a', (ctx) => {
+          host = ctx.host;
+        }),
+      );
+      void host!.window.showQuickPick([{ label: 'first' }]);
+      await expect(host!.window.showQuickPick([{ label: 'second' }])).rejects.toThrow(
+        'Quick pick already open',
+      );
+    });
   });
 });

@@ -14,6 +14,8 @@ import type {
 
 import { SvelteMap } from 'svelte/reactivity';
 
+import { quickPickState } from '../quick-pick/quick-pick-state.svelte';
+
 export interface Registry {
   activate(extension: Extension): void;
   deactivate(extensionId: string): Promise<void>;
@@ -111,13 +113,9 @@ export function createRegistry(): Registry {
           items: T[],
           options?: QuickPickOptions,
         ): Promise<T | undefined> {
-          void items;
-          void options;
-          return Promise.reject(
-            new Error(
-              'host.window.showQuickPick is not yet implemented — stub replaced in Phase C2 Task 5 (quickPickState wiring)',
-            ),
-          );
+          return new Promise<T | undefined>((resolve) => {
+            quickPickState.open<T>({ items, options, resolve });
+          });
         },
       },
       keybindings: {
