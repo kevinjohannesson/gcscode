@@ -1,6 +1,7 @@
 import type { Disposable } from '@gcscode/extension-api';
 
 import type { Registry } from './extension-host/registry';
+import { modalState } from './modal-state.svelte';
 
 interface ParsedKey {
   ctrl: boolean;
@@ -59,6 +60,7 @@ export function matchesKey(event: KeyboardEvent, parsed: ParsedKey): boolean {
 
 export function attachKeybindingDispatcher(registry: Registry, target: EventTarget): Disposable {
   const handler = (event: Event): void => {
+    if (modalState.active) return;
     if (!(event instanceof KeyboardEvent)) return;
     for (const kb of registry.listKeybindings()) {
       let parsed: ParsedKey;

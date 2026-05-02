@@ -4,6 +4,7 @@ import type { Extension, ExtensionContext } from '@gcscode/extension-api';
 
 import { createRegistry } from './extension-host/registry';
 import { parseKey, matchesKey, attachKeybindingDispatcher } from './keybinding-dispatcher';
+import { modalState } from './modal-state.svelte';
 
 function extension(id: string, activate: (context: ExtensionContext) => void): Extension {
   return { id, displayName: id, version: '0.0.0', activate };
@@ -295,5 +296,77 @@ describe('attachKeybindingDispatcher', () => {
     for (let i = 0; i < 6; i++) await Promise.resolve();
 
     expect(consoleErrorSpy).toHaveBeenCalled();
+  });
+});
+
+describe('modal-pause hook', () => {
+  afterEach(() => {
+    modalState.active = false;
+  });
+
+  it('does not fire a matching command when modalState.active is true', () => {
+    const registry = createRegistry();
+    const run = vi.fn();
+    registry.activate(
+      extension('ext.a', (ctx) => {
+        ctx.host.commands.registerCommand({ id: 'ext.a.cmd', run });
+        ctx.host.keybindings.registerKeybinding({
+          key: 'Ctrl+Shift+G',
+          command: 'ext.a.cmd',
+        });
+      }),
+    );
+    const target = document.createElement('div');
+    attachKeybindingDispatcher(registry, target);
+
+    modalState.active = true;
+    target.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'g',
+        code: 'KeyG',
+        ctrlKey: true,
+        shiftKey: true,
+      }),
+    );
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('resumes firing when modalState.active flips back to false', async () => {
+    const registry = createRegistry();
+    const run = vi.fn();
+    registry.activate(
+      extension('ext.a', (ctx) => {
+        ctx.host.commands.registerCommand({ id: 'ext.a.cmd', run });
+        ctx.host.keybindings.registerKeybinding({
+          key: 'Ctrl+Shift+G',
+          command: 'ext.a.cmd',
+        });
+      }),
+    );
+    const target = document.createElement('div');
+    attachKeybindingDispatcher(registry, target);
+
+    modalState.active = true;
+    target.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'g',
+        code: 'KeyG',
+        ctrlKey: true,
+        shiftKey: true,
+      }),
+    );
+    expect(run).not.toHaveBeenCalled();
+
+    modalState.active = false;
+    target.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'g',
+        code: 'KeyG',
+        ctrlKey: true,
+        shiftKey: true,
+      }),
+    );
+    await Promise.resolve();
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });

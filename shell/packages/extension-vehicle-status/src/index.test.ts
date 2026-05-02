@@ -13,6 +13,7 @@ function makeFakeHost(opts: {
     window: {
       registerView: vi.fn(() => ({ dispose: () => {} })),
       registerStatusBarItem: opts.registerStatusBarItem ?? vi.fn(() => ({ dispose: () => {} })),
+      showQuickPick: vi.fn(),
     },
     commands: {
       registerCommand: vi.fn(() => ({ dispose: () => {} })),

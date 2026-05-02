@@ -27,7 +27,7 @@ describe('exampleExtension', () => {
 
     exampleExtension.activate({
       host: {
-        window: { registerView, registerStatusBarItem },
+        window: { registerView, registerStatusBarItem, showQuickPick: vi.fn() },
         commands: { registerCommand, executeCommand },
         keybindings: { registerKeybinding },
         extensions: { getExtension: vi.fn(() => undefined) },
@@ -76,7 +76,7 @@ describe('exampleExtension', () => {
 
     exampleExtension.activate({
       host: {
-        window: { registerView, registerStatusBarItem },
+        window: { registerView, registerStatusBarItem, showQuickPick: vi.fn() },
         commands: { registerCommand, executeCommand },
         keybindings: { registerKeybinding },
         extensions: { getExtension: vi.fn(() => undefined) },

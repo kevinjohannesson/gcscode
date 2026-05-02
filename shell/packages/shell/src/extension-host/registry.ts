@@ -6,11 +6,15 @@ import type {
   ExtensionHost,
   ExtensionIdentity,
   KeybindingContribution,
+  QuickPickItem,
+  QuickPickOptions,
   StatusBarItemContribution,
   ViewContribution,
 } from '@gcscode/extension-api';
 
 import { SvelteMap } from 'svelte/reactivity';
+
+import { quickPickState } from '../quick-pick/quick-pick-state.svelte';
 
 export interface Registry {
   activate(extension: Extension): void;
@@ -104,6 +108,14 @@ export function createRegistry(): Registry {
               }
             },
           };
+        },
+        showQuickPick<T extends QuickPickItem>(
+          items: T[],
+          options?: QuickPickOptions,
+        ): Promise<T | undefined> {
+          return new Promise<T | undefined>((resolve) => {
+            quickPickState.open<T>({ items, options, resolve });
+          });
         },
       },
       keybindings: {

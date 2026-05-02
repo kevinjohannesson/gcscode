@@ -25,7 +25,8 @@ The extension architecture grows in phases: **A** (contribution kinds), **B** (l
 ### Phase C — Cross-cutting capabilities
 
 - [x] **C1: ExtensionHost namespacing** — host API moves from flat (`registerCommand`, `registerStatusBarItem`, ...) to topic-namespaced (`host.commands.registerCommand`, `host.window.registerStatusBarItem`, ...). Spec: [`specs/2026-05-01-extensionhost-namespacing.md`](specs/2026-05-01-extensionhost-namespacing.md). ADR: [`decisions/ADR-0006-extensionhost-namespacing.md`](decisions/ADR-0006-extensionhost-namespacing.md).
-- [ ] **C2+: events, settings, themes, i18n** — TBD. Each lands as a new namespace under `host.*` when a feature extension pulls on it. Re-scope per-capability when triggered.
+- [x] **C2: Command palette + `window.showQuickPick`** — `host.window.showQuickPick<T>(items, options): Promise<T | undefined>` + built-in `workbench` extension registering `workbench.action.showCommands` + `Ctrl+Shift+P`. Spec: [`specs/2026-05-02-command-palette.md`](specs/2026-05-02-command-palette.md).
+- [ ] **C3+: events, settings, themes, i18n** — TBD. Each lands as a new namespace under `host.*` when a feature extension pulls on it. Re-scope per-capability when triggered.
 
 ## Feature extensions
 
