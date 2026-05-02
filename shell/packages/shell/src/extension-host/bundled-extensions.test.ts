@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bundledExtensions } from './extension-manifest';
+import { bundledExtensions } from './bundled-extensions';
 
 describe('bundledExtensions', () => {
   it('is non-empty', () => {
