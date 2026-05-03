@@ -324,6 +324,7 @@ export const mapExtension: Extension = {
 The extension `activate` returns `mapApi` as its exports — `host.extensions.getExtension<MapApi>('gcscode.map')?.exports` resolves to the singleton.
 
 `MAPLIBRE_CONTEXT_KEY` is exported as a value alongside the `MapApi` type. Both are part of the public contract. Consumers may `import { MAPLIBRE_CONTEXT_KEY } from '@gcscode/extension-map'` as **a type-only import** (per ADR-0005's allowance for type-only sibling imports) — but since `MAPLIBRE_CONTEXT_KEY` is a runtime constant string, importing it would be a runtime sibling import, which ADR-0005 forbids. So consumers either:
+
 - Re-declare the string literal independently (recommended; the string is part of the contract, like an HTTP route).
 - Or import the constant via the host (out of scope for this iteration; would require `host.extensions.getExtensionContext(id)?.publicConstants` or similar).
 
@@ -400,9 +401,7 @@ describe('mapExtension', () => {
 
 describe('mapApi', () => {
   it('registerLayer adds an entry; returned Disposable removes it', () => {
-    const FakeComponent = (() => {}) as unknown as Parameters<
-      typeof mapApi.registerLayer
-    >[0];
+    const FakeComponent = (() => {}) as unknown as Parameters<typeof mapApi.registerLayer>[0];
 
     const before = mapApi.layers.size;
     const disposable = mapApi.registerLayer(FakeComponent);
@@ -413,9 +412,7 @@ describe('mapApi', () => {
   });
 
   it('Disposable.dispose is idempotent', () => {
-    const FakeComponent = (() => {}) as unknown as Parameters<
-      typeof mapApi.registerLayer
-    >[0];
+    const FakeComponent = (() => {}) as unknown as Parameters<typeof mapApi.registerLayer>[0];
     const before = mapApi.layers.size;
     const disposable = mapApi.registerLayer(FakeComponent);
 
@@ -450,7 +447,7 @@ The singleton-state tests intentionally mutate shared state but restore it. If t
 
 ### `packages/extension-map/README.md` (new)
 
-```md
+````md
 # @gcscode/extension-map
 
 Geographical view contributing the `gcscode.map.main` view. Renders a maplibre canvas with a hardcoded basemap (OpenFreeMap positron style). Exposes a contribution API for other extensions to register map layers.
@@ -474,6 +471,7 @@ if (map) {
   // map.camera.zoom = 14;  // editable; field-level writes apply instantly
 }
 ```
+````
 
 ### `registerLayer(component): Disposable`
 
@@ -524,7 +522,8 @@ The getter form is intentional — children mount before the parent's `onMount` 
 - [ADR-0005](../../docs/decisions/ADR-0005-extension-boundaries.md) — extension boundaries (cross-extension exports + type-only sibling imports)
 - [Spec 2026-05-03-map-and-flight-overlay](../../docs/specs/2026-05-03-map-and-flight-overlay.md) — this iteration
 - [`@gcscode/extension-flight-overlay`](../extension-flight-overlay/README.md) — first consumer
-```
+
+````
 
 ## `packages/extension-flight-overlay/` — new package
 
@@ -560,7 +559,7 @@ Mirrors the `extension-vehicle-status` shape (cross-extension consumer, type-onl
     "svelte": "^5.0.0"
   }
 }
-```
+````
 
 `@gcscode/extension-map` and `@gcscode/extension-sitl` are listed as `workspace:*` deps for **type-only** imports (per ADR-0005). The runtime boundary is preserved: no value-level imports from either sibling. ESLint enforces this via `@typescript-eslint/no-restricted-imports` with `allowTypeImports: true` (existing config).
 
@@ -1140,60 +1139,60 @@ The workspace globs already include `packages/*`. Both new packages are auto-dis
 
 ## Test count expectations
 
-| Package | Existing | New | Total |
-|---|---|---|---|
-| `@gcscode/extension-map` | 0 | 6 (manifest 1 + activate 1 + registry 3 + camera 1) | 6 |
-| `@gcscode/extension-flight-overlay` | 0 | 8 (manifest 1 + activate 1 + activate-throw 1 + state 1 + circle-polygon 4) | 8 |
-| All other packages | 214 | 0 | 214 |
-| **Workspace total** | **214** | **+14** | **228** |
+| Package                             | Existing | New                                                                         | Total   |
+| ----------------------------------- | -------- | --------------------------------------------------------------------------- | ------- |
+| `@gcscode/extension-map`            | 0        | 6 (manifest 1 + activate 1 + registry 3 + camera 1)                         | 6       |
+| `@gcscode/extension-flight-overlay` | 0        | 8 (manifest 1 + activate 1 + activate-throw 1 + state 1 + circle-polygon 4) | 8       |
+| All other packages                  | 214      | 0                                                                           | 214     |
+| **Workspace total**                 | **214**  | **+14**                                                                     | **228** |
 
 (Numbers are estimates from the test bodies above; final counts may differ by ±1 if a `describe` is split. Verification step counts the actual delta.)
 
 ## Files modified / added
 
-| Path | Change |
-|---|---|
-| `packages/extension-map/package.json` | NEW. Workspace package; deps on `@gcscode/extension-api` (`workspace:*`) and `maplibre-gl ^5.24.0`. |
-| `packages/extension-map/tsconfig.json` | NEW. Verbatim copy of `extension-map-demo/tsconfig.json`. |
-| `packages/extension-map/src/css.d.ts` | NEW. Verbatim copy of `extension-map-demo/src/css.d.ts`. |
-| `packages/extension-map/src/map-api.svelte.ts` | NEW. ~70 lines. `MapCamera` + `MapApi` types, `MapApiImpl` class, `mapApi` singleton, `MAPLIBRE_CONTEXT_KEY` constant. |
-| `packages/extension-map/src/map-view.svelte` | NEW. ~80 lines. Maplibre canvas + camera two-way binding + layer mount via context. |
-| `packages/extension-map/src/index.ts` | NEW. ~25 lines. `mapExtension` const + re-exports. |
-| `packages/extension-map/src/index.test.ts` | NEW. ~120 lines. 6 tests across `mapExtension` and `mapApi`. |
-| `packages/extension-map/README.md` | NEW. ~80 lines. API docs + context-key contract. |
-| `packages/extension-flight-overlay/package.json` | NEW. Workspace package; deps on `@gcscode/extension-api`, `@gcscode/extension-map` (`workspace:*` type-only), `@gcscode/extension-sitl` (`workspace:*` type-only), `maplibre-gl ^5.24.0`. |
-| `packages/extension-flight-overlay/tsconfig.json` | NEW. Verbatim copy of `extension-vehicle-status/tsconfig.json`. |
-| `packages/extension-flight-overlay/src/flight-overlay-config.ts` | NEW. ~12 lines. Hardcoded `homeLocation` + `maxDistanceMeters`. |
-| `packages/extension-flight-overlay/src/circle-polygon.ts` | NEW. ~20 lines. Pure circle-as-polygon helper. |
-| `packages/extension-flight-overlay/src/circle-polygon.test.ts` | NEW. ~30 lines. 4 unit tests. |
-| `packages/extension-flight-overlay/src/state.ts` | NEW. ~30 lines. `FlightOverlayState` class + singleton. |
-| `packages/extension-flight-overlay/src/layers/drone-marker-layer.svelte` | NEW. ~50 lines. SITL-driven marker layer. |
-| `packages/extension-flight-overlay/src/layers/home-location-layer.svelte` | NEW. ~30 lines. Hardcoded marker layer. |
-| `packages/extension-flight-overlay/src/layers/max-distance-circle-layer.svelte` | NEW. ~60 lines. Hardcoded geofence circle layer. |
-| `packages/extension-flight-overlay/src/index.ts` | NEW. ~35 lines. `flightOverlayExtension` const. |
-| `packages/extension-flight-overlay/src/index.test.ts` | NEW. ~120 lines. 4 tests. |
-| `packages/extension-flight-overlay/README.md` | NEW. ~50 lines. |
-| `packages/shell/src/extension-host/bundled-extensions.ts` | MODIFY. Two new imports + two new array entries (map, then flight-overlay) after map-demo. |
-| `packages/shell/package.json` | MODIFY. Add `@gcscode/extension-flight-overlay` and `@gcscode/extension-map` to `dependencies`. |
-| `pnpm-lock.yaml` | MODIFY (auto). Updated by `pnpm install`. |
-| `docs/specs/2026-05-03-map-and-flight-overlay.md` | NEW. This file. |
-| `docs/plans/2026-05-03-map-and-flight-overlay.md` | NEW. Per writing-plans skill. |
-| `docs/roadmap.md` | MODIFY. Tick `Map`; add new `flight-overlay` entry under Coming. |
-| `docs/vs-code-alignment.md` | MODIFY. New rows per the alignment section below. |
-| `docs/out-of-scope.md` | MODIFY. New entries per the propagation section below. |
+| Path                                                                            | Change                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/extension-map/package.json`                                           | NEW. Workspace package; deps on `@gcscode/extension-api` (`workspace:*`) and `maplibre-gl ^5.24.0`.                                                                                       |
+| `packages/extension-map/tsconfig.json`                                          | NEW. Verbatim copy of `extension-map-demo/tsconfig.json`.                                                                                                                                 |
+| `packages/extension-map/src/css.d.ts`                                           | NEW. Verbatim copy of `extension-map-demo/src/css.d.ts`.                                                                                                                                  |
+| `packages/extension-map/src/map-api.svelte.ts`                                  | NEW. ~70 lines. `MapCamera` + `MapApi` types, `MapApiImpl` class, `mapApi` singleton, `MAPLIBRE_CONTEXT_KEY` constant.                                                                    |
+| `packages/extension-map/src/map-view.svelte`                                    | NEW. ~80 lines. Maplibre canvas + camera two-way binding + layer mount via context.                                                                                                       |
+| `packages/extension-map/src/index.ts`                                           | NEW. ~25 lines. `mapExtension` const + re-exports.                                                                                                                                        |
+| `packages/extension-map/src/index.test.ts`                                      | NEW. ~120 lines. 6 tests across `mapExtension` and `mapApi`.                                                                                                                              |
+| `packages/extension-map/README.md`                                              | NEW. ~80 lines. API docs + context-key contract.                                                                                                                                          |
+| `packages/extension-flight-overlay/package.json`                                | NEW. Workspace package; deps on `@gcscode/extension-api`, `@gcscode/extension-map` (`workspace:*` type-only), `@gcscode/extension-sitl` (`workspace:*` type-only), `maplibre-gl ^5.24.0`. |
+| `packages/extension-flight-overlay/tsconfig.json`                               | NEW. Verbatim copy of `extension-vehicle-status/tsconfig.json`.                                                                                                                           |
+| `packages/extension-flight-overlay/src/flight-overlay-config.ts`                | NEW. ~12 lines. Hardcoded `homeLocation` + `maxDistanceMeters`.                                                                                                                           |
+| `packages/extension-flight-overlay/src/circle-polygon.ts`                       | NEW. ~20 lines. Pure circle-as-polygon helper.                                                                                                                                            |
+| `packages/extension-flight-overlay/src/circle-polygon.test.ts`                  | NEW. ~30 lines. 4 unit tests.                                                                                                                                                             |
+| `packages/extension-flight-overlay/src/state.ts`                                | NEW. ~30 lines. `FlightOverlayState` class + singleton.                                                                                                                                   |
+| `packages/extension-flight-overlay/src/layers/drone-marker-layer.svelte`        | NEW. ~50 lines. SITL-driven marker layer.                                                                                                                                                 |
+| `packages/extension-flight-overlay/src/layers/home-location-layer.svelte`       | NEW. ~30 lines. Hardcoded marker layer.                                                                                                                                                   |
+| `packages/extension-flight-overlay/src/layers/max-distance-circle-layer.svelte` | NEW. ~60 lines. Hardcoded geofence circle layer.                                                                                                                                          |
+| `packages/extension-flight-overlay/src/index.ts`                                | NEW. ~35 lines. `flightOverlayExtension` const.                                                                                                                                           |
+| `packages/extension-flight-overlay/src/index.test.ts`                           | NEW. ~120 lines. 4 tests.                                                                                                                                                                 |
+| `packages/extension-flight-overlay/README.md`                                   | NEW. ~50 lines.                                                                                                                                                                           |
+| `packages/shell/src/extension-host/bundled-extensions.ts`                       | MODIFY. Two new imports + two new array entries (map, then flight-overlay) after map-demo.                                                                                                |
+| `packages/shell/package.json`                                                   | MODIFY. Add `@gcscode/extension-flight-overlay` and `@gcscode/extension-map` to `dependencies`.                                                                                           |
+| `pnpm-lock.yaml`                                                                | MODIFY (auto). Updated by `pnpm install`.                                                                                                                                                 |
+| `docs/specs/2026-05-03-map-and-flight-overlay.md`                               | NEW. This file.                                                                                                                                                                           |
+| `docs/plans/2026-05-03-map-and-flight-overlay.md`                               | NEW. Per writing-plans skill.                                                                                                                                                             |
+| `docs/roadmap.md`                                                               | MODIFY. Tick `Map`; add new `flight-overlay` entry under Coming.                                                                                                                          |
+| `docs/vs-code-alignment.md`                                                     | MODIFY. New rows per the alignment section below.                                                                                                                                         |
+| `docs/out-of-scope.md`                                                          | MODIFY. New entries per the propagation section below.                                                                                                                                    |
 
 No changes to `@gcscode/extension-api` (no new public surface — the cross-extension exports pattern is already in place). No changes to existing extensions. No ADR.
 
 ## VS Code alignment
 
-| Concern | VS Code | gcscode | Status | Trigger to revisit |
-|---|---|---|---|---|
-| Service-style extension exposing a contribution surface for other extensions | ✓ (editor + decorations / hover providers / language services) | ✓ (`gcscode.map` + `registerLayer` for `flight-overlay` and future consumers) | **Alignment** | — |
-| Cross-extension contribution accepts Svelte components, not data property bags | ✗ (data) | ✓ (Svelte `Component`) | **Divergence** | Same as the existing "View / status-bar contributions" Divergences row — chrome ownership stays with the extension. Trigger covered by ADR-0005's webview-wing follow-up. |
-| Cross-extension Svelte context as part of public API | N/A (VS Code has no Svelte) | string-keyed via `'gcscode.map.maplibre'`, re-declared by consumers | **Divergence** | First instance. The string is the contract; ADR-0005 forbids runtime sibling imports of the constant. Trigger to revisit: a third consumer surface where re-declaration is brittle, or a capability-declaration system that publishes constants. |
-| Camera state (or equivalent reactive surface) on cross-extension exports | N/A | `readonly camera: MapCamera` ($state) | **Alignment with our own pattern** (mirrors `SitlExports.telemetry: TelemetryState`) — same "consumer-mutable reactive proxy" shape | — |
-| Layer ordering / z-index API | `priority` on decorations / `editor.contributes` declarative ordering | registration order only | **Deferral** | Mirrors existing status-bar `priority` deferral. Trigger: third-party wants to insert between two first-party layers. |
-| Animated camera transitions | ✓ (editor reveal animations, smooth scroll) | ✗ (instant `jumpTo` only) | **Deferral** | First consumer needing animation — likely a "pan to selection" UX or the follow-mode iteration. |
+| Concern                                                                        | VS Code                                                               | gcscode                                                                       | Status                                                                                                                              | Trigger to revisit                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Service-style extension exposing a contribution surface for other extensions   | ✓ (editor + decorations / hover providers / language services)        | ✓ (`gcscode.map` + `registerLayer` for `flight-overlay` and future consumers) | **Alignment**                                                                                                                       | —                                                                                                                                                                                                                                                |
+| Cross-extension contribution accepts Svelte components, not data property bags | ✗ (data)                                                              | ✓ (Svelte `Component`)                                                        | **Divergence**                                                                                                                      | Same as the existing "View / status-bar contributions" Divergences row — chrome ownership stays with the extension. Trigger covered by ADR-0005's webview-wing follow-up.                                                                        |
+| Cross-extension Svelte context as part of public API                           | N/A (VS Code has no Svelte)                                           | string-keyed via `'gcscode.map.maplibre'`, re-declared by consumers           | **Divergence**                                                                                                                      | First instance. The string is the contract; ADR-0005 forbids runtime sibling imports of the constant. Trigger to revisit: a third consumer surface where re-declaration is brittle, or a capability-declaration system that publishes constants. |
+| Camera state (or equivalent reactive surface) on cross-extension exports       | N/A                                                                   | `readonly camera: MapCamera` ($state)                                         | **Alignment with our own pattern** (mirrors `SitlExports.telemetry: TelemetryState`) — same "consumer-mutable reactive proxy" shape | —                                                                                                                                                                                                                                                |
+| Layer ordering / z-index API                                                   | `priority` on decorations / `editor.contributes` declarative ordering | registration order only                                                       | **Deferral**                                                                                                                        | Mirrors existing status-bar `priority` deferral. Trigger: third-party wants to insert between two first-party layers.                                                                                                                            |
+| Animated camera transitions                                                    | ✓ (editor reveal animations, smooth scroll)                           | ✗ (instant `jumpTo` only)                                                     | **Deferral**                                                                                                                        | First consumer needing animation — likely a "pan to selection" UX or the follow-mode iteration.                                                                                                                                                  |
 
 The "service-style extension" framing is itself a new alignment row in the cumulative ledger (`docs/vs-code-alignment.md`). The propagation section below covers the exact ledger edits.
 

@@ -18,47 +18,47 @@
 
 This iteration's six feat/docs commits each leave the workspace passing `pnpm check` + `pnpm test` + `pnpm lint`. There are no intermediate non-green states.
 
-| After commit | Workspace state |
-|---|---|
-| 1: scaffold map (placeholder view + tests) | Green. Package compiles in isolation. 6 new tests pass. `pnpm dev` doesn't show the new map yet (not bundled into shell). |
-| 2: maplibre canvas + camera + layer mount | Green. View component is the real implementation; the same 6 tests still pass (rendering isn't unit-tested). Still not bundled. |
+| After commit                                                                     | Workspace state                                                                                                                 |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 1: scaffold map (placeholder view + tests)                                       | Green. Package compiles in isolation. 6 new tests pass. `pnpm dev` doesn't show the new map yet (not bundled into shell).       |
+| 2: maplibre canvas + camera + layer mount                                        | Green. View component is the real implementation; the same 6 tests still pass (rendering isn't unit-tested). Still not bundled. |
 | 3: scaffold flight-overlay (config + state + circle-polygon + placeholder index) | Green. Package compiles in isolation. 4 circle-polygon tests pass; placeholder `index.ts` produces no extension assertions yet. |
-| 4: flight-overlay layers + full activate + tests | Green. Three layers exist; index.ts is fully wired; 4 new index tests pass. Still not bundled into shell. |
-| 5: bundle into shell + smoke | Green. Both extensions activate; map view renders alongside map-demo view. **Browser smoke runs at this commit.** |
-| 6: docs propagation (roadmap + alignment ledger + out-of-scope) | Green. Docs only. |
+| 4: flight-overlay layers + full activate + tests                                 | Green. Three layers exist; index.ts is fully wired; 4 new index tests pass. Still not bundled into shell.                       |
+| 5: bundle into shell + smoke                                                     | Green. Both extensions activate; map view renders alongside map-demo view. **Browser smoke runs at this commit.**               |
+| 6: docs propagation (roadmap + alignment ledger + out-of-scope)                  | Green. Docs only.                                                                                                               |
 
 ---
 
 ## File structure
 
-| Path | Responsibility |
-|---|---|
-| `packages/extension-map/package.json` | Workspace package manifest. `workspace:*` dep on `@gcscode/extension-api`. `maplibre-gl ^5.24.0` runtime dep. (Task 2.) |
-| `packages/extension-map/tsconfig.json` | Verbatim copy of `extension-map-demo/tsconfig.json`. (Task 2.) |
-| `packages/extension-map/src/css.d.ts` | Verbatim copy of `extension-map-demo/src/css.d.ts` — declares the maplibre CSS import. (Task 2.) |
-| `packages/extension-map/src/map-api.svelte.ts` | `MapCamera` + `MapApi` types, `MapApiImpl` class (C# conventions: `private`/`public`, `_backingField`, getters), `mapApi` singleton, `MAPLIBRE_CONTEXT_KEY` constant. (Task 2.) |
-| `packages/extension-map/src/map-view.svelte` | Task 2 placeholder (`<div>Map (real)</div>`); Task 3 replaces with full maplibre canvas + camera two-way binding + layer mount. |
-| `packages/extension-map/src/index.ts` | `mapExtension` const + re-exports of `MapApi`, `MapCamera`, `MAPLIBRE_CONTEXT_KEY`. `activate` returns `mapApi` as exports. No `deactivate?()`. (Task 2.) |
-| `packages/extension-map/src/index.test.ts` | 6 tests using fake-host pattern (manifest, activate-returns-mapApi-and-registers-view, registerLayer-adds-and-disposes, idempotent-dispose, multiple-unique-ids, camera-fields-mutable). (Task 2.) |
-| `packages/extension-map/README.md` | Documents the `MapApi`, the context-key contract, the tile source, and the deferral list. (Task 2.) |
-| `packages/extension-flight-overlay/package.json` | Workspace package manifest. `workspace:*` deps on api + map (type-only) + sitl (type-only). `maplibre-gl ^5.24.0` runtime dep. (Task 4.) |
-| `packages/extension-flight-overlay/tsconfig.json` | Verbatim copy of `extension-vehicle-status/tsconfig.json`. (Task 4.) |
-| `packages/extension-flight-overlay/src/flight-overlay-config.ts` | Hardcoded `homeLocation: [number, number]` + `maxDistanceMeters: number`. (Task 4.) |
-| `packages/extension-flight-overlay/src/circle-polygon.ts` | Pure helper: `computeCirclePolygon(center, radiusMeters): [number, number][]`. (Task 4.) |
-| `packages/extension-flight-overlay/src/circle-polygon.test.ts` | 4 unit tests (closed ring, point count, linear scaling at equator, latitude contraction). (Task 4.) |
-| `packages/extension-flight-overlay/src/state.ts` | `FlightOverlayState` class (C# conventions) with `setHost`/`clearHost` and `mapExports`/`sitlExports` getters. (Task 4.) |
-| `packages/extension-flight-overlay/src/layers/drone-marker-layer.svelte` | Headless Svelte component. Reads SITL via `flightOverlayState.sitlExports`; renders/updates a maplibre `Marker` from inside `$effect`. (Task 5.) |
-| `packages/extension-flight-overlay/src/layers/home-location-layer.svelte` | Headless. Reads hardcoded `homeLocation`; renders a colored maplibre `Marker`. (Task 5.) |
-| `packages/extension-flight-overlay/src/layers/max-distance-circle-layer.svelte` | Headless. Computes circle polygon via `computeCirclePolygon`; adds a maplibre `geojson` source + `line` layer. (Task 5.) |
-| `packages/extension-flight-overlay/src/index.ts` | `flightOverlayExtension` const. `activate` validates map presence, captures host, registers three layers. `deactivate` clears host. (Task 5.) |
-| `packages/extension-flight-overlay/src/index.test.ts` | 4 tests (manifest, activate-registers-three-layers, activate-throws-without-map, state-exposes-mapExports-and-sitlExports). (Task 5.) |
-| `packages/extension-flight-overlay/README.md` | Documents the consumer pattern, the layers, the config. (Task 4 stub; Task 5 fills.) |
-| `packages/shell/src/extension-host/bundled-extensions.ts` | Add map + flight-overlay imports + array entries (after map-demo). (Task 6.) |
-| `packages/shell/package.json` | Add `@gcscode/extension-map` + `@gcscode/extension-flight-overlay` to `dependencies`. (Task 6.) |
-| `pnpm-lock.yaml` | Auto-updated by `pnpm install` after the new packages land. (Tasks 2, 4.) |
-| `docs/roadmap.md` | Tick `Map`; add `flight-overlay` line under Coming. (Task 7.) |
-| `docs/vs-code-alignment.md` | Add 1 alignment + 1 divergence + 4 deferral rows. (Task 7.) |
-| `docs/out-of-scope.md` | Add 5 entries (animated camera, camera coordination, layer ordering, map UI controls, cross-extension Svelte context constants). (Task 7.) |
+| Path                                                                            | Responsibility                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/extension-map/package.json`                                           | Workspace package manifest. `workspace:*` dep on `@gcscode/extension-api`. `maplibre-gl ^5.24.0` runtime dep. (Task 2.)                                                                            |
+| `packages/extension-map/tsconfig.json`                                          | Verbatim copy of `extension-map-demo/tsconfig.json`. (Task 2.)                                                                                                                                     |
+| `packages/extension-map/src/css.d.ts`                                           | Verbatim copy of `extension-map-demo/src/css.d.ts` — declares the maplibre CSS import. (Task 2.)                                                                                                   |
+| `packages/extension-map/src/map-api.svelte.ts`                                  | `MapCamera` + `MapApi` types, `MapApiImpl` class (C# conventions: `private`/`public`, `_backingField`, getters), `mapApi` singleton, `MAPLIBRE_CONTEXT_KEY` constant. (Task 2.)                    |
+| `packages/extension-map/src/map-view.svelte`                                    | Task 2 placeholder (`<div>Map (real)</div>`); Task 3 replaces with full maplibre canvas + camera two-way binding + layer mount.                                                                    |
+| `packages/extension-map/src/index.ts`                                           | `mapExtension` const + re-exports of `MapApi`, `MapCamera`, `MAPLIBRE_CONTEXT_KEY`. `activate` returns `mapApi` as exports. No `deactivate?()`. (Task 2.)                                          |
+| `packages/extension-map/src/index.test.ts`                                      | 6 tests using fake-host pattern (manifest, activate-returns-mapApi-and-registers-view, registerLayer-adds-and-disposes, idempotent-dispose, multiple-unique-ids, camera-fields-mutable). (Task 2.) |
+| `packages/extension-map/README.md`                                              | Documents the `MapApi`, the context-key contract, the tile source, and the deferral list. (Task 2.)                                                                                                |
+| `packages/extension-flight-overlay/package.json`                                | Workspace package manifest. `workspace:*` deps on api + map (type-only) + sitl (type-only). `maplibre-gl ^5.24.0` runtime dep. (Task 4.)                                                           |
+| `packages/extension-flight-overlay/tsconfig.json`                               | Verbatim copy of `extension-vehicle-status/tsconfig.json`. (Task 4.)                                                                                                                               |
+| `packages/extension-flight-overlay/src/flight-overlay-config.ts`                | Hardcoded `homeLocation: [number, number]` + `maxDistanceMeters: number`. (Task 4.)                                                                                                                |
+| `packages/extension-flight-overlay/src/circle-polygon.ts`                       | Pure helper: `computeCirclePolygon(center, radiusMeters): [number, number][]`. (Task 4.)                                                                                                           |
+| `packages/extension-flight-overlay/src/circle-polygon.test.ts`                  | 4 unit tests (closed ring, point count, linear scaling at equator, latitude contraction). (Task 4.)                                                                                                |
+| `packages/extension-flight-overlay/src/state.ts`                                | `FlightOverlayState` class (C# conventions) with `setHost`/`clearHost` and `mapExports`/`sitlExports` getters. (Task 4.)                                                                           |
+| `packages/extension-flight-overlay/src/layers/drone-marker-layer.svelte`        | Headless Svelte component. Reads SITL via `flightOverlayState.sitlExports`; renders/updates a maplibre `Marker` from inside `$effect`. (Task 5.)                                                   |
+| `packages/extension-flight-overlay/src/layers/home-location-layer.svelte`       | Headless. Reads hardcoded `homeLocation`; renders a colored maplibre `Marker`. (Task 5.)                                                                                                           |
+| `packages/extension-flight-overlay/src/layers/max-distance-circle-layer.svelte` | Headless. Computes circle polygon via `computeCirclePolygon`; adds a maplibre `geojson` source + `line` layer. (Task 5.)                                                                           |
+| `packages/extension-flight-overlay/src/index.ts`                                | `flightOverlayExtension` const. `activate` validates map presence, captures host, registers three layers. `deactivate` clears host. (Task 5.)                                                      |
+| `packages/extension-flight-overlay/src/index.test.ts`                           | 4 tests (manifest, activate-registers-three-layers, activate-throws-without-map, state-exposes-mapExports-and-sitlExports). (Task 5.)                                                              |
+| `packages/extension-flight-overlay/README.md`                                   | Documents the consumer pattern, the layers, the config. (Task 4 stub; Task 5 fills.)                                                                                                               |
+| `packages/shell/src/extension-host/bundled-extensions.ts`                       | Add map + flight-overlay imports + array entries (after map-demo). (Task 6.)                                                                                                                       |
+| `packages/shell/package.json`                                                   | Add `@gcscode/extension-map` + `@gcscode/extension-flight-overlay` to `dependencies`. (Task 6.)                                                                                                    |
+| `pnpm-lock.yaml`                                                                | Auto-updated by `pnpm install` after the new packages land. (Tasks 2, 4.)                                                                                                                          |
+| `docs/roadmap.md`                                                               | Tick `Map`; add `flight-overlay` line under Coming. (Task 7.)                                                                                                                                      |
+| `docs/vs-code-alignment.md`                                                     | Add 1 alignment + 1 divergence + 4 deferral rows. (Task 7.)                                                                                                                                        |
+| `docs/out-of-scope.md`                                                          | Add 5 entries (animated camera, camera coordination, layer ordering, map UI controls, cross-extension Svelte context constants). (Task 7.)                                                         |
 
 ---
 
@@ -107,6 +107,7 @@ Expected: all clean. Same workspace test count as Step 2.
 - Create: `packages/extension-map/README.md`
 
 This task creates the entire `extension-map` package with:
+
 - The `MapApi` types and `mapApi` singleton (`map-api.svelte.ts`).
 - A placeholder `map-view.svelte` (`<div>Map (real)</div>`) so the package compiles without maplibre integration.
 - The full `index.ts` (registers a view contribution; returns `mapApi` as exports).
@@ -740,6 +741,7 @@ Expected: commit succeeds; tree clean. The map view will render in the running a
 - Create: `packages/extension-flight-overlay/README.md`
 
 This task scaffolds the entire `flight-overlay` package with:
+
 - The package config (`package.json`, `tsconfig.json`).
 - Config + circle-polygon helper + 4 unit tests.
 - The `FlightOverlayState` class.
@@ -1701,11 +1703,13 @@ Per CLAUDE.md: "After all tasks land, dispatch a final cross-cutting code review
 - [ ] **Step 1: Final code review**
 
 Dispatch a `superpowers:code-reviewer` subagent against the full branch (`master..feat/map-and-flight-overlay`). The subagent reads:
+
 - The spec (`docs/specs/2026-05-03-map-and-flight-overlay.md`).
 - The full branch diff (`git diff master..feat/map-and-flight-overlay`).
 - The CLAUDE.md and ADR-0005 / ADR-0007 for boundary rules.
 
 The review covers:
+
 - Spec compliance: does every "Goals" bullet have a corresponding implementation? Does every "Non-goals" bullet stay un-built?
 - Cross-extension boundary: any runtime sibling imports in flight-overlay? Any ADR-0005 violations?
 - Test coverage: do the unit tests cover the contracts asserted by the spec?
