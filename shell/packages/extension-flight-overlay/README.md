@@ -28,8 +28,17 @@ The maplibre `Map` instance is consumed via Svelte context (key `'gcscode.map.ma
 
 Layer components are mounted as children of the map view — when the map extension disables, layer components unmount and their `onDestroy` cleans up maplibre artifacts. When the map re-enables, the registered layers (still in the registry via subscriptions held in flight-overlay's context) re-mount fresh against the new maplibre instance.
 
+## Recenter command + control
+
+`gcscode.flight-overlay.recenter` is a palette-discoverable command (`Flight Overlay: Recenter on Drone`) that writes `map.camera.center` to the live SITL drone position. If SITL has no fix yet, it falls back to `homeLocation` from `flight-overlay-config.ts` so the operator gets a sensible "go back to where the drone should be" result rather than a silent no-op.
+
+The command is also wired to a top-right map control button (crosshair icon) registered via `MapApi.registerControl`. The button and the palette entry route through the same command — either path executes the same recenter logic.
+
+This is the first consumer of `MapApi.registerControl` in gcscode. The control uses the declarative property-bag path (icon + tooltip + `commandId`); the host owns the button rendering.
+
 ## See also
 
-- [Spec 2026-05-03-map-and-flight-overlay](../../docs/specs/2026-05-03-map-and-flight-overlay.md) — this iteration
+- [Spec 2026-05-03-map-and-flight-overlay](../../docs/specs/2026-05-03-map-and-flight-overlay.md) — layer-registration iteration
+- [Spec 2026-05-03-map-controls](../../docs/specs/2026-05-03-map-controls.md) — control-registration iteration (this package's recenter button)
 - [`@gcscode/extension-map`](../extension-map/README.md) — the contribution API this consumes
 - [ADR-0005](../../docs/decisions/ADR-0005-extension-boundaries.md) — extension boundaries

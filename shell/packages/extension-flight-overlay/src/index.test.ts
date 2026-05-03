@@ -30,9 +30,14 @@ function makeFakeHost(opts: {
 }
 
 function makeFakeMapExports(): MapApi {
+  // Plain mutable object — recenter tests assert post-write camera.center
+  // values. The real $state-backed camera is one-way reactive in production
+  // but a plain object reproduces the assignment semantics tests need.
+  const camera = { center: [0, 0] as [number, number], zoom: 1, pitch: 0, bearing: 0 };
   return {
     registerLayer: vi.fn(() => ({ dispose: () => {} }) as Disposable),
-    camera: { center: [0, 0], zoom: 1, pitch: 0, bearing: 0 },
+    registerControl: vi.fn(() => ({ dispose: () => {} }) as Disposable),
+    camera,
   };
 }
 
@@ -63,7 +68,7 @@ describe('flightOverlayExtension', () => {
     });
 
     expect(fakeMap.registerLayer).toHaveBeenCalledTimes(3);
-    expect(subscriptions).toHaveLength(3);
+    expect(subscriptions).toHaveLength(5); // 3 layers + 1 command + 1 control
 
     flightOverlayExtension.deactivate?.();
   });
@@ -129,5 +134,155 @@ describe('flightOverlayExtension', () => {
     flightOverlayExtension.deactivate?.();
     expect(flightOverlayState.mapExports).toBeUndefined();
     expect(flightOverlayState.sitlExports).toBeUndefined();
+  });
+
+  it('activate registers the gcscode.flight-overlay.recenter command', () => {
+    const fakeMap = makeFakeMapExports();
+    const host = makeFakeHost({
+      getExtension: vi.fn((id: string) =>
+        id === 'gcscode.map' ? { id, exports: fakeMap as unknown } : undefined,
+      ) as ExtensionHost['extensions']['getExtension'],
+    });
+
+    flightOverlayExtension.activate({
+      host,
+      subscriptions: [],
+      extension: {
+        id: flightOverlayExtension.manifest.id,
+        displayName: flightOverlayExtension.manifest.displayName,
+        version: flightOverlayExtension.manifest.version,
+      },
+    });
+
+    expect(host.commands.registerCommand).toHaveBeenCalledTimes(1);
+    const [cmd] = (host.commands.registerCommand as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(cmd.id).toBe('gcscode.flight-overlay.recenter');
+    expect(cmd.title).toBe('Recenter on Drone');
+    expect(cmd.category).toBe('Flight Overlay');
+    expect(typeof cmd.run).toBe('function');
+
+    flightOverlayExtension.deactivate?.();
+  });
+
+  it('activate registers a top-right recenter control whose commandId points at the recenter command', () => {
+    const fakeMap = makeFakeMapExports();
+    const host = makeFakeHost({
+      getExtension: vi.fn((id: string) =>
+        id === 'gcscode.map' ? { id, exports: fakeMap as unknown } : undefined,
+      ) as ExtensionHost['extensions']['getExtension'],
+    });
+
+    flightOverlayExtension.activate({
+      host,
+      subscriptions: [],
+      extension: {
+        id: flightOverlayExtension.manifest.id,
+        displayName: flightOverlayExtension.manifest.displayName,
+        version: flightOverlayExtension.manifest.version,
+      },
+    });
+
+    expect(fakeMap.registerControl).toHaveBeenCalledTimes(1);
+    const [reg] = (fakeMap.registerControl as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(reg.id).toBe('gcscode.flight-overlay.recenter');
+    expect(reg.position).toBe('top-right');
+    expect(reg.commandId).toBe('gcscode.flight-overlay.recenter');
+    expect(reg.icon).toEqual({ kind: 'lucide', name: 'crosshair' });
+    expect(typeof reg.tooltip).toBe('string');
+    expect(reg.tooltip.length).toBeGreaterThan(0);
+
+    flightOverlayExtension.deactivate?.();
+  });
+
+  it('recenter command writes map.camera.center to the SITL position when telemetry has a fix', () => {
+    const fakeMap = makeFakeMapExports();
+    const fakeSitl: SitlExports = {
+      telemetry: {
+        mode: 'GUIDED',
+        armed: true,
+        lat: -35.5,
+        lng: 149.2,
+        alt: 5,
+        heading: 0,
+        roll: 0,
+        pitch: 0,
+        yaw: 0,
+        groundspeed: 0,
+        voltageBattery: 12.5,
+        batteryRemaining: 50,
+        connection: 'connected',
+      },
+    };
+    const host = makeFakeHost({
+      getExtension: vi.fn((id: string) => {
+        if (id === 'gcscode.map') return { id, exports: fakeMap as unknown };
+        if (id === 'gcscode.sitl') return { id, exports: fakeSitl as unknown };
+        return undefined;
+      }) as ExtensionHost['extensions']['getExtension'],
+    });
+
+    flightOverlayExtension.activate({
+      host,
+      subscriptions: [],
+      extension: {
+        id: flightOverlayExtension.manifest.id,
+        displayName: flightOverlayExtension.manifest.displayName,
+        version: flightOverlayExtension.manifest.version,
+      },
+    });
+
+    const [cmd] = (host.commands.registerCommand as ReturnType<typeof vi.fn>).mock.calls[0];
+    cmd.run();
+
+    expect(fakeMap.camera.center).toEqual([149.2, -35.5]);
+
+    flightOverlayExtension.deactivate?.();
+  });
+
+  it('recenter command falls back to homeLocation when SITL telemetry has no fix', () => {
+    const fakeMap = makeFakeMapExports();
+    const fakeSitl: SitlExports = {
+      telemetry: {
+        mode: null,
+        armed: null,
+        lat: null,
+        lng: null,
+        alt: null,
+        heading: null,
+        roll: null,
+        pitch: null,
+        yaw: null,
+        groundspeed: null,
+        voltageBattery: null,
+        batteryRemaining: null,
+        connection: 'connecting',
+      },
+    };
+    const host = makeFakeHost({
+      getExtension: vi.fn((id: string) => {
+        if (id === 'gcscode.map') return { id, exports: fakeMap as unknown };
+        if (id === 'gcscode.sitl') return { id, exports: fakeSitl as unknown };
+        return undefined;
+      }) as ExtensionHost['extensions']['getExtension'],
+    });
+
+    flightOverlayExtension.activate({
+      host,
+      subscriptions: [],
+      extension: {
+        id: flightOverlayExtension.manifest.id,
+        displayName: flightOverlayExtension.manifest.displayName,
+        version: flightOverlayExtension.manifest.version,
+      },
+    });
+
+    const [cmd] = (host.commands.registerCommand as ReturnType<typeof vi.fn>).mock.calls[0];
+    cmd.run();
+
+    // homeLocation is the SITL ArduCopter default starting point (Canberra) —
+    // see flight-overlay-config.ts. The exact tuple is `[149.165_25, -35.363_26]`.
+    expect(fakeMap.camera.center).toEqual([149.16525, -35.36326]);
+
+    flightOverlayExtension.deactivate?.();
   });
 });
