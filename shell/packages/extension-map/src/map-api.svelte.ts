@@ -74,6 +74,7 @@ export interface MapControlContribution {
  * key layers use (`'gcscode.map.maplibre'`).
  */
 export interface MapControlComponentRegistration {
+  /** Same uniqueness and naming contract as {@link MapControlContribution.id}. */
   id: string;
   position: ControlPosition;
   component: Component;
@@ -131,7 +132,9 @@ class MapApiImpl implements MapApi {
   private _camera: MapCamera = $state({ ...INITIAL_CAMERA });
   private _nextLayerId = 0;
 
-  /** Read-only view of the layer registry for the map view's `{#each}` block. */
+  /** Read-only view of the layer registry for the map view's `{#each}` block.
+   * NOT part of the cross-extension `MapApi` contract — consumers use
+   * `registerLayer()` and let the map mount their components. */
   public get layers(): SvelteMap<string, { component: Component }> {
     return this._layers;
   }
