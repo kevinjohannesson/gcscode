@@ -11,8 +11,7 @@ export const flightOverlayExtension: Extension = {
     id: 'gcscode.flight-overlay',
     displayName: 'Flight Overlay',
     version: '0.0.0',
-    description:
-      'Drone marker, home location, and max-distance circle rendered on the map. First consumer of the map contribution API.',
+    description: 'Drone marker, home location, and max-distance circle rendered on the map.',
   },
   activate(context) {
     // Validate before capturing host — if activate throws, we want no leftover
