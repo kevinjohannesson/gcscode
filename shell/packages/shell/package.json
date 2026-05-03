@@ -13,6 +13,8 @@
   "dependencies": {
     "@gcscode/extension-api": "workspace:*",
     "@gcscode/extension-example": "workspace:*",
+    "@gcscode/extension-flight-overlay": "workspace:*",
+    "@gcscode/extension-map": "workspace:*",
     "@gcscode/extension-map-demo": "workspace:*",
     "@gcscode/extension-sitl": "workspace:*",
     "@gcscode/extension-vehicle-status": "workspace:*",

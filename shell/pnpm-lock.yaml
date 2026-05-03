@@ -101,6 +101,9 @@ importers:
       maplibre-gl:
         specifier: ^5.24.0
         version: 5.24.0
+      svelte:
+        specifier: ^5.0.0
+        version: 5.55.5(@typescript-eslint/types@8.59.0)
 
   packages/extension-map:
     dependencies:
@@ -158,6 +161,12 @@ importers:
       '@gcscode/extension-example':
         specifier: workspace:*
         version: link:../extension-example
+      '@gcscode/extension-flight-overlay':
+        specifier: workspace:*
+        version: link:../extension-flight-overlay
+      '@gcscode/extension-map':
+        specifier: workspace:*
+        version: link:../extension-map
       '@gcscode/extension-map-demo':
         specifier: workspace:*
         version: link:../extension-map-demo
