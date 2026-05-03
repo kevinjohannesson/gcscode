@@ -10,5 +10,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
+    server: {
+      // maplibre-gl ships a side-effect CSS import (`maplibre-gl/dist/maplibre-gl.css`)
+      // that vitest's default externalize-from-node_modules path can't load.
+      // Inlining maplibre-gl routes the CSS through Vite's transform pipeline.
+      deps: { inline: ['maplibre-gl'] },
+    },
   },
 });
