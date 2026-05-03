@@ -38,6 +38,7 @@ The first-party extensions planned for the app. Each is a future consumer of the
 
 - [x] **SITL stub** — placeholder view + `gcscode.sitl.getLocation` command, hardcoded coordinates, no connection. Spec: [`specs/2026-04-27-extension-sitl-stub.md`](specs/2026-04-27-extension-sitl-stub.md)
 - [x] **SITL listener** — live ArduCopter telemetry via mavlink2rest WebSocket bridge; `gcscode.sitl` extension consumes HEARTBEAT + GLOBAL_POSITION_INT; first consumer of `Extension.deactivate?()` hook. Spec: [`specs/2026-04-27-extension-sitl-listener.md`](specs/2026-04-27-extension-sitl-listener.md)
+- [x] **Map (demo)** — throwaway scaffold: `@gcscode/extension-map-demo` renders a maplibre map with a drone marker driven by SITL telemetry. Validates maplibre integration + consumer-side cross-extension pattern. Removed when the real Map iteration ships. Spec: [`specs/2026-05-03-map-demo.md`](specs/2026-05-03-map-demo.md).
 - [ ] **Map** — geographical view + selection state. Likely fits the existing view contribution kind; may surface a need for shared map state.
 - [ ] **Video feed** — live video stream display. Likely a Phase C streaming-source consumer alongside SITL.
 - [x] **Vehicle status** — first consumer of cross-extension exports. `@gcscode/extension-vehicle-status` registers a footer status bar item that reads SITL telemetry via `host.extensions.getExtension('gcscode.sitl').exports`. Spec: [`specs/2026-04-29-iteration-a-extension-exports.md`](specs/2026-04-29-iteration-a-extension-exports.md)
