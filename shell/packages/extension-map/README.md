@@ -52,7 +52,7 @@ The `commandId` must reference a command registered via `host.commands.registerC
 
 The icon is a discriminated union:
 
-- `{ kind: 'lucide'; name: string }` — name resolved against the lucide set the host pre-registers. If you need a name not yet pre-registered, see the static map in `packages/extension-map/src/lucide-icon.svelte` (a 2-line PR).
+- `{ kind: 'lucide'; name: string }` — name resolved against the (currently small) lucide set the host pre-registers. If you need a name not yet pre-registered, see the static map in `packages/extension-map/src/lucide-icon.svelte` (a 2-line PR).
 - `{ kind: 'svg'; svg: string }` — raw SVG markup, inlined by the host. Include a `viewBox`; omit `width`/`height` on the root `<svg>`; use `currentColor` for strokes/fills so the host's hover state reaches the icon.
 
 `position` is one of `'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'`. Top corners stack registered controls downward from the corner; bottom corners stack upward.
