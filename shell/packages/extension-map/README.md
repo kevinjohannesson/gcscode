@@ -28,6 +28,58 @@ Mounts `component` as a child of the map view's tree. The component receives the
 
 Layer components must be Svelte. They typically render no visible DOM; their job is to read the maplibre instance from context and call maplibre APIs imperatively from `$effect` blocks (add markers, sources, layers, etc.) and clean up on `onDestroy`.
 
+### `registerControl(registration): Disposable`
+
+Register an interactive control rendered over the map canvas. Two registration shapes are accepted; the host renders both inside the same per-corner slot wrapper (positioning + spacing chrome).
+
+#### Declarative property bag (recommended)
+
+Prefer this path for icon-button controls. The host renders a uniformly-styled button (32×32 px, white, drop shadow) so all controls look consistent regardless of which extension contributed them.
+
+```ts
+context.subscriptions.push(
+  map.registerControl({
+    id: 'myExtension.recenter',
+    position: 'top-right',
+    icon: { kind: 'lucide', name: 'crosshair' },
+    tooltip: 'Recenter on drone',
+    commandId: 'myExtension.recenter',
+  }),
+);
+```
+
+The `commandId` must reference a command registered via `host.commands.registerCommand`. Click fires the command via `executeCommand` (fire-and-forget — the host does not surface the command's return value or rejection back to the contributor).
+
+The icon is a discriminated union:
+
+- `{ kind: 'lucide'; name: string }` — name resolved against the lucide set the host pre-registers. If you need a name not yet pre-registered, see the static map in `packages/extension-map/src/lucide-icon.svelte` (a 2-line PR).
+- `{ kind: 'svg'; svg: string }` — raw SVG markup, inlined by the host. Include a `viewBox`; omit `width`/`height` on the root `<svg>`; use `currentColor` for strokes/fills so the host's hover state reaches the icon.
+
+`position` is one of `'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'`. Top corners stack registered controls downward from the corner; bottom corners stack upward.
+
+#### Component escape hatch (advanced)
+
+Use only when the control's shape doesn't fit an icon button — multi-state toggles, layer-toggle dropdowns, zoom-level indicators. The component renders inside the same slot wrapper but owns its visual.
+
+```ts
+context.subscriptions.push(
+  map.registerControl({
+    id: 'myExtension.layerToggle',
+    position: 'bottom-right',
+    component: MyLayerToggle,
+  }),
+);
+```
+
+The component reads the maplibre `Map` instance via the same Svelte context layers use — `getContext<() => maplibregl.Map | null>('gcscode.map.maplibre')`.
+
+#### Errors and limits
+
+- `id` must be unique across all controls. Re-using a still-registered `id` throws.
+- `id` ordering: registration order. No numeric `priority` field today.
+- No visibility / `when` clauses today. Registered controls are always visible.
+- No customization of host-rendered button colors / hover state on the declarative path. If you need a different visual, use the component escape hatch (and accept the loss of operator-UX consistency).
+
 ### `camera: MapCamera`
 
 ```ts
@@ -64,7 +116,7 @@ The getter form is intentional — children mount before the parent's `onMount` 
 
 ## What's NOT in this package
 
-- Selection state, animated camera (`flyTo`/`easeTo`), follow-mode toggle, recenter button, layer-ordering API, multi-drone, route history, manual targeting. See `docs/specs/2026-05-03-map-and-flight-overlay.md` for the full deferral list.
+- Selection state, animated camera (`flyTo`/`easeTo`), follow-mode toggle, layer-ordering API, multi-drone, route history, manual targeting. See `docs/specs/2026-05-03-map-and-flight-overlay.md` for the layer-iteration deferrals and `docs/specs/2026-05-03-map-controls.md` for the controls-iteration deferrals (control priority ordering, hover-state customization, theme tokens, SVG sanitization).
 
 ## See also
 
