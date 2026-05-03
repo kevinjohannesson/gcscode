@@ -104,3 +104,87 @@ describe('mapApi', () => {
     expect(mapApi.camera.zoom).toBe(original);
   });
 });
+
+describe('mapApi.registerControl', () => {
+  it('declarative registration adds an entry; Disposable.dispose removes it', () => {
+    const reg = {
+      id: 'test.control.declarative.add-remove',
+      position: 'top-right' as const,
+      icon: { kind: 'lucide' as const, name: 'crosshair' },
+      tooltip: 'test',
+      commandId: 'test.cmd',
+    };
+
+    const disposable = mapApi.registerControl(reg);
+    expect(mapApi.controls.has(reg.id)).toBe(true);
+    expect(mapApi.controls.get(reg.id)).toBe(reg);
+
+    disposable.dispose();
+    expect(mapApi.controls.has(reg.id)).toBe(false);
+  });
+
+  it('component registration adds an entry; Disposable.dispose removes it', () => {
+    const FakeComponent = (() => {}) as unknown as Parameters<typeof mapApi.registerLayer>[0];
+    const reg = {
+      id: 'test.control.component.add-remove',
+      position: 'bottom-left' as const,
+      component: FakeComponent,
+    };
+
+    const disposable = mapApi.registerControl(reg);
+    expect(mapApi.controls.has(reg.id)).toBe(true);
+    expect(mapApi.controls.get(reg.id)).toBe(reg);
+
+    disposable.dispose();
+    expect(mapApi.controls.has(reg.id)).toBe(false);
+  });
+
+  it('Disposable.dispose is idempotent', () => {
+    const reg = {
+      id: 'test.control.idempotent',
+      position: 'top-left' as const,
+      icon: { kind: 'lucide' as const, name: 'crosshair' },
+      tooltip: 'test',
+      commandId: 'test.cmd',
+    };
+
+    const disposable = mapApi.registerControl(reg);
+    disposable.dispose();
+    expect(() => disposable.dispose()).not.toThrow();
+    expect(mapApi.controls.has(reg.id)).toBe(false);
+  });
+
+  it('duplicate id throws and the message includes the offending id', () => {
+    const reg = {
+      id: 'test.control.duplicate',
+      position: 'top-right' as const,
+      icon: { kind: 'lucide' as const, name: 'crosshair' },
+      tooltip: 'test',
+      commandId: 'test.cmd',
+    };
+
+    const disposable = mapApi.registerControl(reg);
+    expect(() => mapApi.registerControl(reg)).toThrow(/test\.control\.duplicate/);
+
+    disposable.dispose();
+  });
+
+  it('disposing then re-registering the same id succeeds', () => {
+    const reg = {
+      id: 'test.control.dispose-reregister',
+      position: 'bottom-right' as const,
+      icon: { kind: 'lucide' as const, name: 'crosshair' },
+      tooltip: 'test',
+      commandId: 'test.cmd',
+    };
+
+    const first = mapApi.registerControl(reg);
+    first.dispose();
+    expect(mapApi.controls.has(reg.id)).toBe(false);
+
+    const second = mapApi.registerControl(reg);
+    expect(mapApi.controls.has(reg.id)).toBe(true);
+
+    second.dispose();
+  });
+});

@@ -32,6 +32,7 @@ function makeFakeHost(opts: {
 function makeFakeMapExports(): MapApi {
   return {
     registerLayer: vi.fn(() => ({ dispose: () => {} }) as Disposable),
+    registerControl: vi.fn(() => ({ dispose: () => {} }) as Disposable),
     camera: { center: [0, 0], zoom: 1, pitch: 0, bearing: 0 },
   };
 }
