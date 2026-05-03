@@ -14,7 +14,9 @@ The real Map iteration (roadmap "Coming → Map") replaces this once it lands. D
 
 ## Tile source
 
-`https://demotiles.maplibre.org/style.json` — maplibre's official demo vector tiles. No API key required. Permitted for development / demos. Not suitable for production-tier use; the real Map iteration picks a production tile source.
+`https://tiles.openfreemap.org/styles/positron` — OpenFreeMap's monochrome "positron" vector style. Free, no API key, permitted for development and production. Operator-friendly: monochrome cartography doesn't compete visually with markers. The real Map iteration may pick a different style (e.g., `liberty` for full-color, or a self-hosted source if cost / latency / offline-use becomes a concern).
+
+(An earlier draft used `https://demotiles.maplibre.org/style.json` — maplibre's own dev fallback with countries-only detail. At city-level zoom that style renders an empty canvas because no features intersect the viewport. OpenFreeMap has actual streets, buildings, and labels.)
 
 ## Behavior
 

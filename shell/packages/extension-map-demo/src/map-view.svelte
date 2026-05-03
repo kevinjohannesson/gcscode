@@ -15,9 +15,14 @@
   const INITIAL_CENTER: [number, number] = [149.17, -35.36];
   const INITIAL_ZOOM = 13;
 
-  // Maplibre's official demo style. Free, no API key, dev-permitted vector
-  // tiles. The real Map iteration may change tile sources.
-  const TILE_STYLE = 'https://demotiles.maplibre.org/style.json';
+  // OpenFreeMap "positron" style. Free, no API key required, full-detail
+  // vector tiles, monochrome (operator-friendly — doesn't compete visually
+  // with markers). Permitted for development and production.
+  // (Earlier draft used demotiles.maplibre.org, which is maplibre's own
+  // dev-only fallback with countries-only detail — at zoom 13 it rendered
+  // an empty canvas because no features intersect the city-level viewport.
+  // OpenFreeMap has actual streets/buildings/labels.)
+  const TILE_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 
   // Reactive read of SITL telemetry. When SITL is not active, exports is
   // undefined; when active but no fix yet, lat/lng are null.
