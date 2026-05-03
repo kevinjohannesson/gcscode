@@ -47,7 +47,11 @@ class MapApiImpl implements MapApi {
   private _camera: MapCamera = $state({ ...INITIAL_CAMERA });
   private _nextLayerId = 0;
 
-  /** Read-only view of the registry for the map view's `{#each}` block. */
+  /**
+   * Internal surface used by `map-view.svelte` to iterate the registry.
+   * NOT part of the cross-extension `MapApi` contract — consumers must use
+   * `registerLayer()` and let the map mount their components.
+   */
   public get layers(): SvelteMap<string, { component: Component }> {
     return this._layers;
   }
