@@ -16,7 +16,7 @@
   </svg>`;
 
   let marker: maplibregl.Marker | null = null;
-  let element: HTMLDivElement | null = null;
+  let rotor: HTMLDivElement | null = null;
 
   $effect(() => {
     const map = getMaplibre();
@@ -27,15 +27,22 @@
     if (!map || lat === null || lng === null) {
       marker?.remove();
       marker = null;
-      element = null;
+      rotor = null;
       return;
     }
 
     if (!marker) {
-      element = document.createElement('div');
-      element.className = 'gcscode-drone-icon';
-      element.innerHTML = ARROW_SVG;
-      marker = new maplibregl.Marker({ element }).setLngLat([lng, lat]).addTo(map);
+      // maplibre's `Marker._update` writes its full transform stack
+      // (anchor offset + translate + pitch + rotation alignment) directly
+      // to the element it owns. Rotating that same element wipes the
+      // translate and the marker snaps to (0,0) of the map container.
+      // Solution: maplibre owns the wrapper; we rotate a child rotor.
+      const wrapper = document.createElement('div');
+      rotor = document.createElement('div');
+      rotor.className = 'gcscode-drone-icon';
+      rotor.innerHTML = ARROW_SVG;
+      wrapper.appendChild(rotor);
+      marker = new maplibregl.Marker({ element: wrapper }).setLngLat([lng, lat]).addTo(map);
     } else {
       marker.setLngLat([lng, lat]);
     }
@@ -44,8 +51,8 @@
     const armed = sitl?.telemetry.armed === true;
     // No `transition: transform` — wraparound from 359°→0° would spin
     // the long way around the circle.
-    element!.style.transform = `rotate(${heading}deg)`;
-    element!.classList.toggle('armed', armed);
+    rotor!.style.transform = `rotate(${heading}deg)`;
+    rotor!.classList.toggle('armed', armed);
   });
 
   onDestroy(() => {
@@ -55,10 +62,9 @@
 </script>
 
 <style>
-  /* :global because the maplibre marker container is outside Svelte's
-     scoped-CSS reach — the element gets re-parented into maplibre's
-     `.maplibregl-marker` wrapper. The `gcscode-drone-icon` prefix
-     prevents collisions across extensions. */
+  /* :global because the rotor lives inside maplibre's .maplibregl-marker
+     wrapper, outside Svelte's scoped-CSS reach. The `gcscode-drone-icon`
+     prefix prevents collisions across extensions. */
   :global(.gcscode-drone-icon) {
     color: #6b7280; /* gray-500, default = disarmed */
     stroke: currentColor;

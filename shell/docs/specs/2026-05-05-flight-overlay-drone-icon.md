@@ -62,7 +62,9 @@ README.md                        → visual treatment description added
 
 ### `drone-icon-layer.svelte` (replaces `drone-marker-layer.svelte`)
 
-Imperative DOM construction inside a single `$effect`, matching the package's existing "logic-only Svelte file" convention (the component renders no template). The maplibre `Marker` is created once per `lat/lng`-non-null transition; subsequent updates call `setLngLat`, write `element.style.transform`, and toggle `element.classList`.
+Imperative DOM construction inside a single `$effect`, matching the package's existing "logic-only Svelte file" convention (the component renders no template). The maplibre `Marker` is created once per `lat/lng`-non-null transition; subsequent updates call `setLngLat`, write `rotor.style.transform`, and toggle `rotor.classList`.
+
+**Two nested elements, not one.** Maplibre 5.x's `Marker._update` writes its full transform stack — anchor offset + translate + pitch + rotation alignment — directly to the element it owns. If we rotate that same element, our `rotate(...)` overwrites maplibre's `translate(...)` and the marker snaps to the top-left corner of the map container. We split: maplibre owns the wrapper (its `transform` belongs to maplibre); we own a child rotor (where `transform: rotate(...)` lives, and where the SVG markup, CSS class, and armed-state toggle live). The CSS scopes to the rotor's class, not the wrapper.
 
 ```svelte
 <script lang="ts">
@@ -83,7 +85,7 @@ Imperative DOM construction inside a single `$effect`, matching the package's ex
   </svg>`;
 
   let marker: maplibregl.Marker | null = null;
-  let element: HTMLDivElement | null = null;
+  let rotor: HTMLDivElement | null = null;
 
   $effect(() => {
     const map = getMaplibre();
@@ -94,15 +96,20 @@ Imperative DOM construction inside a single `$effect`, matching the package's ex
     if (!map || lat === null || lng === null) {
       marker?.remove();
       marker = null;
-      element = null;
+      rotor = null;
       return;
     }
 
     if (!marker) {
-      element = document.createElement('div');
-      element.className = 'gcscode-drone-icon';
-      element.innerHTML = ARROW_SVG;
-      marker = new maplibregl.Marker({ element }).setLngLat([lng, lat]).addTo(map);
+      // maplibre's Marker._update writes its full transform stack to
+      // its element; we keep our rotation on a child rotor so the two
+      // transforms don't fight.
+      const wrapper = document.createElement('div');
+      rotor = document.createElement('div');
+      rotor.className = 'gcscode-drone-icon';
+      rotor.innerHTML = ARROW_SVG;
+      wrapper.appendChild(rotor);
+      marker = new maplibregl.Marker({ element: wrapper }).setLngLat([lng, lat]).addTo(map);
     } else {
       marker.setLngLat([lng, lat]);
     }
@@ -111,8 +118,8 @@ Imperative DOM construction inside a single `$effect`, matching the package's ex
     const armed = sitl?.telemetry.armed === true;
     // No transition: transform — wraparound from 359°→0° would spin
     // the long way around the circle.
-    element!.style.transform = `rotate(${heading}deg)`;
-    element!.classList.toggle('armed', armed);
+    rotor!.style.transform = `rotate(${heading}deg)`;
+    rotor!.classList.toggle('armed', armed);
   });
 
   onDestroy(() => {
@@ -122,10 +129,9 @@ Imperative DOM construction inside a single `$effect`, matching the package's ex
 </script>
 
 <style>
-  /* :global because the maplibre marker container is outside Svelte's
-     scoped-CSS reach — the element gets re-parented into maplibre's
-     `.maplibregl-marker` wrapper. The `gcscode-drone-icon` prefix
-     prevents collisions across extensions. */
+  /* :global because the rotor lives inside maplibre's .maplibregl-marker
+     wrapper, outside Svelte's scoped-CSS reach. The `gcscode-drone-icon`
+     prefix prevents collisions across extensions. */
   :global(.gcscode-drone-icon) {
     color: #6b7280; /* gray-500, default = disarmed */
     stroke: currentColor;
@@ -151,10 +157,13 @@ Null-handling decisions, recapped from brainstorm:
 
 ### `heading-line-layer.svelte` (new)
 
-Structurally identical to `drone-icon-layer.svelte`. Differences:
+Structurally similar to `drone-icon-layer.svelte` — same wrapper/rotor split, same imperative DOM construction. Differences:
 
-- SVG content is a 400px line drawn pointing up from origin, with 70% opacity.
-- When `armed === false` or `heading === null`, the wrapper gets `display: none` (line is meaningless on the ground or without a direction). Marker stays attached — toggling `display` is cheaper than tearing down + reattaching the maplibre marker on every arm/disarm.
+- SVG content is a 400px line drawn pointing up from the SVG's bottom-center, with 70% opacity.
+- Maplibre `Marker` uses `anchor: 'bottom'` so the wrapper's bottom-center sits at lat/lng — that's the line's drone-end.
+- Rotor's `transform-origin: 50% 100%` (bottom-center) makes rotation pivot at the drone-end, so the line swings outward in the heading direction rather than rotating around its midpoint.
+- When `armed === false` or `heading === null`, the rotor gets `display: none` (line is meaningless on the ground or without a direction). Marker stays attached — toggling `display` is cheaper than tearing down + reattaching the maplibre marker on every arm/disarm.
+- `pointer-events: none` lives inline on the wrapper (cascades to rotor + SVG) — a 400px-long marker shouldn't block map pan/zoom across its full reach.
 - No "armed" class needed — the line is either visible (and green) or hidden.
 
 ```svelte
@@ -167,15 +176,14 @@ Structurally identical to `drone-icon-layer.svelte`. Differences:
   const MAPLIBRE_CONTEXT_KEY = 'gcscode.map.maplibre';
   const getMaplibre = getContext<() => maplibregl.Map | null>(MAPLIBRE_CONTEXT_KEY);
 
-  // viewBox is centered horizontally at 0 with the line drawn from y=0
-  // upward to y=-400. Width 8px (4px each side of the stroke) gives the
-  // 2px stroke a small horizontal margin so antialiasing stays clean.
+  // viewBox: x=[-4,4], y=[-400,0]. Line from (0,0) [SVG bottom-center,
+  // drone position] to (0,-400) [SVG top-center, 400px in heading direction].
   const LINE_SVG = `<svg viewBox="-4 -400 8 400" width="8" height="400">
     <line x1="0" y1="0" x2="0" y2="-400" stroke-width="2" />
   </svg>`;
 
   let marker: maplibregl.Marker | null = null;
-  let element: HTMLDivElement | null = null;
+  let rotor: HTMLDivElement | null = null;
 
   $effect(() => {
     const map = getMaplibre();
@@ -186,15 +194,23 @@ Structurally identical to `drone-icon-layer.svelte`. Differences:
     if (!map || lat === null || lng === null) {
       marker?.remove();
       marker = null;
-      element = null;
+      rotor = null;
       return;
     }
 
     if (!marker) {
-      element = document.createElement('div');
-      element.className = 'gcscode-drone-heading-line';
-      element.innerHTML = LINE_SVG;
-      marker = new maplibregl.Marker({ element }).setLngLat([lng, lat]).addTo(map);
+      const wrapper = document.createElement('div');
+      // pointer-events: none cascades to the rotor + SVG.
+      wrapper.style.pointerEvents = 'none';
+      rotor = document.createElement('div');
+      rotor.className = 'gcscode-drone-heading-line';
+      rotor.innerHTML = LINE_SVG;
+      wrapper.appendChild(rotor);
+      // anchor: 'bottom' aligns the wrapper's bottom-center (= the SVG's
+      // bottom-center = the line's drone-end) with lat/lng.
+      marker = new maplibregl.Marker({ element: wrapper, anchor: 'bottom' })
+        .setLngLat([lng, lat])
+        .addTo(map);
     } else {
       marker.setLngLat([lng, lat]);
     }
@@ -203,8 +219,8 @@ Structurally identical to `drone-icon-layer.svelte`. Differences:
     const armed = sitl?.telemetry.armed === true;
     const visible = armed && heading !== null && heading !== undefined;
     // display: none when hidden — cheaper than detach/reattach.
-    element!.style.display = visible ? '' : 'none';
-    element!.style.transform = `rotate(${heading ?? 0}deg)`;
+    rotor!.style.display = visible ? '' : 'none';
+    rotor!.style.transform = `rotate(${heading ?? 0}deg)`;
   });
 
   onDestroy(() => {
@@ -215,14 +231,14 @@ Structurally identical to `drone-icon-layer.svelte`. Differences:
 
 <style>
   :global(.gcscode-drone-heading-line) {
-    color: #22c55e; /* same green as armed icon */
+    color: #22c55e; /* same green-500 as armed icon */
     stroke: currentColor;
     opacity: 0.7;
-    /* No fill — line element doesn't take fill, but explicit for clarity. */
     fill: none;
-    /* Don't intercept pointer events — the line shouldn't block map
-       pan/zoom across its 400px length. */
-    pointer-events: none;
+    /* Pivot rotation at the drone-end (rotor's bottom-center) so the
+       line extends out from the drone in the heading direction rather
+       than rotating around its midpoint. */
+    transform-origin: 50% 100%;
   }
 </style>
 ```
@@ -367,3 +383,4 @@ For posterity. Captures the why behind shape choices that won't be obvious from 
 - **Heading from `heading` field (degrees) not `yaw` (radians).** Both come from MAVLink. `heading` is from `GLOBAL_POSITION_INT`, already in degrees, already 0-360 — direct CSS `rotate(${h}deg)` mapping. `yaw` is from `ATTITUDE`, in radians, would need conversion. Same data class, simpler arithmetic.
 - **Stale-telemetry visualization deferred.** User confirmed: assume happy path with stable connection. Disconnect-state UX rolls into a future warning-state iteration.
 - **Map viewport constraints noted but not added.** User mentioned the technique mid-brainstorm; it's a `extension-map` concern, not flight-overlay. Captured in roadmap as Considering rather than expanding this iteration's scope.
+- **Wrapper / rotor split for the DOM marker.** Discovered during browser smoke: maplibre 5.x's `Marker._update` writes its full transform stack (anchor offset + translate + pitch + rotation alignment) directly to the element it owns. If we rotate that same element via `style.transform = rotate(...)`, our write wipes maplibre's translate and the marker snaps to the top-left corner of the map container. The fix is two nested elements — maplibre owns the wrapper's transform; we own a child rotor's transform. Each side keeps its own `transform` write isolated. The brainstorm assumed "DOM marker with custom element" was a one-element pattern; in practice maplibre's transform writes force a two-element pattern. Spec snippets above already reflect the corrected shape.
