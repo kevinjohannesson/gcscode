@@ -142,12 +142,12 @@ Imperative DOM construction inside a single `$effect`, matching the package's ex
 
 Null-handling decisions, recapped from brainstorm:
 
-| Field is null     | Behavior                       |
-| ----------------- | ------------------------------ |
-| `lat` or `lng`    | remove marker entirely         |
-| `heading`         | no rotation (icon points north)|
-| `armed`           | treat as disarmed (safe default — unknown state shouldn't render as live) |
-| `sitlExports` undefined | remove marker (`lat/lng` are null in this branch anyway) |
+| Field is null           | Behavior                                                                  |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `lat` or `lng`          | remove marker entirely                                                    |
+| `heading`               | no rotation (icon points north)                                           |
+| `armed`                 | treat as disarmed (safe default — unknown state shouldn't render as live) |
+| `sitlExports` undefined | remove marker (`lat/lng` are null in this branch anyway)                  |
 
 ### `heading-line-layer.svelte` (new)
 
@@ -243,8 +243,8 @@ In `activate(context)`, the registration list grows:
 
 ```ts
 context.subscriptions.push(
-  map.registerLayer(DroneIconLayer),    // was DroneMarkerLayer
-  map.registerLayer(HeadingLineLayer),  // new
+  map.registerLayer(DroneIconLayer), // was DroneMarkerLayer
+  map.registerLayer(HeadingLineLayer), // new
   map.registerLayer(HomeLocationLayer),
   map.registerLayer(MaxDistanceCircleLayer),
   // ... commands and controls unchanged
@@ -330,8 +330,8 @@ Per CLAUDE.md — UI changes require dev-server verification before reporting co
 
 ## VS Code alignment
 
-| Concern                    | VS Code                                              | gcscode                                              | Notes                                                                                                                                                                                                                                       |
-| -------------------------- | ---------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Concern                                       | VS Code                                                             | gcscode                                              | Notes                                                                                                                                                                                         |
+| --------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | State-driven visual on a DOM-anchored element | ✓ (editor decorations, git-status icon overlays, debug breakpoints) | ✓ (CSS class on DOM marker reflects telemetry state) | Aligned in spirit. No API surface to compare — drone-state visualization is domain-specific UI, not a reusable host primitive. Pattern (model property → CSS class → styled DOM) is the same. |
 
 This iteration adds no new API divergence rows. One alignment-in-spirit row to propagate to `docs/vs-code-alignment.md`.
