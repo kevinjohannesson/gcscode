@@ -3,6 +3,7 @@ import type { MapApi } from '@gcscode/extension-map';
 
 import { homeLocation } from './flight-overlay-config';
 import DroneIconLayer from './layers/drone-icon-layer.svelte';
+import HeadingLineLayer from './layers/heading-line-layer.svelte';
 import HomeLocationLayer from './layers/home-location-layer.svelte';
 import MaxDistanceCircleLayer from './layers/max-distance-circle-layer.svelte';
 import { flightOverlayState } from './state';
@@ -30,6 +31,7 @@ export const flightOverlayExtension: Extension = {
 
     context.subscriptions.push(
       map.registerLayer(DroneIconLayer),
+      map.registerLayer(HeadingLineLayer),
       map.registerLayer(HomeLocationLayer),
       map.registerLayer(MaxDistanceCircleLayer),
 

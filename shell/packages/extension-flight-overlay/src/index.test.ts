@@ -48,7 +48,7 @@ describe('flightOverlayExtension', () => {
     expect(typeof flightOverlayExtension.manifest.version).toBe('string');
   });
 
-  it('activate registers three layers when map is active', () => {
+  it('activate registers four layers when map is active', () => {
     const fakeMap = makeFakeMapExports();
     const host = makeFakeHost({
       getExtension: vi.fn((id: string) =>
@@ -67,8 +67,8 @@ describe('flightOverlayExtension', () => {
       },
     });
 
-    expect(fakeMap.registerLayer).toHaveBeenCalledTimes(3);
-    expect(subscriptions).toHaveLength(5); // 3 layers + 1 command + 1 control
+    expect(fakeMap.registerLayer).toHaveBeenCalledTimes(4);
+    expect(subscriptions).toHaveLength(6); // 4 layers + 1 command + 1 control
 
     flightOverlayExtension.deactivate?.();
   });
