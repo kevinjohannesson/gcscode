@@ -50,6 +50,8 @@ The first-party extensions planned for the app. Each is a future consumer of the
 
 - [ ] **Road scanning** — _description TBD_
 - [ ] **Sidebar / activity-bar chrome** — persistent UI region that would host the extensions panel (sidebar-mounted variant alongside the existing overlay), settings, output, search, etc. Trigger: a second sidebar tenant emerges (settings, output, search), OR operator UX feedback says the overlay is insufficient for longer browsing tasks. Operator-UX framing: floating/disappearing UI is the default; persistent chrome must justify its viewport cost.
+- [ ] **Map filter extension** — registry where extensions contributing map elements expose user-toggleable visibility (e.g., heading line, max-distance circle, future tracks/breadcrumbs). Trigger: second consumer wants opt-out of a sibling extension's layer. Surfaced during the drone-icon brainstorm (`docs/specs/2026-05-05-flight-overlay-drone-icon.md`).
+- [ ] **Map viewport constraints** — `maxBounds` + minimum zoom in `extension-map` so panning doesn't escape useful bounds and zoom-out doesn't reveal world-wrapping. Trigger: operator UX feedback or first integration test that surfaces an antimeridian artifact. Surfaced during the drone-icon brainstorm (`docs/specs/2026-05-05-flight-overlay-drone-icon.md`).
 
 ## Maintenance
 
