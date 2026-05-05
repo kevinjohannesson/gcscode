@@ -58,6 +58,31 @@ describe('telemetry-store', () => {
     expect(telemetryState.mode).toBe('MODE_999');
   });
 
+  it('applyMessage HEARTBEAT accepts mavlink2rest pipe-separated string base_mode (armed)', () => {
+    applyMessage({
+      message: {
+        type: 'HEARTBEAT',
+        base_mode: 'MAV_MODE_FLAG_SAFETY_ARMED | MAV_MODE_FLAG_CUSTOM_MODE_ENABLED',
+        custom_mode: 4,
+      },
+    });
+    expect(telemetryState.armed).toBe(true);
+    expect(telemetryState.mode).toBe('GUIDED');
+  });
+
+  it('applyMessage HEARTBEAT with mavlink2rest string lacking SAFETY_ARMED is disarmed', () => {
+    applyMessage({
+      message: {
+        type: 'HEARTBEAT',
+        base_mode:
+          'MAV_MODE_FLAG_MANUAL_INPUT_ENABLED | MAV_MODE_FLAG_STABILIZE_ENABLED | MAV_MODE_FLAG_CUSTOM_MODE_ENABLED',
+        custom_mode: 6,
+      },
+    });
+    expect(telemetryState.armed).toBe(false);
+    expect(telemetryState.mode).toBe('RTL');
+  });
+
   it('applyMessage GLOBAL_POSITION_INT applies correct scaling', () => {
     applyMessage({
       message: {

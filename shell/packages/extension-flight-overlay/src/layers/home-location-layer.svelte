@@ -13,7 +13,7 @@
     if (!map) return;
 
     if (!marker) {
-      // Distinct color so home is visually different from the drone marker.
+      // Distinct color so home is visually different from the drone icon.
       marker = new maplibregl.Marker({ color: '#3b82f6' }).setLngLat(homeLocation).addTo(map);
     }
   });

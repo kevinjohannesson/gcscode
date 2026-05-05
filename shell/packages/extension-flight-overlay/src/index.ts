@@ -2,7 +2,8 @@ import type { Extension } from '@gcscode/extension-api';
 import type { MapApi } from '@gcscode/extension-map';
 
 import { homeLocation } from './flight-overlay-config';
-import DroneMarkerLayer from './layers/drone-marker-layer.svelte';
+import DroneIconLayer from './layers/drone-icon-layer.svelte';
+import HeadingLineLayer from './layers/heading-line-layer.svelte';
 import HomeLocationLayer from './layers/home-location-layer.svelte';
 import MaxDistanceCircleLayer from './layers/max-distance-circle-layer.svelte';
 import { flightOverlayState } from './state';
@@ -12,7 +13,8 @@ export const flightOverlayExtension: Extension = {
     id: 'gcscode.flight-overlay',
     displayName: 'Flight Overlay',
     version: '0.0.0',
-    description: 'Drone marker, home location, and max-distance circle rendered on the map.',
+    description:
+      'Drone icon, heading line, home location, and max-distance circle rendered on the map.',
   },
   activate(context) {
     // Validate before capturing host — if activate throws, we want no leftover
@@ -29,7 +31,8 @@ export const flightOverlayExtension: Extension = {
     flightOverlayState.setHost(context.host);
 
     context.subscriptions.push(
-      map.registerLayer(DroneMarkerLayer),
+      map.registerLayer(DroneIconLayer),
+      map.registerLayer(HeadingLineLayer),
       map.registerLayer(HomeLocationLayer),
       map.registerLayer(MaxDistanceCircleLayer),
 

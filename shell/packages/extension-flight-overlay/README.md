@@ -1,8 +1,9 @@
 # @gcscode/extension-flight-overlay
 
-First consumer of the `@gcscode/extension-map` contribution API. Registers three layers on the map:
+First consumer of the `@gcscode/extension-map` contribution API. Registers four layers on the map:
 
-- **Drone marker** — point geometry, position from live SITL telemetry (`gcscode.sitl` exports).
+- **Drone icon** — inline-SVG chevron at SITL's live position, rotated by `telemetry.heading`. Filled green (`#22c55e`) when armed, outlined gray (`#6b7280`) when disarmed.
+- **Heading line** — 400px screen-space green stroke extending from the drone in the heading direction. Hidden when disarmed.
 - **Home location** — point geometry, hardcoded coordinates in `flight-overlay-config.ts`.
 - **Max-distance circle** — polygon approximation of a geodesic circle around the home location, hardcoded radius.
 
@@ -11,7 +12,7 @@ Layers render no visible DOM themselves; each is a Svelte component that calls m
 ## Cross-extension dependencies
 
 - **`@gcscode/extension-map`** — type-only. Imports `MapApi` via `import type`. Runtime lookup is via `host.extensions.getExtension<MapApi>('gcscode.map')`. Activation throws if map is not active.
-- **`@gcscode/extension-sitl`** — type-only. Imports `SitlExports` via `import type`. Runtime lookup is via `host.extensions.getExtension<SitlExports>('gcscode.sitl')`. SITL absence is handled gracefully (drone marker not rendered).
+- **`@gcscode/extension-sitl`** — type-only. Imports `SitlExports` via `import type`. Runtime lookup is via `host.extensions.getExtension<SitlExports>('gcscode.sitl')`. SITL absence is handled gracefully (drone icon and heading line not rendered).
 
 ## Configuration
 
