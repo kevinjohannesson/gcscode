@@ -58,6 +58,29 @@ describe('telemetry-store', () => {
     expect(telemetryState.mode).toBe('MODE_999');
   });
 
+  it('applyMessage HEARTBEAT accepts mavlink2rest bitfield-enum shape `{ bits: N }` for base_mode', () => {
+    applyMessage({
+      message: {
+        type: 'HEARTBEAT',
+        base_mode: { bits: 0x81 },
+        custom_mode: 4,
+      },
+    });
+    expect(telemetryState.armed).toBe(true);
+    expect(telemetryState.mode).toBe('GUIDED');
+  });
+
+  it('applyMessage HEARTBEAT with `{ bits: 0x00 }` base_mode sets armed=false', () => {
+    applyMessage({
+      message: {
+        type: 'HEARTBEAT',
+        base_mode: { bits: 0x00 },
+        custom_mode: 0,
+      },
+    });
+    expect(telemetryState.armed).toBe(false);
+  });
+
   it('applyMessage GLOBAL_POSITION_INT applies correct scaling', () => {
     applyMessage({
       message: {

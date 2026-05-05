@@ -49,6 +49,21 @@ export const telemetryState: TelemetryState = $state({
   connection: 'connecting',
 });
 
+/**
+ * mavlink2rest serializes MAVLink bitfield-enums (e.g. HEARTBEAT.base_mode)
+ * as `{ bits: N }` objects rather than plain numbers. Other MAVLink sources
+ * (or older mavlink2rest versions) send the bits as a plain number. Accept
+ * both shapes; anything else is treated as 0 (no bits set).
+ */
+function extractBits(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'object' && value !== null) {
+    const bits = (value as Record<string, unknown>)['bits'];
+    if (typeof bits === 'number') return bits;
+  }
+  return 0;
+}
+
 export function applyMessage(json: unknown): void {
   if (typeof json !== 'object' || json === null) return;
   const obj = json as Record<string, unknown>;
@@ -59,7 +74,7 @@ export function applyMessage(json: unknown): void {
   const type = msg['type'];
 
   if (type === 'HEARTBEAT') {
-    const base_mode = typeof msg['base_mode'] === 'number' ? msg['base_mode'] : 0;
+    const base_mode = extractBits(msg['base_mode']);
     const custom_mode = typeof msg['custom_mode'] === 'number' ? msg['custom_mode'] : 0;
     telemetryState.armed = (base_mode & 0x80) !== 0;
     telemetryState.mode = ARDUCOPTER_MODES[custom_mode] ?? `MODE_${custom_mode}`;
