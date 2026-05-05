@@ -342,10 +342,12 @@ export class SvelteTabGroupChipRenderer
  * A generic, standalone "part" — used by Splitview / Gridview / Paneview view
  * classes (which mount Svelte components into a `dockview-core`-supplied
  * host element). Generic in the props type so each view flavor can pass its
- * own `IxxxPanelProps` shape.
+ * own `IxxxPanelProps` shape. Constraint is `object` rather than
+ * `Record<string, unknown>` so concrete interfaces (with fixed keys, no
+ * index signature) satisfy it.
  */
-export class SveltePart<P extends Record<string, unknown> = Record<string, unknown>> {
-  private _renderDisposable: MountedComponent<P> | undefined;
+export class SveltePart<P extends object = Record<string, unknown>> {
+  private _renderDisposable: MountedComponent<Record<string, unknown>> | undefined;
 
   constructor(
     private readonly element: HTMLElement,
@@ -357,8 +359,8 @@ export class SveltePart<P extends Record<string, unknown> = Record<string, unkno
   init(): void {
     this._renderDisposable?.dispose();
     this._renderDisposable = mountSvelteComponent(
-      this.component,
-      this.props,
+      this.component as Component<Record<string, unknown>>,
+      this.props as unknown as Record<string, unknown>,
       this.element,
       this.context,
     );
@@ -366,7 +368,7 @@ export class SveltePart<P extends Record<string, unknown> = Record<string, unkno
 
   update(props: Partial<P>): void {
     this.props = { ...this.props, ...props };
-    this._renderDisposable?.update(props);
+    this._renderDisposable?.update(props as Record<string, unknown>);
   }
 
   dispose(): void {
