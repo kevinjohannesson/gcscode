@@ -51,17 +51,15 @@ export const telemetryState: TelemetryState = $state({
 
 /**
  * mavlink2rest serializes MAVLink bitfield-enums (e.g. HEARTBEAT.base_mode)
- * as `{ bits: N }` objects rather than plain numbers. Other MAVLink sources
- * (or older mavlink2rest versions) send the bits as a plain number. Accept
- * both shapes; anything else is treated as 0 (no bits set).
+ * as pipe-separated strings of flag names — for example:
+ * "MAV_MODE_FLAG_SAFETY_ARMED | MAV_MODE_FLAG_CUSTOM_MODE_ENABLED". The
+ * unit tests use plain numbers (simpler test inputs) and we accept both;
+ * anything else is treated as disarmed.
  */
-function extractBits(value: unknown): number {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'object' && value !== null) {
-    const bits = (value as Record<string, unknown>)['bits'];
-    if (typeof bits === 'number') return bits;
-  }
-  return 0;
+function isSafetyArmed(base_mode: unknown): boolean {
+  if (typeof base_mode === 'number') return (base_mode & 0x80) !== 0;
+  if (typeof base_mode === 'string') return base_mode.includes('MAV_MODE_FLAG_SAFETY_ARMED');
+  return false;
 }
 
 export function applyMessage(json: unknown): void {
@@ -74,9 +72,8 @@ export function applyMessage(json: unknown): void {
   const type = msg['type'];
 
   if (type === 'HEARTBEAT') {
-    const base_mode = extractBits(msg['base_mode']);
     const custom_mode = typeof msg['custom_mode'] === 'number' ? msg['custom_mode'] : 0;
-    telemetryState.armed = (base_mode & 0x80) !== 0;
+    telemetryState.armed = isSafetyArmed(msg['base_mode']);
     telemetryState.mode = ARDUCOPTER_MODES[custom_mode] ?? `MODE_${custom_mode}`;
     return;
   }
