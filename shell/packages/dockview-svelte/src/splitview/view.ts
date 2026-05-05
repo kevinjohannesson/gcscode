@@ -36,10 +36,7 @@ export class SvelteSplitviewPanelView extends SplitviewPanel {
     };
 
     const context = new Map<unknown, unknown>([
-      [
-        SPLITVIEW_CONTEXT_KEY,
-        { api: this.api, containerApi } satisfies SplitviewSvelteContext,
-      ],
+      [SPLITVIEW_CONTEXT_KEY, { api: this.api, containerApi } satisfies SplitviewSvelteContext],
     ]);
 
     const part = new SveltePart<ISplitviewPanelProps>(

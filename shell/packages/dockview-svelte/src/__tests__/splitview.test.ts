@@ -7,9 +7,10 @@ import SplitviewSvelte from '../splitview/splitview.svelte';
 import type { ISplitviewSvelteProps } from '../splitview/types';
 import TestPanel from './test-splitview-panel.svelte';
 
-function renderSplitview(
-  overrides: Partial<ISplitviewSvelteProps> = {},
-): { api: SplitviewApi; container: HTMLElement } {
+function renderSplitview(overrides: Partial<ISplitviewSvelteProps> = {}): {
+  api: SplitviewApi;
+  container: HTMLElement;
+} {
   let capturedApi: SplitviewApi | undefined;
   const onReady = ({ api }: { api: SplitviewApi }) => {
     capturedApi = api;

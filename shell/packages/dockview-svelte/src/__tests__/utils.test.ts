@@ -29,11 +29,7 @@ describe('mountSvelteComponent', () => {
     const target = makeHost();
     const onMounted = vi.fn();
 
-    const handle = mountSvelteComponent(
-      TestComponent,
-      { title: 'A', onMounted },
-      target,
-    );
+    const handle = mountSvelteComponent(TestComponent, { title: 'A', onMounted }, target);
     flushSync();
 
     const titleNode = target.querySelector('[data-testid="title"]') as HTMLElement;

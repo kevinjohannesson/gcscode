@@ -1,8 +1,4 @@
-import type {
-  IPanePart,
-  PanePanelComponentInitParameter,
-  PanelUpdateEvent,
-} from 'dockview-core';
+import type { IPanePart, PanePanelComponentInitParameter, PanelUpdateEvent } from 'dockview-core';
 import type { Component } from 'svelte';
 import { SveltePart } from '../utils.svelte';
 import { PANEVIEW_CONTEXT_KEY, type PaneviewSvelteContext } from '../context';

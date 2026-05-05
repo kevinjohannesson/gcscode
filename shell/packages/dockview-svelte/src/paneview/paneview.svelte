@@ -81,9 +81,7 @@
         createComponent: (options) => {
           const component = props.components[options.name];
           if (!component) {
-            throw new Error(
-              `paneview-svelte: no component registered for name '${options.name}'`,
-            );
+            throw new Error(`paneview-svelte: no component registered for name '${options.name}'`);
           }
           return new SveltePanePanelSection(options.id, component);
         },

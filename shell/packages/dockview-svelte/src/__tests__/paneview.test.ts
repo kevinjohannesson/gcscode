@@ -7,9 +7,10 @@ import PaneviewSvelte from '../paneview/paneview.svelte';
 import type { IPaneviewSvelteProps } from '../paneview/types';
 import TestPanel from './test-paneview-panel.svelte';
 
-function renderPaneview(
-  overrides: Partial<IPaneviewSvelteProps> = {},
-): { api: PaneviewApi; container: HTMLElement } {
+function renderPaneview(overrides: Partial<IPaneviewSvelteProps> = {}): {
+  api: PaneviewApi;
+  container: HTMLElement;
+} {
   let capturedApi: PaneviewApi | undefined;
   const onReady = ({ api }: { api: PaneviewApi }) => {
     capturedApi = api;

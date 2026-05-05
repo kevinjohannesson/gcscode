@@ -7,9 +7,10 @@ import GridviewSvelte from '../gridview/gridview.svelte';
 import type { IGridviewSvelteProps } from '../gridview/types';
 import TestPanel from './test-gridview-panel.svelte';
 
-function renderGridview(
-  overrides: Partial<IGridviewSvelteProps> = {},
-): { api: GridviewApi; container: HTMLElement } {
+function renderGridview(overrides: Partial<IGridviewSvelteProps> = {}): {
+  api: GridviewApi;
+  container: HTMLElement;
+} {
   let capturedApi: GridviewApi | undefined;
   const onReady = ({ api }: { api: GridviewApi }) => {
     capturedApi = api;

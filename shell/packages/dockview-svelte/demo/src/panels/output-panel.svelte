@@ -5,7 +5,10 @@
   // When this panel is dragged into a popout window, dockview-core re-parents
   // the DOM into a new browser window — but the Svelte instance and its
   // context map survive intact, so getDockviewContext() still resolves.
-  let { params: _params }: IDockviewPanelProps = $props();
+  // We accept props for type-checking parity with the user-facing contract,
+  // but the demo only uses them to assert the prop bag is the expected shape.
+  const props: IDockviewPanelProps = $props();
+  const panelLabel = $derived(props.api.id);
 
   const ctx = getDockviewContext();
 </script>
@@ -18,8 +21,12 @@
     <code data-testid="container-id">{ctx.containerApi.id ?? '(none)'}</code>
   </p>
   <p>
-    panel api id:
+    panel api id (via context):
     <code>{ctx.api.id}</code>
+  </p>
+  <p>
+    panel api id (via props):
+    <code>{panelLabel}</code>
   </p>
 </div>
 

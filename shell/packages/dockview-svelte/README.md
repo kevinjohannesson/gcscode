@@ -10,7 +10,11 @@ Lives in the gcscode monorepo as `packages/dockview-svelte` for now; eventually 
 
 ```svelte
 <script lang="ts">
-  import { DockviewSvelte, type IDockviewPanelProps, type DockviewReadyEvent } from 'dockview-svelte';
+  import {
+    DockviewSvelte,
+    type IDockviewPanelProps,
+    type DockviewReadyEvent,
+  } from 'dockview-svelte';
   import 'dockview-core/dist/styles/dockview.css';
   import EditorPanel from './editor-panel.svelte';
   import OutputPanel from './output-panel.svelte';
@@ -21,10 +25,7 @@ Lives in the gcscode monorepo as `packages/dockview-svelte` for now; eventually 
   }
 </script>
 
-<DockviewSvelte
-  components={{ editor: EditorPanel, output: OutputPanel }}
-  {onReady}
-/>
+<DockviewSvelte components={{ editor: EditorPanel, output: OutputPanel }} {onReady} />
 ```
 
 A panel component is just a Svelte component:

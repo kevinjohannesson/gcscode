@@ -3,6 +3,12 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte", "src/**/*.svelte.ts", "demo/**/*.ts", "demo/**/*.svelte"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.svelte",
+    "src/**/*.svelte.ts",
+    "demo/**/*.ts",
+    "demo/**/*.svelte"
+  ],
   "exclude": ["node_modules", "dist"]
 }

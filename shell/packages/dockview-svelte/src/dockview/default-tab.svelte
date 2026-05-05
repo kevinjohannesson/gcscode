@@ -6,14 +6,12 @@
     closeActionOverride?: () => void;
   }
 
-  let {
-    api,
-    containerApi: _containerApi,
-    params: _params,
-    tabLocation: _tabLocation,
-    hideClose,
-    closeActionOverride,
-  }: Props = $props();
+  // We pull only the fields we use; `containerApi`, `params`, and
+  // `tabLocation` are part of `Props` but not consumed in this default tab.
+  // Destructuring them with underscore prefixes trips the workspace's
+  // no-unused-vars rule (which doesn't honor leading-underscore convention),
+  // so we read them via the inferred type only.
+  let { api, hideClose, closeActionOverride }: Props = $props();
 
   // Subscribe reactively to the panel's title changes. The effect is keyed on
   // `api`, mirroring upstream React's `useEffect([api])` — re-subscription on

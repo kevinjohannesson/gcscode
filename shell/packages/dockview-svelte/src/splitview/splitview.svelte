@@ -75,9 +75,7 @@
         createComponent: (options) => {
           const component = props.components[options.name];
           if (!component) {
-            throw new Error(
-              `splitview-svelte: no component registered for name '${options.name}'`,
-            );
+            throw new Error(`splitview-svelte: no component registered for name '${options.name}'`);
           }
           return new SvelteSplitviewPanelView(options.id, options.name, component);
         },

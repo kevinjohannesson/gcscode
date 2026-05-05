@@ -75,9 +75,7 @@
         createComponent: (options) => {
           const component = props.components[options.name];
           if (!component) {
-            throw new Error(
-              `gridview-svelte: no component registered for name '${options.name}'`,
-            );
+            throw new Error(`gridview-svelte: no component registered for name '${options.name}'`);
           }
           return new SvelteGridviewPanelView(options.id, options.name, component);
         },

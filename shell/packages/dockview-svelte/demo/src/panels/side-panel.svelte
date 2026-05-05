@@ -5,7 +5,7 @@
   // Demonstrates pitfall #1: mount/unmount lifecycle hygiene.
   // Logs to the console on mount and unmount — if `unmount(instance)` is
   // not called by the bridge on dispose, the destroy log will not appear.
-  let { params: _params, api }: IDockviewPanelProps = $props();
+  let { api }: IDockviewPanelProps = $props();
 
   onMount(() => {
     console.log(`[side-panel ${api.id}] mounted`);

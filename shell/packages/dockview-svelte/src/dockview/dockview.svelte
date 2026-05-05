@@ -47,12 +47,14 @@
    *
    * Mirrors upstream React's wrapping of the same callback.
    */
-  function wrapContextMenuCallback<P extends { component: SvelteContextMenuItemConfig['component'] }>(
+  function wrapContextMenuCallback<
+    P extends { component: SvelteContextMenuItemConfig['component'] },
+  >(
     register: (id: string, component: NonNullable<P['component']>) => void,
-    cb: ((params: never) => (string | (Omit<P, 'component'> & { component?: P['component'] }))[]) | undefined,
-  ):
-    | ((params: never) => (string | ContextMenuItemConfig)[])
-    | undefined {
+    cb:
+      | ((params: never) => (string | (Omit<P, 'component'> & { component?: P['component'] }))[])
+      | undefined,
+  ): ((params: never) => (string | ContextMenuItemConfig)[]) | undefined {
     if (!cb) return undefined;
     return (params) => {
       const items = cb(params);
@@ -69,7 +71,9 @@
 
   // Per-id Svelte component lookup for context menu items. The DockviewOptions
   // surface speaks core's by-id registry; the callback wrappers populate this
-  // map and core's `createContextMenuItemComponent` reads it.
+  // map and core's `createContextMenuItemComponent` reads it. Not reactive —
+  // each context-menu invocation does a fresh lookup.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity
   const ctxComponentRegistry = new Map<
     string,
     NonNullable<SvelteContextMenuItemConfig['component']>
@@ -214,9 +218,7 @@
         createComponent: (options) => {
           const component = props.components[options.name];
           if (!component) {
-            throw new Error(
-              `dockview-svelte: no component registered for name '${options.name}'`,
-            );
+            throw new Error(`dockview-svelte: no component registered for name '${options.name}'`);
           }
           return new SvelteRenderer(component as never);
         },
@@ -231,10 +233,9 @@
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     props.defaultTabComponent;
     untrack(() => {
-      const frameworkTabComponents: Record<
-        string,
-        IDockviewSvelteProps['defaultTabComponent']
-      > = { ...(props.tabComponents ?? {}) };
+      const frameworkTabComponents: Record<string, IDockviewSvelteProps['defaultTabComponent']> = {
+        ...(props.tabComponents ?? {}),
+      };
       if (props.defaultTabComponent) {
         frameworkTabComponents[DEFAULT_SVELTE_TAB] = props.defaultTabComponent;
       }
@@ -316,7 +317,6 @@
     const disposable = api.onWillDrop((event) => handler(event));
     return () => disposable.dispose();
   });
-
 </script>
 
 <div bind:this={el} style="height: 100%; width: 100%;"></div>

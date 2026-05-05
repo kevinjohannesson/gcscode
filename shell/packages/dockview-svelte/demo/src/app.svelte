@@ -1,9 +1,5 @@
 <script lang="ts">
-  import {
-    DockviewSvelte,
-    type DockviewApi,
-    type DockviewReadyEvent,
-  } from 'dockview-svelte';
+  import { DockviewSvelte, type DockviewApi, type DockviewReadyEvent } from 'dockview-svelte';
   import EditorPanel from './panels/editor-panel.svelte';
   import OutputPanel from './panels/output-panel.svelte';
   import SidePanel from './panels/side-panel.svelte';

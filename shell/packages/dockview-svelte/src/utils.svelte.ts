@@ -25,10 +25,7 @@ import {
   type TabPartInitParameters,
   type WatermarkRendererInitParameters,
 } from 'dockview-core';
-import {
-  DOCKVIEW_CONTEXT_KEY,
-  type DockviewSvelteContext,
-} from './context';
+import { DOCKVIEW_CONTEXT_KEY, type DockviewSvelteContext } from './context';
 
 /**
  * The handle returned by `mountSvelteComponent`. Mirrors upstream Vue's
@@ -152,6 +149,10 @@ export class SvelteRenderer
       tabLocation: parameters.tabLocation,
     };
 
+    // The lint rule prefers SvelteMap for reactive maps; this map is passed
+    // as the `mount({ context })` option and read once at construction by
+    // descendant components — there is no reactive subscription path here.
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity
     const context = new Map<unknown, unknown>([
       [
         DOCKVIEW_CONTEXT_KEY,
@@ -180,6 +181,7 @@ export class SvelteRenderer
     this._renderDisposable?.update({ params: event.params });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   layout(_width: number, _height: number): void {
     // Layout is handled entirely by Svelte's reactive sizing on the host
     // element; we have nothing to imperatively recompute here.
@@ -190,10 +192,7 @@ export class SvelteRenderer
   }
 }
 
-export class SvelteWatermarkRenderer
-  extends AbstractSvelteRenderer
-  implements IWatermarkRenderer
-{
+export class SvelteWatermarkRenderer extends AbstractSvelteRenderer implements IWatermarkRenderer {
   private _renderDisposable: MountedComponent<Record<string, unknown>> | undefined;
 
   init(parameters: WatermarkRendererInitParameters): void {
@@ -210,6 +209,7 @@ export class SvelteWatermarkRenderer
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   update(_event: PanelUpdateEvent<Parameters>): void {
     // noop — watermark props are entirely derived from the container at init.
   }
@@ -271,9 +271,7 @@ export class SvelteHeaderActionsRenderer
   }
 
   private updateProps(): void {
-    this._renderDisposable?.update(
-      this.buildEnrichedProps() as unknown as Record<string, unknown>,
-    );
+    this._renderDisposable?.update(this.buildEnrichedProps() as unknown as Record<string, unknown>);
   }
 
   private updateLocation(location: DockviewGroupLocation): void {

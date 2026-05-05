@@ -20,9 +20,10 @@ import TestHeaderActions from './test-header-actions.svelte';
  * structural matching from outside; the runtime contract is what we test
  * against, so the cast is sound.
  */
-function renderDockview(
-  overrides: Partial<IDockviewSvelteProps> = {},
-): { api: DockviewApi; container: HTMLElement } {
+function renderDockview(overrides: Partial<IDockviewSvelteProps> = {}): {
+  api: DockviewApi;
+  container: HTMLElement;
+} {
   let capturedApi: DockviewApi | undefined;
   const onReady = ({ api }: { api: DockviewApi }) => {
     capturedApi = api;

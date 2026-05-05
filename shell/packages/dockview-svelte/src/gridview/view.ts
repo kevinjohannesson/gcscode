@@ -36,10 +36,7 @@ export class SvelteGridviewPanelView extends GridviewPanel {
     };
 
     const context = new Map<unknown, unknown>([
-      [
-        GRIDVIEW_CONTEXT_KEY,
-        { api: this.api, containerApi } satisfies GridviewSvelteContext,
-      ],
+      [GRIDVIEW_CONTEXT_KEY, { api: this.api, containerApi } satisfies GridviewSvelteContext],
     ]);
 
     const part = new SveltePart<IGridviewPanelProps>(
