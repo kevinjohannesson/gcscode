@@ -72,6 +72,16 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5(@types/node@24.12.2)(jsdom@29.0.2)(vite@8.0.10(@types/node@24.12.2)(jiti@2.6.1))
 
+  packages/dockview-svelte:
+    dependencies:
+      svelte:
+        specifier: ^5.0.0
+        version: 5.55.5(@typescript-eslint/types@8.59.0)
+    devDependencies:
+      dockview-core:
+        specifier: ^6.0.1
+        version: 6.0.1
+
   packages/extension-api:
     dependencies:
       svelte:
@@ -857,6 +867,9 @@ packages:
 
   devalue@5.7.1:
     resolution: {integrity: sha512-MUbZ586EgQqdRnC4yDrlod3BEdyvE4TapGYHMW2CiaW+KkkFmWEFqBUaLltEZCGi0iFXCEjRF0OjF0DV2QHjOA==}
+
+  dockview-core@6.0.1:
+    resolution: {integrity: sha512-Mreb+kTjSrfN9NtVU3LddpA76WXwviaFunAsPCzg04uwZIpjEx7OC607Qfrqg26C6S1r28pxxifkgUWGIs8r6w==}
 
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
@@ -2268,6 +2281,8 @@ snapshots:
   detect-libc@2.1.2: {}
 
   devalue@5.7.1: {}
+
+  dockview-core@6.0.1: {}
 
   dom-accessibility-api@0.5.16: {}
 
