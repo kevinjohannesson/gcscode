@@ -31,3 +31,6 @@ scratch/
 
 # Brainstorming companion artifacts (superpowers:brainstorming visual companion)
 .superpowers/
+
+# Claude Code harness runtime artifacts (e.g. scheduled-task locks)
+.claude/*.lock
