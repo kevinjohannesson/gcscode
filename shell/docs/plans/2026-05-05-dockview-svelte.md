@@ -2,7 +2,8 @@
 
 Spec: [`../specs/2026-05-05-dockview-svelte.md`](../specs/2026-05-05-dockview-svelte.md)
 Branch: `feat/dockview-svelte`
-Worktree: `.worktrees/dockview-svelte/`
+Worktree: `/Users/kevinkroon/Projects/gcscode/.worktrees/dockview-svelte/` (the git repo root is `/Users/kevinkroon/Projects/gcscode/`; the gcscode shell project — where the pnpm workspace lives — is at `<repo-root>/shell/`)
+Working directory inside the worktree: `/Users/kevinkroon/Projects/gcscode/.worktrees/dockview-svelte/shell/`
 
 ## Mode
 
@@ -18,7 +19,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 
 **Required discipline for every bash command:**
 
-1. Prepend `cd .worktrees/dockview-svelte && ` to every bash command. (Use the absolute path: `cd /Users/kevinkroon/Projects/gcscode/shell/.worktrees/dockview-svelte && ...`).
+1. Prepend `cd /Users/kevinkroon/Projects/gcscode/.worktrees/dockview-svelte/shell && ` to every bash command. The absolute path is required because cwd does NOT persist across calls.
 2. Before every `git commit`, chain `git branch --show-current` and verify it reads `feat/dockview-svelte`. If it reads `master`, STOP — your cwd is the main checkout, not the worktree.
 3. Run `pnpm format` / `pnpm test` / `pnpm check` / `pnpm lint` only with the worktree-cd prefix, otherwise they read/edit the main checkout.
 
@@ -40,7 +41,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 2. Write `package.json` (literally the JSON in spec §"Dependencies").
 3. Write `tsconfig.json` extending `../../tsconfig.base.json`. Reference an existing extension package's tsconfig for the include/exclude shape (e.g. `packages/extension-map/tsconfig.json`).
 4. Write `svelte.config.js` with `vitePreprocess()` only (mirror `packages/shell/svelte.config.js`).
-5. Write `vitest.config.ts` mirroring `packages/shell/vitest.config.ts`: jsdom environment, `setupFiles: ['./src/__tests__/test-setup.ts']`. Create `src/__tests__/test-setup.ts` with the single line `import '@testing-library/jest-dom/vitest';`.
+5. Write `vitest.config.ts` mirroring the shape of `packages/shell/vite.config.ts` (which doubles as vitest config): plugins `svelte()` and `svelteTesting()`, `environment: 'jsdom'`, `globals: true`, `setupFiles: ['./src/__tests__/test-setup.ts']`. Skip the `tailwindcss` plugin (not needed) and the `maplibre-gl` deps.inline workaround. Create `src/__tests__/test-setup.ts` with the single line `import '@testing-library/jest-dom/vitest';` (matches `packages/shell/src/test-setup.ts`).
 6. Write a placeholder `src/index.ts` (`export {};`) — will be filled in task 6.
 7. Write a minimal `README.md` with title, one-paragraph summary, install + usage example matching the spec's Goal section.
 8. Run `pnpm install` from the repo root to register the new workspace package. This pulls `dockview-core` from npm into the workspace.
