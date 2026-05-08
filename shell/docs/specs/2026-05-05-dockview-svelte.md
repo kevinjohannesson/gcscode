@@ -14,7 +14,11 @@ When complete, a Svelte 5 user should be able to write:
 
 ```svelte
 <script lang="ts">
-  import { DockviewSvelte, type IDockviewPanelProps, type DockviewReadyEvent } from 'dockview-svelte';
+  import {
+    DockviewSvelte,
+    type IDockviewPanelProps,
+    type DockviewReadyEvent,
+  } from 'dockview-svelte';
   import 'dockview-core/dist/styles/dockview.css';
   import EditorPanel from './editor-panel.svelte';
   import OutputPanel from './output-panel.svelte';
@@ -25,10 +29,7 @@ When complete, a Svelte 5 user should be able to write:
   }
 </script>
 
-<DockviewSvelte
-  components={{ editor: EditorPanel, output: OutputPanel }}
-  {onReady}
-/>
+<DockviewSvelte components={{ editor: EditorPanel, output: OutputPanel }} {onReady} />
 ```
 
 And a panel component is just a Svelte component:
@@ -162,7 +163,7 @@ export function mountSvelteComponent<P extends Record<string, any>>(
   Component: Component<P>,
   initialProps: P,
   element: HTMLElement,
-  context?: Map<unknown, unknown>
+  context?: Map<unknown, unknown>,
 ): MountedComponent<P> {
   const reactiveProps = $state({ ...initialProps }) as P;
   const instance = mount(Component, {
@@ -191,24 +192,24 @@ export function mountSvelteComponent<P extends Record<string, any>>(
 
 `AbstractSvelteRenderer` creates a `dv-svelte-part` `<div>` host element. Subclasses implement `dockview-core` renderer interfaces:
 
-| Class | Interface | Lifecycle |
-|---|---|---|
-| `SvelteRenderer` | `IContentRenderer` + `ITabRenderer` | `init({ params, api, containerApi, tabLocation? })` mounts; `update(event)` mutates props; `dispose()` unmounts. |
-| `SvelteWatermarkRenderer` | `IWatermarkRenderer` | `init({ group, containerApi })` mounts; `update()` is a no-op; `dispose()` unmounts. |
-| `SvelteHeaderActionsRenderer` | `IHeaderActionsRenderer` | `init({ containerApi, api })` mounts and subscribes to `group.model.onDidAddPanel`, `onDidRemovePanel`, `onDidActivePanelChange`, `parameters.api.onDidActiveChange`, `parameters.api.onDidLocationChange` via a `DockviewCompositeDisposable` held in a `DockviewMutableDisposable`. Emits enriched props (`panels`, `activePanel`, `isGroupActive`, `group`, `headerPosition`, `location`) on each event. `dispose()` clears subscriptions and unmounts. |
-| `SvelteContextMenuItemRenderer` | `IContextMenuItemRenderer` | `init(props)` mounts; `dispose()` unmounts. |
-| `SvelteTabGroupChipRenderer` | `ITabGroupChipRenderer` | `init({ tabGroup, api })` mounts; `update({ tabGroup })` mutates; `dispose()` unmounts. Sets host element's display to `inline-flex` and clears `width`/`height` (mirroring upstream Vue). |
-| `SveltePart<P>` | (generic, for standalone use) | Constructor takes element, component, props; `init()` mounts; `update(props)` mutates; `dispose()` unmounts. |
+| Class                           | Interface                           | Lifecycle                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SvelteRenderer`                | `IContentRenderer` + `ITabRenderer` | `init({ params, api, containerApi, tabLocation? })` mounts; `update(event)` mutates props; `dispose()` unmounts.                                                                                                                                                                                                                                                                                                                                           |
+| `SvelteWatermarkRenderer`       | `IWatermarkRenderer`                | `init({ group, containerApi })` mounts; `update()` is a no-op; `dispose()` unmounts.                                                                                                                                                                                                                                                                                                                                                                       |
+| `SvelteHeaderActionsRenderer`   | `IHeaderActionsRenderer`            | `init({ containerApi, api })` mounts and subscribes to `group.model.onDidAddPanel`, `onDidRemovePanel`, `onDidActivePanelChange`, `parameters.api.onDidActiveChange`, `parameters.api.onDidLocationChange` via a `DockviewCompositeDisposable` held in a `DockviewMutableDisposable`. Emits enriched props (`panels`, `activePanel`, `isGroupActive`, `group`, `headerPosition`, `location`) on each event. `dispose()` clears subscriptions and unmounts. |
+| `SvelteContextMenuItemRenderer` | `IContextMenuItemRenderer`          | `init(props)` mounts; `dispose()` unmounts.                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `SvelteTabGroupChipRenderer`    | `ITabGroupChipRenderer`             | `init({ tabGroup, api })` mounts; `update({ tabGroup })` mutates; `dispose()` unmounts. Sets host element's display to `inline-flex` and clears `width`/`height` (mirroring upstream Vue).                                                                                                                                                                                                                                                                 |
+| `SveltePart<P>`                 | (generic, for standalone use)       | Constructor takes element, component, props; `init()` mounts; `update(props)` mutates; `dispose()` unmounts.                                                                                                                                                                                                                                                                                                                                               |
 
 Each renderer's `_renderDisposable` field holds the `MountedComponent` returned by `mountSvelteComponent`. `dispose()` is idempotent (noop if not yet mounted).
 
 ### Svelte-specific deviations from upstream Vue's port
 
-| Topic | Vue does | Svelte does | Why |
-|---|---|---|---|
-| Component identity | Resolves by string name via `findComponent(parent, name)` against Vue's component registry | Accepts `Component<P>` directly in `components: Record<string, Component<P>>` (matching React) | Svelte has no Vue-equivalent global component registry. Passing components by value is idiomatic and removes a class of "component not found" errors. |
-| Prop shape passed to the user's component | Wraps in `{ params: { params, api, containerApi, ... } }` so a single top-level prop can be replaced via `cloneVNode + render` | Passes flat: `{ params, api, containerApi }` | Svelte 5's `$state`-based prop mutation is per-key reactive — no top-level wrapping needed. Cleaner consumer DX (`let { params, api } = $props()`). |
-| Cross-tree context propagation | Vue's `vNode.appContext.provides` cloning lets `provide` from the host reach panel descendants | `mount({ context: Map })` per panel + an exported `DOCKVIEW_CONTEXT_KEY` symbol | Each Svelte panel is an isolated mounted tree. The cleanest portable mechanism is `mount`'s built-in `context` option. |
+| Topic                                     | Vue does                                                                                                                       | Svelte does                                                                                    | Why                                                                                                                                                   |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Component identity                        | Resolves by string name via `findComponent(parent, name)` against Vue's component registry                                     | Accepts `Component<P>` directly in `components: Record<string, Component<P>>` (matching React) | Svelte has no Vue-equivalent global component registry. Passing components by value is idiomatic and removes a class of "component not found" errors. |
+| Prop shape passed to the user's component | Wraps in `{ params: { params, api, containerApi, ... } }` so a single top-level prop can be replaced via `cloneVNode + render` | Passes flat: `{ params, api, containerApi }`                                                   | Svelte 5's `$state`-based prop mutation is per-key reactive — no top-level wrapping needed. Cleaner consumer DX (`let { params, api } = $props()`).   |
+| Cross-tree context propagation            | Vue's `vNode.appContext.provides` cloning lets `provide` from the host reach panel descendants                                 | `mount({ context: Map })` per panel + an exported `DOCKVIEW_CONTEXT_KEY` symbol                | Each Svelte panel is an isolated mounted tree. The cleanest portable mechanism is `mount`'s built-in `context` option.                                |
 
 ## Context propagation
 
@@ -228,9 +229,7 @@ export interface DockviewSvelteContext {
 export function getDockviewContext(): DockviewSvelteContext {
   const ctx = getContext<DockviewSvelteContext | undefined>(DOCKVIEW_CONTEXT_KEY);
   if (!ctx) {
-    throw new Error(
-      'getDockviewContext() called outside a dockview-svelte panel subtree'
-    );
+    throw new Error('getDockviewContext() called outside a dockview-svelte panel subtree');
   }
   return ctx;
 }
@@ -273,8 +272,7 @@ import type {
 import type { Component } from 'svelte';
 import type { IDockviewTabGroupChipProps } from './tab-group-chip-types';
 
-export interface SvelteContextMenuItemConfig
-  extends Omit<ContextMenuItemConfig, 'component'> {
+export interface SvelteContextMenuItemConfig extends Omit<ContextMenuItemConfig, 'component'> {
   component?: Component<IContextMenuItemComponentProps>;
 }
 
@@ -288,10 +286,10 @@ export interface IDockviewSvelteProps extends DockviewOptions {
   prefixHeaderActionsComponent?: Component<IDockviewHeaderActionsProps>;
   tabGroupChipComponent?: Component<IDockviewTabGroupChipProps>;
   getTabContextMenuItems?: (
-    params: GetTabContextMenuItemsParams
+    params: GetTabContextMenuItemsParams,
   ) => (BuiltInContextMenuItem | SvelteContextMenuItemConfig)[];
   getTabGroupChipContextMenuItems?: (
-    params: GetTabGroupChipContextMenuItemsParams
+    params: GetTabGroupChipContextMenuItemsParams,
   ) => (BuiltInChipContextMenuItem | SvelteContextMenuItemConfig)[];
   onReady: (event: DockviewReadyEvent) => void;
   onDidDrop?: (event: DockviewDidDropEvent) => void;
@@ -304,7 +302,12 @@ Implementation outline (Svelte 5 idioms — the implementer should refer to upst
 ```svelte
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { createDockview, PROPERTY_KEYS_DOCKVIEW, type DockviewApi, type DockviewFrameworkOptions } from 'dockview-core';
+  import {
+    createDockview,
+    PROPERTY_KEYS_DOCKVIEW,
+    type DockviewApi,
+    type DockviewFrameworkOptions,
+  } from 'dockview-core';
   import {
     SvelteRenderer,
     SvelteWatermarkRenderer,
@@ -320,8 +323,7 @@ Implementation outline (Svelte 5 idioms — the implementer should refer to upst
 
   onMount(() => {
     const frameworkOptions: DockviewFrameworkOptions = {
-      createComponent: (options) =>
-        new SvelteRenderer(props.components[options.name]),
+      createComponent: (options) => new SvelteRenderer(props.components[options.name]),
       createTabComponent: (options) => {
         const tabComponents = props.tabComponents ?? {};
         const component = tabComponents[options.name] ?? props.defaultTabComponent;
@@ -343,7 +345,9 @@ Implementation outline (Svelte 5 idioms — the implementer should refer to upst
         if (!options.component) return undefined;
         return new SvelteContextMenuItemRenderer(options.component);
       },
-      defaultTabComponent: props.defaultTabComponent ? '__dockview_svelte_default_tab__' : undefined,
+      defaultTabComponent: props.defaultTabComponent
+        ? '__dockview_svelte_default_tab__'
+        : undefined,
     };
 
     const coreOptions = extractCoreOptions(props);
@@ -378,6 +382,7 @@ Implementation outline (Svelte 5 idioms — the implementer should refer to upst
 ### `<SplitviewSvelte>`, `<GridviewSvelte>`, `<PaneviewSvelte>`
 
 Same pattern, scoped down. Each:
+
 - Imports its `create*` factory and `PROPERTY_KEYS_*` array from `dockview-core`.
 - Takes `components: Record<string, Component<I*PanelProps>>` and `onReady: (event: *ReadyEvent) => void`.
 - Paneview additionally takes `headerComponents?: Record<string, Component<I*HeaderProps>>` (mirror upstream — see `paneview/paneview.tsx`).
@@ -449,6 +454,7 @@ Coverage of every upstream test case is **not required** — port enough to demo
 `packages/dockview-svelte/demo/` is a tiny Vite app that consumes `dockview-svelte` from source (no build step; Vite resolves the workspace package directly).
 
 `demo/src/app.svelte`:
+
 - Mounts `<DockviewSvelte>` with three panel components.
 - Initial layout: 3 panels in 2 groups (editor stacked with output, side-panel split right).
 - Toolbar with buttons:
@@ -459,6 +465,7 @@ Coverage of every upstream test case is **not required** — port enough to demo
   - **Load layout** — accepts pasted JSON via `prompt()` and calls `api.fromJSON(...)`.
 
 `demo/src/panels/*.svelte` — three trivial panel components, each demonstrating one of the bridge's three load-bearing pitfalls:
+
 - `editor-panel.svelte` — reads `params.fileName` and `params.revision` reactively (pitfall #2: `$state`-backed props).
 - `output-panel.svelte` — calls `getDockviewContext()` in its `<script>` (pitfall #3: context propagation).
 - `side-panel.svelte` — uses Svelte 5 `onMount` + `onDestroy` to log mount/unmount, verifying the bridge's `unmount` is wired (pitfall #1: leak prevention).
@@ -479,7 +486,7 @@ The implementer must satisfy ALL of the following before reporting back:
    - Click "Update active panel" → the active panel's displayed revision number changes within the same DOM node (no remount). Verifiable via Chrome DevTools MCP: take a snapshot before, click, take a snapshot after, assert the panel's `<div>` retains identity and the text content changed.
    - Click "Pop out group" → a new browser window opens with the panel rendered inside it; the panel's display of `containerApi.id` is non-empty (proof that `getDockviewContext()` worked across the popout).
    - Reload the page → no console warnings about unmounted-but-still-listening reactive effects (proof that `unmount` ran for all panels).
-7. The `git log` of the feature branch is legible: implementer commits ordered by surface (scaffold → bridge → dockview component → splitview/gridview/paneview → tests → demo → polish).
+6. The `git log` of the feature branch is legible: implementer commits ordered by surface (scaffold → bridge → dockview component → splitview/gridview/paneview → tests → demo → polish).
 
 If any of #1–#4 fails, the implementer must fix the underlying issue (not silence the failure) before reporting back. If #5 cannot be verified via Chrome DevTools MCP for any reason, the implementer should leave a `docs/dockview-svelte-manual-checklist.md` with the exact sequence the user can step through in the morning to verify manually — and explicitly flag in the final report which behaviors were not auto-verified.
 

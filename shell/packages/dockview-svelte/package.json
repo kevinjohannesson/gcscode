@@ -1,0 +1,28 @@
+{
+  "name": "dockview-svelte",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "svelte": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "check": "svelte-check --tsconfig ./tsconfig.json && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "demo": "vite --config demo/vite.config.ts"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0",
+    "dockview-core": "^6.0.1"
+  },
+  "devDependencies": {
+    "dockview-core": "^6.0.1"
+  }
+}

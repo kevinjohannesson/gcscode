@@ -14,6 +14,7 @@ This deviates from gcscode's standard subagent-driven-development pattern (which
 ## Worktree cwd discipline (CRITICAL — read before issuing any bash command)
 
 The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. Two failure modes have been observed in this repo before:
+
 1. Commits land on `master` instead of the feat branch.
 2. The main checkout's working tree gets edited (e.g. `pnpm format` touches files outside the worktree).
 
@@ -37,6 +38,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 **Goal:** A `packages/dockview-svelte/` directory that `pnpm install` recognizes as a workspace member, with the package.json + tsconfig + svelte.config + vitest config from the spec.
 
 **Steps:**
+
 1. Create `packages/dockview-svelte/` with `src/`, `src/__tests__/`, `demo/`, `demo/src/`, `demo/src/panels/` subdirectories.
 2. Write `package.json` (literally the JSON in spec §"Dependencies").
 3. Write `tsconfig.json` extending `../../tsconfig.base.json`. Reference an existing extension package's tsconfig for the include/exclude shape (e.g. `packages/extension-map/tsconfig.json`).
@@ -47,6 +49,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 8. Run `pnpm install` from the repo root to register the new workspace package. This pulls `dockview-core` from npm into the workspace.
 
 **Verification:**
+
 - `pnpm --filter dockview-svelte check` runs (may produce 0 errors trivially given empty src).
 - `pnpm --filter dockview-svelte test` runs and reports "no tests found" without erroring.
 
@@ -57,6 +60,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 **Goal:** `src/utils.svelte.ts` and `src/context.ts` from the spec, fully typed against `dockview-core`'s renderer interfaces.
 
 **Steps:**
+
 1. Write `src/context.ts` per spec §"Context propagation". Define separate symbol keys for dockview / splitview / gridview / paneview contexts and corresponding `getDockviewContext()` / `getSplitviewContext()` / `getGridviewContext()` / `getPaneviewContext()` typed helpers.
 2. Write `src/utils.svelte.ts`:
    - `mountSvelteComponent<P>(Component, initialProps, element, context?) → MountedComponent<P>` — exact shape from spec §"`mountSvelteComponent` (the panel-component bridge)". File extension MUST be `.svelte.ts` for `$state` to compile.
@@ -69,6 +73,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
    - `SveltePart<P>` — generic standalone part class.
 
 **Verification:**
+
 - `pnpm --filter dockview-svelte check` passes with zero errors.
 - All renderer classes correctly implement their respective dockview-core interfaces (the typechecker catches missing methods).
 
@@ -79,6 +84,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 **Goal:** `src/__tests__/utils.test.ts` exercises the three load-bearing pitfalls.
 
 **Test cases (minimum):**
+
 1. `mountSvelteComponent` mounts the component into the target element (assert child node count).
 2. `update()` propagates without remount: mount a Svelte test component that displays `params.title` and stores its mount-time `Date.now()` in a const. Call `update({ title: 'B' })`. Assert the displayed title changed AND the mount-time const did NOT change (proves no remount). Use `flushSync()` from `'svelte'` to force pending effects.
 3. `dispose()` removes the rendered DOM (target's child count returns to 0) and a subsequent `update()` is a noop OR throws — pick one and document the choice in `utils.svelte.ts`.
@@ -86,6 +92,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 5. `mountSvelteComponent` calls `unmount`: mount a component with a `$effect` that increments a counter when its props change. Dispose. Mutate a prop after dispose. Assert the counter does not increment again.
 
 **Verification:**
+
 - `pnpm --filter dockview-svelte test` passes.
 
 **Commit:** `feat(dockview-svelte): bridge tests`
@@ -95,6 +102,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 **Goal:** `src/dockview/dockview.svelte`, `src/dockview/types.ts`, `src/dockview/default-tab.svelte`.
 
 **Steps:**
+
 1. Write `src/dockview/types.ts` with `IDockviewSvelteProps` + `SvelteContextMenuItemConfig` + `IDockviewTabGroupChipProps` (the latter is adapter-defined upstream — see `scratch/dockview/packages/dockview/src/dockview/reactTabGroupChipPart.ts:5-8`; copy verbatim with the type imports adapted).
 2. Write `src/dockview/dockview.svelte`:
    - `<script lang="ts">` block per spec §"`<DockviewSvelte>`" sketch.
@@ -104,6 +112,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 3. Write `src/dockview/default-tab.svelte` — port `defaultTab.tsx` to Svelte 5. Renders title, close button, middle-click-to-close. Props: `IDockviewPanelHeaderProps`. CSS-class names should match upstream's (`dv-default-tab`, etc.) so dockview-core's theme CSS applies.
 
 **Verification:**
+
 - `pnpm --filter dockview-svelte check` passes.
 
 **Commit:** `feat(dockview-svelte): DockviewSvelte component + default tab`
@@ -113,6 +122,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 **Goal:** `src/__tests__/dockview.test.ts` proves end-to-end usage works, with the `updateParameters` reactivity test as the centerpiece.
 
 **Test cases (minimum):**
+
 1. Renders an empty dockview: mount `<DockviewSvelte components={{}} onReady={fn}>`, assert the host `<div>` is in the DOM.
 2. `onReady` fires with an `api`.
 3. `api.addPanel({ id: 'a', component: 'a' })` mounts the registered component into a tab group. Assert the panel's content is rendered.
@@ -121,6 +131,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 6. Re-passing `props.components` updates `createComponent` for newly-added panels.
 
 **Verification:**
+
 - `pnpm --filter dockview-svelte test` passes.
 
 **Commit:** `feat(dockview-svelte): DockviewSvelte tests`
@@ -130,6 +141,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 **Goal:** The remaining three view components shipped with smoke-test coverage and the public index assembled.
 
 **Steps:**
+
 1. `src/splitview/types.ts` — `ISplitviewSvelteProps`, `ISplitviewPanelProps`, `SplitviewReadyEvent`. Mirror `scratch/dockview/packages/dockview/src/splitview/splitview.tsx:15-29`.
 2. `src/splitview/splitview.svelte` — mirror upstream React `splitview.tsx` line-by-line.
 3. Same for `src/gridview/` and `src/paneview/`. Paneview additionally takes `headerComponents?: Record<string, Component<IPaneviewPanelHeaderProps>>` — see upstream `paneview/paneview.tsx`.
@@ -137,6 +149,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 5. Write `src/index.ts` per spec §"Public exports".
 
 **Verification:**
+
 - `pnpm --filter dockview-svelte test` passes (all view tests green).
 - `pnpm --filter dockview-svelte check` passes.
 
@@ -147,6 +160,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 **Goal:** A working `pnpm --filter dockview-svelte demo` that renders a real dockview with three panel types and the toolbar from spec §"Demo".
 
 **Steps:**
+
 1. `demo/vite.config.ts`:
    - `@sveltejs/vite-plugin-svelte`.
    - `resolve.alias`: `'dockview-svelte': path.resolve(__dirname, '../src/index.ts')` so the demo runs against source.
@@ -161,6 +175,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 8. Initial layout in `onReady`: add 3 panels in 2 groups (editor stacked with output, side panel split right).
 
 **Verification:**
+
 - `pnpm --filter dockview-svelte demo` boots without console errors. The implementer should run the demo as a background process and confirm.
 
 **Commit:** `feat(dockview-svelte): demo app`
@@ -170,6 +185,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 **Goal:** Walk every line of spec §"Done criteria" and confirm. This is a hard gate — do not skip.
 
 **Steps:**
+
 1. From the worktree root, run (in this order):
    - `pnpm --filter dockview-svelte check` — must pass with zero errors.
    - `pnpm --filter dockview-svelte test` — all green.
@@ -193,6 +209,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 **Goal:** A concise summary the user can read in the morning to decide whether to merge.
 
 **Steps:**
+
 1. Print a summary message including:
    - Number of files added, total LOC.
    - Test count: `vitest run` summary.
