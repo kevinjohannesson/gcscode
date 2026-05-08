@@ -124,7 +124,7 @@ describe('<DockviewSvelte>', () => {
     expect(container.querySelector('[data-testid="header-actions"]')).toBeInTheDocument();
   });
 
-  it('onDidDrop subscription fires when a drop event is emitted', () => {
+  it('onDidDrop subscription wires up without throwing (drop firing is not synthesizable in jsdom)', () => {
     const onDidDrop = vi.fn();
     const { api } = renderDockview({
       components: { a: TestPanel as never },
