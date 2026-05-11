@@ -10,7 +10,7 @@ The triggering pain point: when subagent reviewers (spec-compliance + code-quali
 
 The fix this iteration ships: make reviewer output land as a PR review on GitHub, alongside the controller's existing in-context summary. The PR becomes the durable artifact layer for code review. The controller's existing followup-loop is preserved — reviewers still return summaries — but the *record* moves from chat transcript into the repo's GitHub state.
 
-This is the first iteration of a multi-iteration arc loosely paralleled in the user's claude.ai "cowork" project. Subsequent iterations on this track include auto-merge on user approval, a red-team reviewer for specs/plans/ADRs, and multi-model heterogeneous reviewers — each as its own brainstorm + spec + plan cycle.
+This is the first iteration of a multi-iteration arc. Earlier brainstorming via Claude cowork (Anthropic's chat product with local computer access) explored the broader vision — webhook routers, Linear integration, multi-model reviewers, override semantics — and that transcript informed the scoping decisions in this spec. Subsequent iterations on this track include auto-merge on user approval, a red-team reviewer for specs/plans/ADRs, and multi-model heterogeneous reviewers — each as its own brainstorm + spec + plan cycle.
 
 ## Why not the bigger version
 
@@ -287,6 +287,6 @@ Each gets its own brainstorm + spec cycle. Listed here for legibility, not as co
 
 Beyond these: Linear integration, webhook routing, formal override semantics, distinct App identities per reviewer role. Each is its own brainstorm when triggered.
 
-## Cowork project linkage
+## Origin
 
-The parallel meta-design conversation lives in the user's claude.ai "cowork" project. This iteration is the first concrete artifact of that arc inside gcscode itself. Reconciling the two over time is the user's responsibility — the cowork project carries the longer-term architectural reasoning (event-driven dispatch, Linear, multi-model reviewers, override semantics) and is the source for what this track's later iterations will draw from.
+Earlier brainstorming via Claude cowork explored the broader agentic-team vision (event-driven dispatch, Linear, multi-model reviewers, override semantics). That transcript informed both the scoping decisions in this spec — what to defer, what to ship first — and the planned follow-up iterations listed above. The transcript itself is not committed to the repo; it lives in the user's claude.ai chat history.
