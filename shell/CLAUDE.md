@@ -79,6 +79,68 @@ Two real failure modes have been observed:
 
 Controllers dispatching subagents to worktrees should restate these rules in the prompt explicitly when the iteration involves git commits — the discipline is project-wide policy but the subagent has no automatic awareness of which worktree it's in.
 
+### Subagent reviewer PR-posting discipline
+
+Every reviewer subagent dispatched during an iteration — per-task spec-compliance, per-task code-quality, final cross-cutting — posts its review to the iteration's GitHub PR in addition to returning a summary to the controller. The PR is the durable artifact; the summary preserves the existing followup-loop. Spec: [`docs/specs/2026-05-12-reviews-as-artifacts.md`](docs/specs/2026-05-12-reviews-as-artifacts.md).
+
+**Dispatch prompt requirements (controller MUST include in every reviewer's prompt):**
+
+- The PR number to post to.
+- The token-helper invocation as a first step: `export GH_TOKEN=$(.claude/scripts/gh-app-token)`. Subsequent `gh` calls run under the `gcscode-reviewer[bot]` identity.
+- The verdict the reviewer is allowed to use (see table below).
+- The header convention.
+
+**Verdict table:**
+
+| Reviewer kind                          | `--comment` | `--request-changes` | `--approve` |
+| -------------------------------------- | :---------: | :-----------------: | :---------: |
+| Per-task spec-compliance               |      ✓      |          ✓          |      ✗      |
+| Per-task code-quality                  |      ✓      |          ✓          |      ✗      |
+| Final cross-cutting (end of iteration) |      ✗      |          ✓          |      ✓      |
+
+Per-task reviewers may post `--comment` (clean or informational) or `--request-changes` (blocking), never `--approve`. The final cross-cutting reviewer is the only review allowed to flip the PR into approved state; it posts `--approve` or `--request-changes`, never `--comment`.
+
+**Re-review after a Code-review-followup commit:** controller re-dispatches the same reviewer role + model after the followup commit lands. The re-review posts a **new** review (`--comment` "addressed in `<SHA>`" or another `--request-changes`). Prior reviews stay in the PR timeline — reviewers never dismiss their own prior reviews.
+
+**Review header convention** (mandatory so the single bot identity remains role-legible):
+
+```
+## <Review kind> — task <N> (if per-task) — <reviewer model>
+```
+
+Examples:
+
+- `## Spec-compliance review — task 3 — Claude Sonnet 4.6`
+- `## Code-quality review — task 7 — Claude Sonnet 4.6`
+- `## Final cross-cutting review — Claude Opus 4.7`
+- `## Spec-compliance review — task 3 (re-review of abc1234) — Claude Sonnet 4.6`
+
+**Merge gate (controller does NOT merge — the user does):** convention is "do not merge unless the final cross-cutting review is `--approve`." Human override allowed; if user merges despite open `--request-changes` reviews, leave a PR comment explaining why. The override is itself an artifact.
+
+**PR template for `gh pr create --draft --body "..."`:**
+
+```md
+## Iteration
+
+<one-line summary matching the spec's first line>
+
+## Links
+
+- Spec: [`docs/specs/YYYY-MM-DD-<topic>.md`](../blob/master/docs/specs/YYYY-MM-DD-<topic>.md)
+- Plan: [`docs/plans/YYYY-MM-DD-<topic>.md`](../blob/master/docs/plans/YYYY-MM-DD-<topic>.md)
+- ADRs (if any): …
+
+## Reviewer instructions
+
+Per-task reviewers post under task-headers. Final cross-cutting review posts at end of iteration.
+
+🤖 Reviews authored by `gcscode-reviewer[bot]` — see [docs/specs/2026-05-12-reviews-as-artifacts.md](../blob/master/docs/specs/2026-05-12-reviews-as-artifacts.md) for the workflow.
+```
+
+**Public repo note.** gcscode is public on GitHub. Reviewer comments are world-readable. Keep reviews professional. Don't paste sensitive context (credentials, internal URLs).
+
+**Config locations:** App ID and installation ID live in `.claude/agent-config.json` (versioned). Private key path is read from `GH_APP_PRIVATE_KEY_PATH` env var; the PEM file never enters git.
+
 ### Non-goals propagate to `docs/out-of-scope.md`
 
 When a spec lists cross-cutting deferrals — concepts the architecture is deliberately deferring, not just per-iteration scope cuts — those deferrals must land in `docs/out-of-scope.md` when the iteration ships, with an explicit trigger to revisit. Per-iteration scope omissions stay in the spec only; cross-cutting deferrals are the canonical list in `out-of-scope.md`.
