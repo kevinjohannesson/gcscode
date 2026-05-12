@@ -42,6 +42,16 @@ See `docs/decisions/ADR-0003-plugin-api-refinements.md` for the load-bearing rea
 - **Changelog / release tooling.** Nothing is published.
 - **CI configuration.** Add when there is something to protect besides a local clean install + tests + lint.
 
+## Agentic team architecture deferrals
+
+These deferrals stem from `docs/specs/2026-05-12-reviews-as-artifacts.md` and the broader agentic-team-architecture arc. Each is a deliberate "we are not building this yet" decision, not just a per-iteration scope cut.
+
+- **Linear integration.** Work-tracking outside GitHub is deferred. The agentic-team workflow uses GitHub state only. Trigger to revisit: gcscode iterations start spawning enough tickets that GitHub Issues alone is painful.
+- **Webhook routers / event-driven dispatch.** Beyond the narrow auto-merge GitHub Action (its own follow-up iteration), there is no off-session event handling. Trigger: user wants agents to react to events while no Claude session is live.
+- **Multi-model heterogeneous reviewers.** Reviewers run as whatever model the controller picks (typically Sonnet). The "independence by model diversity" payoff is deferred to its own future iteration after this track's reviews-as-artifacts work has accumulated evidence to evaluate independence honestly. Trigger: durable reviews accumulate enough samples to compare model verdicts side-by-side.
+- **Override semantics for agentic reviewers.** No formal "reviewer supersedes ADR" patterns (`blocked-on-adr` labels, counter-proposal ADR PRs). Trigger: a reviewer actually wants to block an iteration on architectural disagreement.
+- **Spec/plan/ADR PR workflow.** Specs and plans continue to land on master directly per existing convention. Trigger: the planned red-team-reviewer iteration introduces spec-PR workflow.
+
 ## Why this list exists
 
 Agents are biased toward completeness and "one more thing". Without a canonical deferral list, any of the above gets preemptively scaffolded on the first sighting of a near-by commit. This file answers "should I add X?" with a durable "not yet — and here's where it goes when it's time."

@@ -53,6 +53,27 @@ The first-party extensions planned for the app. Each is a future consumer of the
 - [ ] **Map filter extension** — registry where extensions contributing map elements expose user-toggleable visibility (e.g., heading line, max-distance circle, future tracks/breadcrumbs). Trigger: second consumer wants opt-out of a sibling extension's layer. Surfaced during the drone-icon brainstorm (`docs/specs/2026-05-05-flight-overlay-drone-icon.md`).
 - [ ] **Map viewport constraints** — `maxBounds` + minimum zoom in `extension-map` so panning doesn't escape useful bounds and zoom-out doesn't reveal world-wrapping. Trigger: operator UX feedback or first integration test that surfaces an antimeridian artifact. Surfaced during the drone-icon brainstorm (`docs/specs/2026-05-05-flight-overlay-drone-icon.md`).
 
+## Agentic team architecture
+
+A workflow track that runs alongside feature iterations. Makes the implicit meta-project (Claude-driven extension architecture) explicit by investing in agent orchestration, reviewer durability, and traceability.
+
+### Shipped
+
+- [x] **Reviews as artifacts** — GitHub PR workflow + `gcscode-reviewer` GitHub App identity for agentic reviewer posts. Spec: [`specs/2026-05-12-reviews-as-artifacts.md`](specs/2026-05-12-reviews-as-artifacts.md).
+
+### Queued (each needs its own brainstorm + spec cycle)
+
+- [ ] **Auto-merge on user approval** — single `.github/workflows/auto-merge.yml` triggered on `pull_request_review.submitted`; merges when user approves AND the final cross-cutting reviewer's last review is `--approve`. Immediate follow-up to reviews-as-artifacts.
+- [ ] **Red-team reviewer for specs/plans/ADRs** — introduces spec-PR workflow + a new agent role that critiques spec/plan/ADR commits before they're accepted to master.
+- [ ] **Multi-model heterogeneous reviewers** — validates the independence-of-opinion premise concretely now that reviews are durable. Runs Opus + Sonnet (or one Claude + one non-Claude) on the same PR; chooses steady-state model assignment per reviewer role based on findings.
+
+### Considering (not yet committed)
+
+- [ ] **Linear integration** — work tracking outside GitHub. Trigger: ticket volume.
+- [ ] **Webhook router for off-session triggers** — event-driven dispatch when no Claude session is live.
+- [ ] **Override semantics** — formal ADR supersession by reviewer, `blocked-on-adr` labels, counter-proposal PRs.
+- [ ] **Per-role bot identities** — multiple GitHub Apps for distinct reviewer accounts (currently single App, role disambiguation via review-text headers).
+
 ## Maintenance
 
 This doc is updated alongside other per-iteration docs propagation (`out-of-scope.md`, ADR-0003 retrospective):
