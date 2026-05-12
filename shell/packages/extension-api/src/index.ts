@@ -17,14 +17,15 @@ export interface ViewContribution {
   id: string;
   component: Component;
   /**
-   * Operator-visible label shown on the view's tab in the main content area.
-   * Required because a tab always renders; there is no sensible fallback —
-   * the view's `id` is a developer string, not a label.
+   * Operator-visible label for the view, shown by the host wherever the
+   * view's surface is presented. Required because the host always renders
+   * a visible surface for each registered view; there is no sensible
+   * fallback — the view's `id` is a developer string, not a label.
    *
    * Naming matches `CommandContribution.title` (same word, same semantics:
-   * operator-visible label). Required here because a tab always renders;
-   * optional in `CommandContribution` because a command without a title is
-   * still callable via `executeCommand` and keybindings.
+   * operator-visible label). Required here because a registered view is
+   * always visible; optional in `CommandContribution` because a command
+   * without a title is still callable via `executeCommand` and keybindings.
    */
   title: string;
 }
