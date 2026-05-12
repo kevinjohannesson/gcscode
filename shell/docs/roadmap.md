@@ -61,7 +61,7 @@ A workflow track that runs alongside feature iterations. Makes the implicit meta
 
 - [x] **Reviews as artifacts** — GitHub PR workflow + `gcscode-reviewer` GitHub App identity for agentic reviewer posts. Spec: [`specs/2026-05-12-reviews-as-artifacts.md`](specs/2026-05-12-reviews-as-artifacts.md).
 
-### Coming (committed — will ship)
+### Queued (each needs its own brainstorm + spec cycle)
 
 - [ ] **Auto-merge on user approval** — single `.github/workflows/auto-merge.yml` triggered on `pull_request_review.submitted`; merges when user approves AND the final cross-cutting reviewer's last review is `--approve`. Immediate follow-up to reviews-as-artifacts.
 - [ ] **Red-team reviewer for specs/plans/ADRs** — introduces spec-PR workflow + a new agent role that critiques spec/plan/ADR commits before they're accepted to master.
