@@ -17,9 +17,14 @@ export interface ViewContribution {
   id: string;
   component: Component;
   /**
-   * Operator-visible label shown on the dockview tab. Required because every
-   * view renders a tab — there is no sensible fallback. Naming aligned with
-   * CommandContribution.title.
+   * Operator-visible label shown on the view's tab in the main content area.
+   * Required because a tab always renders; there is no sensible fallback —
+   * the view's `id` is a developer string, not a label.
+   *
+   * Naming matches `CommandContribution.title` (same word, same semantics:
+   * operator-visible label). Required here because a tab always renders;
+   * optional in `CommandContribution` because a command without a title is
+   * still callable via `executeCommand` and keybindings.
    */
   title: string;
 }
