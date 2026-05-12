@@ -32,6 +32,16 @@ if [[ "$app_id" == "null" || "$installation_id" == "null" ]]; then
   exit 1
 fi
 
+if ! [[ "$app_id" =~ ^[0-9]+$ ]]; then
+  echo "gh-app-token: appId must be a numeric string, got: $app_id" >&2
+  exit 1
+fi
+
+if ! [[ "$installation_id" =~ ^[0-9]+$ ]]; then
+  echo "gh-app-token: installationId must be a numeric string, got: $installation_id" >&2
+  exit 1
+fi
+
 now=$(date +%s)
 exp=$((now + 540))  # JWT lifetime: 9 minutes (GitHub maximum is 10).
 
