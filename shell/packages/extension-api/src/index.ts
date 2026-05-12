@@ -16,6 +16,12 @@ export interface Disposable {
 export interface ViewContribution {
   id: string;
   component: Component;
+  /**
+   * Operator-visible label shown on the dockview tab. Required because every
+   * view renders a tab — there is no sensible fallback. Naming aligned with
+   * CommandContribution.title.
+   */
+  title: string;
 }
 
 /**
