@@ -38,9 +38,11 @@ Corollary: if an extension needs a capability the host doesn't yet expose, add i
 ## Branching and merging
 
 - **Feature branches.** Implementation work runs on `feat/<topic>` branches off master. Spec/plan commits can land on master directly (they're metadata about future work); code commits live on a branch.
-- **Merge with `--no-ff`.** Land a feature branch via `git merge --no-ff feat/<topic>` so the feature boundary survives in `git log`. Matches the `f448ddc Merge branch 'feat/plugin-architecture-mvp'` precedent.
+- **PR workflow.** After the first task commit lands on the feat branch, push to `origin` and open a **draft** PR targeting master via `gh pr create --draft` (template in the reviewer-discipline section). Transition to ready-for-review (`gh pr ready <num>`) at end-of-iteration immediately before the final cross-cutting reviewer runs.
+- **Merge via `gh pr merge --merge <num>`.** Produces the merge-commit boundary equivalent to local `--no-ff` — matches the `f448ddc Merge branch 'feat/plugin-architecture-mvp'` precedent.
 - **Never `--no-verify`.** Don't bypass commit hooks. If a hook fails, fix the underlying issue. (The repo currently has no commit hooks; the rule is in place for when it does.)
 - **No force pushes to master.** Even with explicit user consent, prefer fixing the underlying issue over force-pushing.
+- **No force pushes to PR branches once they have review comments.** Review threads anchor to commit SHAs; force-pushing breaks the audit trail.
 
 ## Extension shape
 
