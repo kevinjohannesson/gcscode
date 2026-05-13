@@ -36,7 +36,7 @@ describe('app.svelte', () => {
     const registry = createRegistry();
     registry.activate(
       makeExtension((ctx) => {
-        ctx.host.window.registerView({ id: 'test.view', component: MockContent });
+        ctx.host.window.registerView({ id: 'test.view', component: MockContent, title: 'Test View' });
       }),
     );
     const manager = createExtensionManager(registry);
@@ -114,7 +114,7 @@ describe('app.svelte', () => {
 
     registry.activate(
       makeExtension((ctx) => {
-        ctx.host.window.registerView({ id: 'late.view', component: MockContent });
+        ctx.host.window.registerView({ id: 'late.view', component: MockContent, title: 'Test View' });
       }),
     );
     flushSync();
@@ -128,7 +128,7 @@ describe('app.svelte', () => {
     registry.activate(
       makeExtension((ctx) => {
         ctx.subscriptions.push(
-          ctx.host.window.registerView({ id: 'test.view', component: MockContent }),
+          ctx.host.window.registerView({ id: 'test.view', component: MockContent, title: 'Test View' }),
         );
       }),
     );
