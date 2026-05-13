@@ -53,7 +53,7 @@ describe('mapDemoExtension', () => {
 
     expect(registerView).toHaveBeenCalledTimes(1);
     expect(registerView).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'gcscode.map-demo.main' }),
+      expect.objectContaining({ id: 'gcscode.map-demo.main', title: 'Map (demo)' }),
     );
     expect(subscriptions).toHaveLength(1);
   });
