@@ -6,6 +6,7 @@
   import ExtensionsPanelHost from './extensions-panel/extensions-panel-host.svelte';
   import ViewHost from './dockview-host/view-host.svelte';
   import GcscodeTab from './dockview-host/gcscode-tab.svelte';
+  import EmptyStateWatermark from './dockview-host/empty-state-watermark.svelte';
 
   let { registry, manager }: { registry: Registry; manager: ExtensionManager } = $props();
 
@@ -27,14 +28,7 @@
 
     for (const [id, panel] of current) {
       if (!desired.has(id)) {
-        try {
-          dockviewApi.removePanel(panel);
-        } catch {
-          // dockview-core's Tabs.delete can throw in jsdom when tab tracking
-          // is inconsistent (tab registered in panels list but not in the
-          // internal Tabs map). Safe to swallow: the panel is gone from
-          // registry.listViews() so it won't be re-added.
-        }
+        dockviewApi.removePanel(panel);
       }
     }
 
@@ -47,9 +41,7 @@
           title: view.title,
           params: { component: view.component },
         });
-      } else if (
-        (existing.params as { component?: unknown } | undefined)?.component !== view.component
-      ) {
+      } else if (existing.params?.['component'] !== view.component) {
         existing.api.updateParameters({ component: view.component });
       }
     }
@@ -59,16 +51,13 @@
 <main class="shell flex h-screen flex-col">
   <header class="shell__header">GCScode</header>
   <section class="shell__content min-h-0 flex-1">
-    {#if views.length === 0}
-      <p data-testid="empty-state">No extensions registered.</p>
-    {:else}
-      <DockviewSvelte
-        components={{ 'view-host': ViewHost }}
-        defaultTabComponent={GcscodeTab}
-        disableFloatingGroups={true}
-        onReady={handleReady}
-      />
-    {/if}
+    <DockviewSvelte
+      components={{ 'view-host': ViewHost }}
+      defaultTabComponent={GcscodeTab}
+      watermarkComponent={EmptyStateWatermark}
+      disableFloatingGroups={true}
+      onReady={handleReady}
+    />
   </section>
   <footer
     class="shell__statusbar flex items-center justify-between border-t border-neutral-300 px-3 py-1 text-xs"

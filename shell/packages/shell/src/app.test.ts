@@ -48,9 +48,6 @@ describe('app.svelte', () => {
     render(App, { props: { registry, manager } });
     flushSync();
 
-    // The dockview tab DOM uses .dv-default-tab-content for the label text.
-    // Both DefaultTab and our GcscodeTab wrapper render the title under this
-    // class.
     const tabLabel = screen.getByText('Test View');
     expect(tabLabel).toBeInTheDocument();
   });

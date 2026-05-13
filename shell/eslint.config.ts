@@ -52,5 +52,15 @@ export default [
       ],
     },
   },
+  {
+    // Allow `_`-prefixed identifiers as the conventional "intentionally unused"
+    // marker — mirrors TypeScript's own noUnusedParameters suppression pattern.
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { varsIgnorePattern: '^_', argsIgnorePattern: '^_' },
+      ],
+    },
+  },
   { ignores: ['**/node_modules/**', '**/dist/**', '**/.svelte-kit/**'] },
 ];
