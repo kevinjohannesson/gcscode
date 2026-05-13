@@ -7,3 +7,6 @@ Purpose: exercise every distinct verdict path in the reviews-as-artifacts
 spec (`docs/specs/2026-05-12-reviews-as-artifacts.md`) with scripted
 verdicts to test the workflow mechanics end-to-end. Reviewer judgment is
 not exercised here.
+
+The validation concludes with PR closure and branch deletion; this file
+disappears with the branch.
