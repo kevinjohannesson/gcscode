@@ -49,6 +49,7 @@ export const sitlExtension: Extension = {
       context.host.window.registerView({
         id: 'gcscode.sitl.location',
         component: SitlView,
+        title: 'SITL',
       }),
       context.host.commands.registerCommand({
         id: 'gcscode.sitl.getLocation',
