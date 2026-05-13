@@ -10,7 +10,11 @@ const fakeComponent = {} as ViewContribution['component'];
 function makeViewExtension(id: string) {
   const activate = vi.fn((ctx: ExtensionContext) => {
     ctx.subscriptions.push(
-      ctx.host.window.registerView({ id: `${id}.view`, component: fakeComponent, title: 'Test View' }),
+      ctx.host.window.registerView({
+        id: `${id}.view`,
+        component: fakeComponent,
+        title: 'Test View',
+      }),
     );
   });
   const extension: Extension = {
@@ -27,7 +31,11 @@ function makeViewExtension(id: string) {
 function makeViewExtensionWithDeactivate(id: string, deactivate: () => void | Promise<void>) {
   const activate = vi.fn((ctx: ExtensionContext) => {
     ctx.subscriptions.push(
-      ctx.host.window.registerView({ id: `${id}.view`, component: fakeComponent, title: 'Test View' }),
+      ctx.host.window.registerView({
+        id: `${id}.view`,
+        component: fakeComponent,
+        title: 'Test View',
+      }),
     );
   });
   const extension: Extension = {
@@ -51,7 +59,9 @@ describe('createExtensionManager', () => {
     manager.register(extension);
 
     expect(activate).toHaveBeenCalledTimes(1);
-    expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent, title: 'Test View' }]);
+    expect(registry.listViews()).toEqual([
+      { id: 'ext.a.view', component: fakeComponent, title: 'Test View' },
+    ]);
     expect(manager.listExtensions()).toEqual([
       { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: true },
     ]);
@@ -98,7 +108,9 @@ describe('createExtensionManager', () => {
     const secondContext = activate.mock.calls[1][0];
     expect(secondContext).not.toBe(firstContext);
     expect(secondContext.subscriptions).toHaveLength(1);
-    expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent, title: 'Test View' }]);
+    expect(registry.listViews()).toEqual([
+      { id: 'ext.a.view', component: fakeComponent, title: 'Test View' },
+    ]);
     expect(manager.listExtensions()).toEqual([
       { manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' }, enabled: true },
     ]);
@@ -187,7 +199,9 @@ describe('createExtensionManager', () => {
     await manager.setEnabled('ext.a', true);
 
     expect(activate).toHaveBeenCalledTimes(1);
-    expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent, title: 'Test View' }]);
+    expect(registry.listViews()).toEqual([
+      { id: 'ext.a.view', component: fakeComponent, title: 'Test View' },
+    ]);
   });
 
   it('onEnabledChanged fires from setEnabled with matching (id, enabled) arguments', async () => {

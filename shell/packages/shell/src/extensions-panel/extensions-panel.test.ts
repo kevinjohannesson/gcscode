@@ -26,7 +26,11 @@ function makeExtension(opts: {
     },
     activate(ctx: ExtensionContext) {
       ctx.subscriptions.push(
-        ctx.host.window.registerView({ id: `${opts.id}.view`, component: fakeComponent, title: 'Test View' }),
+        ctx.host.window.registerView({
+          id: `${opts.id}.view`,
+          component: fakeComponent,
+          title: 'Test View',
+        }),
       );
     },
   };
