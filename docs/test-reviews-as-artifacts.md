@@ -10,3 +10,9 @@ not exercised here.
 
 The validation concludes with PR closure and branch deletion; this file
 disappears with the branch.
+
+## Disposition
+
+Throwaway. This file is not intended to be merged. The PR will be closed
+without merge once all reviewer dispatches have been verified, and the
+branch deleted from both local and origin.
