@@ -287,6 +287,8 @@ Each gets its own brainstorm + spec cycle. Listed here for legibility, not as co
 
 Beyond these: Linear integration, webhook routing, formal override semantics, distinct App identities per reviewer role. Each is its own brainstorm when triggered.
 
+Note on distinct App identities: the current single-bot workflow reaches `APPROVED` end-state without dismissing prior `--request-changes` reviews because GitHub's `reviewDecision` uses latest-review-per-user semantics. Validated empirically on PR #1 (2026-05-14). A future multi-bot extension loses this property — a second identity's un-dismissed `--request-changes` gates the PR independently. That branch needs explicit dismissal semantics, branch-protection tuning, or a different merge gate.
+
 ## Origin
 
 Earlier brainstorming via Claude cowork explored the broader agentic-team vision (event-driven dispatch, Linear, multi-model reviewers, override semantics). That transcript informed both the scoping decisions in this spec — what to defer, what to ship first — and the planned follow-up iterations listed above. The transcript itself is not committed to the repo; it lives in the user's claude.ai chat history.
