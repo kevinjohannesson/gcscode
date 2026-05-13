@@ -121,6 +121,7 @@ describe('sitlExtension', () => {
     expect(registerView).toHaveBeenCalledWith({
       id: 'gcscode.sitl.location',
       component: SitlView,
+      title: 'SITL',
     });
     expect(registerCommand).toHaveBeenCalledWith({
       id: 'gcscode.sitl.getLocation',

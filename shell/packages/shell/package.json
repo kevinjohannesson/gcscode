@@ -18,6 +18,8 @@
     "@gcscode/extension-map-demo": "workspace:*",
     "@gcscode/extension-sitl": "workspace:*",
     "@gcscode/extension-vehicle-status": "workspace:*",
+    "dockview-core": "^6.0.1",
+    "dockview-svelte": "workspace:*",
     "fuse.js": "^7.3.0"
   }
 }

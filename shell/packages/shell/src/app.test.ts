@@ -32,18 +32,24 @@ describe('app.svelte', () => {
     expect(screen.getByTestId('empty-state')).toBeInTheDocument();
   });
 
-  it('renders every registered view', () => {
+  it('renders a dockview tab for every registered view', () => {
     const registry = createRegistry();
     registry.activate(
       makeExtension((ctx) => {
-        ctx.host.window.registerView({ id: 'test.view', component: MockContent });
+        ctx.host.window.registerView({
+          id: 'test.view',
+          component: MockContent,
+          title: 'Test View',
+        });
       }),
     );
     const manager = createExtensionManager(registry);
 
     render(App, { props: { registry, manager } });
+    flushSync();
 
-    expect(screen.getByText('mock-content')).toBeInTheDocument();
+    const tabLabel = screen.getByText('Test View');
+    expect(tabLabel).toBeInTheDocument();
   });
 
   it('renders the status bar even when no items are registered', () => {
@@ -106,7 +112,7 @@ describe('app.svelte', () => {
     expect(texts).toEqual(['mock-left', 'mock-right']);
   });
 
-  it('reflects post-mount view registration in the rendered UI', () => {
+  it('reflects post-mount view registration as a new tab', () => {
     const registry = createRegistry();
     const manager = createExtensionManager(registry);
     render(App, { props: { registry, manager } });
@@ -114,32 +120,41 @@ describe('app.svelte', () => {
 
     registry.activate(
       makeExtension((ctx) => {
-        ctx.host.window.registerView({ id: 'late.view', component: MockContent });
+        ctx.host.window.registerView({
+          id: 'late.view',
+          component: MockContent,
+          title: 'Late View',
+        });
       }),
     );
     flushSync();
 
     expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument();
-    expect(screen.getByText('mock-content')).toBeInTheDocument();
+    expect(screen.getByText('Late View')).toBeInTheDocument();
   });
 
-  it('reflects post-mount view deactivation in the rendered UI', async () => {
+  it('reflects post-mount view deactivation by removing the tab', async () => {
     const registry = createRegistry();
     registry.activate(
       makeExtension((ctx) => {
         ctx.subscriptions.push(
-          ctx.host.window.registerView({ id: 'test.view', component: MockContent }),
+          ctx.host.window.registerView({
+            id: 'test.view',
+            component: MockContent,
+            title: 'Deactivatable',
+          }),
         );
       }),
     );
     const manager = createExtensionManager(registry);
     render(App, { props: { registry, manager } });
-    expect(screen.getByText('mock-content')).toBeInTheDocument();
+    flushSync();
+    expect(screen.getByText('Deactivatable')).toBeInTheDocument();
 
     await registry.deactivate('test');
     flushSync();
 
-    expect(screen.queryByText('mock-content')).not.toBeInTheDocument();
+    expect(screen.queryByText('Deactivatable')).not.toBeInTheDocument();
     expect(screen.getByTestId('empty-state')).toBeInTheDocument();
   });
 

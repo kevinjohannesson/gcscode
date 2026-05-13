@@ -181,7 +181,6 @@ export class SvelteRenderer
     this._renderDisposable?.update({ params: event.params });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   layout(_width: number, _height: number): void {
     // Layout is handled entirely by Svelte's reactive sizing on the host
     // element; we have nothing to imperatively recompute here.
@@ -209,7 +208,6 @@ export class SvelteWatermarkRenderer extends AbstractSvelteRenderer implements I
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   update(_event: PanelUpdateEvent<Parameters>): void {
     // noop — watermark props are entirely derived from the container at init.
   }

@@ -55,6 +55,7 @@ describe('mapExtension', () => {
 
     expect(host.window.registerView).toHaveBeenCalledTimes(1);
     expect(captured[0].id).toBe('gcscode.map.main');
+    expect(captured[0].title).toBe('Map');
     expect(subscriptions).toHaveLength(1);
     expect(exports).toBe(mapApi);
   });

@@ -189,6 +189,12 @@ importers:
       '@gcscode/extension-vehicle-status':
         specifier: workspace:*
         version: link:../extension-vehicle-status
+      dockview-core:
+        specifier: ^6.0.1
+        version: 6.0.1
+      dockview-svelte:
+        specifier: workspace:*
+        version: link:../dockview-svelte
       fuse.js:
         specifier: ^7.3.0
         version: 7.3.0

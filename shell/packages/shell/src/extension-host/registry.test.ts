@@ -28,22 +28,22 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent });
+        ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent, title: 'Test View' });
       }),
     );
-    expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent }]);
+    expect(registry.listViews()).toEqual([{ id: 'ext.a.view', component: fakeComponent, title: 'Test View' }]);
   });
 
   it('keeps registrations from multiple extensions', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent });
+        ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent, title: 'Test View' });
       }),
     );
     registry.activate(
       extension('ext.b', (ctx) => {
-        ctx.host.window.registerView({ id: 'ext.b.view', component: fakeComponent });
+        ctx.host.window.registerView({ id: 'ext.b.view', component: fakeComponent, title: 'Test View' });
       }),
     );
     expect(registry.listViews()).toHaveLength(2);
@@ -57,6 +57,7 @@ describe('createRegistry', () => {
         disposable = ctx.host.window.registerView({
           id: 'ext.a.view',
           component: fakeComponent,
+          title: 'Test View',
         });
       }),
     );
@@ -73,6 +74,7 @@ describe('createRegistry', () => {
         disposable = ctx.host.window.registerView({
           id: 'ext.a.view',
           component: fakeComponent,
+          title: 'Test View',
         });
       }),
     );
@@ -85,13 +87,13 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.window.registerView({ id: 'shared', component: fakeComponent });
+        ctx.host.window.registerView({ id: 'shared', component: fakeComponent, title: 'Test View' });
       }),
     );
     expect(() =>
       registry.activate(
         extension('ext.b', (ctx) => {
-          ctx.host.window.registerView({ id: 'shared', component: fakeComponent });
+          ctx.host.window.registerView({ id: 'shared', component: fakeComponent, title: 'Test View' });
         }),
       ),
     ).toThrow(/shared.*ext\.b/);
@@ -123,7 +125,7 @@ describe('createRegistry', () => {
     registry.activate(
       extension('ext.a', (ctx) => {
         subs = ctx.subscriptions;
-        subs.push(ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent }));
+        subs.push(ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent, title: 'Test View' }));
       }),
     );
     expect(subs).toHaveLength(1);
@@ -296,7 +298,7 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     registry.activate(
       extension('ext.a', (ctx) => {
-        ctx.host.window.registerView({ id: 'shared', component: fakeComponent });
+        ctx.host.window.registerView({ id: 'shared', component: fakeComponent, title: 'Test View' });
         ctx.host.window.registerStatusBarItem({
           id: 'shared',
           component: fakeComponent,
@@ -565,7 +567,7 @@ describe('createRegistry', () => {
     registry.activate(
       extension('ext.a', (ctx) => {
         ctx.subscriptions.push(
-          ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent }),
+          ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent, title: 'Test View' }),
           ctx.host.window.registerStatusBarItem({
             id: 'ext.a.status',
             component: fakeComponent,
@@ -657,7 +659,7 @@ describe('createRegistry', () => {
     registry.activate(
       extension('ext.a', (ctx) => {
         ctx.subscriptions.push(
-          ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent }),
+          ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent, title: 'Test View' }),
         );
       }),
     );
@@ -673,7 +675,7 @@ describe('createRegistry', () => {
     const registry = createRegistry();
     const e = extension('ext.a', (ctx) => {
       ctx.subscriptions.push(
-        ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent }),
+        ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent, title: 'Test View' }),
       );
     });
 
@@ -693,14 +695,14 @@ describe('createRegistry', () => {
     registry.activate(
       extension('ext.a', (ctx) => {
         ctx.subscriptions.push(
-          ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent }),
+          ctx.host.window.registerView({ id: 'ext.a.view', component: fakeComponent, title: 'Test View' }),
         );
       }),
     );
     registry.activate(
       extension('ext.b', (ctx) => {
         ctx.subscriptions.push(
-          ctx.host.window.registerView({ id: 'ext.b.view', component: fakeComponent }),
+          ctx.host.window.registerView({ id: 'ext.b.view', component: fakeComponent, title: 'Test View' }),
         );
       }),
     );
