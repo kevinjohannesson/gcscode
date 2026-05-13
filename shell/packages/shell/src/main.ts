@@ -1,5 +1,6 @@
 import { mount } from 'svelte';
 
+import 'dockview-core/dist/styles/dockview.css';
 import './app.css';
 import App from './app.svelte';
 import { attachKeybindingDispatcher } from './keybinding-dispatcher';
