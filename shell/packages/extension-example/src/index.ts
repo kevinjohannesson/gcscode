@@ -15,6 +15,7 @@ export const exampleExtension: Extension = {
       context.host.window.registerView({
         id: 'gcscode.example.main',
         component: ExampleView,
+        title: 'Example',
       }),
       context.host.window.registerStatusBarItem({
         id: 'gcscode.example.status',

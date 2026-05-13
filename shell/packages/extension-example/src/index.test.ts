@@ -43,6 +43,7 @@ describe('exampleExtension', () => {
     expect(registerView).toHaveBeenCalledWith({
       id: 'gcscode.example.main',
       component: ExampleView,
+      title: 'Example',
     });
     expect(registerStatusBarItem).toHaveBeenCalledWith({
       id: 'gcscode.example.status',
