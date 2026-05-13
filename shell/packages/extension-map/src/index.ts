@@ -29,6 +29,7 @@ export const mapExtension: Extension = {
       context.host.window.registerView({
         id: 'gcscode.map.main',
         component: MapView,
+        title: 'Map',
       }),
     );
     return mapApi;
