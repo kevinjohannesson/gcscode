@@ -108,10 +108,13 @@ Every reviewer subagent dispatched during an iteration — per-task spec-complia
 | Per-task spec-compliance               |      ✓      |          ✓          |      ✗      |
 | Per-task code-quality                  |      ✓      |          ✓          |      ✗      |
 | Final cross-cutting (end of iteration) |      ✗      |          ✓          |      ✓      |
+| Red-team (per-artifact, spec/ADR-PRs)  |      ✓      |          ✗          |      ✗      |
 
 Per-task reviewers may post `--comment` (clean or informational) or `--request-changes` (blocking), never `--approve`. The final cross-cutting reviewer is the only review allowed to flip the PR into approved state; it posts `--approve` or `--request-changes`, never `--comment`.
 
 **Re-review after a Code-review-followup commit:** controller re-dispatches the same reviewer role + model after the followup commit lands. The re-review posts a **new** review (`--comment` "addressed in `<SHA>`" or another `--request-changes`). Prior reviews stay in the PR timeline — reviewers never dismiss their own prior reviews.
+
+**Red-team auto-dispatch (spec/ADR PRs).** When a `spec/<topic>` or `adr/<slug>` PR is opened, the controller automatically dispatches the red-team reviewer per its registry entry. The dispatch uses the same boilerplate as per-task reviewers (token helper, PR posting requirement) and reads its review template from [`.claude/reviewer-prompts/red-team.md`](.claude/reviewer-prompts/red-team.md). Red-team's verdict is `--comment` only in v1 (advisory). On a `Code-review-followup:` commit to the spec/ADR branch, the controller re-dispatches red-team and the re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (matches the existing re-review convention).
 
 **Review header convention** (mandatory so the single bot identity remains role-legible):
 
@@ -125,10 +128,13 @@ Examples:
 - `## Code-quality review — task 7 — Claude Sonnet 4.6`
 - `## Final cross-cutting review — Claude Opus 4.7`
 - `## Spec-compliance review — task 3 (re-review of abc1234) — Claude Sonnet 4.6`
+- `## Red-team review — spec — Claude Opus 4.7`
+- `## Red-team review — ADR — Claude Opus 4.7`
+- `## Red-team review — spec (re-review of def5678) — Claude Opus 4.7`
 
 **Merge gate (controller does NOT merge — the user does):** convention is "do not merge unless the final cross-cutting review is `--approve`." Human override allowed; if user merges despite open `--request-changes` reviews, leave a PR comment explaining why. The override is itself an artifact.
 
-**PR template for `gh pr create --draft --body "..."`:**
+**Feature-PR template for `gh pr create --draft --body "..."`:**
 
 ```md
 ## Iteration
@@ -147,6 +153,25 @@ Per-task reviewers post under task-headers. Final cross-cutting review posts at 
 
 🤖 Reviews authored by `gcscode-reviewer[bot]` — see [docs/specs/2026-05-12-reviews-as-artifacts.md](../blob/master/docs/specs/2026-05-12-reviews-as-artifacts.md) for the workflow.
 ```
+
+**Spec/ADR-PR template** (used for `spec/<topic>` and `adr/<slug>` PRs that ship via the spec-PR / ADR-PR workflows from "Branching and merging"):
+
+`````md
+## <Spec or ADR title>
+
+<one-line summary matching the artifact's first line>
+
+## Links
+
+- Related spec/ADR: …
+- Related iteration (if any): …
+
+## Reviewer instructions
+
+Red-team auto-dispatches on PR open per the reviewer-role registry. Future reviewer roles (e.g., domain expert, when they exist) follow per the registry.
+
+🤖 Reviews authored by `gcscode-reviewer[bot]` — see [docs/specs/2026-05-12-reviews-as-artifacts.md](../blob/master/shell/docs/specs/2026-05-12-reviews-as-artifacts.md) for the workflow.
+`````
 
 **Public repo note.** gcscode is public on GitHub. Reviewer comments are world-readable. Keep reviews professional. Don't paste sensitive context (credentials, internal URLs).
 
