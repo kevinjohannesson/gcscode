@@ -103,6 +103,7 @@ Every reviewer subagent dispatched during an iteration — per-task spec-complia
 | Code-quality        | per-task      | `gcscode-reviewer[bot]` | Claude Sonnet 4.6 | feature-PR      | After spec-compliance passes | `--comment`, `--request-changes` | Code quality, idioms, edge cases                    | `## Code-quality review — task <N> — Claude Sonnet 4.6`    | `## Code-quality review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6`    | `superpowers:subagent-driven-development/code-quality-reviewer-prompt.md` |
 | Final cross-cutting | cross-cutting | `gcscode-reviewer[bot]` | Claude Opus 4.7   | feature-PR      | End of iteration             | `--request-changes`, `--approve` | Cross-cutting concerns missed at per-task level     | `## Final cross-cutting review — Claude Opus 4.7`          | `## Final cross-cutting review (re-review of <SHA>) — Claude Opus 4.7`          | `superpowers:requesting-code-review/code-reviewer.md`                     |
 | Red-team            | per-artifact  | `gcscode-reviewer[bot]` | Claude Opus 4.7   | spec-PR, ADR-PR | Automatic on PR open         | `--comment` only (v1)            | Premise challenger + consistency reviewer           | `## Red-team review — <spec or ADR> — Claude Opus 4.7`     | `## Red-team review — <spec or ADR> (re-review of <SHA>) — Claude Opus 4.7`     | `.claude/reviewer-prompts/red-team.md`                                    |
+| Spec-quality        | per-artifact  | `gcscode-reviewer[bot]` | Claude Sonnet 4.6 | spec-PR, ADR-PR | Automatic on PR open         | `--comment` only (v1)            | Document structure + within-document consistency + link mechanics | `## Spec-quality review — <spec or ADR> — Claude Sonnet 4.6` | `## Spec-quality review — <spec or ADR> (re-review of <SHA>) — Claude Sonnet 4.6` | `.claude/reviewer-prompts/spec-quality.md`                                |
 
 `<SHA>` in re-review headers refers to the **followup commit that prompted the re-review** (the new commit added since the prior review), matching the empirical convention from PR #1's validation.
 
@@ -114,12 +115,13 @@ Every reviewer subagent dispatched during an iteration — per-task spec-complia
 | Per-task code-quality                  |      ✓      |          ✓          |      ✗      |
 | Final cross-cutting (end of iteration) |      ✗      |          ✓          |      ✓      |
 | Red-team (per-artifact, spec/ADR-PRs)  |      ✓      |          ✗          |      ✗      |
+| Spec-quality (per-artifact, spec/ADR-PRs) |      ✓      |          ✗          |      ✗      |
 
 Per-task reviewers may post `--comment` (clean or informational) or `--request-changes` (blocking), never `--approve`. The final cross-cutting reviewer is the only review allowed to flip the PR into approved state; it posts `--approve` or `--request-changes`, never `--comment`.
 
 **Re-review after a Code-review-followup commit:** controller re-dispatches the same reviewer role + model after the followup commit lands. The re-review posts a **new** review (`--comment` "addressed in `<SHA>`" or another `--request-changes`). Prior reviews stay in the PR timeline — reviewers never dismiss their own prior reviews.
 
-**Red-team auto-dispatch (spec/ADR PRs).** When a `spec/<topic>` or `adr/<slug>` PR is opened, the controller automatically dispatches the red-team reviewer per its registry entry. The dispatch uses the same boilerplate as per-task reviewers (token helper, PR posting requirement) and reads its review template from [`.claude/reviewer-prompts/red-team.md`](.claude/reviewer-prompts/red-team.md). Red-team's verdict is `--comment` only in v1 (advisory). On a `Code-review-followup:` commit to the spec/ADR branch, the controller re-dispatches red-team and the re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (matches the existing re-review convention).
+**Auto-dispatch on spec/ADR PRs.** When a `spec/<topic>` or `adr/<slug>` PR is opened, the controller automatically dispatches BOTH the red-team reviewer AND the spec-quality reviewer per their registry entries. The two roles dispatch in parallel as independent subagents — neither blocks the other; both post independent reviews. The dispatches use the same boilerplate (token helper, PR posting requirement) and each reads its own prompt template from `.claude/reviewer-prompts/`. Both roles' verdicts are `--comment` only in v1 (advisory). On a `Code-review-followup:` commit to the spec/ADR branch, the controller re-dispatches BOTH roles. Each re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit.
 
 **Review header convention** (mandatory so the single bot identity remains role-legible):
 
@@ -136,6 +138,9 @@ Examples:
 - `## Red-team review — spec — Claude Opus 4.7`
 - `## Red-team review — ADR — Claude Opus 4.7`
 - `## Red-team review — spec (re-review of def5678) — Claude Opus 4.7`
+- `## Spec-quality review — spec — Claude Sonnet 4.6`
+- `## Spec-quality review — ADR — Claude Sonnet 4.6`
+- `## Spec-quality review — spec (re-review of def5678) — Claude Sonnet 4.6`
 
 **Merge gate (controller does NOT merge — the user does):** convention is "do not merge unless the final cross-cutting review is `--approve`." Human override allowed; if user merges despite open `--request-changes` reviews, leave a PR comment explaining why. The override is itself an artifact.
 
@@ -198,8 +203,8 @@ When designing a new reviewer role (devil's advocate v2, expert reviewers, futur
 
 The reviewer-role registry's `trigger` field declares WHEN a role fires (e.g., red-team's `trigger` is "Automatic on PR open"). In v1 there is no automated dispatcher; the controller (human or LLM session) honors the trigger. This checklist makes the controller's action points legible **for roles whose `trigger` is `Automatic on PR open`**. Other trigger forms (`After each task commit` for per-task reviewers; `End of iteration` for final cross-cutting) have their own existing dispatch patterns documented in "Subagent-driven plan execution" and "Subagent reviewer PR-posting discipline":
 
-- **Before opening a `spec/<topic>` or `adr/<slug>` PR:** plan to dispatch the red-team subagent immediately after `gh pr create`. Do not consider the PR-open step complete until red-team has posted its review.
-- **After every `Code-review-followup:` commit on a spec/ADR branch:** re-dispatch red-team. Re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). Note: a followup that does not touch content red-team reviewed will still trigger re-dispatch. v1 accepts the duplicative-review cost; if the pattern produces material noise, a future iteration can condition the obligation on whether the followup touches reviewed content.
+- **Before opening a `spec/<topic>` or `adr/<slug>` PR:** plan to dispatch BOTH the red-team subagent AND the spec-quality subagent immediately after `gh pr create`. They dispatch in parallel (independent subagents). Do not consider the PR-open step complete until both have posted their reviews.
+- **After every `Code-review-followup:` commit on a spec/ADR branch:** re-dispatch BOTH red-team AND spec-quality (in parallel). Each role's re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). Note: a followup that does not touch content either reviewer commented on will still trigger both re-dispatches. v1 accepts the duplicative-review cost; if the pattern produces material noise, a future iteration can condition the obligation on whether the followup touches reviewed content for each role.
 - **No automated enforcement in v1.** Convention-based; the obligation is the controller's. Detection of a skip is by user observation — a merged spec/ADR PR with no red-team review is the failure signature. Trigger to add automated enforcement: first observed silent skip on a real spec/ADR PR.
 
 When new reviewer roles join the registry whose `trigger` is also `Automatic on PR open` (e.g., devil's advocate v2), append their obligations to this checklist alongside red-team's. Other trigger forms get their own checklist if/when they're added.
