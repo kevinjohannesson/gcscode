@@ -41,7 +41,7 @@ Label was the cheapest opt-in signal that doesn't pull branch protection into sc
 1. Add `.github/workflows/auto-merge.yml` that merges a PR when:
    - The `auto-merge` label is present on the PR (user's opt-in signal), AND
    - The PR's `headRefName` matches a recognized class (`feat/*`, `spec/*`, or `adr/*`), AND
-   - For feature PRs only: the `gcscode-reviewer` bot's latest review state is `APPROVED`, AND
+   - Class-aware bot signal passes: for `feat/*` PRs the PR's `reviewDecision` is `APPROVED`; for `spec/*` or `adr/*` PRs both red-team AND spec-quality have posted at least one review (enforcing the auto-dispatch obligation), AND
    - The PR is mergeable (no conflicts).
 2. Workflow uses `gh pr merge --merge --delete-branch` (preserves merge-commit boundary per CLAUDE.md "Branching and merging"; deletes the branch on origin as tidy-up).
 3. Workflow is **uniform across both PR classes** (label gate applies to both; bot gate is class-aware).
@@ -260,7 +260,7 @@ One small bullet added to "Branching and merging", immediately AFTER the existin
 Per the post-merge implementation convention, two direct-master commits after merge of this spec-PR:
 
 - **Commit 1: Create `.github/workflows/auto-merge.yml`** with the verbatim content shown above.
-- **Commit 2: Add the "Auto-merge on user approval" bullet** to `shell/CLAUDE.md` "Branching and merging" section, immediately after the existing "Post-merge implementation conventions" bullet (verbatim text specified above).
+- **Commit 2: Add the "Auto-merge on user approval" bullet** to `shell/CLAUDE.md` "Branching and merging" section, immediately AFTER the existing `**Merge via `gh pr merge --merge <num>`.**` bullet (matches the placement described in the "CLAUDE.md changes" section above — manual merge bullet first, then auto-merge convention layered on top).
 
 ## Data flow — how this iteration ships
 
