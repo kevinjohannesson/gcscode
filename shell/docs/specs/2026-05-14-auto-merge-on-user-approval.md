@@ -25,6 +25,17 @@ The bigger version would include:
 
 That's a multi-iteration roadmap, not a single spec. This iteration ships the smallest concrete wedge: a workflow that handles the two existing PR classes with their existing gates. CI integration, override semantics, and branch protection happen in their own iterations when triggered.
 
+### Non-review signal alternatives considered
+
+The PR-author-can't-self-approve constraint forces a non-review signal for "merge now." Alternatives considered, with brief rationale for choosing `auto-merge` label:
+
+- **`auto-merge` label** (chosen) — GitHub-native, opt-in, one-click in the UI or via `gh pr edit --add-label`. No parsing, no branch-protection prerequisite, no extra dependency.
+- **PR comment with sentinel** (e.g., `/merge`) — familiar from Mergify/bors-style CI tools. Costs: comment-parsing logic, author validation (other commenters could spoof), more event surface area (`issue_comment` event also fires on review comments).
+- **Reaction emoji** (e.g., 👍 from PR author) — minimal but ambiguous; users react to many things, label-as-signal-of-merge-intent is too easy to trigger accidentally.
+- **GitHub's native auto-merge button** — would handle the workflow GitHub-side instead of in a custom Action. Costs: requires branch protection on the target ref (otherwise the button isn't exposed in the UI). We've deliberately deferred branch protection (see Non-goals); the native button comes back as the natural path when branch protection lands.
+
+Label was the cheapest opt-in signal that doesn't pull branch protection into scope. If branch protection arrives later, revisiting native auto-merge becomes worthwhile.
+
 ## Goals
 
 1. Add `.github/workflows/auto-merge.yml` that merges a PR when:
@@ -62,15 +73,19 @@ Both events have `github.event.pull_request.number` (for `pull_request.labeled`)
 
 ### Gates (must ALL pass for merge)
 
-The workflow checks gates sequentially. Any gate failure → exit cleanly with a log line; no merge.
+The workflow checks gates sequentially. Any gate failure → exit cleanly with a log line; no merge. The pre-gate runs before Gate 1 since draft state invalidates the entire flow regardless of label or class.
+
+**Pre-gate (Gate 0): PR is not in draft state.** Reads `isDraft`. If `true` → exit. This is an explicit early check (not just relying on `gh pr merge` to refuse drafts later) so the failure logs cleanly at the top of the workflow run instead of mid-execution.
 
 **Gate 1: `auto-merge` label present.** Reads the PR's labels; checks for an entry named `auto-merge`. Absent → exit. Present → continue.
 
-**Gate 2: PR class is recognized.** Reads `headRefName`. If it matches `feat/*` → feature PR (bot gate required); `spec/*` or `adr/*` → spec/ADR PR (no bot gate); anything else → exit. This filter explicitly keeps `test/*`, ad-hoc branches, and any future patterns out of auto-merge.
+**Gate 2: PR class is recognized.** Reads `headRefName`. If it matches `feat/*` → feature PR (bot gate via `reviewDecision`); `spec/*` or `adr/*` → spec/ADR PR (bot gate via "both reviewers posted"); anything else → exit. This filter explicitly keeps `test/*`, ad-hoc branches, and any future patterns out of auto-merge.
 
-**Gate 3: Bot approval (feature PRs only).** For feature PRs, looks at the `gcscode-reviewer` bot's latest review on the PR. If its state is `APPROVED` → continue. Otherwise → exit. Per the latest-review-per-user GitHub semantics confirmed in PR #1's validation, this `APPROVED` state overrides any earlier `--request-changes` from the bot during per-task reviews.
+**Gate 3: Bot signal (class-aware).** Two distinct sub-gates depending on PR class:
 
-For spec/ADR PRs, this gate is skipped (red-team and spec-quality are advisory `--comment` only in v1; neither can `--approve`).
+- **Feature PRs (gate 3a):** check the PR's `reviewDecision` field. If `APPROVED` → continue; otherwise → exit. This is GitHub's canonical merge-eligibility evaluation — it correctly handles the latest-non-comment-review-per-user semantics validated in PR #1's iteration. A late `--comment` re-review after a final `--approve` does NOT mask the approval (whereas a naive "last review by bot" check would). Using `reviewDecision` instead of inspecting individual reviews avoids that bug.
+
+- **Spec/ADR PRs (gate 3b):** check that BOTH the red-team reviewer AND the spec-quality reviewer have posted at least one review on the PR. Counted by `body` prefix (`## Red-team review` and `## Spec-quality review`). If both counts > 0 → continue; otherwise → exit. This gate enforces the auto-dispatch obligation from CLAUDE.md "Reviewer-role design conventions": the user shouldn't merge a spec/ADR PR before reading the bot reviews. Without this gate, an eager `auto-merge` label at PR-open time would race past the auto-dispatch obligation. v1 design choice: require at least one review from each role; do NOT require any particular verdict (both are advisory `--comment` in v1). When verdict promotion lands, this gate logic refines to also check verdict state.
 
 **Gate 4: PR is mergeable.** Reads `mergeable`. If `MERGEABLE` → proceed. Otherwise → exit (likely a merge conflict; user resolves manually).
 
@@ -95,12 +110,22 @@ No GitHub App token needed — this workflow doesn't post reviews; it just execu
 
 ### Edge cases
 
-- **Bot hasn't approved yet (feature PR), label is present.** Gate 1 + 2 pass; gate 3 fails. Workflow exits. When bot subsequently `--approves`, the `pull_request_review.submitted` event fires; workflow re-runs; gate 3 now passes; merge.
-- **Label added AFTER bot has already approved.** Workflow fires on `pull_request.labeled` event; all gates pass on this run; merges immediately.
+- **Bot hasn't approved yet (feature PR), label is present.** Pre-gate + 1 + 2 pass; gate 3a fails (`reviewDecision` is empty or `CHANGES_REQUESTED`). Workflow exits. When bot subsequently `--approves`, the `pull_request_review.submitted` event fires; workflow re-runs; gate 3a now passes; merge.
+- **Late `--comment` re-review after final `--approve` (feature PR).** Per the existing reviewer-followup pattern, a per-task reviewer can post a late `--comment` re-review even after the final cross-cutting `--approve`. A naive "last review by bot" check would mask the `--approve`; gate 3a uses `reviewDecision` which correctly preserves the `--approved` state in this case (per the latest-non-comment-review semantics from PR #1 validation). Workflow merges as intended.
+- **Eager `auto-merge` label at PR-open time (spec/ADR PR).** Pre-gate + 1 + 2 pass; gate 3b fails (one or both bot reviews haven't posted yet — auto-dispatch is in flight). Workflow exits. When BOTH bot reviewers post their reviews (controller's auto-dispatch obligation fires), the `pull_request_review.submitted` event triggers re-checks; gate 3b passes; merge. This is the explicit fix for the spec/ADR-PR-racing-past-auto-dispatch concern.
+- **Label added AFTER all gates would already pass.** Workflow fires on `pull_request.labeled` event; all gates pass on this run; merges immediately.
 - **Label removed mid-flight.** No event triggers in our subscription (`labeled` only, not `unlabeled`). The label-removal itself doesn't fire the workflow. If a subsequent review event fires, the workflow re-checks and finds no label → exits cleanly. No accidental merges.
-- **PR is in draft state.** `gh pr merge` refuses to merge a draft PR; workflow logs the failure and exits. User must mark the PR ready-for-review first (also part of the existing convention).
+- **PR is in draft state.** Pre-gate exits early with an explicit log line (rather than relying on `gh pr merge` to refuse mid-execution).
 - **PR has merge conflicts.** Gate 4 fails (`mergeable` is `CONFLICTING` or similar); workflow exits cleanly. User resolves conflicts and either re-pushes (triggering the gate logic via subsequent review/label events) or merges manually.
 - **Workflow itself fails (e.g., YAML syntax error, runner outage).** No merge happens; user can still run `gh pr merge` manually. The fallback path is always preserved.
+
+### Design choices baked into the verbatim YAML
+
+Three implementation choices in the verbatim YAML are easy to miss from the Gates prose alone; surfacing here so this spec-PR review (the only review the YAML gets) covers them:
+
+- **`exit 0` on every gate failure** — the workflow exits successfully (green check in the Actions UI) when a gate doesn't pass. Trade-off: failed gates don't clutter the Actions tab with red runs on every unrelated review event. Cost: the user can't visually scan red runs to find "auto-merge didn't fire when expected." Mitigation: every gate logs its outcome verbatim, so the Actions run log explains the exit. Failed-gate observability via PR comment is a future iteration if needed.
+- **Pre-gate explicit draft check** vs relying on `gh pr merge` to refuse drafts — explicit check at the top produces a clean log line ("Pre-gate FAILED: PR is in draft state"); the `gh pr merge` refusal would surface only at the bottom of the run as a curl-style error. Marginally better log legibility for a marginal cost (one extra jq read).
+- **`secrets.GITHUB_TOKEN` for merge actor** — the merge commit is attributed to `github-actions[bot]` rather than the user or the `gcscode-reviewer` GitHub App. This is a minor git-log attribution choice; using the App token would attribute the merge to `gcscode-reviewer[bot]` instead. The default-token choice is simpler and avoids a token-helper invocation in the workflow.
 
 ## The workflow file verbatim
 
@@ -110,10 +135,15 @@ Per the post-merge implementation convention, the implementation lands as a dire
 name: Auto-merge
 
 # Auto-merges PRs when:
-# 1. The `auto-merge` label is present (user's opt-in signal).
-# 2. The PR's headRefName is `feat/*`, `spec/*`, or `adr/*`.
-# 3. For `feat/*` PRs only: the `gcscode-reviewer` bot's latest review state is APPROVED.
-# 4. The PR is mergeable (no conflicts).
+# Pre-gate: PR is not in draft state.
+# Gate 1: The `auto-merge` label is present (user's opt-in signal).
+# Gate 2: The PR's headRefName is `feat/*`, `spec/*`, or `adr/*`.
+# Gate 3: Bot signal — class-aware:
+#         - feat/*: PR's reviewDecision is APPROVED (canonical GitHub check).
+#         - spec/* or adr/*: BOTH `gcscode-reviewer` red-team AND spec-quality
+#           have posted at least one review on the PR (enforces auto-dispatch
+#           obligation from CLAUDE.md).
+# Gate 4: The PR is mergeable (no conflicts).
 #
 # Spec: docs/specs/2026-05-14-auto-merge-on-user-approval.md
 
@@ -144,11 +174,19 @@ jobs:
           fi
           echo "Evaluating PR #${PR_NUMBER}"
 
-          PR_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,labels,reviews,mergeable,isDraft)
+          PR_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,labels,reviews,mergeable,isDraft,reviewDecision)
           HEAD_REF=$(echo "$PR_JSON" | jq -r .headRefName)
           IS_DRAFT=$(echo "$PR_JSON" | jq -r .isDraft)
           MERGEABLE=$(echo "$PR_JSON" | jq -r .mergeable)
+          REVIEW_DECISION=$(echo "$PR_JSON" | jq -r .reviewDecision)
           HAS_LABEL=$(echo "$PR_JSON" | jq -r '[.labels[] | select(.name == "auto-merge")] | length')
+
+          # Pre-gate (Gate 0): PR must not be in draft state.
+          if [[ "$IS_DRAFT" == "true" ]]; then
+            echo "Pre-gate FAILED: PR is in draft state. Exiting cleanly."
+            exit 0
+          fi
+          echo "Pre-gate OK: PR is not draft"
 
           # Gate 1: auto-merge label present
           if [[ "$HAS_LABEL" == "0" ]]; then
@@ -157,21 +195,15 @@ jobs:
           fi
           echo "Gate 1 OK: auto-merge label present"
 
-          # PR must not be draft (gh pr merge refuses drafts, but check explicitly for clearer log)
-          if [[ "$IS_DRAFT" == "true" ]]; then
-            echo "Pre-gate FAILED: PR is in draft state. Exiting cleanly."
-            exit 0
-          fi
-
           # Gate 2: PR class detection
           case "$HEAD_REF" in
             feat/*)
-              echo "Gate 2 OK: feature PR (head=${HEAD_REF}); bot gate required"
-              NEED_BOT_APPROVE=true
+              echo "Gate 2 OK: feature PR (head=${HEAD_REF}); gate 3a (reviewDecision) applies"
+              PR_CLASS=feat
               ;;
             spec/*|adr/*)
-              echo "Gate 2 OK: spec/ADR PR (head=${HEAD_REF}); no bot gate"
-              NEED_BOT_APPROVE=false
+              echo "Gate 2 OK: spec/ADR PR (head=${HEAD_REF}); gate 3b (both reviewers posted) applies"
+              PR_CLASS=spec_or_adr
               ;;
             *)
               echo "Gate 2 FAILED: head '${HEAD_REF}' is not feat/, spec/, or adr/. Exiting cleanly."
@@ -179,16 +211,28 @@ jobs:
               ;;
           esac
 
-          # Gate 3: bot approval (feature PRs only)
-          if [[ "$NEED_BOT_APPROVE" == "true" ]]; then
-            LATEST_BOT_REVIEW=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-reviewer")] | last | .state // "none"')
-            if [[ "$LATEST_BOT_REVIEW" != "APPROVED" ]]; then
-              echo "Gate 3 FAILED: bot's latest review state is '${LATEST_BOT_REVIEW}' (expected APPROVED). Exiting cleanly."
+          # Gate 3: bot signal (class-aware)
+          if [[ "$PR_CLASS" == "feat" ]]; then
+            # Gate 3a: GitHub's canonical reviewDecision check.
+            # Handles latest-non-comment-review-per-user semantics: a late --comment
+            # re-review after a final --approve does NOT mask the approval here.
+            if [[ "$REVIEW_DECISION" != "APPROVED" ]]; then
+              echo "Gate 3a FAILED: PR reviewDecision is '${REVIEW_DECISION}' (expected APPROVED). Exiting cleanly."
               exit 0
             fi
-            echo "Gate 3 OK: bot's latest review is APPROVED"
+            echo "Gate 3a OK: PR reviewDecision is APPROVED"
           else
-            echo "Gate 3 SKIPPED (spec/ADR PR; no bot gate)"
+            # Gate 3b: BOTH red-team AND spec-quality must have posted at least one review.
+            # Enforces the auto-dispatch obligation from CLAUDE.md "Reviewer-role design
+            # conventions" — prevents an eager auto-merge label at PR-open time from racing
+            # past the auto-dispatch step.
+            REDTEAM_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-reviewer") | select(.body | startswith("## Red-team review"))] | length')
+            SPECQUALITY_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-reviewer") | select(.body | startswith("## Spec-quality review"))] | length')
+            if [[ "$REDTEAM_COUNT" == "0" || "$SPECQUALITY_COUNT" == "0" ]]; then
+              echo "Gate 3b FAILED: red-team count=${REDTEAM_COUNT}, spec-quality count=${SPECQUALITY_COUNT} (both required > 0). Exiting cleanly."
+              exit 0
+            fi
+            echo "Gate 3b OK: red-team count=${REDTEAM_COUNT}, spec-quality count=${SPECQUALITY_COUNT}"
           fi
 
           # Gate 4: PR is mergeable
@@ -205,10 +249,10 @@ jobs:
 
 ## CLAUDE.md changes
 
-One small bullet added to "Branching and merging", immediately after the existing "Post-merge implementation conventions" bullet (so all the merge-related conventions sit together):
+One small bullet added to "Branching and merging", immediately AFTER the existing `**Merge via `gh pr merge --merge <num>`.**` bullet (so the bullet order reads naturally: manual merge first, then auto-merge as a convention layered on top of manual merge — the manual mechanism is always the underlying fallback):
 
 ```
-- **Auto-merge on user approval.** The user opts a PR into automatic merging by adding the `auto-merge` label. The `.github/workflows/auto-merge.yml` workflow merges the PR when (a) the label is present, (b) the head branch matches `feat/*`, `spec/*`, or `adr/*`, (c) for `feat/*` PRs the `gcscode-reviewer` bot's latest review state is `APPROVED`, and (d) the PR is mergeable. Test branches (`test/*`) and other branches stay manual. Removing the label removes the auto-merge intent for any subsequent trigger. The fallback (`gh pr merge --merge <num>` manually) is always available. Spec: [`docs/specs/2026-05-14-auto-merge-on-user-approval.md`](docs/specs/2026-05-14-auto-merge-on-user-approval.md).
+- **Auto-merge on user approval.** The user opts a PR into automatic merging by adding the `auto-merge` label. The `.github/workflows/auto-merge.yml` workflow merges the PR when (a) the PR is not draft, (b) the label is present, (c) the head branch matches `feat/*`, `spec/*`, or `adr/*`, (d) the class-aware bot signal passes — for `feat/*` PRs the PR's `reviewDecision` is `APPROVED`; for `spec/*` or `adr/*` PRs both red-team AND spec-quality have posted at least one review (enforcing the auto-dispatch obligation), and (e) the PR is mergeable. Test branches (`test/*`) and other branches stay manual. Removing the label removes the auto-merge intent for any subsequent trigger. The fallback `gh pr merge --merge <num>` (the prior bullet) is always available. Spec: [`docs/specs/2026-05-14-auto-merge-on-user-approval.md`](docs/specs/2026-05-14-auto-merge-on-user-approval.md).
 ```
 
 ## Post-merge implementation
@@ -268,10 +312,11 @@ Per-iteration-only deferrals (stay in spec): override mechanism for force-merge,
 
 ## `docs/roadmap.md` propagation
 
-Two updates:
+Three updates:
 
 1. **Flip "Auto-merge on user approval" from Queued to Shipped** when this iteration merges. Spec link goes in the Shipped entry.
-2. No new Considering entries from this iteration's brainstorm.
+2. **Rewrite the description text on flip.** The current Queued entry says "merges when user approves AND the final cross-cutting reviewer's last review is `--approve`" — that wording predates this iteration's design and is now stale (PR-author-can't-self-approve constraint forces a label, not a review; spec/ADR-PR class has different gate logic). Replace with the actual mechanism: "merges when (a) `auto-merge` label is present AND (b) class-aware bot signal passes — `reviewDecision==APPROVED` for feat/, both reviewers posted for spec/adr/ AND (c) PR is mergeable."
+3. No new Considering entries from this iteration's brainstorm.
 
 ## Known unknowns
 
@@ -295,4 +340,8 @@ Listed in the reviews-as-artifacts spec (2026-05-12) as the immediate follow-up 
 
 User initiated this iteration after the spec-quality-reviewer iteration shipped (2026-05-14), as the next natural step on the agentic-team track per the roadmap's "Queued" list. The brainstorm surfaced an architectural constraint that shaped the design: the user is the PR author on every gcscode PR, and GitHub blocks PR authors from submitting `--approve` reviews on their own PRs. So "user approves" had to be a non-review signal — label, comment, or GitHub's native enable-auto-merge button. Label was chosen for being native, opt-in, and one-click (no parsing, no branch-protection setup).
 
+**Supersedes the predecessor's sketch.** The reviews-as-artifacts spec (2026-05-12, around line 286) described this iteration as "~20 lines, `pull_request_review`-only, user-`--approve` as the signal." This spec supersedes that sketch on three points: (a) the workflow is ~95 lines once gate logic + class detection + class-aware bot signal + draft pre-gate are included; (b) two trigger events (`pull_request_review` AND `pull_request.labeled`) are required because the label-only signal needs the labeled-event to fire; (c) label-as-signal (not `--approve`) because GitHub blocks PR-author self-approval. The predecessor's wording will be replaced in the roadmap entry per the `docs/roadmap.md` propagation section above.
+
 This iteration is also the **first to exercise the parallel-dispatch auto-dispatch obligation on a real spec PR** with both red-team and spec-quality existing and reviewing organically. Plan 2 live validation for spec-quality fires here. Whether spec-quality's narrow document-internal mandate produces distinct findings from red-team's premise + consistency mandate gets its first non-synthetic test.
+
+The followup pass on this spec-PR (in response to red-team's PR #7 review) fixed two real bugs in the v1 design: gate 3's `| last` jq selector had a real failure mode under the existing re-review pattern (now uses `reviewDecision` for feat PRs, which has correct latest-non-comment semantics), and the spec/ADR PR class had no auto-dispatch-obligation gate (now requires both reviewers posted at least once before merge). Red-team's review caught both before merge.
