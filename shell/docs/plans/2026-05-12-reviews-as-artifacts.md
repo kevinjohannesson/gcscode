@@ -54,6 +54,7 @@ Provide the App ID and installation ID to the implementer at task start.
 ### Task 1: Create `.claude/agent-config.json`
 
 **Files:**
+
 - Create: `.claude/agent-config.json`
 
 - [ ] **Step 1: Verify `.claude/` directory exists**
@@ -100,6 +101,7 @@ EOF
 ### Task 2: Create `.claude/scripts/gh-app-token`
 
 **Files:**
+
 - Create: `.claude/scripts/gh-app-token` (executable bash script)
 
 - [ ] **Step 1: Verify required tools are available**
@@ -232,6 +234,7 @@ EOF
 ### Task 3: Update `CLAUDE.md` "Branching and merging" section
 
 **Files:**
+
 - Modify: `CLAUDE.md` (replace the existing `## Branching and merging` section)
 
 - [ ] **Step 1: Read the current section**
@@ -274,6 +277,7 @@ EOF
 ### Task 4: Add `CLAUDE.md` "Subagent reviewer PR-posting discipline" subsection
 
 **Files:**
+
 - Modify: `CLAUDE.md` (insert new `### Subagent reviewer PR-posting discipline` subsection inside `## Planning conventions and long-term alignment`)
 
 - [ ] **Step 1: Locate the exact insertion point**
@@ -371,6 +375,7 @@ EOF
 ### Task 5: Add `CLAUDE.md` "Further reading" entries for the new track
 
 **Files:**
+
 - Modify: `CLAUDE.md` (existing `## Further reading` section)
 
 - [ ] **Step 1: Read the current section**
@@ -407,6 +412,7 @@ EOF
 ### Task 6: Propagate cross-cutting deferrals to `docs/out-of-scope.md`
 
 **Files:**
+
 - Modify: `docs/out-of-scope.md` (add a new section per spec propagation)
 
 - [ ] **Step 1: Read the current file**
@@ -453,6 +459,7 @@ EOF
 ### Task 7: Add agentic-team-architecture track to `docs/roadmap.md`
 
 **Files:**
+
 - Modify: `docs/roadmap.md` (insert new top-level section between `## Feature extensions` and `## Maintenance`)
 
 - [ ] **Step 1: Read the current roadmap**

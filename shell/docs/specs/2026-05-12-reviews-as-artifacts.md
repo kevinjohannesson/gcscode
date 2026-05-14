@@ -8,7 +8,7 @@ gcscode has dual purpose: it is the GCS extension architecture, and it is the su
 
 The triggering pain point: when subagent reviewers (spec-compliance + code-quality) review a per-task implementation today, their output is consumed by the controller and compressed into a short summary the user sees in chat. Across roughly 10 tasks per iteration, ~1–3 reviewer findings reach the user. The user has no direct visibility into what reviewers said that didn't make the summary, whether reviewers agreed with each other, or what was dismissed. The reviews exist, but they're not durable enough to inspect — they're filtered through the parent's compression. That is itself a "smoke-break" problem: the canonical record (controller summary) does not capture the underlying reasoning (full reviewer output).
 
-The fix this iteration ships: make reviewer output land as a PR review on GitHub, alongside the controller's existing in-context summary. The PR becomes the durable artifact layer for code review. The controller's existing followup-loop is preserved — reviewers still return summaries — but the *record* moves from chat transcript into the repo's GitHub state.
+The fix this iteration ships: make reviewer output land as a PR review on GitHub, alongside the controller's existing in-context summary. The PR becomes the durable artifact layer for code review. The controller's existing followup-loop is preserved — reviewers still return summaries — but the _record_ moves from chat transcript into the repo's GitHub state.
 
 This is the first iteration of a multi-iteration arc. Earlier brainstorming via Claude cowork (Anthropic's chat product with local computer access) explored the broader vision — webhook routers, Linear integration, multi-model reviewers, override semantics — and that transcript informed the scoping decisions in this spec. Subsequent iterations on this track include auto-merge on user approval, a red-team reviewer for specs/plans/ADRs, and multi-model heterogeneous reviewers — each as its own brainstorm + spec + plan cycle.
 
@@ -28,7 +28,7 @@ The "cowork" arc as initially scoped on claude.ai included a webhook router, a q
 
 - **No Linear integration**, in any form, in this iteration.
 - **No webhook routers / event-driven dispatch.** The controller (Claude session) remains the orchestrator; reviewers are spawned inline during the iteration.
-- **No multi-model heterogeneous reviewers.** Reviewers continue to run as whatever model the controller picks (typically Sonnet). The "independence by model diversity" payoff is deferred to its own future iteration; this iteration is about making review *output* durable so we can later measure independence honestly.
+- **No multi-model heterogeneous reviewers.** Reviewers continue to run as whatever model the controller picks (typically Sonnet). The "independence by model diversity" payoff is deferred to its own future iteration; this iteration is about making review _output_ durable so we can later measure independence honestly.
 - **No override semantics.** ADR supersession by reviewer, `blocked-on-adr` labels, formal disagreement mechanisms (the "good mechanism" patterns in the prior cowork chat) are not built here.
 - **No auto-merge on user approval.** Merge stays manual in this iteration; the small `pull_request_review` GitHub Action is its own follow-up iteration.
 - **No spec/plan/ADR PRs.** Spec, plan, and ADR commits continue to land directly on `master` per existing `CLAUDE.md` convention. A future "red-team reviewer" iteration introduces spec-PR workflow.
@@ -259,7 +259,7 @@ The following cross-cutting deferrals propagate to `docs/out-of-scope.md` when t
 
 Not code tests — this iteration is a workflow change.
 
-**Live validation on the *next* gcscode iteration, not on this one.** Implementing this iteration itself uses the old flow (local feat branch + in-context reviews) because the GitHub App, token helper, and `CLAUDE.md` updates do not exist until this iteration ships. The first iteration to use the new flow is whichever roadmap item ships next (likely a small feature extension iteration from `docs/roadmap.md`).
+**Live validation on the _next_ gcscode iteration, not on this one.** Implementing this iteration itself uses the old flow (local feat branch + in-context reviews) because the GitHub App, token helper, and `CLAUDE.md` updates do not exist until this iteration ships. The first iteration to use the new flow is whichever roadmap item ships next (likely a small feature extension iteration from `docs/roadmap.md`).
 
 Pass criteria for the first iteration that uses the new flow:
 

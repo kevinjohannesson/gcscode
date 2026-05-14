@@ -96,12 +96,12 @@ Every reviewer subagent dispatched during an iteration — per-task spec-complia
 
 **Reviewer-role registry.** Source of truth for reviewer role definitions. The verdict table below is a denormalized quick-reference view of the registry. Architectural rationale: [`docs/decisions/ADR-0008-reviewer-role-registry.md`](docs/decisions/ADR-0008-reviewer-role-registry.md). Prompt templates: `.claude/reviewer-prompts/<role>.md`.
 
-| Role                       | Kind          | Identity                  | Model            | Targets             | Trigger                          | Verdicts                              | Character                                                | Header                                                                          | Re-review header                                                                                       | Prompt template                                  |
-| -------------------------- | ------------- | ------------------------- | ---------------- | ------------------- | -------------------------------- | ------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| Spec-compliance            | per-task      | `gcscode-reviewer[bot]`   | Claude Sonnet 4.6 | feature-PR          | After each task commit            | `--comment`, `--request-changes`      | Verify implementation matches the task's spec slice      | `## Spec-compliance review — task <N> — Claude Sonnet 4.6`                      | `## Spec-compliance review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6`                        | `superpowers:subagent-driven-development/spec-reviewer-prompt.md`        |
-| Code-quality               | per-task      | `gcscode-reviewer[bot]`   | Claude Sonnet 4.6 | feature-PR          | After spec-compliance passes      | `--comment`, `--request-changes`      | Code quality, idioms, edge cases                          | `## Code-quality review — task <N> — Claude Sonnet 4.6`                         | `## Code-quality review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6`                           | `superpowers:subagent-driven-development/code-quality-reviewer-prompt.md` |
-| Final cross-cutting        | cross-cutting | `gcscode-reviewer[bot]`   | Claude Opus 4.7   | feature-PR          | End of iteration                  | `--request-changes`, `--approve`      | Cross-cutting concerns missed at per-task level          | `## Final cross-cutting review — Claude Opus 4.7`                               | `## Final cross-cutting review (re-review of <SHA>) — Claude Opus 4.7`                                 | `superpowers:requesting-code-review/code-reviewer.md`                    |
-| Red-team                   | per-artifact  | `gcscode-reviewer[bot]`   | Claude Opus 4.7   | spec-PR, ADR-PR     | Automatic on PR open              | `--comment` only (v1)                 | Premise challenger + consistency reviewer                | `## Red-team review — <spec or ADR> — Claude Opus 4.7`                          | `## Red-team review — <spec or ADR> (re-review of <SHA>) — Claude Opus 4.7`                            | `.claude/reviewer-prompts/red-team.md`             |
+| Role                | Kind          | Identity                | Model             | Targets         | Trigger                      | Verdicts                         | Character                                           | Header                                                     | Re-review header                                                                | Prompt template                                                           |
+| ------------------- | ------------- | ----------------------- | ----------------- | --------------- | ---------------------------- | -------------------------------- | --------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Spec-compliance     | per-task      | `gcscode-reviewer[bot]` | Claude Sonnet 4.6 | feature-PR      | After each task commit       | `--comment`, `--request-changes` | Verify implementation matches the task's spec slice | `## Spec-compliance review — task <N> — Claude Sonnet 4.6` | `## Spec-compliance review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6` | `superpowers:subagent-driven-development/spec-reviewer-prompt.md`         |
+| Code-quality        | per-task      | `gcscode-reviewer[bot]` | Claude Sonnet 4.6 | feature-PR      | After spec-compliance passes | `--comment`, `--request-changes` | Code quality, idioms, edge cases                    | `## Code-quality review — task <N> — Claude Sonnet 4.6`    | `## Code-quality review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6`    | `superpowers:subagent-driven-development/code-quality-reviewer-prompt.md` |
+| Final cross-cutting | cross-cutting | `gcscode-reviewer[bot]` | Claude Opus 4.7   | feature-PR      | End of iteration             | `--request-changes`, `--approve` | Cross-cutting concerns missed at per-task level     | `## Final cross-cutting review — Claude Opus 4.7`          | `## Final cross-cutting review (re-review of <SHA>) — Claude Opus 4.7`          | `superpowers:requesting-code-review/code-reviewer.md`                     |
+| Red-team            | per-artifact  | `gcscode-reviewer[bot]` | Claude Opus 4.7   | spec-PR, ADR-PR | Automatic on PR open         | `--comment` only (v1)            | Premise challenger + consistency reviewer           | `## Red-team review — <spec or ADR> — Claude Opus 4.7`     | `## Red-team review — <spec or ADR> (re-review of <SHA>) — Claude Opus 4.7`     | `.claude/reviewer-prompts/red-team.md`                                    |
 
 `<SHA>` in re-review headers refers to the **followup commit that prompted the re-review** (the new commit added since the prior review), matching the empirical convention from PR #1's validation.
 
@@ -160,7 +160,7 @@ Per-task reviewers post under task-headers. Final cross-cutting review posts at 
 
 **Spec/ADR-PR template** (used for `spec/<topic>` and `adr/<slug>` PRs that ship via the spec-PR / ADR-PR workflows from "Branching and merging"):
 
-`````md
+```md
 ## <Spec or ADR title>
 
 <one-line summary matching the artifact's first line>
@@ -175,7 +175,7 @@ Per-task reviewers post under task-headers. Final cross-cutting review posts at 
 Red-team auto-dispatches on PR open per the reviewer-role registry. Future reviewer roles (e.g., domain expert, when they exist) follow per the registry.
 
 🤖 Reviews authored by `gcscode-reviewer[bot]` — see [docs/specs/2026-05-12-reviews-as-artifacts.md](../blob/master/shell/docs/specs/2026-05-12-reviews-as-artifacts.md) for the workflow.
-`````
+```
 
 **Public repo note.** gcscode is public on GitHub. Reviewer comments are world-readable. Keep reviews professional. Don't paste sensitive context (credentials, internal URLs).
 
