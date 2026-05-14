@@ -64,6 +64,8 @@ When executing a plan, use the `superpowers:subagent-driven-development` skill: 
 
 This pattern surfaces the same class of issues at three different points (implementer self-review, per-task spec/quality review, final cross-cutting review), and produces a legible `git log` where every followup is traced to the review note that prompted it. Don't squash followups into the originating commit — the review trail is part of the history.
 
+Specs and ADRs now ship via their own PRs (see "Spec-PR workflow" and "ADR-PR workflow" in the Branching and merging section above) and receive a red-team auto-dispatched review per the reviewer-role registry. Plans continue to land on master directly.
+
 ### Subagent worktree discipline
 
 When a subagent is dispatched to work in a feature worktree (e.g. `.worktrees/feat-foo/`), the bash tool **resets cwd between calls**. A single `cd <worktree>` does NOT persist across subsequent bash calls — the next call defaults back to the controller's original cwd, which is typically the main checkout (where `master` is checked out).
@@ -210,6 +212,9 @@ The pattern catches silent drift (stale READMEs, out-of-date out-of-scope langua
 - `packages/extension-example/README.md` — the worked example to mirror.
 - `.claude/commands/housekeeping.md` — `/housekeeping` slash command. Run periodically (every 2–3 iterations) to sweep for drift, sharpen rough edges, fill articulation gaps.
 - `docs/specs/2026-05-12-reviews-as-artifacts.md` — first iteration of the agentic-team-architecture track: GitHub PR workflow + reviewer subagents posting under a GitHub App identity.
+- `docs/specs/2026-05-14-red-team-reviewer.md` — second iteration of the agentic-team-architecture track: red-team reviewer on spec/ADR PRs + reviewer-role registry.
+- `docs/decisions/ADR-0008-reviewer-role-registry.md` — registry pattern decision; source of truth for reviewer role definitions.
+- `.claude/reviewer-prompts/red-team.md` — red-team reviewer prompt template (review behavior, tone, output structure).
 - `.claude/agent-config.json` — App ID and installation ID for the `gcscode-reviewer` GitHub App. Private key path lives in `GH_APP_PRIVATE_KEY_PATH` env var, not in repo.
 - `.claude/scripts/gh-app-token` — helper that generates short-lived installation tokens. Reviewer subagents call `export GH_TOKEN=$(.claude/scripts/gh-app-token)` before `gh pr review`.
 
