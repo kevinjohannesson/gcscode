@@ -66,7 +66,7 @@ A workflow track that runs alongside feature iterations. Makes the implicit meta
 
 ### Queued (each needs its own brainstorm + spec cycle)
 
-- [ ] **Auto-merge on user approval** — single `.github/workflows/auto-merge.yml` triggered on `pull_request_review.submitted`; merges when user approves AND the final cross-cutting reviewer's last review is `--approve`. Immediate follow-up to reviews-as-artifacts.
+- [x] **Auto-merge on user approval** — `.github/workflows/auto-merge.yml` triggered on `pull_request_review.submitted` and `pull_request.labeled`. Merges when (a) `auto-merge` label is present (user's opt-in signal — chosen over `--approve` because GitHub blocks PR authors from self-approving their own PRs), (b) class-aware bot signal passes (`reviewDecision==APPROVED` for feat/, both reviewers posted for spec/adr/), (c) PR is mergeable. Spec: [`specs/2026-05-14-auto-merge-on-user-approval.md`](specs/2026-05-14-auto-merge-on-user-approval.md).
 - [ ] **Multi-model heterogeneous reviewers** — validates the independence-of-opinion premise concretely now that reviews are durable. Runs Opus + Sonnet (or one Claude + one non-Claude) on the same PR; chooses steady-state model assignment per reviewer role based on findings.
 
 ### Considering (not yet committed)
