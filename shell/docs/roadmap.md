@@ -73,6 +73,8 @@ A workflow track that runs alongside feature iterations. Makes the implicit meta
 - [ ] **Webhook router for off-session triggers** — event-driven dispatch when no Claude session is live.
 - [ ] **Override semantics** — formal ADR supersession by reviewer, `blocked-on-adr` labels, counter-proposal PRs.
 - [ ] **Per-role bot identities** — multiple GitHub Apps for distinct reviewer accounts (currently single App, role disambiguation via review-text headers).
+- **Reviewer routing layer.** Once there is more than one non-baseline reviewer role (red-team + devil's advocate, or red-team + a first expert reviewer), the controller needs explicit routing for "which reviewer roles fire on which PRs." Surfaced during the red-team-reviewer brainstorm (2026-05-14).
+- **Retroactive ADR for reviews-as-artifacts.** The reviews-as-artifacts iteration (2026-05-12) didn't get a dedicated ADR — its rationale lives in the spec. Worth extracting to an ADR-NNNN entry as a housekeeping exercise; nice candidate for an autonomous Claude session that reads the spec + CLAUDE.md updates + the agentic-team-architecture brainstorm transcript and produces the ADR. Decision date 2026-05-12; creation date deferred.
 
 ## Maintenance
 
