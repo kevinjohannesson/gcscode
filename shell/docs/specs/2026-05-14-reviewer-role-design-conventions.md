@@ -77,7 +77,7 @@ When new reviewer roles join the registry whose `trigger` is also `Automatic on 
 
 ## The second CLAUDE.md edit — "Branching and merging" addition
 
-Add a new bullet to the "Branching and merging" section, immediately after the existing "ADR-PR workflow" bullet (so the post-merge-implementation rule sits adjacent to the workflows whose post-merge state it governs):
+Add a new bullet to the "Branching and merging" section, immediately after the existing "PR workflow" bullet (keeping the workflow-bullet group — Feature branches, Spec-PR workflow, ADR-PR workflow, PR workflow — contiguous; the post-merge rule comes after them as a successor concern):
 
 ````md
 - **Post-merge implementation conventions.** When a spec-PR or ADR-PR merges, implementation follows the same conventions as any other change: feat branches (with the subagent-driven plan execution pipeline) for code or for changes that require judgment during implementation (decomposition, integration, file structure beyond what the spec specifies); direct master commits for purely mechanical CLAUDE.md or docs edits whose exact text is fully specified in the spec. The spec-PR's red-team review serves as the cross-cutting review of the behavioral change; the post-merge mechanical commit is execution-only. If you find yourself making decisions during the post-merge commit that the spec didn't make, stop and use a feat branch.
@@ -94,6 +94,10 @@ This bullet generalizes the carve-out into a named convention, not a one-off. Fu
 5. **CLAUDE.md edits land as direct master commits** after merge, per the new "Post-merge implementation conventions" bullet this iteration adds to CLAUDE.md's "Branching and merging" section. The principle: when a spec specifies the verbatim insert text and implementation requires no judgment (no decomposition, no integration, no file-structure work beyond the spec), the post-merge insert lands as a direct master commit — the spec-PR's red-team review IS the cross-cutting review of the behavioral change. When implementation does require judgment, use a feat branch with the standard subagent-driven pipeline.
 
    For this iteration, both edits qualify as direct-master commits: the "Reviewer-role design conventions" subsection text is fully specified in the spec, and the "Post-merge implementation conventions" bullet for "Branching and merging" is too (defined in the next section). Naming this convention rather than leaving it as a one-off carve-out is what red-team's review surfaced as the highest-leverage missing piece.
+
+   **Self-bootstrap acknowledged.** The new "Post-merge implementation conventions" rule will be used on its own implementation — i.e., the bullet that authorizes direct-master commits is itself landing as a direct-master commit. This is acceptable meta-recursion: the same justification (verbatim text specified in the spec, no implementation judgment required) applies. Future readers questioning whether the bullet was self-justified can verify the spec's text matches the merged CLAUDE.md text. Documenting the self-bootstrap rather than evading it (e.g., by routing through a feat branch on first use) is the cleaner precedent.
+
+   **Implementation lands as two commits, not one.** The two CLAUDE.md edits are logically distinct (one adds a new subsection; the other adds a bullet to an existing section) and live in different parts of CLAUDE.md. Two focused commits give a cleaner git log and easier reverts than one bundled commit.
 
 ## VS Code alignment
 
@@ -151,6 +155,7 @@ Each gets its own brainstorm when triggered.
 4. **Conditional re-dispatch on followups.** Condition the re-dispatch obligation on whether the followup touches content red-team reviewed. Trigger: duplicative-review noise becomes material.
 5. **Devil's advocate v2** (already on roadmap; from red-team spec). Will be the first new reviewer role to consult these conventions.
 6. **Expert / domain / security reviewer track** (already on roadmap; from red-team spec). Each new role appends an `auto-dispatch obligation` row to the controller checklist if its `trigger` is `Automatic on PR open`.
+7. **Advisory-verdict tension resolution.** Red-team's re-review on PR #4 surfaced that `--comment`-only verdict ("advisory") is doing cross-cutting-review-grade work in practice on this spec PR. The v2 verdict-promotion iteration (already planned per the red-team spec) is the natural place to resolve: either promote red-team's verdict set to include `--request-changes` (with an override path), or accept the v1 framing that advisory critique is sufficient for the spec/ADR-PR class. Decision deferred to v2 brainstorm; not addressed in this iteration.
 
 ### Devil's-advocate-v2 questions surfaced by red-team's review of this spec
 
