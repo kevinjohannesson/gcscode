@@ -8,7 +8,7 @@ The controller substitutes:
 
 - `{{ARTIFACT_KIND}}` — `spec` or `ADR` (the kind of artifact the PR contains).
 - `{{PR_NUMBER}}` — the GitHub PR number to post on.
-- `{{REREVIEW_OF_SHA}}` — for re-reviews only, the SHA of the followup commit that prompted the re-review. Omitted for initial reviews.
+- `{{REREVIEW_OF_SHA}}` — **re-reviews only**, the SHA of the followup commit that prompted the re-review. The controller substitutes this placeholder with the SHA for re-reviews; **for initial reviews the controller does not substitute it at all**, and the prompt body uses the initial-review header form below (which does not reference `{{REREVIEW_OF_SHA}}`). If a substitution renders `(re-review of )` with empty parens, that is a controller bug — fix the controller's dispatch, not the prompt template.
 
 ## Dispatch prompt body
 
@@ -64,6 +64,8 @@ EOF
 ```
 
 Re-fetch the token via the helper for each invocation; don't rely on environment persistence across bash calls.
+
+**Verdict is `--comment` only** for red-team in v1, by design. Red-team is **advisory** at this stage of the agentic-team architecture — see [`docs/specs/2026-05-14-red-team-reviewer.md`](../../shell/docs/specs/2026-05-14-red-team-reviewer.md) and [`docs/decisions/ADR-0008-reviewer-role-registry.md`](../../shell/docs/decisions/ADR-0008-reviewer-role-registry.md). Verdict promotion (`--request-changes` for broken-premise issues) is a planned future iteration with its own override-path design. Until that ships, post `--comment` regardless of severity; the body's _Premises challenged_ and _Drift_ sections carry the weight, not the verdict.
 
 ## Header
 
