@@ -181,6 +181,28 @@ Red-team auto-dispatches on PR open per the reviewer-role registry. Future revie
 
 **Config locations:** App ID and installation ID live in `.claude/agent-config.json` (versioned). Private key path is read from `GH_APP_PRIVATE_KEY_PATH` env var; the PEM file never enters git.
 
+### Reviewer-role design conventions
+
+When designing a new reviewer role (devil's advocate v2, expert reviewers, future expansions of the reviewer-role registry), apply these conventions. They emerged from the red-team v1 user-review pass and the reviews-as-artifacts mechanics validation (PR #1 + PR #3 on 2026-05-14). The four patterns generalize from one data point (red-team v1); the generalization is a forward-looking bet. Known unknown: which patterns hold up across the future expert-reviewer track. Adjust as evidence accumulates.
+
+**Audit trail of priors inspected.** Any review section that compares the artifact against existing artifacts (CLAUDE.md, prior specs, ADRs, roadmap, out-of-scope) must require an explicit `Checked against:` enumeration with **specific anchors** — file + section heading, ADR slug, spec filename. Bare `CLAUDE.md` doesn't satisfy. Required even when no drift is flagged: without the audit trail, "nothing flagged" is indistinguishable from "didn't read the priors" — exactly the failure mode this discipline surfaces. The red-team prompt template (`.claude/reviewer-prompts/red-team.md`) is the canonical implementation.
+
+**Mechanical / judgment split in live validation.** Live-validation pass criteria for a new reviewer role must require BOTH (a) mechanical compliance — header form, sections present, identity, verdict, audit-trail line populated — algorithmically verifiable, AND (b) judgment that the critique reflects engagement with the artifact, not engagement-theater. A reviewer that posts the mechanically-compliant structure but says "Nothing flagged" across every section fails (b) by default unless the artifact is genuinely so trivial that nothing of substance could be flagged. **v1: the user is the judge of (b).** Whether algorithmic alternatives, delegated agents, or sampled-spot-checks could substitute for user-as-judge is a known unknown; user-as-judge is the v1 default, not a permanent state-of-the-art claim.
+
+**`identity` field in the registry, even when all roles share one bot.** Every entry in the reviewer-role registry carries an `identity` field. In v1 all roles share `gcscode-reviewer[bot]`, so the column is uniform — but it's there. Adding the field early is cheap; retrofitting when the future distinct-App-identities-per-reviewer-role iteration lands would mean editing every row.
+
+**Tripwires for known-quality concerns.** Validation plans should include explicit detection mechanisms for concerns that are otherwise vibes-checks. Tripwire-worthy concerns are those (i) tied to a specific failure mode of the role (not generic critique-quality worries), (ii) observable in the review's structured output rather than requiring artifact-level human judgment, and (iii) detectable as a pattern across N PRs rather than per-PR. Example from the red-team spec's Plan 2: "if N consecutive ADR-PRs return all-silent red-team reviews, consider pulling ADR-PR from red-team's `targets` registry field." Tripwires are manual review items, not automated checks; they live in the spec's validation section.
+
+#### Auto-dispatch controller obligations
+
+The reviewer-role registry's `trigger` field declares WHEN a role fires (e.g., red-team's `trigger` is "Automatic on PR open"). In v1 there is no automated dispatcher; the controller (human or LLM session) honors the trigger. This checklist makes the controller's action points legible **for roles whose `trigger` is `Automatic on PR open`**. Other trigger forms (`After each task commit` for per-task reviewers; `End of iteration` for final cross-cutting) have their own existing dispatch patterns documented in "Subagent-driven plan execution" and "Subagent reviewer PR-posting discipline":
+
+- **Before opening a `spec/<topic>` or `adr/<slug>` PR:** plan to dispatch the red-team subagent immediately after `gh pr create`. Do not consider the PR-open step complete until red-team has posted its review.
+- **After every `Code-review-followup:` commit on a spec/ADR branch:** re-dispatch red-team. Re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). Note: a followup that does not touch content red-team reviewed will still trigger re-dispatch. v1 accepts the duplicative-review cost; if the pattern produces material noise, a future iteration can condition the obligation on whether the followup touches reviewed content.
+- **No automated enforcement in v1.** Convention-based; the obligation is the controller's. Detection of a skip is by user observation — a merged spec/ADR PR with no red-team review is the failure signature. Trigger to add automated enforcement: first observed silent skip on a real spec/ADR PR.
+
+When new reviewer roles join the registry whose `trigger` is also `Automatic on PR open` (e.g., devil's advocate v2), append their obligations to this checklist alongside red-team's. Other trigger forms get their own checklist if/when they're added.
+
 ### Non-goals propagate to `docs/out-of-scope.md`
 
 When a spec lists cross-cutting deferrals — concepts the architecture is deliberately deferring, not just per-iteration scope cuts — those deferrals must land in `docs/out-of-scope.md` when the iteration ships, with an explicit trigger to revisit. Per-iteration scope omissions stay in the spec only; cross-cutting deferrals are the canonical list in `out-of-scope.md`.
