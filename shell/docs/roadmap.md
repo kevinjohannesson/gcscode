@@ -60,11 +60,12 @@ A workflow track that runs alongside feature iterations. Makes the implicit meta
 ### Shipped
 
 - [x] **Reviews as artifacts** — GitHub PR workflow + `gcscode-reviewer` GitHub App identity for agentic reviewer posts. Spec: [`specs/2026-05-12-reviews-as-artifacts.md`](specs/2026-05-12-reviews-as-artifacts.md).
+- [x] **Red-team reviewer for specs/ADRs** — introduces spec-PR + ADR-PR workflow + reviewer-role registry + advisory red-team role critiquing spec/ADR commits before they accept. Plans continue to land on master directly. Spec: [`specs/2026-05-14-red-team-reviewer.md`](specs/2026-05-14-red-team-reviewer.md). ADR: [`decisions/ADR-0008-reviewer-role-registry.md`](decisions/ADR-0008-reviewer-role-registry.md).
+- [x] **Reviewer-role design conventions** — articulates four design patterns for future reviewer roles (audit trail, mechanical/judgment split, identity field, tripwires) + auto-dispatch controller obligations + post-merge implementation convention. First non-synthetic spec-PR exercise. Spec: [`specs/2026-05-14-reviewer-role-design-conventions.md`](specs/2026-05-14-reviewer-role-design-conventions.md).
 
 ### Queued (each needs its own brainstorm + spec cycle)
 
 - [ ] **Auto-merge on user approval** — single `.github/workflows/auto-merge.yml` triggered on `pull_request_review.submitted`; merges when user approves AND the final cross-cutting reviewer's last review is `--approve`. Immediate follow-up to reviews-as-artifacts.
-- [ ] **Red-team reviewer for specs/plans/ADRs** — introduces spec-PR workflow + a new agent role that critiques spec/plan/ADR commits before they're accepted to master.
 - [ ] **Multi-model heterogeneous reviewers** — validates the independence-of-opinion premise concretely now that reviews are durable. Runs Opus + Sonnet (or one Claude + one non-Claude) on the same PR; chooses steady-state model assignment per reviewer role based on findings.
 
 ### Considering (not yet committed)

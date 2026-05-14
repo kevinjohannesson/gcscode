@@ -53,6 +53,7 @@ These deferrals stem from `docs/specs/2026-05-12-reviews-as-artifacts.md` and th
 - **Plan-PR workflow.** Plans continue to land on master directly. Specs and ADRs now ship via PR per the red-team-reviewer iteration (`docs/specs/2026-05-14-red-team-reviewer.md`). Trigger to bring plans into PR-workflow: a plan-level reviewer is added.
 - **Red-team blocking verdicts + override mechanism.** Red-team is advisory `--comment` only in v1. The verdict-promotion (`--request-changes`) iteration would also need to design the override path for intentional drift vs broken premise. Trigger: v2 brainstorm of the verdict-promotion iteration.
 - **Reviewer routing layer.** Which reviewer roles fire on which PRs. Out of scope until there is more than one non-baseline reviewer role. Trigger: a second non-baseline reviewer role is added (e.g., devil's advocate v2 or the first expert reviewer).
+- **Automated enforcement of reviewer auto-dispatch.** Red-team auto-dispatch on spec/ADR PR open is convention-based in v1 — the controller (human or LLM session) must remember to dispatch per the auto-dispatch obligations checklist in CLAUDE.md "Reviewer-role design conventions". No pre-PR-open script or git hook enforces it. Trigger to revisit: first observed silent skip on a real spec/ADR PR, OR a second reviewer role joining the auto-dispatch checklist.
 
 ## Why this list exists
 
