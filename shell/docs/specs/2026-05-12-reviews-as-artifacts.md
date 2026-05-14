@@ -140,7 +140,11 @@ When a per-task reviewer posts `--request-changes`, the controller dispatches a 
 - A `--comment` saying "addressed in `<SHA>`" if the followup resolved the issue.
 - Another `--request-changes` if it's still broken.
 
-The prior `--request-changes` review **stays in the PR timeline** — reviewers never dismiss their own prior reviews. GitHub's PR status reflects the latest review per reviewer-identity, so the blocking state clears naturally once the reviewer posts a fresh non-blocking review, but the audit trail of "originally flagged X, addressed by SHA Y" remains.
+The prior `--request-changes` review **stays in the PR timeline** — reviewers never dismiss their own prior reviews. Empirically validated on PR #1 + PR #2 (2026-05-14): GitHub's `reviewDecision` does NOT use strict latest-review-per-user semantics. A subsequent `--comment` from the same user does NOT clear an earlier non-dismissed `--request-changes`. Only `--approve` from the same user clears it. So:
+
+- Per-task reviewers (`spec-compliance`, `code-quality`) cannot self-clear their own blocking reviews via a `--comment` "addressed" re-review — the PR stays in `CHANGES_REQUESTED` until the final cross-cutting reviewer posts `--approve` at end-of-iteration.
+- This is acceptable: the per-task `--comment` re-review is for the **audit trail** ("flagged X, addressed by SHA Y"), not for unblocking. The final cross-cutting reviewer is the only role with the verdict (`--approve`) that mechanically clears the PR.
+- Important consequence for any future multi-bot extension: if a second bot identity is introduced, its un-dismissed `--request-changes` would gate independently — needs explicit dismissal semantics or different merge gate. (See `docs/specs/2026-05-14-red-team-reviewer.md` Future iterations.)
 
 ### Review header convention
 

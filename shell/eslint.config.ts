@@ -62,5 +62,5 @@ export default [
       ],
     },
   },
-  { ignores: ['**/node_modules/**', '**/dist/**', '**/.svelte-kit/**'] },
+  { ignores: ['**/node_modules/**', '**/dist/**', '**/.svelte-kit/**', '**/scratch/**'] },
 ];
