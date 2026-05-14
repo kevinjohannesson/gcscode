@@ -250,7 +250,7 @@ A review that posts the mechanically-compliant structure but says "Nothing flagg
 
 This iteration has **no VS Code alignment implications**. Red-team, the reviewer-role registry, and the spec/ADR-PR workflow are gcscode-specific agentic-team mechanisms. VS Code has no analogous review-by-bot mechanism for spec/ADR artifacts. Future expert/domain reviewers similarly have no VS Code analogue.
 
-Propagation to `shell/docs/vs-code-alignment.md`: one ledger row for this iteration noting "Red-team reviewer iteration: no VS Code analogue. Agentic-team track is gcscode-specific."
+Propagation to `shell/docs/vs-code-alignment.md`: **none**. The ledger is structured per-concern (Concern / VS Code / gcscode / Source / Trigger), not per-iteration, and this iteration introduces no extension-architecture concerns that map onto a VS Code feature. The Maintenance section of `vs-code-alignment.md` describes the row-addition triggers — none fire for this iteration.
 
 ## `docs/out-of-scope.md` propagation
 
