@@ -50,7 +50,9 @@ These deferrals stem from `docs/specs/2026-05-12-reviews-as-artifacts.md` and th
 - **Webhook routers / event-driven dispatch.** Beyond the narrow auto-merge GitHub Action (its own follow-up iteration), there is no off-session event handling. Trigger: user wants agents to react to events while no Claude session is live.
 - **Multi-model heterogeneous reviewers.** Reviewers run as whatever model the controller picks (typically Sonnet). The "independence by model diversity" payoff is deferred to its own future iteration after this track's reviews-as-artifacts work has accumulated evidence to evaluate independence honestly. Trigger: durable reviews accumulate enough samples to compare model verdicts side-by-side.
 - **Override semantics for agentic reviewers.** No formal "reviewer supersedes ADR" patterns (`blocked-on-adr` labels, counter-proposal ADR PRs). Trigger: a reviewer actually wants to block an iteration on architectural disagreement.
-- **Spec/plan/ADR PR workflow.** Specs and plans continue to land on master directly per existing convention. Trigger: the planned red-team-reviewer iteration introduces spec-PR workflow.
+- **Plan-PR workflow.** Plans continue to land on master directly. Specs and ADRs now ship via PR per the red-team-reviewer iteration (`docs/specs/2026-05-14-red-team-reviewer.md`). Trigger to bring plans into PR-workflow: a plan-level reviewer is added.
+- **Red-team blocking verdicts + override mechanism.** Red-team is advisory `--comment` only in v1. The verdict-promotion (`--request-changes`) iteration would also need to design the override path for intentional drift vs broken premise. Trigger: v2 brainstorm of the verdict-promotion iteration.
+- **Reviewer routing layer.** Which reviewer roles fire on which PRs. Out of scope until there is more than one non-baseline reviewer role. Trigger: a second non-baseline reviewer role is added (e.g., devil's advocate v2 or the first expert reviewer).
 
 ## Why this list exists
 

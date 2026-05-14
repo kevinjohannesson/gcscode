@@ -42,6 +42,7 @@ These commits land on master directly per the spec's bootstrap rule. Run them be
 ### P1: Commit ADR-0008 to master
 
 **Files:**
+
 - Create: `shell/docs/decisions/ADR-0008-reviewer-role-registry.md`
 
 - [ ] **Step 1: Write the ADR file**
@@ -171,6 +172,7 @@ If a worktree IS used, every bash command in the tasks below must be prefixed wi
 ### Task 1: Create the red-team prompt template
 
 **Files:**
+
 - Create: `.claude/reviewer-prompts/red-team.md`
 
 This file is the source of truth for red-team's review behavior. The controller passes its content (with placeholders substituted) into red-team subagent dispatches.
@@ -376,6 +378,7 @@ Expected: branch is `feat/red-team-reviewer`; commit succeeds.
 ### Task 2: Add Reviewer-role registry subsection to CLAUDE.md
 
 **Files:**
+
 - Modify: `shell/CLAUDE.md` — insert new subsection inside the "Subagent reviewer PR-posting discipline" section, immediately before the existing "Verdict table:" line (currently around line 93).
 
 The new subsection introduces the registry and populates it with the four current roles.
@@ -440,6 +443,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### Task 3: Update verdict table + header examples + add red-team auto-dispatch paragraph
 
 **Files:**
+
 - Modify: `shell/CLAUDE.md` — three small edits inside "Subagent reviewer PR-posting discipline":
   - Add red-team row to verdict table
   - Add red-team examples to header convention example list
@@ -539,7 +543,7 @@ Old (the anchor — the line immediately after the closing `````` of the existin
 
 New:
 
-```
+````
 **Spec/ADR-PR template** (used for `spec/<topic>` and `adr/<slug>` PRs that ship via the spec-PR / ADR-PR workflows from "Branching and merging"):
 
 ```md
@@ -557,10 +561,11 @@ New:
 Red-team auto-dispatches on PR open per the reviewer-role registry. Future reviewer roles (e.g., domain expert, when they exist) follow per the registry.
 
 🤖 Reviews authored by `gcscode-reviewer[bot]` — see [docs/specs/2026-05-12-reviews-as-artifacts.md](../blob/master/shell/docs/specs/2026-05-12-reviews-as-artifacts.md) for the workflow.
-```
+````
 
 **Public repo note.** gcscode is public on GitHub. Reviewer comments are world-readable. Keep reviews professional. Don't paste sensitive context (credentials, internal URLs).
-```
+
+````
 
 - [ ] **Step 5: Verify all four edits landed**
 
@@ -568,7 +573,7 @@ Run from repo root:
 
 ```bash
 cd /Users/kevinkroon/Projects/gcscode && grep -n "Red-team\|Feature-PR template\|Spec/ADR-PR template" shell/CLAUDE.md | head -15
-```
+````
 
 Expected: matches for the verdict-table row, header examples, auto-dispatch paragraph, renamed Feature-PR template header, and new Spec/ADR-PR template heading.
 
@@ -591,6 +596,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### Task 4: Add spec/ADR-PR workflow paragraphs to Branching and merging
 
 **Files:**
+
 - Modify: `shell/CLAUDE.md` — three edits in the "Branching and merging" section (currently lines 38–45):
   - Update the existing "Spec/plan commits can land on master directly" bullet
   - Add a new spec-PR workflow bullet
@@ -657,6 +663,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### Task 5: Forward-reference + Further reading additions
 
 **Files:**
+
 - Modify: `shell/CLAUDE.md` — two small edits:
   - Add forward reference sentence to "Subagent-driven plan execution" subsection
   - Add three bullets to "Further reading" section
@@ -726,6 +733,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ### Task 6: Propagation to out-of-scope.md, roadmap.md, vs-code-alignment.md
 
 **Files:**
+
 - Modify: `shell/docs/out-of-scope.md`
 - Modify: `shell/docs/roadmap.md`
 - Modify: `shell/docs/vs-code-alignment.md`
@@ -876,6 +884,7 @@ This step is bookkeeping for the existing iteration workflow; the controller doe
 Same shape as PR #1 (reviews-as-artifacts validation). Becomes the second permanent worked-example artifact.
 
 **Files:**
+
 - Create on `test/red-team-iteration-validation` branch: `shell/docs/specs/test-red-team-validation.md`
 
 - [ ] **Step 1: Confirm master is up-to-date with the merged feat branch**

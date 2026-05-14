@@ -35,12 +35,14 @@ Per CLAUDE.md's "Subagent worktree discipline": every bash command prepends `cd 
 This iteration creates / modifies these files:
 
 **Created:**
+
 - `packages/shell/src/dockview-host/view-host.svelte` — single panel-component registered as `'view-host'`; receives a Svelte `Component` via `params.component` and renders it.
 - `packages/shell/src/dockview-host/view-host.test.ts` — verifies view-host renders the component passed via params.
 - `packages/shell/src/dockview-host/gcscode-tab.svelte` — wraps `dockview-svelte`'s `DefaultTab` with `hideClose={true}`.
 - `packages/shell/src/dockview-host/gcscode-tab.test.ts` — verifies no close button rendered.
 
 **Modified:**
+
 - `packages/shell/package.json` — add `dockview-svelte` and `dockview-core` dependencies.
 - `packages/shell/src/test-setup.ts` — add `ResizeObserver` no-op polyfill (dockview-core requires it; jsdom doesn't ship one).
 - `packages/extension-api/src/index.ts` — add required `title: string` field to `ViewContribution`.
@@ -57,6 +59,7 @@ This iteration creates / modifies these files:
 ## Task 1: Add dependencies and ResizeObserver mock
 
 **Files:**
+
 - Modify: `packages/shell/package.json` (add deps)
 - Modify: `packages/shell/src/test-setup.ts` (add polyfill)
 
@@ -149,6 +152,7 @@ The path to `pnpm-lock.yaml` is repo-root-relative (one level above `shell/`). A
 This task intentionally leaves the codebase in a temporarily-broken state — `pnpm check` will fail because four extensions don't yet pass `title`. Tasks 3-6 fix the call sites in sequence.
 
 **Files:**
+
 - Modify: `packages/extension-api/src/index.ts`
 
 - [ ] **Step 1: Add the field**
@@ -217,6 +221,7 @@ EOF
 This task fixes all four extension `registerView` call sites and their tests. Order is alphabetical by extension. Each sub-task is a TDD cycle: update test → run (expect fail) → implement → run (expect pass) → commit.
 
 **Files:**
+
 - Modify: `packages/extension-example/src/index.ts` + `index.test.ts`
 - Modify: `packages/extension-map/src/index.ts` + `index.test.ts`
 - Modify: `packages/extension-map-demo/src/index.ts` + `index.test.ts`
@@ -449,6 +454,7 @@ Expected: clean across all packages. (No new commit needed — verification only
 ## Task 4: Create the view-host panel-component
 
 **Files:**
+
 - Create: `packages/shell/src/dockview-host/view-host.svelte`
 - Create: `packages/shell/src/dockview-host/view-host.test.ts`
 
@@ -544,6 +550,7 @@ EOF
 ## Task 5: Create the gcscode-tab component (DefaultTab wrapper with hideClose)
 
 **Files:**
+
 - Create: `packages/shell/src/dockview-host/gcscode-tab.svelte`
 - Create: `packages/shell/src/dockview-host/gcscode-tab.test.ts`
 
@@ -645,6 +652,7 @@ EOF
 This is the big change. `app.svelte` is rewritten to host views in a `DockviewSvelte` instance. `app.test.ts` is updated to assert tab presence rather than content-text presence. The shell becomes a flex column with proper height.
 
 **Files:**
+
 - Modify: `packages/shell/src/app.svelte` (major rewrite)
 - Modify: `packages/shell/src/app.test.ts` (update view-related tests)
 - Modify: `packages/shell/src/main.ts` (import dockview CSS)
@@ -788,7 +796,9 @@ Replace `packages/shell/src/app.svelte` contents with:
           title: view.title,
           params: { component: view.component },
         });
-      } else if ((existing.params as { component?: unknown } | undefined)?.component !== view.component) {
+      } else if (
+        (existing.params as { component?: unknown } | undefined)?.component !== view.component
+      ) {
         existing.api.updateParameters({ component: view.component });
       }
     }
@@ -1009,20 +1019,20 @@ cd /Users/kevinkroon/Projects/gcscode && git branch -d feat/shell-dockview-host
 
 Each spec section maps to plan tasks:
 
-| Spec section | Plan task(s) |
-|---|---|
-| Implementation workflow override | "Workflow override for this iteration — READ FIRST" header; Task 8 (local merge instead of PR merge) |
-| Goals — replace view stack with DockviewSvelte | Task 6 |
-| Goals — add `title: string` to `ViewContribution` | Task 2 + Task 3a-d |
-| Goals — disable close + floating | Task 5 (no-close tab) + Task 6 (`disableFloatingGroups={true}`) |
-| Goals — layout shell | Task 6 (Step 3, `<main class="shell flex h-screen flex-col">`) |
-| Goals — preserve empty state | Task 6 (Step 3, `{#if views.length === 0}` branch) |
-| Goals — preserve other chrome | Task 6 (Step 3, unchanged status-bar / QuickPickHost / ExtensionsPanelHost) |
-| Architecture — view-host indirection | Task 4 |
-| Architecture — reactive sync via `$effect` | Task 6 (Step 3) |
-| Architecture — custom tab component | Task 5 |
-| Testing — high-value behavior tests | Task 4 (view-host), Task 5 (no-close), Task 6 (tab registration / reconciliation / empty state) |
-| Testing — manual smoke checklist | Task 7 |
-| Non-goals (persistence, theming, view containers, etc.) | No tasks — explicitly not built |
+| Spec section                                            | Plan task(s)                                                                                         |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Implementation workflow override                        | "Workflow override for this iteration — READ FIRST" header; Task 8 (local merge instead of PR merge) |
+| Goals — replace view stack with DockviewSvelte          | Task 6                                                                                               |
+| Goals — add `title: string` to `ViewContribution`       | Task 2 + Task 3a-d                                                                                   |
+| Goals — disable close + floating                        | Task 5 (no-close tab) + Task 6 (`disableFloatingGroups={true}`)                                      |
+| Goals — layout shell                                    | Task 6 (Step 3, `<main class="shell flex h-screen flex-col">`)                                       |
+| Goals — preserve empty state                            | Task 6 (Step 3, `{#if views.length === 0}` branch)                                                   |
+| Goals — preserve other chrome                           | Task 6 (Step 3, unchanged status-bar / QuickPickHost / ExtensionsPanelHost)                          |
+| Architecture — view-host indirection                    | Task 4                                                                                               |
+| Architecture — reactive sync via `$effect`              | Task 6 (Step 3)                                                                                      |
+| Architecture — custom tab component                     | Task 5                                                                                               |
+| Testing — high-value behavior tests                     | Task 4 (view-host), Task 5 (no-close), Task 6 (tab registration / reconciliation / empty state)      |
+| Testing — manual smoke checklist                        | Task 7                                                                                               |
+| Non-goals (persistence, theming, view containers, etc.) | No tasks — explicitly not built                                                                      |
 
 No spec requirement is uncovered by tasks.

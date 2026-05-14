@@ -192,12 +192,12 @@ export interface ViewContribution {
 
 ### Migration impact
 
-| Extension | New title |
-|---|---|
-| `extension-example` | `'Example'` |
-| `extension-map` | `'Map'` |
+| Extension            | New title      |
+| -------------------- | -------------- |
+| `extension-example`  | `'Example'`    |
+| `extension-map`      | `'Map'`        |
 | `extension-map-demo` | `'Map (demo)'` |
-| `extension-sitl` | `'SITL'` |
+| `extension-sitl`     | `'SITL'`       |
 
 Test files mocking `registerView` need adjusting in the same task that adds the field — mechanical fan-out, no behavioral change.
 
@@ -214,13 +214,13 @@ When `views.length === 0`, render the existing `<p data-testid="empty-state">No 
 
 ### Surrounding chrome — unchanged
 
-| Surface | Today | After |
-|---|---|---|
-| `<header class="shell__header">GCScode</header>` | Plain text | Unchanged content; positioned in the flex column |
-| `<footer class="shell__statusbar">` | Iterates `registry.listStatusBarItems()` | Unchanged |
-| `<QuickPickHost />` | Modal overlay | Unchanged |
-| `<ExtensionsPanelHost />` | Centered overlay | Unchanged |
-| `<section class="shell__content">` | View stack | **Becomes `<DockviewSvelte>` (or empty-state)** |
+| Surface                                          | Today                                    | After                                            |
+| ------------------------------------------------ | ---------------------------------------- | ------------------------------------------------ |
+| `<header class="shell__header">GCScode</header>` | Plain text                               | Unchanged content; positioned in the flex column |
+| `<footer class="shell__statusbar">`              | Iterates `registry.listStatusBarItems()` | Unchanged                                        |
+| `<QuickPickHost />`                              | Modal overlay                            | Unchanged                                        |
+| `<ExtensionsPanelHost />`                        | Centered overlay                         | Unchanged                                        |
+| `<section class="shell__content">`               | View stack                               | **Becomes `<DockviewSvelte>` (or empty-state)**  |
 
 Touching header/footer styling, overlay backdrop, or any other chrome is out of scope — those decisions belong to the larger operator-UX iteration.
 
@@ -266,13 +266,13 @@ If any item fails and isn't trivially fixable, the implementation agent stops an
 
 ## VS Code alignment
 
-| Concept | gcscode | VS Code | Status |
-|---|---|---|---|
-| View tab label | `ViewContribution.title: string` (required) | `views` contribution `name: string` field | Aligned in spirit, diverges in naming (`title` matches gcscode's existing `CommandContribution.title`) |
-| View layout surface | Single `DockviewSvelte` instance, single tabbed group seed, drag-drop + splitters enabled, close + floating disabled | Named view containers (sidebar / panel / secondary sidebar); each container is a PaneView-style accordion of views | Deliberate divergence — VS Code's view-container concept is not introduced. Placeholder until larger UI/UX iteration decides regions. |
-| View close affordance | Disabled by host; extensions own panel lifecycle | Some views have close affordances; user-dismissible | Deliberate divergence — gcscode has no user-dismissible view model |
-| Layout persistence | None — refresh resets layout | Workspace layout persisted across sessions | Deliberate divergence; explicit non-goal (refresh-as-reset is desired) |
-| Floating/popout panels | Disabled (`disableFloatingGroups: true`) | Supported since VS Code 1.84 | Deferred — Electron compat uncertain |
+| Concept                | gcscode                                                                                                              | VS Code                                                                                                            | Status                                                                                                                                |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| View tab label         | `ViewContribution.title: string` (required)                                                                          | `views` contribution `name: string` field                                                                          | Aligned in spirit, diverges in naming (`title` matches gcscode's existing `CommandContribution.title`)                                |
+| View layout surface    | Single `DockviewSvelte` instance, single tabbed group seed, drag-drop + splitters enabled, close + floating disabled | Named view containers (sidebar / panel / secondary sidebar); each container is a PaneView-style accordion of views | Deliberate divergence — VS Code's view-container concept is not introduced. Placeholder until larger UI/UX iteration decides regions. |
+| View close affordance  | Disabled by host; extensions own panel lifecycle                                                                     | Some views have close affordances; user-dismissible                                                                | Deliberate divergence — gcscode has no user-dismissible view model                                                                    |
+| Layout persistence     | None — refresh resets layout                                                                                         | Workspace layout persisted across sessions                                                                         | Deliberate divergence; explicit non-goal (refresh-as-reset is desired)                                                                |
+| Floating/popout panels | Disabled (`disableFloatingGroups: true`)                                                                             | Supported since VS Code 1.84                                                                                       | Deferred — Electron compat uncertain                                                                                                  |
 
 After this iteration ships, propagate each row to `docs/vs-code-alignment.md` (the cumulative ledger).
 

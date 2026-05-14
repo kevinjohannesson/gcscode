@@ -91,26 +91,25 @@ The architectural rationale for the registry pattern (registry over inline / pro
 
 ### Registry entry
 
-| Field              | Value                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------ |
-| `name`             | Red-team                                                                             |
-| `kind`             | per-artifact                                                                         |
-| `identity`         | `gcscode-reviewer[bot]`                                                              |
-| `model`            | Claude Opus 4.7                                                                      |
-| `targets`          | spec-PR, ADR-PR                                                                      |
-| `trigger`          | Automatic on PR open                                                                 |
-| `verdicts`         | `--comment` only (v1)                                                                |
-| `character`        | Premise challenger + consistency reviewer                                            |
-| `header`           | `## Red-team review — <spec or ADR> — Claude Opus 4.7`                               |
-| `re-review header` | `## Red-team review — <spec or ADR> (re-review of <SHA>) — Claude Opus 4.7`          |
-| `prompt template`  | `.claude/reviewer-prompts/red-team.md`                                               |
+| Field              | Value                                                                       |
+| ------------------ | --------------------------------------------------------------------------- |
+| `name`             | Red-team                                                                    |
+| `kind`             | per-artifact                                                                |
+| `identity`         | `gcscode-reviewer[bot]`                                                     |
+| `model`            | Claude Opus 4.7                                                             |
+| `targets`          | spec-PR, ADR-PR                                                             |
+| `trigger`          | Automatic on PR open                                                        |
+| `verdicts`         | `--comment` only (v1)                                                       |
+| `character`        | Premise challenger + consistency reviewer                                   |
+| `header`           | `## Red-team review — <spec or ADR> — Claude Opus 4.7`                      |
+| `re-review header` | `## Red-team review — <spec or ADR> (re-review of <SHA>) — Claude Opus 4.7` |
+| `prompt template`  | `.claude/reviewer-prompts/red-team.md`                                      |
 
 ### Prompt template at `.claude/reviewer-prompts/red-team.md`
 
 The file contains, in order:
 
 1. **Role framing.** Two angles of attack:
-
    - _Premise challenger._ Assumptions the artifact treats as given. Are they true? Are they unstated dependencies that should be explicit? Would the argument collapse if any one were wrong?
    - _Consistency reviewer._ Drift from CLAUDE.md, prior specs in `shell/docs/specs/`, ADRs in `shell/docs/decisions/`, roadmap, and out-of-scope. Drift can be intentional — surface it, do not call it a mistake.
 
@@ -119,7 +118,6 @@ The file contains, in order:
 3. **Context the reviewer has access to.** PR diff (the artifact under review), CLAUDE.md, prior specs, ADRs, roadmap, out-of-scope, and the VS Code alignment ledger. The reviewer reads what it needs.
 
 4. **Output structure** (sections in the posted review):
-
    - _Premises challenged_
    - _Drift from existing decisions_ — this section always opens with a **`Checked against:`** line that enumerates the prior documents the reviewer actually inspected, with specific section names or specific ADR/spec slugs (e.g., `Checked against: CLAUDE.md "Subagent reviewer PR-posting discipline", ADR-0005, docs/specs/2026-05-12-reviews-as-artifacts.md`). Bare `CLAUDE.md` without a section anchor does not satisfy this requirement. The `Checked against:` line is required even when no drift is flagged — otherwise "no drift" is indistinguishable from "didn't read the priors," which is the failure mode this audit trail is designed to surface.
    - _Open questions_

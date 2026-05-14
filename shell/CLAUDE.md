@@ -37,7 +37,9 @@ Corollary: if an extension needs a capability the host doesn't yet expose, add i
 
 ## Branching and merging
 
-- **Feature branches.** Implementation work runs on `feat/<topic>` branches off master. Spec/plan commits can land on master directly (they're metadata about future work); code commits live on a branch.
+- **Feature branches.** Implementation work runs on `feat/<topic>` branches off master. Plan commits can land on master directly (they're metadata about future work); code commits live on a branch. Spec and ADR commits land via PR (see "Spec-PR workflow" and "ADR-PR workflow" below).
+- **Spec-PR workflow.** Specs ship via `spec/<topic>` branches off master. Commit the spec file, push, open a draft PR with the spec/ADR-PR template (in the reviewer-discipline section). Red-team auto-dispatches on PR open (advisory `--comment` only in v1). User reads + approves. Merge via `gh pr merge --merge <num>` to preserve the merge-commit boundary, consistent with feature PRs. Bootstrap exception: the spec for the iteration that introduced this workflow (`docs/specs/2026-05-14-red-team-reviewer.md`) landed on master directly per the prior convention.
+- **ADR-PR workflow.** ADRs ship via `adr/<slug>` branches. Pick the next ADR-NNNN number at branch creation; file named `ADR-NNNN-<slug>.md` under `docs/decisions/`. Same flow as spec-PR (red-team auto-dispatches; advisory only in v1). ADRs needed mid-feature-iteration ship as their own PR first; the feat branch then references the merged ADR. Bootstrap exception: `ADR-0008-reviewer-role-registry.md` landed on master directly per the prior convention.
 - **PR workflow.** After the first task commit lands on the feat branch, push to `origin` and open a **draft** PR targeting master via `gh pr create --draft` (template in the reviewer-discipline section). Transition to ready-for-review (`gh pr ready <num>`) at end-of-iteration immediately before the final cross-cutting reviewer runs.
 - **Merge via `gh pr merge --merge <num>`.** Produces the merge-commit boundary equivalent to local `--no-ff` — matches the `f448ddc Merge branch 'feat/plugin-architecture-mvp'` precedent.
 - **Never `--no-verify`.** Don't bypass commit hooks. If a hook fails, fix the underlying issue. (The repo currently has no commit hooks; the rule is in place for when it does.)
@@ -61,6 +63,8 @@ During brainstorming and planning, surface every API divergence from VS Code as 
 When executing a plan, use the `superpowers:subagent-driven-development` skill: dispatch a fresh implementer subagent per task, follow with a spec compliance review then a code quality review, and address review feedback in separate `Code-review-followup:` commits on the same branch (not amends). After all tasks land, dispatch a final cross-cutting code review over the full branch before merging via `superpowers:finishing-a-development-branch`.
 
 This pattern surfaces the same class of issues at three different points (implementer self-review, per-task spec/quality review, final cross-cutting review), and produces a legible `git log` where every followup is traced to the review note that prompted it. Don't squash followups into the originating commit — the review trail is part of the history.
+
+Specs and ADRs now ship via their own PRs (see "Spec-PR workflow" and "ADR-PR workflow" in the Branching and merging section above) and receive a red-team auto-dispatched review per the reviewer-role registry. Plans continue to land on master directly.
 
 ### Subagent worktree discipline
 
@@ -90,6 +94,17 @@ Every reviewer subagent dispatched during an iteration — per-task spec-complia
 - The verdict the reviewer is allowed to use (see table below).
 - The header convention.
 
+**Reviewer-role registry.** Source of truth for reviewer role definitions. The verdict table below is a denormalized quick-reference view of the registry. Architectural rationale: [`docs/decisions/ADR-0008-reviewer-role-registry.md`](docs/decisions/ADR-0008-reviewer-role-registry.md). Prompt templates: `.claude/reviewer-prompts/<role>.md`.
+
+| Role                | Kind          | Identity                | Model             | Targets         | Trigger                      | Verdicts                         | Character                                           | Header                                                     | Re-review header                                                                | Prompt template                                                           |
+| ------------------- | ------------- | ----------------------- | ----------------- | --------------- | ---------------------------- | -------------------------------- | --------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Spec-compliance     | per-task      | `gcscode-reviewer[bot]` | Claude Sonnet 4.6 | feature-PR      | After each task commit       | `--comment`, `--request-changes` | Verify implementation matches the task's spec slice | `## Spec-compliance review — task <N> — Claude Sonnet 4.6` | `## Spec-compliance review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6` | `superpowers:subagent-driven-development/spec-reviewer-prompt.md`         |
+| Code-quality        | per-task      | `gcscode-reviewer[bot]` | Claude Sonnet 4.6 | feature-PR      | After spec-compliance passes | `--comment`, `--request-changes` | Code quality, idioms, edge cases                    | `## Code-quality review — task <N> — Claude Sonnet 4.6`    | `## Code-quality review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6`    | `superpowers:subagent-driven-development/code-quality-reviewer-prompt.md` |
+| Final cross-cutting | cross-cutting | `gcscode-reviewer[bot]` | Claude Opus 4.7   | feature-PR      | End of iteration             | `--request-changes`, `--approve` | Cross-cutting concerns missed at per-task level     | `## Final cross-cutting review — Claude Opus 4.7`          | `## Final cross-cutting review (re-review of <SHA>) — Claude Opus 4.7`          | `superpowers:requesting-code-review/code-reviewer.md`                     |
+| Red-team            | per-artifact  | `gcscode-reviewer[bot]` | Claude Opus 4.7   | spec-PR, ADR-PR | Automatic on PR open         | `--comment` only (v1)            | Premise challenger + consistency reviewer           | `## Red-team review — <spec or ADR> — Claude Opus 4.7`     | `## Red-team review — <spec or ADR> (re-review of <SHA>) — Claude Opus 4.7`     | `.claude/reviewer-prompts/red-team.md`                                    |
+
+`<SHA>` in re-review headers refers to the **followup commit that prompted the re-review** (the new commit added since the prior review), matching the empirical convention from PR #1's validation.
+
 **Verdict table:**
 
 | Reviewer kind                          | `--comment` | `--request-changes` | `--approve` |
@@ -97,10 +112,13 @@ Every reviewer subagent dispatched during an iteration — per-task spec-complia
 | Per-task spec-compliance               |      ✓      |          ✓          |      ✗      |
 | Per-task code-quality                  |      ✓      |          ✓          |      ✗      |
 | Final cross-cutting (end of iteration) |      ✗      |          ✓          |      ✓      |
+| Red-team (per-artifact, spec/ADR-PRs)  |      ✓      |          ✗          |      ✗      |
 
 Per-task reviewers may post `--comment` (clean or informational) or `--request-changes` (blocking), never `--approve`. The final cross-cutting reviewer is the only review allowed to flip the PR into approved state; it posts `--approve` or `--request-changes`, never `--comment`.
 
 **Re-review after a Code-review-followup commit:** controller re-dispatches the same reviewer role + model after the followup commit lands. The re-review posts a **new** review (`--comment` "addressed in `<SHA>`" or another `--request-changes`). Prior reviews stay in the PR timeline — reviewers never dismiss their own prior reviews.
+
+**Red-team auto-dispatch (spec/ADR PRs).** When a `spec/<topic>` or `adr/<slug>` PR is opened, the controller automatically dispatches the red-team reviewer per its registry entry. The dispatch uses the same boilerplate as per-task reviewers (token helper, PR posting requirement) and reads its review template from [`.claude/reviewer-prompts/red-team.md`](.claude/reviewer-prompts/red-team.md). Red-team's verdict is `--comment` only in v1 (advisory). On a `Code-review-followup:` commit to the spec/ADR branch, the controller re-dispatches red-team and the re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (matches the existing re-review convention).
 
 **Review header convention** (mandatory so the single bot identity remains role-legible):
 
@@ -114,10 +132,13 @@ Examples:
 - `## Code-quality review — task 7 — Claude Sonnet 4.6`
 - `## Final cross-cutting review — Claude Opus 4.7`
 - `## Spec-compliance review — task 3 (re-review of abc1234) — Claude Sonnet 4.6`
+- `## Red-team review — spec — Claude Opus 4.7`
+- `## Red-team review — ADR — Claude Opus 4.7`
+- `## Red-team review — spec (re-review of def5678) — Claude Opus 4.7`
 
 **Merge gate (controller does NOT merge — the user does):** convention is "do not merge unless the final cross-cutting review is `--approve`." Human override allowed; if user merges despite open `--request-changes` reviews, leave a PR comment explaining why. The override is itself an artifact.
 
-**PR template for `gh pr create --draft --body "..."`:**
+**Feature-PR template for `gh pr create --draft --body "..."`:**
 
 ```md
 ## Iteration
@@ -135,6 +156,25 @@ Examples:
 Per-task reviewers post under task-headers. Final cross-cutting review posts at end of iteration.
 
 🤖 Reviews authored by `gcscode-reviewer[bot]` — see [docs/specs/2026-05-12-reviews-as-artifacts.md](../blob/master/docs/specs/2026-05-12-reviews-as-artifacts.md) for the workflow.
+```
+
+**Spec/ADR-PR template** (used for `spec/<topic>` and `adr/<slug>` PRs that ship via the spec-PR / ADR-PR workflows from "Branching and merging"):
+
+```md
+## <Spec or ADR title>
+
+<one-line summary matching the artifact's first line>
+
+## Links
+
+- Related spec/ADR: …
+- Related iteration (if any): …
+
+## Reviewer instructions
+
+Red-team auto-dispatches on PR open per the reviewer-role registry. Future reviewer roles (e.g., domain expert, when they exist) follow per the registry.
+
+🤖 Reviews authored by `gcscode-reviewer[bot]` — see [docs/specs/2026-05-12-reviews-as-artifacts.md](../blob/master/shell/docs/specs/2026-05-12-reviews-as-artifacts.md) for the workflow.
 ```
 
 **Public repo note.** gcscode is public on GitHub. Reviewer comments are world-readable. Keep reviews professional. Don't paste sensitive context (credentials, internal URLs).
@@ -172,6 +212,9 @@ The pattern catches silent drift (stale READMEs, out-of-date out-of-scope langua
 - `packages/extension-example/README.md` — the worked example to mirror.
 - `.claude/commands/housekeeping.md` — `/housekeeping` slash command. Run periodically (every 2–3 iterations) to sweep for drift, sharpen rough edges, fill articulation gaps.
 - `docs/specs/2026-05-12-reviews-as-artifacts.md` — first iteration of the agentic-team-architecture track: GitHub PR workflow + reviewer subagents posting under a GitHub App identity.
+- `docs/specs/2026-05-14-red-team-reviewer.md` — second iteration of the agentic-team-architecture track: red-team reviewer on spec/ADR PRs + reviewer-role registry.
+- `docs/decisions/ADR-0008-reviewer-role-registry.md` — registry pattern decision; source of truth for reviewer role definitions.
+- `.claude/reviewer-prompts/red-team.md` — red-team reviewer prompt template (review behavior, tone, output structure).
 - `.claude/agent-config.json` — App ID and installation ID for the `gcscode-reviewer` GitHub App. Private key path lives in `GH_APP_PRIVATE_KEY_PATH` env var, not in repo.
 - `.claude/scripts/gh-app-token` — helper that generates short-lived installation tokens. Reviewer subagents call `export GH_TOKEN=$(.claude/scripts/gh-app-token)` before `gh pr review`.
 
