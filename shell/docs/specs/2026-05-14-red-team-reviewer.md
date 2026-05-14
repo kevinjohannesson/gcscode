@@ -67,18 +67,19 @@ No new branch protection in v1. The workflow is a CLAUDE.md convention; enforcem
 
 A new section in CLAUDE.md. Each role is an entry with these fields:
 
-| Field              | Purpose                                                          |
-| ------------------ | ---------------------------------------------------------------- |
-| `name`             | Role identifier                                                  |
-| `kind`             | `per-task` / `cross-cutting` / `per-artifact`                    |
-| `model`            | Claude Opus 4.7 / Sonnet 4.6 / etc.                              |
-| `targets`          | PR kinds it fires on (`feature-PR` / `spec-PR` / `ADR-PR`)       |
-| `trigger`          | When in the PR lifecycle                                         |
-| `verdicts`         | Subset of `{--comment, --request-changes, --approve}` allowed    |
-| `character`        | Critique focus (short)                                           |
-| `header`           | The markdown header for posted reviews                           |
-| `re-review header` | Header form for re-reviews after `Code-review-followup:` commits |
-| `prompt template`  | Path to the per-role prompt template file                        |
+| Field              | Purpose                                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------ |
+| `name`             | Role identifier                                                                                        |
+| `kind`             | `per-task` / `cross-cutting` / `per-artifact`                                                          |
+| `identity`         | GitHub App identity that posts reviews under this role (all roles share `gcscode-reviewer[bot]` in v1) |
+| `model`            | Claude Opus 4.7 / Sonnet 4.6 / etc.                                                                    |
+| `targets`          | PR kinds it fires on (`feature-PR` / `spec-PR` / `ADR-PR`)                                             |
+| `trigger`          | When in the PR lifecycle                                                                               |
+| `verdicts`         | Subset of `{--comment, --request-changes, --approve}` allowed                                          |
+| `character`        | Critique focus (short)                                                                                 |
+| `header`           | The markdown header for posted reviews                                                                 |
+| `re-review header` | Header form for re-reviews after `Code-review-followup:` commits                                       |
+| `prompt template`  | Path to the per-role prompt template file                                                              |
 
 Existing roles populate entries 1–3 (Spec-compliance, Code-quality, Final cross-cutting). Red-team is entry 4. Future expert/domain/security reviewers append new entries; they do not edit existing sections.
 
@@ -94,6 +95,7 @@ The architectural rationale for the registry pattern (registry over inline / pro
 | ------------------ | ------------------------------------------------------------------------------------ |
 | `name`             | Red-team                                                                             |
 | `kind`             | per-artifact                                                                         |
+| `identity`         | `gcscode-reviewer[bot]`                                                              |
 | `model`            | Claude Opus 4.7                                                                      |
 | `targets`          | spec-PR, ADR-PR                                                                      |
 | `trigger`          | Automatic on PR open                                                                 |
@@ -112,14 +114,14 @@ The file contains, in order:
    - _Premise challenger._ Assumptions the artifact treats as given. Are they true? Are they unstated dependencies that should be explicit? Would the argument collapse if any one were wrong?
    - _Consistency reviewer._ Drift from CLAUDE.md, prior specs in `shell/docs/specs/`, ADRs in `shell/docs/decisions/`, roadmap, and out-of-scope. Drift can be intentional — surface it, do not call it a mistake.
 
-2. **Tone instructions.** Verbosity is not a failure mode. Politeness is not a virtue. Under-critical is the only way to fail. Specific. Cite line numbers. Cite which existing doc you are comparing against. Not adversarial for sport — thorough, not hostile.
+2. **Tone instructions.** Verbosity WITHIN a finding (depth, specificity, citations) is not a failure mode. Verbosity by EXPANDING SCOPE outside the four output sections IS a failure mode — stay inside premises / drift / open questions / summary. Politeness is not a virtue. Under-critical is the only way to fail. Specific. Cite line numbers. Cite which existing doc you are comparing against. Not adversarial for sport — thorough, not hostile.
 
 3. **Context the reviewer has access to.** PR diff (the artifact under review), CLAUDE.md, prior specs, ADRs, roadmap, out-of-scope, and the VS Code alignment ledger. The reviewer reads what it needs.
 
 4. **Output structure** (sections in the posted review):
 
    - _Premises challenged_
-   - _Drift from existing decisions_
+   - _Drift from existing decisions_ — this section always opens with a **`Checked against:`** line that enumerates the prior documents the reviewer actually inspected, with specific section names or specific ADR/spec slugs (e.g., `Checked against: CLAUDE.md "Subagent reviewer PR-posting discipline", ADR-0005, docs/specs/2026-05-12-reviews-as-artifacts.md`). Bare `CLAUDE.md` without a section anchor does not satisfy this requirement. The `Checked against:` line is required even when no drift is flagged — otherwise "no drift" is indistinguishable from "didn't read the priors," which is the failure mode this audit trail is designed to surface.
    - _Open questions_
    - _Summary_
 
@@ -127,7 +129,7 @@ The file contains, in order:
 
 5. **Return to controller.** Brief summary under 150 words after posting — count of premises challenged, drift items flagged, open questions surfaced.
 
-6. **Re-review note.** If dispatched as a re-review (controller will indicate this in the prompt), include `(re-review of <SHA>)` in the header. Verdict in v1 is always `--comment` for re-reviews too.
+6. **Re-review note.** If dispatched as a re-review (controller will indicate this in the prompt), include `(re-review of <SHA>)` in the header, where `<SHA>` is the **followup commit that prompted the re-review** — i.e., the new commit added since the prior review, not the commit the prior review last saw. Matches the empirical convention used in PR #1's validation. Verdict in v1 is always `--comment` for re-reviews too.
 
 ### What red-team explicitly does NOT do
 
@@ -226,13 +228,21 @@ Same approach as PR #1 (reviews-as-artifacts validation). Becomes the second per
 
 Runs on the first genuine spec PR after this iteration ships. Tests what red-team actually produces in real critique.
 
-**Pass criteria:**
+**Pass criteria — Plan 2 requires BOTH (a) and (b):**
+
+**(a) Mechanical compliance.**
 
 - Red-team posts under `gcscode-reviewer[bot]`.
 - Header matches the convention.
 - Verdict is `--comment` (advisory only in v1).
-- Review body has all four sections; "Nothing flagged" appears explicitly where appropriate (silent omissions fail).
-- Review surfaces at least one substantive observation across the four sections, OR explicitly says "nothing flagged" in each. Silence-without-justification fails.
+- Review body has all four sections (silent omissions fail — explicit "Nothing flagged" required where there are no findings).
+- The Drift section's `Checked against:` enumeration is present AND concrete (specific section names / specific ADR slugs / specific spec filenames — not bare `CLAUDE.md`).
+
+**(b) User judgment — the critique reflects engagement with the artifact, not engagement-theater.**
+
+A review that posts the mechanically-compliant structure but says "Nothing flagged" across every section fails (b) by default — UNLESS the artifact is genuinely so trivial that nothing of substance could be flagged, AND the `Checked against:` enumeration is rich enough to verify the reviewer actually read the priors. The user is the judge of (b); there is no algorithmic check.
+
+**Tripwire for ADR-PRs specifically.** If `N` consecutive ADR-PRs return all-silent red-team reviews (no premises challenged, no drift, no open questions), consider pulling `ADR-PR` from red-team's `targets` registry field. This directly addresses the known unknown about ADRs being too short for red-team to chew on. `N ≥ 3` is a reasonable initial threshold; tune in practice. The tripwire is a manual review item, not an automated check.
 
 **Failure response:** if the prompt produces sprawling / unfocused / over-cautious / silent output → refine `.claude/reviewer-prompts/red-team.md` in a followup commit. Treat the prompt as iteratively tunable, not locked.
 
@@ -263,7 +273,7 @@ Two new entries under "Considering":
 
 - Does the broad-character prompt produce focused or sprawling output? Only learned live.
 - Will red-team actually read CLAUDE.md / prior specs / ADRs when checking consistency, or will it skim? The prompt says "read what you need" — depends on Opus following through.
-- ADRs are short; does red-team have enough to chew on? Specs are richer artifacts; ADRs may yield fewer findings.
+- ADRs are short; does red-team have enough to chew on? Specs are richer artifacts; ADRs may yield fewer findings. Plan 2's tripwire ("`N` consecutive all-silent ADR reviews → consider pulling ADR-PR from red-team's `targets`") provides a detection mechanism for the worst case.
 - Will the user engage with red-team's notes versus skim them? Advisory-only design lets this play out; the signal informs the v2 verdict-promotion decision.
 
 ## Future iterations
