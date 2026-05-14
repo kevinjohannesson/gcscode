@@ -14,3 +14,7 @@ This is the first PR where the new `Auto-dispatch on spec/ADR PRs` obligation in
 - No token-helper collision under parallel dispatch.
 
 If you're reading this on the merged master branch — you weren't supposed to. This file only exists on `test/spec-quality-iteration-validation`.
+
+## Followup note
+
+Added per the scripted re-review test in the iteration's smoke plan. The parallel re-review dispatch will include this commit's SHA in BOTH roles' `(re-review of <SHA>)` headers, validating the re-review convention under parallel dispatch.
