@@ -134,6 +134,7 @@ The `Secondary model` field is OPTIONAL. When populated, the controller dispatch
 | Final cross-cutting (end of iteration) |      ✗      |          ✓          |      ✓      |
 | Red-team (per-artifact, spec/ADR-PRs)  |      ✓      |          ✗          |      ✗      |
 | Spec-quality (per-artifact, spec/ADR-PRs) |      ✓      |          ✗          |      ✗      |
+| Respondent (per-followup-commit, spec/ADR-PRs) |      ✓      |          ✗          |      ✗      |
 
 Per-task reviewers may post `--comment` (clean or informational) or `--request-changes` (blocking), never `--approve`. The final cross-cutting reviewer is the only review allowed to flip the PR into approved state; it posts `--approve` or `--request-changes`, never `--comment`.
 
