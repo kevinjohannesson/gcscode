@@ -1,7 +1,7 @@
 # ADR-0008: Reviewer-role registry
 
 **Date:** 2026-05-14
-**Status:** Superseded by [ADR-0009 (Agentic-actor registry)](ADR-0009-agentic-actor-registry.md) on 2026-05-16
+**Status:** Superseded by [ADR-0009 (Agentic-actor registry)](ADR-0009-agentic-actor-registry.md)
 
 ## Context
 

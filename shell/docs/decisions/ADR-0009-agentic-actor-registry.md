@@ -28,6 +28,8 @@ We supersede ADR-0008 with an **agentic-actor registry**. The registry has the s
 
 Future iterations may add more actor classes (e.g., devil's advocate v2 may be its own class if its dispatch shape differs structurally from reviewer).
 
+**When to add a new actor-class vs a new row under an existing class.** A new actor-class is warranted when the structural fields the actor needs differ enough from existing classes that more than one cell carries a "doesn't apply" or category-stretched value. If a new actor fits the existing reviewer or respondent column semantics (model is a Claude model, verdicts come from the existing set, trigger uses existing vocabulary), it gets a new row under an existing class. If multiple cells stretch (a controller-action-bot with no model, no verdict, no character — only identity + trigger + prompt template apply), it warrants a new actor-class. Borderline cases get brainstormed in the iteration that introduces the new actor; this ADR establishes the framing, not a closed taxonomy.
+
 **2. Registry schema: one combined table, one new column.** The registry table keeps all 12 existing columns from PR #11's evolution of ADR-0008. One new column is prepended:
 
 | Field          | Purpose                                                                                            |
@@ -42,16 +44,16 @@ The 12 existing columns (`name`, `kind`, `identity`, `model`, `secondary model`,
 | ----------------- | ---------------------------------------------------------------------------------------------------- |
 | `actor-class`     | `respondent`                                                                                         |
 | `name`            | Respondent                                                                                           |
-| `kind`            | `per-followup-commit`                                                                                |
+| `kind`            | `per-followup-commit` (new enum value; extends the existing `{per-task, cross-cutting, per-artifact}` set) |
 | `identity`        | `gcscode-respondent[bot]`                                                                            |
-| `model`           | `n/a — controller-direct` (v1 limitation; respondent subagent v2 will set this)                       |
+| `model`           | `n/a — controller-direct` (column-value stretch; v1 limitation; respondent subagent v2 will populate with an actual Claude model)|
 | `secondary model` | —                                                                                                    |
-| `targets`         | `spec-PR, ADR-PR`                                                                                    |
+| `targets`         | `spec-PR, ADR-PR` (v1 scope; review-discussion-loop-v1's Future iterations contemplates feature-PR extension which would expand this cell) |
 | `trigger`         | `After each Code-review-followup commit`                                                             |
 | `verdicts`        | `--comment` only (advisory; respondent has no review verdict)                                        |
 | `character`       | Controller's per-finding dispositions; documents what was addressed, deferred, routed, or noted      |
 | `header`          | `## Respondent — re commit <SHA> — to <reviewer role> review by <reviewer model>`                    |
-| `re-review header` | — (respondent posts once per followup commit; no re-reviews from the respondent itself)              |
+| `re-review header` | — (the respondent does NOT re-review its own prior posts; each followup commit triggers a new respondent post with the standard header above, NOT a re-review of a prior respondent post) |
 | `prompt template` | `.claude/reviewer-prompts/respondent.md`                                                             |
 
 The respondent's role definition (the response format, disposition vocabulary, per-followup cadence, initial-review-round exclusion) lives in `.claude/reviewer-prompts/respondent.md`, identical convention to reviewer prompts.
@@ -63,6 +65,55 @@ The respondent's role definition (the response format, disposition vocabulary, p
 - ADR-0008's filename and content stay; its `**Status:**` field flips from `Accepted` to `Superseded by ADR-0009` with a one-line breadcrumb to this ADR.
 - This ADR (ADR-0009) opens with `**Supersedes:**` pointing back to ADR-0008.
 - No filename variants. No `ADR-0008-a` patterns. Industry-standard supersession only.
+
+**Why supersession rather than extension-in-place.** Extension-in-place (editing ADR-0008 to broaden its scope) is the alternative. We chose supersession because:
+
+1. **ADR-0008's framing is genuinely outdated, not just narrower.** Its title is "Reviewer-role registry"; its prose repeatedly says "reviewer role" as the unit of registry content. Editing it to mean "agentic actor" makes the historical record ambiguous about what the 2026-05-14 iteration actually decided.
+2. **Supersession is the standard pattern for a scope-broadening change.** Extension-in-place is appropriate for clarifications, factual corrections, or adding rows to an existing class. ADR-0009 introduces a new actor class (respondent), a new column (`actor-class`), and changes the registry's conceptual root (reviewer roles → agentic actors). That's an architectural pivot, not a clarification.
+3. **First-supersession precedent matters.** This is the first ADR supersession in gcscode. Setting the bar at "scope-broadening change" rather than "any change" keeps the supersession machinery available for cases that genuinely need a fresh historical record, and avoids it becoming a tool for routine clarifications.
+
+The specs-as-historical-record convention (CLAUDE.md "Planning conventions and long-term alignment > Specs as historical record") applies the same logic at the spec level: substantive revisions get successor specs; factual corrections get inline edits. Supersession is the ADR-level expression of the same principle.
+
+## Post-merge implementation
+
+Per the post-merge implementation convention, three direct-master commits. All content fully specified verbatim below; no judgment required during implementation.
+
+- **Commit 1: Replace the "Reviewer-role registry" header + table in CLAUDE.md** with the agentic-actor registry header + 13-column table (prepended `actor-class` column; existing 5 rows gain `reviewer` value; new respondent row added). Verbatim text below.
+- **Commit 2: Update the denormalized verdict-permission table in CLAUDE.md** to add a respondent row. Verbatim text below.
+- **Commit 3: Update CLAUDE.md prose references** to the registry's name and the ADR-0008 reference. Verbatim edits below.
+
+### Verbatim — Commit 1 (replace the registry header + table)
+
+Replace the existing "Reviewer-role registry" header + table at lines 111-119 of CLAUDE.md (the line numbers verified at implementation time; locate via `grep "Reviewer-role registry\." shell/CLAUDE.md`) with:
+
+````md
+**Agentic-actor registry.** Source of truth for agentic-actor definitions (reviewers + non-reviewer controller-voice actors). The verdict table below is a denormalized quick-reference view of the registry. Architectural rationale: [`docs/decisions/ADR-0009-agentic-actor-registry.md`](docs/decisions/ADR-0009-agentic-actor-registry.md) (supersedes [ADR-0008](docs/decisions/ADR-0008-reviewer-role-registry.md)). Prompt templates: `.claude/reviewer-prompts/<name>.md`.
+
+| Actor class | Role                | Kind                  | Identity                  | Model                                          | Secondary model   | Targets         | Trigger                              | Verdicts                         | Character                                                          | Header                                                       | Re-review header                                                                | Prompt template                                                           |
+| ----------- | ------------------- | --------------------- | ------------------------- | ---------------------------------------------- | ----------------- | --------------- | ------------------------------------ | -------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| reviewer    | Spec-compliance     | per-task              | `gcscode-reviewer[bot]`   | Claude Sonnet 4.6                              | —                 | feature-PR      | After each task commit               | `--comment`, `--request-changes` | Verify implementation matches the task's spec slice                | `## Spec-compliance review — task <N> — Claude Sonnet 4.6`   | `## Spec-compliance review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6` | `superpowers:subagent-driven-development/spec-reviewer-prompt.md`         |
+| reviewer    | Code-quality        | per-task              | `gcscode-reviewer[bot]`   | Claude Sonnet 4.6                              | —                 | feature-PR      | After spec-compliance passes         | `--comment`, `--request-changes` | Code quality, idioms, edge cases                                   | `## Code-quality review — task <N> — Claude Sonnet 4.6`      | `## Code-quality review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6`    | `superpowers:subagent-driven-development/code-quality-reviewer-prompt.md` |
+| reviewer    | Final cross-cutting | cross-cutting         | `gcscode-reviewer[bot]`   | Claude Opus 4.7                                | —                 | feature-PR      | End of iteration                     | `--request-changes`, `--approve` | Cross-cutting concerns missed at per-task level                    | `## Final cross-cutting review — Claude Opus 4.7`            | `## Final cross-cutting review (re-review of <SHA>) — Claude Opus 4.7`          | `superpowers:requesting-code-review/code-reviewer.md`                     |
+| reviewer    | Red-team            | per-artifact          | `gcscode-reviewer[bot]`   | Claude Opus 4.7                                | Claude Sonnet 4.6 | spec-PR, ADR-PR | Automatic on PR open                 | `--comment` only (v1)            | Premise challenger + consistency reviewer                          | `## Red-team review — <spec or ADR> — Claude Opus 4.7`       | `## Red-team review — <spec or ADR> (re-review of <SHA>) — Claude Opus 4.7`     | `.claude/reviewer-prompts/red-team.md`                                    |
+| reviewer    | Spec-quality        | per-artifact          | `gcscode-reviewer[bot]`   | Claude Sonnet 4.6                              | —                 | spec-PR, ADR-PR | Automatic on PR open                 | `--comment` only (v1)            | Document structure + within-document consistency + link mechanics  | `## Spec-quality review — <spec or ADR> — Claude Sonnet 4.6` | `## Spec-quality review — <spec or ADR> (re-review of <SHA>) — Claude Sonnet 4.6` | `.claude/reviewer-prompts/spec-quality.md`                                |
+| respondent  | Respondent          | per-followup-commit   | `gcscode-respondent[bot]` | n/a — controller-direct (v1; v2 sets a model) | —                 | spec-PR, ADR-PR | After each Code-review-followup commit | `--comment` only (advisory; not a review verdict) | Documents controller's per-finding dispositions                    | `## Respondent — re commit <SHA> — to <reviewer role> review by <reviewer model>` | — (new respondent post per followup commit; not a re-review)                    | `.claude/reviewer-prompts/respondent.md`                                  |
+````
+
+### Verbatim — Commit 2 (verdict-permission table addition)
+
+Append the following row to the verdict-permission table in CLAUDE.md (locate via `grep "Spec-quality (per-artifact" shell/CLAUDE.md`, append immediately after that row):
+
+````md
+| Respondent (per-followup-commit, spec/ADR-PRs) |      ✓      |          ✗          |      ✗      |
+````
+
+### Verbatim — Commit 3 (prose reference updates)
+
+Two small prose updates in CLAUDE.md:
+
+**Edit A.** Find the "Reviewer-role registry" cross-reference in CLAUDE.md's "Subagent reviewer PR-posting discipline" subsection prose (NOT the registry table itself, which Commit 1 replaces); update any prose that says "reviewer-role registry" to "agentic-actor registry" where the reference is to the registry-as-a-whole, not to the reviewer subset. Use `grep "reviewer-role registry" shell/CLAUDE.md` to locate.
+
+**Edit B.** No changes to existing reviewer prompt files (`.claude/reviewer-prompts/red-team.md`, `.claude/reviewer-prompts/spec-quality.md`) — those documents are role-specific, and the registry rename doesn't affect their content. Same for `.claude/reviewer-prompts/respondent.md`.
 
 ## Alternatives considered
 
