@@ -112,6 +112,8 @@ Claude Sonnet 4.6
 
 The "column-value stretch" annotation goes away; the cell matches the other reviewer-row `Model` values shape-wise. No other cells in the respondent row change (`kind: per-followup-commit`, `identity: gcscode-respondent[bot]`, `secondary model: —`, `targets`, `trigger`, `verdicts`, `character`, `header`, `re-review header: —`, `prompt template` all unchanged).
 
+**`secondary model` cell deliberately kept at `—`.** ADR-0009's "Related" section (under "Queued follow-up iterations enabled by this ADR") anticipated that respondent v2 "will populate the respondent's `model` and `secondary model` columns." v2 fills `model` only; `secondary model` stays `—`. The ADR-0009 anticipation was overreach: it presumed v2 would adopt the multi-model heterogeneous dispatch pattern that red-team uses (Opus 4.7 + Sonnet 4.6 in parallel). v2 explicitly rejects multi-model for the respondent — see Origin: "one model (no multi-model pair — independence-of-opinion is not the respondent's value proposition)." Independence-of-opinion is load-bearing for premise-challenging reviewers (red-team); the respondent's job is documenting controller dispositions, where independence-of-opinion is irrelevant or counterproductive. v2's narrower fill is intentional; the ADR-0009 anticipation was a forward-looking guess that v2 declines to honor.
+
 Full verbatim content in Post-merge implementation > Commit 4b.
 
 ### `actor-class: respondent` retention (ADR-0009 boundary-test note)
@@ -120,12 +122,11 @@ ADR-0009 Decision 1 introduced a "two-cell-stretch" criterion for warranting a n
 
 After v2's Commit 4b, the `model` cell is filled with `Claude Sonnet 4.6`. Only the `re-review header` cell still carries `—`. Per ADR-0009's own boundary criterion, the respondent now has one cell stretching, which falls below the "two stretches" threshold the ADR set for warranting a separate actor-class.
 
-**v2's call: keep `actor-class: respondent` regardless.** Two reasons:
+**v2's call: keep `actor-class: respondent` regardless.** The reason:
 
-1. **Conceptual distinction is real and orthogonal to cell-stretch count.** A respondent's voice (controller's documented dispositions) is conceptually distinct from a reviewer's voice (independent critique), regardless of whether the structural fields converge. Collapsing respondent into `actor-class: reviewer` with `verdicts: --comment only` would erase a meaningful distinction the registry exists to surface.
-2. **ADR-0009's boundary test was meant to inform initial framing, not be a recurring trip-line.** The test answered "should the respondent get its own actor-class on introduction?" — yes, at v1-time. It was not designed to re-fire on subsequent cell fills. Treating the cell-count test as a recurring constraint would mean every cell change risks consolidation churn.
+**Conceptual distinction is real and orthogonal to cell-stretch count.** A respondent's voice (controller's documented dispositions) is conceptually distinct from a reviewer's voice (independent critique), regardless of whether the structural fields converge. Collapsing respondent into `actor-class: reviewer` with `verdicts: --comment only` would erase a meaningful distinction the registry exists to surface. The cell-stretch count is one signal among several; the conceptual distinction is the load-bearing one for keeping a separate actor-class.
 
-This v2 spec does not amend ADR-0009. ADR-0009's boundary test stands as written; its triggering condition (two stretches → new class) was correctly applied at the time and remains a useful framing for future actor-class decisions. The cell-stretch count is a v1-state observation, not an invariant the architecture maintains.
+**What v2 does not do.** v2 does NOT make a claim about how ADR-0009's boundary test was "designed" to behave across subsequent cell fills — that's a claim about ADR-0009's intent that ADR-0009 itself does not articulate, and asserting it in v2 would effectively extend ADR-0009 without amending it. v2 takes the narrower position: ADR-0009's test was correctly applied at the time it was written; v2 keeps `actor-class: respondent` on the conceptual-distinction basis above, independent of whether the cell-stretch count technically still satisfies the test. If a future iteration wants to revisit the boundary-test mechanics across cell-fill changes, that's a separate ADR-amendment or ADR-supersession question — not something v2 settles inline.
 
 ## Post-merge implementation
 
@@ -135,7 +136,7 @@ Per the post-merge implementation convention, five direct-master commits. All co
 - **Commit 2:** Rewrite `.claude/reviewer-prompts/respondent.md` end-to-end with verbatim content below.
 - **Commit 3:** Replace CLAUDE.md "Respondent posting discipline" subsection with verbatim content below.
 - **Commit 4:** Two CLAUDE.md edits — (4a) "Auto-dispatch controller obligations" bullet 2 rewrite; (4b) agentic-actor registry table respondent-row `model` cell update. Both verbatim below.
-- **Commit 5:** Documentation propagation — roadmap.md flip + v1-spec breadcrumb. Verbatim below.
+- **Commit 5:** Documentation propagation — roadmap.md flip + v1-spec breadcrumb + roadmap.md "v1 propagation gap audit" Considering entry. Verbatim below (four sub-edits: 5a, 5b, 5c, 5d).
 
 ### Verbatim — Commit 1 (`.claude/agents/respondent.md`)
 
@@ -180,7 +181,15 @@ When dispatching, the controller substitutes:
 
 The controller pre-fetches and packs the following into the dispatch prompt:
 
-- **Reviewer's most-recent review body** — full markdown content of the review being responded to. Controller fetches via `gh pr view {{PR_NUMBER}} --json reviews` then filters by: `select(.author.login == "gcscode-reviewer" and (.body | startswith("## {{REVIEWER_HEADER_PREFIX}}")))` where `{{REVIEWER_HEADER_PREFIX}}` is the role+model header form (e.g., `Red-team review — spec — Claude Opus 4.7`, `Red-team review — spec — Claude Sonnet 4.6`, `Spec-quality review — spec — Claude Sonnet 4.6`; the re-review form `(re-review of <SHA>) — ` is included for re-rounds). When multiple matches exist (re-reviews across rounds), take the most-recent by `.submittedAt`. The GitHub reviews API returns reviews in chronological order, but explicit `.submittedAt` sorting is the authoritative selector. Note: `.author.login` for GitHub Apps is the App name without the `[bot]` suffix; the suffix is a UI rendering only.
+- **Reviewer's most-recent review body** — full markdown content of the review being responded to. Controller fetches via `gh pr view {{PR_NUMBER}} --json reviews` then filters by:
+
+  ```jq
+  .reviews[]
+  | select(.author.login == "gcscode-reviewer")
+  | select(.body | test("^## {{ROLE_LABEL}} review — (spec|ADR)( \\(re-review of [0-9a-f]+\\))? — {{REVIEWER_MODEL}}\\b"))
+  ```
+
+  where `{{ROLE_LABEL}}` is `Red-team` or `Spec-quality` (literally) and `{{REVIEWER_MODEL}}` is `Claude Opus 4.7` or `Claude Sonnet 4.6` (literally). The regex covers both spec-PR and ADR-PR artifact kinds AND both initial-review and re-review header forms (re-review headers carry `(re-review of <SHA>) — ` between the artifact-kind word and the model name, so a plain `startswith` of a model-suffix-inclusive prefix would not match re-reviews). When multiple matches exist (re-reviews across rounds), sort by `.submittedAt` descending and take the first. The GitHub reviews API returns reviews in chronological order, but explicit `.submittedAt` sorting is the authoritative selector. Note: `.author.login` for GitHub Apps is the App name without the `[bot]` suffix; the suffix is a UI rendering only.
 - **Followup commit diff** — output of `git show {{FOLLOWUP_SHA}}` against the PR's branch.
 - **Spec/ADR content** — full markdown content of the spec or ADR file being reviewed. Controller fetches via Read.
 
@@ -188,7 +197,7 @@ Do NOT re-fetch these three inputs via `gh` / `git` / Read — the controller's 
 
 ## Tool surface (citation verification)
 
-You have read access to the gcscode repo via the standard tool surface (Read, Grep, Bash). Use this access ONLY to verify citations for `intentional, see <X>` dispositions — confirm the cited CLAUDE.md section / ADR slug / spec section exists AND its content matches the disposition's claim. If a citation cannot be verified (cited section absent, or content doesn't match), fall back to `noted, no current action — citation unverified: <one-sentence rationale>` rather than `noted, no current action` alone — the `citation unverified` form is a deliberate signal that the controller wanted to cite something but the subagent couldn't confirm; the controller (or a future audit) can revisit.
+You have read access to the gcscode repo via the standard tool surface (Read, Grep, Bash). Use this access ONLY to verify citations for `intentional, see <X>` dispositions — confirm the cited CLAUDE.md section / ADR slug / spec section exists AND its content matches the disposition's claim. If a citation cannot be verified (cited section absent, or content doesn't match), fall back to the `noted, no current action — citation unverified: <rationale>` disposition variant defined in the Response body structure section below. The `citation unverified` prefix is a deliberate signal that the controller wanted to cite something but the subagent couldn't confirm; the controller (or a future audit) can revisit. Do not use the bare `noted, no current action — <rationale>` form when citation-verification was the reason; the `citation unverified` variant is the discriminator.
 
 Do NOT use the tool surface for any other purpose: do not browse the repo for additional context beyond the structured inputs, do not produce dispositions that aren't grounded in the reviewer's review body, do not investigate alternate framings of the spec. The structured inputs are authoritative for what the response addresses; the tool surface is authoritative ONLY for citation verification.
 
@@ -238,11 +247,12 @@ Response is structured by finding, mirroring the reviewer's section structure. F
 Use the disposition verb that matches what the followup commit (or prior commits in this iteration) did with the finding:
 
 - `addressed in {{FOLLOWUP_SHA}}` — the followup commit changed something to address this finding. Optionally name the specific change.
-- `intentional, see <X>` — the spec/code intentionally does (or doesn't do) the thing; cite the rationale (CLAUDE.md section heading, ADR slug, spec section, prior reviewer's disposition, etc.). The citation MUST exist in the cited source; if you cannot verify the citation while writing the response (the cited section is absent, or its content doesn't match the disposition's claim), fall back to `noted, no current action — <rationale>`.
+- `intentional, see <X>` — the spec/code intentionally does (or doesn't do) the thing; cite the rationale (CLAUDE.md section heading, ADR slug, spec section, prior reviewer's disposition, etc.). The citation MUST exist in the cited source; if you cannot verify the citation while writing the response (the cited section is absent, or its content doesn't match the disposition's claim), fall back to the `noted, no current action — citation unverified: <rationale>` variant below — NOT the bare `noted, no current action — <rationale>` form (the `citation unverified:` prefix is the discriminator that surfaces "wanted to cite but couldn't" for a future audit).
 - `routed to docs/roadmap.md as Considering entry "<title>"` — for future-iteration candidates. The actual roadmap edit lands post-merge per the existing propagation pattern.
 - `routed to docs/out-of-scope.md` — for cross-cutting architectural deferrals. Edit lands post-merge per propagation.
 - `noted as known-unknown #N in spec line <L>` — the spec was updated inline (in this followup or a prior one) to acknowledge this as a known unknown.
 - `noted, no current action — <one-sentence rationale>` — read, considered, not acting; rationale provided.
+- `noted, no current action — citation unverified: <one-sentence rationale>` — variant of the above used SPECIFICALLY when an `intentional, see <X>` disposition was attempted but the citation could not be verified (cited section absent, or content doesn't match the claim). The `citation unverified:` prefix is mandatory in this variant.
 - `accepted; re-review will pick up the diff` — already addressed elsewhere (e.g., another reviewer's followup, or a prior round).
 - `oversight in {{FOLLOWUP_SHA}}; will address in next followup` — used when a finding was genuinely missed; the next followup commit's response will update this to `addressed`.
 
@@ -352,7 +362,7 @@ No other cells in the respondent row change. The mechanical edit: inside the tab
 
 ### Verbatim — Commit 5 (documentation propagation)
 
-Three sub-edits:
+Four sub-edits:
 
 **5a: roadmap.md flip.** In `shell/docs/roadmap.md`, move the existing Considering entry for "Respondent subagent v2":
 
@@ -379,6 +389,14 @@ DELETE the above entry from the Considering section, and ADD the following entry
 The breadcrumb does NOT modify v1's substantive content (the Day 1 limitation framing is intact; only the trigger anticipation is annotated as superseded). This is the second application of the specs-as-historical-record convention introduced in `2026-05-16-agentic-team-debt-clearing-v1.md` Commit 5 (the first was ADR-0009's number-reservation breadcrumb).
 
 **5c: out-of-scope.md — NO EDIT.** v1's planned `docs/out-of-scope.md` entry ("Respondent subagent dispatch for cross-session consistency") was never landed during v1's post-merge implementation (verifiable: `grep "[Rr]espondent" shell/docs/out-of-scope.md` returns no matches as of this spec's writing). There is nothing to remove. Backfilling-then-removing is silly; v2 simply notes the v1 propagation gap in Known Unknowns and skips the out-of-scope.md edit.
+
+**5d: roadmap.md — add "v1 propagation gap audit" Considering entry.** Append to the agentic-team architecture Considering section. Verbatim text:
+
+````md
+- [ ] **v1 propagation gap audit (review-discussion-loop-v1)** — v2's brainstorm surfaced that v1's planned `docs/out-of-scope.md` entries ("Respondent subagent dispatch for cross-session consistency"; "Required re-reviewer engagement with respondent posts") never landed during v1's post-merge implementation; the planned roadmap.md updates may have similar gaps. This audit verifies what v1 planned vs what actually landed across out-of-scope.md and roadmap.md, and backfills where the gap is still load-bearing post-v2. Trigger: ready to address as a quick micro-iteration; no external prerequisite. Surfaced by [`specs/2026-05-16-respondent-subagent-v2.md`](specs/2026-05-16-respondent-subagent-v2.md) Known Unknowns.
+````
+
+Pre-edit verification: `grep -n "v1 propagation gap" shell/docs/roadmap.md` should return no matches before the append; if it does, reconcile manually rather than appending a duplicate.
 
 ## Data flow — how this iteration ships
 
@@ -421,7 +439,7 @@ A throwaway test branch validates the subagent dispatch end-to-end.
 
 The first real spec/ADR PR after this iteration ships exercises the new workflow end-to-end. Qualitative gut-check observations (compare to v1 behavior on PRs #11-#15):
 
-- **Reconstruction quality.** Does the subagent's per-finding disposition classification match what a controller-direct response would produce? Spot-check 3-5 dispositions per PR. **Counterfactual baseline caveat:** after v2 ships, controller-direct responses are no longer being written, so there is no live counterfactual to compare against. The validation collapses to "does the subagent's disposition look reasonable to a reader on the merits?" — a weaker test than "is it as good as the alternative." A "v2 is meaningfully worse" signal will be hard to surface from spot-checks alone; if the reconstruction-quality tripwire never fires across N=2 PRs despite genuine degradation, the validation is producing false negatives. Mitigation: on the first 1-2 spec/ADR PRs after v2 ships, the controller can ALSO write a shadow controller-direct response (not posted to the PR — held in the iteration's brainstorm notes) for a single finding, and qualitatively compare. The shadow-baseline is an option, not a requirement.
+- **Reconstruction quality.** Does the subagent's per-finding disposition classification look reasonable to a reader on the merits? Spot-check 3-5 dispositions per PR. **Counterfactual baseline caveat:** after v2 ships, controller-direct responses are no longer being written, so there is no live counterfactual to compare against; the validation is one-sided. A "v2 is meaningfully worse than controller-direct would have been" signal is hard to surface from spot-checks alone — the reviewer reads the respondent's disposition without a parallel "what would the controller have written?" to compare to. The reconstruction-quality tripwire (below) is the failure-detection mechanism v2 relies on; if it fires, the response is escalate-to-Opus or expand-pre-fetch, not "compare to a synthetic shadow baseline." v2 accepts the one-sided-validation cost as the tradeoff for not maintaining a parallel controller-direct artifact post-ship.
 - **Citation accuracy.** For `intentional, see <X>` dispositions: does the cited CLAUDE.md section / ADR slug / spec section actually exist AND say what the disposition claims? Or does the subagent hallucinate citations?
 - **Oversight identification.** Does the subagent correctly identify oversights (vs claiming `addressed` when the diff didn't actually address the finding)?
 - **Round-awareness.** Does the subagent correctly use prior respondent posts? (Should only respond to findings raised in the most recent re-review, not previously-disposed ones.)
@@ -443,6 +461,14 @@ Propagation to `shell/docs/vs-code-alignment.md`: none.
 
 See Post-merge implementation > Commit 5a verbatim. The Considering "Respondent subagent v2" entry is moved to the Queued section, flipped to `[x]`, and the entry text updated to reflect shipped-status (with a link to this spec).
 
+**Additional roadmap.md addition — v1 propagation gap audit (Considering).** v2's brainstorm surfaced that v1's planned `docs/out-of-scope.md` propagation never landed (see Known Unknowns "v1's out-of-scope.md propagation gap"). The audit-the-gap task is in this spec's Future iterations #10, but Future iterations is spec-internal; cross-iteration tracking belongs on the roadmap. Commit 5 sub-edits gain a 5d: append to `docs/roadmap.md` Considering section under the agentic-team architecture track:
+
+````md
+- [ ] **v1 propagation gap audit (review-discussion-loop-v1)** — v2's brainstorm surfaced that v1's planned `docs/out-of-scope.md` entries ("Respondent subagent dispatch for cross-session consistency"; "Required re-reviewer engagement with respondent posts") never landed during v1's post-merge implementation; the planned roadmap.md updates may have similar gaps. This audit verifies what v1 planned vs what actually landed across out-of-scope.md and roadmap.md, and backfills where the gap is still load-bearing post-v2. Trigger: ready to address as a quick micro-iteration; no external prerequisite. Surfaced by [`specs/2026-05-16-respondent-subagent-v2.md`](specs/2026-05-16-respondent-subagent-v2.md) Known Unknowns.
+````
+
+Net change: 1 Shipped/Queued flip + 1 new Considering entry.
+
 ## Known unknowns
 
 - **Cross-session reconstruction quality.** v1's premise was "controller writes from session context"; v2's premise is "subagent reconstructs from structured inputs + PR fetches." Plan 2 validates that v2's reconstruction is at least as good as v1's session-context approach. If not, v2 doesn't solve the cross-session problem — it just moves it. **Tripwire below.**
@@ -454,6 +480,7 @@ See Post-merge implementation > Commit 5a verbatim. The Considering "Respondent 
 - **Sonnet 4.6 vs Opus 4.7 for citation accuracy.** v2 selects Sonnet 4.6 + effort:max on the "matches spec-quality pattern" + "independence-of-opinion isn't the value proposition" framing. That framing addresses model-selection-for-disposition-classification but sidesteps citation-verification specifically. Citation verification (read CLAUDE.md / ADRs / sibling specs; cross-check the cited content matches the disposition's claim) is multi-step retrieval-and-reasoning, exactly the kind of task where Opus's depth materially exceeds Sonnet's. The citation-hallucination tripwire fires after N=2 PRs of misuse — if it fires, the response is "escalate to Opus 4.7," not "strengthen the prompt." The model selection is not locked-in; v2 ships on the cheaper assumption with a tripwire-driven escalation path.
 - **Token cost not quantified (asymmetric with multi-model v1 rigor).** v2's token-cost discussion is "roughly doubles per round" without prompt-size or response-size estimates. Multi-model v1's spec quantified its per-PR cost step. The asymmetry is acknowledged; v2 ships without the quantification because the cost-magnitude bracket (small per-PR, small per-iteration) is judged adequate. A future iteration could backfill the numbers if cost surveillance becomes operational.
 - **v1 emergency fallback accessibility.** v2's Commit 2 rewrites `.claude/reviewer-prompts/respondent.md` end-to-end, overwriting the v1 controller-direct template. The "clean retire" framing in "Why not the bigger version" accepts this — if a future emergency demands controller-direct, it can be done ad hoc. The v1 template content remains accessible via v1's spec ([`2026-05-16-review-discussion-loop-v1.md`](2026-05-16-review-discussion-loop-v1.md) Post-merge implementation > Commit 3 verbatim) and via git history. Surfacing here for visibility: the v1 template is not lost, just not at its original `.claude/` path.
+- **ADR-0009 boundary-test longevity across cell-fill changes.** v2's `model` cell fill drops the respondent row's stretch count from two to one. ADR-0009's "two-cell-stretch" test stands as written but its applicability to subsequent cell-fill changes is now an open question: does the test only apply at actor-class introduction, or does it re-fire when a class's cell-fills change later? v2 takes the narrower position (the test was correctly applied at v1-time; v2 keeps `actor-class: respondent` on conceptual-distinction grounds without claiming the test's intended scope), but a future iteration may want to revisit the test's mechanics — either as a clarification to ADR-0009 or as a separate ADR if the question recurs across other actor classes.
 
 ## Tripwires for known-quality concerns
 
