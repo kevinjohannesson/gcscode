@@ -118,7 +118,7 @@ Per the post-merge implementation convention, four direct-master commits. All co
 - **Commit 1: Create `.claude/agents/red-team-reviewer.md`** with the verbatim content shown above.
 - **Commit 2: Create `.claude/agents/spec-quality-reviewer.md`** with the verbatim content shown above.
 - **Commit 3: Two CLAUDE.md edits** — replace the "Auto-dispatch on spec/ADR PRs" paragraph and the **first bullet** of the "Auto-dispatch controller obligations" checklist with the verbatim text below. Bullet 2 of that checklist (`Code-review-followup:` re-dispatch) stays unchanged.
-- **Commit 4: Cross-reference pointer in `shell/docs/specs/2026-05-16-multi-model-red-team-v1.md`** — append one footnote-style sentence to the spec's Evaluation plan section (or, if no dedicated section, immediately after the first mention of "N=5"). Verbatim text: `> **N=5 counter reset (added 2026-05-16):** Effort-max iteration ([docs/specs/2026-05-16-effort-max-custom-reviewers.md](2026-05-16-effort-max-custom-reviewers.md)) resets this counter at its merge. PR #9 and PR #11 are pre-effort:max baseline observations; the formal N=5 count starts from the first spec/ADR PR after that iteration's merge.`
+- **Commit 4: Cross-reference pointer in `shell/docs/specs/2026-05-16-multi-model-red-team-v1.md`** — append one footnote-style sentence to the end of the `### Evaluation methodology (load-bearing for v1's value)` subsection (currently at line 102 of the multi-model v1 spec, under `## Architecture`). Verbatim text to append: `> **N=5 counter reset (added 2026-05-16):** Effort-max iteration ([2026-05-16-effort-max-custom-reviewers.md](2026-05-16-effort-max-custom-reviewers.md)) resets this counter at its merge. PR #9 and PR #11 are pre-effort:max baseline observations; the formal N=5 count starts from the first spec/ADR PR after that iteration's merge.`
 
 ### Verbatim text — Edit A (Auto-dispatch on spec/ADR PRs paragraph)
 
@@ -140,7 +140,7 @@ Per the post-merge implementation convention, four direct-master commits. All co
 2. **On PR open: red-team Opus + red-team Sonnet + spec-quality auto-dispatch in parallel** per the current obligation. This PR is reviewed at default effort (the new custom subagent_types don't exist yet — they're what this iteration introduces).
 3. User reads reviews + approves. Code-review-followup commits trigger re-dispatch of all three per the existing obligation.
 4. User merges via `gh pr merge --merge` or `auto-merge` label.
-5. Post-merge implementation: three direct-master commits per the post-merge convention.
+5. Post-merge implementation: four direct-master commits per the post-merge convention (two agent files, one CLAUDE.md edit, one cross-reference pointer in the multi-model v1 spec).
 6. **First spec/ADR PR after merge** uses the new `subagent_type`s and runs at `effort: max`.
 
 ## Validation
