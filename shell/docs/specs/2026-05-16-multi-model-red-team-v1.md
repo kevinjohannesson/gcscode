@@ -136,6 +136,8 @@ Independent effort control would require a custom dispatcher hitting the Anthrop
 
 The N=5 evaluation should be read as "Opus-at-defaults vs Sonnet-at-defaults" — useful signal but not a pure model-size test.
 
+> **ADR-0009 number-reservation update (added 2026-05-16):** The debt-clearing iteration ([2026-05-16-agentic-team-debt-clearing-v1.md](2026-05-16-agentic-team-debt-clearing-v1.md)) claims ADR-0009 for the agentic-actor registry (superseding ADR-0008). The prediction in this spec that ADR-0009 would carry "Reviewer-role registry secondary-model field" is invalidated; if the evaluation iteration returns KEEP-BOTH and an ADR is warranted, that ADR gets the next available number at that time (likely ADR-0010 or later).
+
 ## The CLAUDE.md edits verbatim (for post-merge implementation)
 
 Per the post-merge implementation convention, the implementation lands as a direct-master commit. The verbatim text for each edit:
