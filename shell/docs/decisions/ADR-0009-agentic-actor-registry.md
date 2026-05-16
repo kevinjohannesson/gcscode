@@ -30,6 +30,8 @@ Future iterations may add more actor classes (e.g., devil's advocate v2 may be i
 
 **When to add a new actor-class vs a new row under an existing class.** A new actor-class is warranted when the structural fields the actor needs differ enough from existing classes that more than one cell carries a "doesn't apply" or category-stretched value. If a new actor fits the existing reviewer or respondent column semantics (model is a Claude model, verdicts come from the existing set, trigger uses existing vocabulary), it gets a new row under an existing class. If multiple cells stretch (a controller-action-bot with no model, no verdict, no character — only identity + trigger + prompt template apply), it warrants a new actor-class. Borderline cases get brainstormed in the iteration that introduces the new actor; this ADR establishes the framing, not a closed taxonomy.
 
+**Applied to respondent:** Two cells stretch — `model` (annotated as column-value stretch awaiting v2) and `re-review header` (annotated as "—" with explicit note that respondent doesn't re-review). Plus a third introduces a new enum value (`kind: per-followup-commit`). Per the test above, more-than-one-cell-stretches warrants a new actor-class. Hence: `actor-class: respondent`, not a new row under `reviewer`. The test's application to the respondent is the v1 worked example for future actor authors.
+
 **2. Registry schema: one combined table, one new column.** The registry table keeps all 12 existing columns from PR #11's evolution of ADR-0008. One new column is prepended:
 
 | Field          | Purpose                                                                                            |
@@ -76,15 +78,18 @@ The specs-as-historical-record convention (CLAUDE.md "Planning conventions and l
 
 ## Post-merge implementation
 
-Per the post-merge implementation convention, three direct-master commits. All content fully specified verbatim below; no judgment required during implementation.
+Per the post-merge implementation convention, four direct-master commits. All content fully specified verbatim below; no judgment required during implementation (the Commit 3 occurrence-by-occurrence dispositions remove the implementer-judgment risk red-team Sonnet flagged in re-review of 392b972).
 
 - **Commit 1: Replace the "Reviewer-role registry" header + table in CLAUDE.md** with the agentic-actor registry header + 13-column table (prepended `actor-class` column; existing 5 rows gain `reviewer` value; new respondent row added). Verbatim text below.
 - **Commit 2: Update the denormalized verdict-permission table in CLAUDE.md** to add a respondent row. Verbatim text below.
-- **Commit 3: Update CLAUDE.md prose references** to the registry's name and the ADR-0008 reference. Verbatim edits below.
+- **Commit 3: Update CLAUDE.md prose references** to the registry's name and the ADR-0008 reference. Per-occurrence dispositions specified verbatim below (rename / keep / replace, per the table).
+- **Commit 4: Add path-naming-rename Considering entry to roadmap.md** — honors the routing disposition documented in the prior round's respondent post for the `.claude/reviewer-prompts/` directory-name-vs-content drift (the directory carries `reviewer-prompts` but now houses the respondent prompt too). Verbatim text below.
 
 ### Verbatim — Commit 1 (replace the registry header + table)
 
-Replace the existing "Reviewer-role registry" header + table at lines 111-119 of CLAUDE.md (the line numbers verified at implementation time; locate via `grep "Reviewer-role registry\." shell/CLAUDE.md`) with:
+Replace the existing "Reviewer-role registry" header + table at lines 111-119 of CLAUDE.md (the line numbers verified at implementation time; locate via `grep "Reviewer-role registry\." shell/CLAUDE.md`) with the content below.
+
+**Cell-value convention note for the respondent row:** the Decision section's Respondent row (above in this ADR) carries inline annotations like `(column-value stretch; v1 limitation; respondent subagent v2 will populate with an actual Claude model)`. The Commit 1 verbatim below keeps the SAME cell values but with the annotations preserved. The CLAUDE.md table is wider as a result, but this preserves the architectural information in the operational reference; truncating it at implementation time would lose the "why" of the column-value stretches.
 
 ````md
 **Agentic-actor registry.** Source of truth for agentic-actor definitions (reviewers + non-reviewer controller-voice actors). The verdict table below is a denormalized quick-reference view of the registry. Architectural rationale: [`docs/decisions/ADR-0009-agentic-actor-registry.md`](docs/decisions/ADR-0009-agentic-actor-registry.md) (supersedes [ADR-0008](docs/decisions/ADR-0008-reviewer-role-registry.md)). Prompt templates: `.claude/reviewer-prompts/<name>.md`.
@@ -96,7 +101,7 @@ Replace the existing "Reviewer-role registry" header + table at lines 111-119 of
 | reviewer    | Final cross-cutting | cross-cutting         | `gcscode-reviewer[bot]`   | Claude Opus 4.7                                | —                 | feature-PR      | End of iteration                     | `--request-changes`, `--approve` | Cross-cutting concerns missed at per-task level                    | `## Final cross-cutting review — Claude Opus 4.7`            | `## Final cross-cutting review (re-review of <SHA>) — Claude Opus 4.7`          | `superpowers:requesting-code-review/code-reviewer.md`                     |
 | reviewer    | Red-team            | per-artifact          | `gcscode-reviewer[bot]`   | Claude Opus 4.7                                | Claude Sonnet 4.6 | spec-PR, ADR-PR | Automatic on PR open                 | `--comment` only (v1)            | Premise challenger + consistency reviewer                          | `## Red-team review — <spec or ADR> — Claude Opus 4.7`       | `## Red-team review — <spec or ADR> (re-review of <SHA>) — Claude Opus 4.7`     | `.claude/reviewer-prompts/red-team.md`                                    |
 | reviewer    | Spec-quality        | per-artifact          | `gcscode-reviewer[bot]`   | Claude Sonnet 4.6                              | —                 | spec-PR, ADR-PR | Automatic on PR open                 | `--comment` only (v1)            | Document structure + within-document consistency + link mechanics  | `## Spec-quality review — <spec or ADR> — Claude Sonnet 4.6` | `## Spec-quality review — <spec or ADR> (re-review of <SHA>) — Claude Sonnet 4.6` | `.claude/reviewer-prompts/spec-quality.md`                                |
-| respondent  | Respondent          | per-followup-commit   | `gcscode-respondent[bot]` | n/a — controller-direct (v1; v2 sets a model) | —                 | spec-PR, ADR-PR | After each Code-review-followup commit | `--comment` only (advisory; not a review verdict) | Documents controller's per-finding dispositions                    | `## Respondent — re commit <SHA> — to <reviewer role> review by <reviewer model>` | — (new respondent post per followup commit; not a re-review)                    | `.claude/reviewer-prompts/respondent.md`                                  |
+| respondent  | Respondent          | per-followup-commit (new enum value; extends `{per-task, cross-cutting, per-artifact}`) | `gcscode-respondent[bot]` | n/a — controller-direct (column-value stretch; v1 limitation; respondent subagent v2 will populate with an actual Claude model) | — | spec-PR, ADR-PR (v1 scope; review-discussion-loop-v1's Future iterations contemplates feature-PR extension) | After each Code-review-followup commit | `--comment` only (advisory; not a review verdict) | Documents controller's per-finding dispositions; documents what was addressed, deferred, routed, or noted | `## Respondent — re commit <SHA> — to <reviewer role> review by <reviewer model>` | — (the respondent does NOT re-review its own prior posts; each followup commit triggers a new respondent post with the standard header above, NOT a re-review of a prior respondent post) | `.claude/reviewer-prompts/respondent.md` |
 ````
 
 ### Verbatim — Commit 2 (verdict-permission table addition)
@@ -109,11 +114,38 @@ Append the following row to the verdict-permission table in CLAUDE.md (locate vi
 
 ### Verbatim — Commit 3 (prose reference updates)
 
-Two small prose updates in CLAUDE.md:
+Prose-only updates in CLAUDE.md. `grep "reviewer-role registry\|Reviewer-role registry" shell/CLAUDE.md` surfaces six occurrences. The following per-occurrence dispositions are mechanical (no implementer judgment):
 
-**Edit A.** Find the "Reviewer-role registry" cross-reference in CLAUDE.md's "Subagent reviewer PR-posting discipline" subsection prose (NOT the registry table itself, which Commit 1 replaces); update any prose that says "reviewer-role registry" to "agentic-actor registry" where the reference is to the registry-as-a-whole, not to the reviewer subset. Use `grep "reviewer-role registry" shell/CLAUDE.md` to locate.
+| Approx line | Context | Disposition |
+| --- | --- | --- |
+| 81 | "...receive a red-team auto-dispatched review per the reviewer-role registry. Plans continue to land on master directly." | **Rename** to "agentic-actor registry" (registry-as-a-whole reference) |
+| 111 | Registry table header `**Reviewer-role registry.**` | **Already covered by Commit 1** (the full header + table is replaced) |
+| 199 | "Red-team auto-dispatches on PR open per the reviewer-role registry." | **Rename** to "agentic-actor registry" (registry-as-a-whole reference) |
+| 250 | "When designing a new reviewer role (devil's advocate v2, expert reviewers, future expansions of the reviewer-role registry), apply these conventions." | **Keep as-is** — the section is specifically about reviewer-role design (one actor-class); the "reviewer-role registry" reference here is to the reviewer subset of the registry, not the registry-as-a-whole |
+| 256 | "**`identity` field in the registry, even when all roles share one bot.** Every entry in the reviewer-role registry carries an `identity` field." | **Keep as-is** — the surrounding section is reviewer-role-specific (talks about "all roles share `gcscode-reviewer[bot]`"); the reference is to the reviewer subset |
+| 262 | "The reviewer-role registry's `trigger` field declares WHEN a role fires..." | **Rename** to "agentic-actor registry's" (registry-as-a-whole field reference) |
 
-**Edit B.** No changes to existing reviewer prompt files (`.claude/reviewer-prompts/red-team.md`, `.claude/reviewer-prompts/spec-quality.md`) — those documents are role-specific, and the registry rename doesn't affect their content. Same for `.claude/reviewer-prompts/respondent.md`.
+**Edit B: Further reading section update (CLAUDE.md ~line 302).** The existing Further reading entry `docs/decisions/ADR-0008-reviewer-role-registry.md — registry pattern decision; source of truth for reviewer role definitions.` is **replaced** with:
+
+````md
+- `docs/decisions/ADR-0009-agentic-actor-registry.md` — registry pattern decision; source of truth for agentic-actor definitions (reviewers + non-reviewer controller-voice actors). Supersedes ADR-0008 (which remains in `docs/decisions/` as the historical record).
+````
+
+**Edit C.** Add an explicit cross-link inside the new "Agentic-actor registry" section (the one Commit 1 replaces the old reviewer-role header with): append the following sentence to the end of the **note paragraph** that introduces the registry table (the prose paragraph immediately above the table itself, which Commit 1 verbatim updates):
+
+````md
+The respondent row's dispatch mechanics + posting discipline are documented in the "Respondent posting discipline" subsection above; the registry row is the source of truth for the respondent's structural fields (identity, trigger, header, prompt template), while the posting discipline subsection covers the controller's operational obligation to post after each `Code-review-followup:` commit.
+````
+
+**Edit D.** No changes to existing reviewer prompt files (`.claude/reviewer-prompts/red-team.md`, `.claude/reviewer-prompts/spec-quality.md`, `.claude/reviewer-prompts/respondent.md`) — those documents are role-specific, and the registry rename doesn't affect their content.
+
+### Verbatim — Commit 4 (roadmap.md path-naming-rename Considering entry)
+
+Append the following Considering entry to `shell/docs/roadmap.md` under the agentic-team-architecture Considering section, immediately after the existing "Tripwire condition (iii) compliance" entry:
+
+````md
+- [ ] **`.claude/reviewer-prompts/` directory rename** — micro-iteration. The directory carries `reviewer-prompts` but now houses non-reviewer prompts too (`.claude/reviewer-prompts/respondent.md` was added by PR #12). Either rename `.claude/reviewer-prompts/` → `.claude/agentic-actor-prompts/` (or similar) and update all references (CLAUDE.md, the registry's `prompt template` column, ADR-0009's prompt-template path references, plus the `.claude/agents/*-reviewer.md` files' `prompt template` body references), OR accept the directory-name-vs-content drift as cosmetic. Trigger: ready to address as a quick micro-iteration; no external prerequisite. Routed here from ADR-0009's red-team Opus review (PR #15 initial review, 2026-05-16).
+````
 
 ## Alternatives considered
 
