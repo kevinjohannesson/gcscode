@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Generates a short-lived GitHub App installation token for gcscode-respondent.
+# Reads App ID + installation ID from .claude/agent-config.json.
+# Reads private key path from GH_RESPONDENT_APP_PRIVATE_KEY_PATH env var.
+# Prints the installation token to stdout.
+
+set -euo pipefail
+
+script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+config="$script_dir/../agent-config.json"
+
+if [[ ! -f "$config" ]]; then
+  echo "gh-app-token-respondent: $config not found" >&2
+  exit 1
+fi
+
+if [[ -z "${GH_RESPONDENT_APP_PRIVATE_KEY_PATH:-}" ]]; then
+  echo "gh-app-token-respondent: GH_RESPONDENT_APP_PRIVATE_KEY_PATH not set" >&2
+  exit 1
+fi
+
+if [[ ! -f "$GH_RESPONDENT_APP_PRIVATE_KEY_PATH" ]]; then
+  echo "gh-app-token-respondent: private key not found at $GH_RESPONDENT_APP_PRIVATE_KEY_PATH" >&2
+  exit 1
+fi
+
+app_id=$(jq -r .respondentApp.appId "$config")
+installation_id=$(jq -r .respondentApp.installationId "$config")
+
+if [[ "$app_id" == "null" || "$installation_id" == "null" ]]; then
+  echo "gh-app-token-respondent: appId or installationId missing in $config" >&2
+  exit 1
+fi
+
+if ! [[ "$app_id" =~ ^[0-9]+$ ]]; then
+  echo "gh-app-token-respondent: appId must be a numeric string, got: $app_id" >&2
+  exit 1
+fi
+
+if ! [[ "$installation_id" =~ ^[0-9]+$ ]]; then
+  echo "gh-app-token-respondent: installationId must be a numeric string, got: $installation_id" >&2
+  exit 1
+fi
+
+now=$(date +%s)
+exp=$((now + 540))  # JWT lifetime: 9 minutes (GitHub maximum is 10).
+
+b64url() {
+  openssl base64 -e -A | tr '+/' '-_' | tr -d '='
+}
+
+header=$(printf '%s' '{"alg":"RS256","typ":"JWT"}' | b64url)
+payload=$(printf '{"iat":%s,"exp":%s,"iss":"%s"}' "$now" "$exp" "$app_id" | b64url)
+signature=$(printf '%s.%s' "$header" "$payload" \
+  | openssl dgst -sha256 -sign "$GH_RESPONDENT_APP_PRIVATE_KEY_PATH" -binary \
+  | b64url)
+jwt="$header.$payload.$signature"
+
+response=$(curl -sS -X POST \
+  -H "Authorization: Bearer $jwt" \
+  -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "https://api.github.com/app/installations/$installation_id/access_tokens")
+
+token=$(printf '%s' "$response" | jq -r .token)
+
+if [[ "$token" == "null" || -z "$token" ]]; then
+  echo "gh-app-token-respondent: GitHub did not return a token. Response:" >&2
+  printf '%s\n' "$response" >&2
+  exit 1
+fi
+
+printf '%s\n' "$token"
