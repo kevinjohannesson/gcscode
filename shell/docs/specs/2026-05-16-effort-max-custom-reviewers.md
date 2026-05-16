@@ -41,11 +41,21 @@ Each has its own future trigger.
 - **Per-role configurable effort.** v1 is `max` for both red-team and spec-quality, hard-coded in the agent files. No registry column for effort. Trigger: a future iteration concludes per-role effort tuning matters.
 - **`effort` field on the reviewer-role registry table.** The existing registry table doesn't gain an `Effort` column; the effort setting lives in the agent file frontmatter, NOT the registry. Rationale: the registry is the source-of-truth for role *behavior* (what the reviewer does); the agent file is the dispatch *wrapper* (how the subagent is configured). These are different concerns at different layers. Trigger: enough roles with custom effort settings that a registry column adds clarity.
 
+## Effect on multi-model red-team v1 evaluation (N=5 counter reset)
+
+The multi-model v1 spec (`2026-05-16-multi-model-red-team-v1.md`) defined an N=5 spec/ADR-PR evaluation comparing Opus and Sonnet red-team output. Before this iteration: PR #9 (multi-model v1 spec) and PR #11 (this spec) are both reviewed at **default** effort. After this iteration merges: PRs #12+ are reviewed at **`effort: max`** for both red-team subagents. That's two variables shifting mid-experiment (model dimension × effort dimension) and would compromise the comparability of v1's N=5 evidence if blindly counted across the boundary.
+
+**Resolution: reset the N=5 counter.** Multi-model v1's official N=5 evaluation counts the first FIVE spec/ADR PRs **after this iteration merges**. PR #9 and PR #11 are pre-`effort: max` baseline observations — kept as informal evidence (and useful for the "did effort: max change anything?" question in Plan 2 below), but excluded from the formal N=5 multi-model comparison.
+
+The multi-model v1 spec itself isn't edited (it's the historical record); this section is the authoritative reference for the counter reset. The first spec/ADR PR after this iteration's merge becomes the new N=1 of multi-model v1's evaluation.
+
 ## Architecture
 
 Three small changes: two new agent files, two CLAUDE.md edits.
 
 ### The two new agent files (verbatim)
+
+The agent body includes a defensive backstop: if the dispatching controller forgets to include the template content in the user message, the subagent should refuse and report rather than improvise role behavior. The body is otherwise a thin wrapper — the prompt template at `.claude/reviewer-prompts/<role>.md` stays the source of truth for role behavior.
 
 **`.claude/agents/red-team-reviewer.md`:**
 
@@ -57,7 +67,11 @@ model: opus
 effort: max
 ---
 
-You are the red-team reviewer for gcscode. Your role and full instructions are in the prompt template at `.claude/reviewer-prompts/red-team.md`. The dispatching controller will include the full template content in the user message at dispatch time; follow it precisely.
+You are the red-team reviewer for gcscode. Your role and full instructions are in the prompt template at `.claude/reviewer-prompts/red-team.md`. The dispatching controller MUST include the full template content in the user message at dispatch time.
+
+If the user message does NOT contain the template content (you cannot see the role's checklist, audit-trail format, or verdict instructions), STOP. Respond exactly: `ERROR: dispatching controller did not include the red-team prompt template content. Aborting.` Do nothing else — do not improvise the role, do not post a PR review.
+
+Otherwise: follow the template precisely.
 ````
 
 **`.claude/agents/spec-quality-reviewer.md`:**
@@ -70,7 +84,11 @@ model: sonnet
 effort: max
 ---
 
-You are the spec-quality reviewer for gcscode. Your role and full instructions are in the prompt template at `.claude/reviewer-prompts/spec-quality.md`. The dispatching controller will include the full template content in the user message at dispatch time; follow it precisely.
+You are the spec-quality reviewer for gcscode. Your role and full instructions are in the prompt template at `.claude/reviewer-prompts/spec-quality.md`. The dispatching controller MUST include the full template content in the user message at dispatch time.
+
+If the user message does NOT contain the template content (you cannot see the structure/link/consistency checklists or verdict instructions), STOP. Respond exactly: `ERROR: dispatching controller did not include the spec-quality prompt template content. Aborting.` Do nothing else — do not improvise the role, do not post a PR review.
+
+Otherwise: follow the template precisely.
 ````
 
 ### Dispatch identifier change
@@ -99,7 +117,7 @@ Per the post-merge implementation convention, three direct-master commits (one p
 
 - **Commit 1: Create `.claude/agents/red-team-reviewer.md`** with the verbatim content shown above.
 - **Commit 2: Create `.claude/agents/spec-quality-reviewer.md`** with the verbatim content shown above.
-- **Commit 3: Two CLAUDE.md edits** — replace the "Auto-dispatch on spec/ADR PRs" paragraph and the first two bullets of the "Auto-dispatch controller obligations" checklist with the verbatim text below.
+- **Commit 3: Two CLAUDE.md edits** — replace the "Auto-dispatch on spec/ADR PRs" paragraph and the **first bullet** of the "Auto-dispatch controller obligations" checklist with the verbatim text below. Bullet 2 of that checklist (`Code-review-followup:` re-dispatch) stays unchanged.
 
 ### Verbatim text — Edit A (Auto-dispatch on spec/ADR PRs paragraph)
 
@@ -130,22 +148,25 @@ Two plans, both light.
 
 ### Plan 1: Mechanics smoke test (next test/* PR after merge)
 
-A throwaway test branch verifies the dispatch identifier change works.
+A throwaway test branch verifies the dispatch identifier change works, including the model-override path that multi-model v1 depends on.
 
 - **Branch:** `test/effort-max-validation` off master (post-merge).
 - **Content:** a trivial throwaway file.
-- **Test action:** dispatch a single `subagent_type: red-team-reviewer` subagent (scripted body) and verify (a) the dispatch is accepted by the Agent tool (no "unknown subagent_type" error), (b) the review posts under `gcscode-reviewer[bot]` with the correct header, (c) the dispatch logs imply `effort: max` was honored.
+- **Test actions (three dispatches):**
+  1. Dispatch `subagent_type: red-team-reviewer` (primary, Opus inherited from frontmatter, effort: max inherited). Verify (a) the dispatch is accepted by the Agent tool (no "unknown subagent_type" error), (b) the review posts under `gcscode-reviewer[bot]` with the correct header.
+  2. Dispatch `subagent_type: red-team-reviewer, model: sonnet` (secondary, model overridden at dispatch time). Verify the dispatch is accepted and the review posts. This is the multi-model-secondary dispatch path; the empirical question is whether `effort: max` survives the model override or gets reset to Sonnet's default. The review's depth/thoroughness (qualitative) is the available signal; the harness does not surface effort directly in the review output.
+  3. Dispatch `subagent_type: spec-quality-reviewer`. Verify the dispatch is accepted and the review posts.
 - **Note:** confirming `effort: max` actually took effect at runtime is harder than confirming the dispatch succeeded — the subagent's thinking-depth isn't directly observable in the review output. v1 trusts the agent file frontmatter is honored as documented and validates the dispatch identifier mechanics; deep effort verification comes from Plan 2's qualitative observation across multiple real PRs.
 - **Disposition:** kept open as the sixth permanent reference artifact (PR #1, #3, #6, #8, #10, this new one). NOT merged.
 
 ### Plan 2: Live qualitative observation
 
-Next several spec/ADR PRs after this iteration ships. Qualitative gut-check: do reviews seem deeper, more thorough, more rigorous than the pre-iteration default-effort reviews? Compare against the recent PRs #4, #5, #7, #9 (default effort) as informal baseline.
+Next several spec/ADR PRs after this iteration ships. Qualitative gut-check: do reviews seem deeper, more thorough, more rigorous than the pre-iteration default-effort reviews? Compare against the recent PRs #4, #5, #7, #9, #11 (default effort) as informal baseline.
 
-This dovetails with the multi-model v1 evaluation (which also runs on the next 5 spec/ADR PRs). Both questions answered by the same set of observations:
+This dovetails with the multi-model v1 evaluation, whose N=5 counter resets at this iteration's merge (see "Effect on multi-model red-team v1 evaluation" above). Both questions answered by the same set of observations across the first five post-merge spec/ADR PRs:
 
-- (multi-model v1) Do Opus and Sonnet produce distinct findings?
-- (effort v1) Do max-effort reviews seem materially deeper than the pre-iteration default-effort baseline?
+- (multi-model v1, N=5 post-reset) Do Opus and Sonnet produce distinct findings at `effort: max`?
+- (effort v1) Do max-effort reviews seem materially deeper than the pre-iteration default-effort baseline (PRs #9 and #11 being the closest comparables — same iteration shape, default effort)?
 
 **Failure response:** if `effort: max` reviews are NOT noticeably better than default-effort, document the finding. The agent file frontmatter is the source of the setting; future iterations could investigate whether the harness honors `effort: max` correctly or whether the doc's claims about effort propagation hold in practice.
 
@@ -157,21 +178,29 @@ Propagation to `shell/docs/vs-code-alignment.md`: none.
 
 ## `docs/out-of-scope.md` propagation
 
-The existing "Effort-level control in reviewer dispatch" deferral (added by the multi-model v1 spec) is now **partially resolved** for our custom-dispatched roles (red-team + spec-quality). Update its text to reflect the partial resolution: feature-PR reviewers (superpowers-dispatched) still lack effort control; that's the remaining deferred concern.
+The existing "Effort-level control in reviewer dispatch" deferral (added by the multi-model v1 spec) is now **partially resolved** for our custom-dispatched roles (red-team + spec-quality). Update its text to reflect:
+
+- What ships now: red-team and spec-quality reviewers run at `effort: max` via `.claude/agents/<name>.md` frontmatter — a much smaller wedge than the originally-deferred "build a custom Anthropic API dispatcher" item. The original deferral's rationale (custom-API-dispatcher infra needed) is **invalidated**, not just deferred — agent-file frontmatter does the job without new infrastructure.
+- What remains deferred: effort control on feature-PR reviewers (spec-compliance, code-quality, final cross-cutting), which are dispatched by `superpowers:subagent-driven-development` and not under our control. Trigger to revisit: dedicated iteration when we choose to fork/replace the superpowers dispatch.
 
 ## `docs/roadmap.md` propagation
 
-Two updates:
+Three updates:
 
-1. **Update the "Custom subagent dispatch for effort-level control" Considering entry** — note that the smaller wedge (using `.claude/agents/` frontmatter `effort: max` for our custom-dispatched roles) shipped via this iteration. The original Considering entry was framed around building a custom Anthropic API dispatcher — much bigger scope. The remaining open question is effort control on feature-PR reviewers (superpowers-dispatched), which is now its own queued candidate.
-2. **Add a new Considering entry: "Custom dispatch for feature-PR reviewers"** — separate iteration to bring `effort: max` (or other custom configuration) to spec-compliance, code-quality, and final cross-cutting reviewers, which are currently dispatched by `superpowers:subagent-driven-development` and not under our control.
+1. **Add a Shipped entry for this iteration** — `effort: max for custom-dispatched reviewers` under the agentic-team track's Shipped list (consistent with the other shipped iterations on that track).
+2. **Update the "Custom subagent dispatch for effort-level control" Considering entry** — the original entry was framed around building a custom Anthropic API dispatcher (much bigger scope); the smaller wedge (using `.claude/agents/` frontmatter `effort: max` for our custom-dispatched roles) shipped via this iteration. The remaining open question is effort control on feature-PR reviewers (superpowers-dispatched), which is now its own queued candidate. Reframe the entry as "partially resolved: red-team and spec-quality now have `effort: max` via agent-file frontmatter; feature-PR reviewers (spec-compliance, code-quality, final cross-cutting) remain at default effort". The original entry's rationale (Anthropic-API-direct dispatcher) is **invalidated** — the small wedge made it unnecessary — not just "superseded".
+3. **Add a new Considering entry: "Custom dispatch for feature-PR reviewers"** — separate iteration to bring `effort: max` (or other custom configuration) to spec-compliance, code-quality, and final cross-cutting reviewers, which are currently dispatched by `superpowers:subagent-driven-development` and not under our control.
 
 ## Known unknowns
 
-- **Does `.claude/agents/<name>.md` frontmatter actually honor `effort: max` end-to-end?** Investigation confirmed it's documented to work; v1 trusts the documentation. First real spec/ADR PR after merge validates empirically.
+- **Does `.claude/agents/<name>.md` frontmatter actually honor `effort: max` end-to-end?** Investigation confirmed it's documented to work; v1 trusts the documentation. Plan 1's smoke test validates the dispatch identifier; Plan 2's qualitative observation across post-merge PRs validates whether reviews actually deepen.
 - **Does `effort: max` produce noticeably better reviews?** Subjective question; Plan 2's qualitative observation answers it. Could be that the harness's default effort is already "max" in practice for the models we use (Opus 4.7's deprecated-manual-thinking note hints at this), in which case `effort: max` is a no-op.
-- **Does the `model` override at dispatch time correctly preserve `effort` from the agent file?** Specifically: when we dispatch `subagent_type: red-team-reviewer, model: sonnet`, does the Sonnet subagent run with `effort: max` (from the agent file) or does the model override reset to defaults? Plan 1's smoke test partially answers this; the multi-model red-team Sonnet dispatch on the first real spec/ADR PR fully answers it.
+- **Does the `model` override at dispatch time correctly preserve `effort` from the agent file?** Specifically: when we dispatch `subagent_type: red-team-reviewer, model: sonnet`, does the Sonnet subagent run with `effort: max` (from the agent file) or does the model override reset to defaults? Plan 1's three-dispatch smoke test exercises this path explicitly. The multi-model red-team Sonnet dispatch on the first real spec/ADR PR fully answers it through qualitative review-depth observation.
 - **Cost increase.** `effort: max` likely increases per-dispatch cost (more thinking tokens). Across red-team-Opus + red-team-Sonnet + spec-quality on every spec/ADR PR, the increase compounds. Worth monitoring; future iteration could refine to per-role effort if cost becomes a concern.
+
+## Why no ADR for `.claude/agents/` structural layer
+
+ADR-0008 covered the reviewer-role registry as the source-of-truth for role behavior. The agent files this iteration adds are dispatch wrappers around that registry — they don't introduce a new architectural concept, just use Claude Code's own subagent-definition mechanism to set `effort` and `model` defaults at dispatch identifier level. The prompt template remains the source-of-truth for role behavior (the agent body is a thin defensive shim, not the role definition). No new ADR needed; if the agent files ever grow to carry role behavior (e.g., the deferred "consolidate prompt templates into agent file bodies" future iteration), THAT iteration would warrant an ADR update or supersede.
 
 ## Future iterations
 
