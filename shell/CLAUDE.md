@@ -60,6 +60,18 @@ GCScode mirrors VS Code's extension architecture in spirit, not by byte. Adopt V
 
 During brainstorming and planning, surface every API divergence from VS Code as a labeled decision (with the trade-off articulated), not as a default. When picking a divergence, capture it in the spec or ADR explicitly. Specs should include a "VS Code alignment" section that lists what is aligned, what diverges (and why), and what is deferred — see `docs/specs/2026-04-26-phase-a2-commands.md` for the canonical table-format example. When an iteration ships, propagate each new row from the spec's "VS Code alignment" section to `docs/vs-code-alignment.md` — that file is the cumulative ledger; per-spec tables stay as snapshots.
 
+### Specs as historical record
+
+A spec that ships via spec-PR + merges to master becomes the historical record for that iteration. Subsequent specs that need to revise the predecessor's decisions add a **one-line cross-reference breadcrumb** to the predecessor (per the PR #11 N=5 counter-reset precedent); they do NOT deeply edit the predecessor's content. Substantive corrections happen via successor specs.
+
+**Exception — factual corrections allowed.** Deep edits to a predecessor spec are permitted for **mechanical fixes**: typos, broken links, file renames that affect references, or other corrections that don't revise the predecessor's substantive decisions. When making such an edit, commit with a `fix(spec):` prefix and a one-sentence rationale in the commit message.
+
+The substantive-vs-factual line is a judgment call, but the test is concrete: if you're changing what the predecessor SAID (its goals, non-goals, architecture, decisions), that's substantive — write a successor spec. If you're changing how the predecessor REFERS to something that has since moved (link path, filename, section anchor), that's factual — edit in place.
+
+**Why the convention:** legibility. A reader (human or future agent) reading a merged spec should be able to trust the content is the historical record of what the iteration decided. Substantive revisions surfacing as silent edits to old specs makes the historical record unreliable.
+
+Codified during the agentic-team debt-clearing iteration (`docs/specs/2026-05-16-agentic-team-debt-clearing-v1.md`) as a **forward-looking guardrail**. The breadcrumb pattern emerged in practice (PR #11's N=5 counter-reset breadcrumb is the canonical example) but the deep-edit-of-predecessor problem the convention prevents has not happened yet. The convention codifies the breadcrumb pattern as the default + the substantive-vs-factual line as the test for when to use it.
+
 ### Subagent-driven plan execution
 
 When executing a plan, use the `superpowers:subagent-driven-development` skill: dispatch a fresh implementer subagent per task, follow with a spec compliance review then a code quality review, and address review feedback in separate `Code-review-followup:` commits on the same branch (not amends). After all tasks land, dispatch a final cross-cutting code review over the full branch before merging via `superpowers:finishing-a-development-branch`.
