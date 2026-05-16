@@ -15,6 +15,8 @@ v1 named this as a Day 1 limitation (not a future risk):
 
 The trigger v1 declared was "first real cross-session PR shows reconstruction-cost is material." The debt-clearing iteration ([`docs/specs/2026-05-16-agentic-team-debt-clearing-v1.md`](2026-05-16-agentic-team-debt-clearing-v1.md)) overrides that trigger with an unconditional drain commitment: queued items ship sequentially regardless of trigger firing. This is queued item #2; ADR-0009 (queued #1) merged earlier today.
 
+**Explicit acknowledgment — the empirical trigger never fired.** v1 named "first real cross-session PR shows reconstruction-cost is material" as the trigger. That empirical signal was never observed: no log, no measured reconstruction time, no documented case where a controller-direct response was demonstrably impaired by session-boundedness. The "almost certainly multiple sessions" claim for PR #11 (in v1's Context) was inferential, not measured. v2 ships on the debt-clearing commitment, not on the trigger firing. If Plan 2's post-ship observations show controller-direct in fresh sessions was actually fine, v2's premise was wrong and partial rollback (keep the agent-file infrastructure; revert the dispatch flow to controller-direct) is the response. Stating this plainly because the alternative framing ("v1's limitation got bad enough to fix") is inaccurate and would mislead future readers about what evidence v2 was based on.
+
 This iteration ships: one new agent file (`.claude/agents/respondent.md`), a rewritten prompt template (`.claude/reviewer-prompts/respondent.md`), two CLAUDE.md edits (Respondent posting discipline subsection rewrite; auto-dispatch obligations bullet 2 + agentic-actor registry respondent-row `model` cell), and standard propagation (roadmap.md, predecessor breadcrumb).
 
 ADR-0009 (merged 2026-05-16) anticipated this iteration: the respondent row's `model` cell carries an annotation reading `n/a — controller-direct (column-value stretch; v1 limitation; respondent subagent v2 will populate with an actual Claude model)`. v2 fulfills that annotation — the cell flips to `Claude Sonnet 4.6` and the stretch annotation goes away.
@@ -84,7 +86,7 @@ The v1 subsection describes controller-direct posting; the v2 rewrite describes 
 3. Controller dispatches 3 `subagent_type: respondent` subagents in parallel — each receives one reviewer's review body + shared diff + spec content + the full prompt template inline. Each subagent fetches prior respondent posts (round-aware context) as its first step, then posts under `gcscode-respondent[bot]`, then returns a one-line summary.
 4. Controller re-dispatches the 3 reviewer subagents per the existing obligation.
 
-Other subsection content (header convention, identity, config, open-question routing, initial-review-round, discipline note, out-of-scope list, public-repo note) is preserved with minimal wording updates. The "out of scope for v1" sentence updates to drop "respondent subagent dispatch (controller writes directly)" — resolved.
+Other subsection content (header convention, identity, config, open-question routing, initial-review-round, discipline note, out-of-scope list, public-repo note) is preserved with minimal wording updates. The label "Out of scope for v1" is renamed to "Out of scope for v2" (Commit 3 verbatim), and the v1 entry "respondent subagent dispatch (controller writes directly)" is dropped from that list — resolved by v2 shipping.
 
 Full verbatim content in Post-merge implementation > Commit 3.
 
@@ -111,6 +113,19 @@ Claude Sonnet 4.6
 The "column-value stretch" annotation goes away; the cell matches the other reviewer-row `Model` values shape-wise. No other cells in the respondent row change (`kind: per-followup-commit`, `identity: gcscode-respondent[bot]`, `secondary model: —`, `targets`, `trigger`, `verdicts`, `character`, `header`, `re-review header: —`, `prompt template` all unchanged).
 
 Full verbatim content in Post-merge implementation > Commit 4b.
+
+### `actor-class: respondent` retention (ADR-0009 boundary-test note)
+
+ADR-0009 Decision 1 introduced a "two-cell-stretch" criterion for warranting a new actor-class: when more than one cell in a candidate row carries a "doesn't apply" or category-stretched value, the row warrants a new actor-class rather than a row under an existing class. ADR-0009's worked example applied this to the respondent: at v1-time the respondent's `model` cell stretched (carried `n/a — controller-direct (...)`) and the `re-review header` cell stretched (carried `—`). Two stretches → new actor-class. That justification was load-bearing on v1's controller-direct state.
+
+After v2's Commit 4b, the `model` cell is filled with `Claude Sonnet 4.6`. Only the `re-review header` cell still carries `—`. Per ADR-0009's own boundary criterion, the respondent now has one cell stretching, which falls below the "two stretches" threshold the ADR set for warranting a separate actor-class.
+
+**v2's call: keep `actor-class: respondent` regardless.** Two reasons:
+
+1. **Conceptual distinction is real and orthogonal to cell-stretch count.** A respondent's voice (controller's documented dispositions) is conceptually distinct from a reviewer's voice (independent critique), regardless of whether the structural fields converge. Collapsing respondent into `actor-class: reviewer` with `verdicts: --comment only` would erase a meaningful distinction the registry exists to surface.
+2. **ADR-0009's boundary test was meant to inform initial framing, not be a recurring trip-line.** The test answered "should the respondent get its own actor-class on introduction?" — yes, at v1-time. It was not designed to re-fire on subsequent cell fills. Treating the cell-count test as a recurring constraint would mean every cell change risks consolidation churn.
+
+This v2 spec does not amend ADR-0009. ADR-0009's boundary test stands as written; its triggering condition (two stretches → new class) was correctly applied at the time and remains a useful framing for future actor-class decisions. The cell-stretch count is a v1-state observation, not an invariant the architecture maintains.
 
 ## Post-merge implementation
 
@@ -165,18 +180,24 @@ When dispatching, the controller substitutes:
 
 The controller pre-fetches and packs the following into the dispatch prompt:
 
-- **Reviewer's most-recent review body** — full markdown content of the review being responded to. Controller fetches via `gh pr view {{PR_NUMBER}} --json reviews` then filters to the most-recent review by the specified reviewer role + model.
+- **Reviewer's most-recent review body** — full markdown content of the review being responded to. Controller fetches via `gh pr view {{PR_NUMBER}} --json reviews` then filters by: `select(.author.login == "gcscode-reviewer" and (.body | startswith("## {{REVIEWER_HEADER_PREFIX}}")))` where `{{REVIEWER_HEADER_PREFIX}}` is the role+model header form (e.g., `Red-team review — spec — Claude Opus 4.7`, `Red-team review — spec — Claude Sonnet 4.6`, `Spec-quality review — spec — Claude Sonnet 4.6`; the re-review form `(re-review of <SHA>) — ` is included for re-rounds). When multiple matches exist (re-reviews across rounds), take the most-recent by `.submittedAt`. The GitHub reviews API returns reviews in chronological order, but explicit `.submittedAt` sorting is the authoritative selector. Note: `.author.login` for GitHub Apps is the App name without the `[bot]` suffix; the suffix is a UI rendering only.
 - **Followup commit diff** — output of `git show {{FOLLOWUP_SHA}}` against the PR's branch.
 - **Spec/ADR content** — full markdown content of the spec or ADR file being reviewed. Controller fetches via Read.
 
-Do NOT re-fetch these inputs via `gh` / `git` / Read — the controller's pre-fetch is authoritative.
+Do NOT re-fetch these three inputs via `gh` / `git` / Read — the controller's pre-fetch is authoritative.
+
+## Tool surface (citation verification)
+
+You have read access to the gcscode repo via the standard tool surface (Read, Grep, Bash). Use this access ONLY to verify citations for `intentional, see <X>` dispositions — confirm the cited CLAUDE.md section / ADR slug / spec section exists AND its content matches the disposition's claim. If a citation cannot be verified (cited section absent, or content doesn't match), fall back to `noted, no current action — citation unverified: <one-sentence rationale>` rather than `noted, no current action` alone — the `citation unverified` form is a deliberate signal that the controller wanted to cite something but the subagent couldn't confirm; the controller (or a future audit) can revisit.
+
+Do NOT use the tool surface for any other purpose: do not browse the repo for additional context beyond the structured inputs, do not produce dispositions that aren't grounded in the reviewer's review body, do not investigate alternate framings of the spec. The structured inputs are authoritative for what the response addresses; the tool surface is authoritative ONLY for citation verification.
 
 ## Self-fetch (round-aware context)
 
 Before writing your response, fetch prior respondent posts on this PR via:
 
 ```bash
-gh pr view {{PR_NUMBER}} --json reviews --jq '.reviews[] | select(.author.login == "gcscode-respondent[bot]")'
+gh pr view {{PR_NUMBER}} --json reviews --jq '.reviews[] | select(.author.login == "gcscode-respondent")'
 ```
 
 Use prior posts to:
@@ -266,7 +287,7 @@ After each `Code-review-followup:` commit on a spec/ADR PR, the controller dispa
 **Dispatch sequence** (controller obligation, integrates with the auto-dispatch obligation):
 
 1. Push the `Code-review-followup:` commit to the PR's branch.
-2. Pre-fetch: (a) the 3 most-recent reviewer reviews via `gh pr view <PR> --json reviews`; (b) the followup commit diff via `git show <SHA>`; (c) the spec/ADR file content via the Read tool.
+2. Pre-fetch: (a) the 3 most-recent reviewer reviews via `gh pr view <PR> --json reviews` filtered by reviewer-role header prefix + `author.login == "gcscode-reviewer"` (the API returns the App name without the `[bot]` UI suffix; see `.claude/reviewer-prompts/respondent.md` "Structured inputs" for the full filter logic and re-review tie-breaking); (b) the followup commit diff via `git show <SHA>`; (c) the spec/ADR file content via the Read tool.
 3. Dispatch 3 `subagent_type: respondent` subagents in parallel — one per reviewer role on the PR (red-team Opus, red-team Sonnet, spec-quality). Each subagent receives: its reviewer's review body + the shared followup diff + the spec/ADR content + the full respondent prompt template (`.claude/reviewer-prompts/respondent.md`) inline. Each subagent fetches prior respondent posts on the PR (round-aware context) as its first step, then posts under `gcscode-respondent[bot]` via the respondent token helper, then returns a one-line summary to the controller.
 4. Re-dispatch the 3 reviewer subagents per the existing auto-dispatch obligation. Re-reviewers may engage with the respondent posts (optional engagement; see the reviewer prompts).
 
@@ -286,7 +307,7 @@ GH_TOKEN=$(.claude/scripts/gh-app-token-respondent) gh pr review <PR> --comment 
 
 **Identity:** `gcscode-respondent[bot]`. Distinct from `gcscode-reviewer[bot]`. Same posting permissions on PRs; different audit-trail attribution.
 
-**Subagent dispatch:** `subagent_type: respondent` with the prompt template content inline. The agent file at `.claude/agents/respondent.md` selects model (Claude Sonnet 4.6) + effort (max); the role's instructions live in `.claude/reviewer-prompts/respondent.md`. The session-bound agent-file discovery limitation (documented above) applies: the post-merge session that introduces this agent file falls back to `subagent_type: general-purpose` + the prompt template inline for the rest of that session.
+**Subagent dispatch:** `subagent_type: respondent` with the prompt template content inline. The agent file at `.claude/agents/respondent.md` selects model (Claude Sonnet 4.6) + effort (max); the role's instructions live in `.claude/reviewer-prompts/respondent.md`. The subagent inherits the standard tool surface (Read, Grep, Bash) and uses it ONLY to verify citations for `intentional, see <X>` dispositions; structured inputs are authoritative for everything else (see the prompt template's "Tool surface" section). The session-bound agent-file discovery limitation (documented above) applies: the post-merge session that introduces this agent file falls back to `subagent_type: general-purpose` + the prompt template inline for the rest of that session.
 
 **Config:** App ID and installation ID live in `.claude/agent-config.json` under the `respondentApp` key (additive; reviewer's `githubApp` key untouched). Private key path is read from the `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` env var; the PEM file never enters git.
 
@@ -306,7 +327,7 @@ GH_TOKEN=$(.claude/scripts/gh-app-token-respondent) gh pr review <PR> --comment 
 Replace the existing "After every `Code-review-followup:` commit on a spec/ADR branch:" bullet of the "Auto-dispatch controller obligations" checklist with:
 
 ````md
-- **After every `Code-review-followup:` commit on a spec/ADR branch:** (a) push the commit, (b) pre-fetch the 3 most-recent reviewer reviews + the followup commit diff + the spec/ADR content, then dispatch 3 `subagent_type: respondent` subagents in parallel per the Respondent posting discipline subsection above (each subagent posts one comment under `gcscode-respondent[bot]`), then (c) re-dispatch ALL THREE reviewer roles in parallel. Each role's re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). For the red-team multi-model pair, both Opus and Sonnet re-review independently. Note: a followup that does not touch content any reviewer commented on will still trigger all three re-dispatches AND all three respondent dispatches. v2 accepts the duplicative-review-and-response cost; if the pattern produces material noise, a future iteration can condition the obligations on whether the followup touches reviewed content for each role.
+- **After every `Code-review-followup:` commit on a spec/ADR branch:** (a) push the commit, (b) pre-fetch the 3 most-recent reviewer reviews + the followup commit diff + the spec/ADR content (per the filter logic in `.claude/reviewer-prompts/respondent.md` "Structured inputs"), then dispatch 3 `subagent_type: respondent` subagents in parallel per the Respondent posting discipline subsection above — one subagent per reviewer's most-recent review (each subagent posts one comment under `gcscode-respondent[bot]` about THAT reviewer's review), then (c) re-dispatch ALL THREE reviewer roles in parallel. Each role's re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). For the red-team multi-model pair, both Opus and Sonnet re-review independently. Note: a followup that does not touch content any reviewer commented on will still trigger all three re-dispatches AND all three respondent dispatches. v2 accepts the duplicative-review-and-response cost; if the pattern produces material noise, a future iteration can condition the obligations on whether the followup touches reviewed content for each role.
 ````
 
 Bullets 1 and 3 of the same checklist stay unchanged.
@@ -335,13 +356,15 @@ Three sub-edits:
 
 **5a: roadmap.md flip.** In `shell/docs/roadmap.md`, move the existing Considering entry for "Respondent subagent v2":
 
+**Pre-edit verification step.** Before deleting, run `grep -n "Respondent subagent v2" shell/docs/roadmap.md` to locate the exact line, and Read the surrounding context to confirm the entry's body still matches the "Before" text below. If the entry's wording has drifted (a prior commit modified it), reconcile manually rather than running a verbatim delete that may match the wrong line.
+
 **Before (in the Considering section, currently around line 81):**
 
 ````md
 - [ ] **Respondent subagent v2** — addresses the cross-session controller-direct premise accepted as a Day 1 limitation in `specs/2026-05-16-review-discussion-loop-v1.md`. Introduces a dedicated respondent subagent role that reads the followup commit + prior reviews and writes the response with session-independent context. Trigger: first real cross-session PR after `review-discussion-loop-v1` merges that shows reconstruction-cost is material (per that spec's cross-session tripwire).
 ````
 
-DELETE the above entry from the Considering section, and ADD the following entry to the **Queued** section of the agentic-team architecture track, immediately after the existing "Agentic-team debt-clearing v1 (planning iteration)" Shipped entry (around line 73):
+DELETE the above entry from the Considering section, and ADD the following entry to the **Queued** section of the agentic-team architecture track, immediately after the existing "Agentic-team debt-clearing v1 (planning iteration)" `[x]`-marked entry (the entry lives in the "Queued (each needs its own brainstorm + spec cycle)" section despite the `[x]` checkbox; the Queued section's items become `[x]` once they ship). Approximate location: around line 73.
 
 ````md
 - [x] **Respondent subagent v2** — swaps the controller-direct response writing introduced by `review-discussion-loop-v1` for a `subagent_type: respondent` dispatch (Sonnet 4.6 + effort:max). The controller pre-fetches each reviewer's review body + the followup diff + the spec/ADR content; 3 respondent subagents fire in parallel per followup commit. Closes the cross-session reconstruction-cost limitation accepted as Day 1 in v1. ADR-0009's "column-value stretch" annotation on the respondent row's `model` cell is removed. Spec: [`specs/2026-05-16-respondent-subagent-v2.md`](specs/2026-05-16-respondent-subagent-v2.md).
@@ -350,7 +373,7 @@ DELETE the above entry from the Considering section, and ADD the following entry
 **5b: review-discussion-loop-v1 breadcrumb.** Per the specs-as-historical-record convention (CLAUDE.md "Planning conventions and long-term alignment > Specs as historical record"), append a one-line breadcrumb to the end of the "Cross-session controller-direct response writing is a Day 1 limitation, not a future risk." bullet in the Known Unknowns section of `shell/docs/specs/2026-05-16-review-discussion-loop-v1.md` (currently line 406). Append the following blockquote immediately after that bullet's existing content:
 
 ````md
-> **respondent-subagent-v2 breadcrumb (added 2026-05-16):** Respondent subagent v2 ([2026-05-16-respondent-subagent-v2.md](2026-05-16-respondent-subagent-v2.md)) ships per the agentic-team debt-clearing v1 commitment ([2026-05-16-agentic-team-debt-clearing-v1.md](2026-05-16-agentic-team-debt-clearing-v1.md))'s queued-item-2 entry. The "first real cross-session PR" trigger this bullet anticipated was not the firing signal; the debt-clearing iteration's unconditional drain commitment overrode it.
+> **respondent-subagent-v2 breadcrumb (added 2026-05-16):** Respondent subagent v2 ([2026-05-16-respondent-subagent-v2.md](2026-05-16-respondent-subagent-v2.md)) ships per the agentic-team debt-clearing v1 commitment ([2026-05-16-agentic-team-debt-clearing-v1.md](2026-05-16-agentic-team-debt-clearing-v1.md))'s queued-item-2 entry. v2 supersedes this bullet's architectural premise: the controller-direct dispatch is replaced by a `subagent_type: respondent` parallel-3 dispatch with controller pre-fetches. The "first real cross-session PR" trigger this bullet anticipated was not the firing signal; the debt-clearing iteration's unconditional drain commitment overrode it.
 ````
 
 The breadcrumb does NOT modify v1's substantive content (the Day 1 limitation framing is intact; only the trigger anticipation is annotated as superseded). This is the second application of the specs-as-historical-record convention introduced in `2026-05-16-agentic-team-debt-clearing-v1.md` Commit 5 (the first was ADR-0009's number-reservation breadcrumb).
@@ -365,6 +388,17 @@ The breadcrumb does NOT modify v1's substantive content (the Day 1 limitation fr
 4. User merges via `gh pr merge --merge` or `auto-merge` label (user has granted standing auto-merge permission for queued debt-clearing iterations).
 5. Post-merge implementation: five direct-master commits per the post-merge convention.
 6. **First spec/ADR PR after merge:** controller dispatches respondent subagents per the new discipline. Plan 1 mechanics smoke test runs first; Plan 2 live workflow exercises on the next real spec/ADR PR.
+
+### In-flight PR transition handling
+
+If a spec/ADR PR is mid-followup-loop when v2's post-merge implementation lands on master (i.e., the PR was opened pre-v2 and has v1-shaped respondent posts in its timeline), the controller's rule is:
+
+- **Finish that PR with the v1 mechanism (controller-direct).** Do not switch dispatch modalities mid-PR. Mixing v1 controller-direct and v2 subagent-dispatched posts in the same PR's review timeline creates audit-trail ambiguity ("which mechanism wrote which post?") without operational benefit.
+- **Apply v2 starting with the first PR opened AFTER v2's post-merge implementation lands.** That PR uses subagent dispatch from its first followup commit forward.
+
+This iteration's own PR uses v1 (controller-direct) for its own review rounds, as stated in Data flow step 3 — the v2 agent file + rewritten prompt template don't exist until v2 ships. That precedent is the in-flight-transition rule generalized: PRs spanning the v2 merge boundary stay on whichever mechanism was deployed when they opened.
+
+If a future iteration ships a different transition rule (e.g., "switch mid-PR if the followup commit comes after v2 merges"), it can revise this rule. v2's default is finish-with-what-you-started for legibility.
 
 ## Validation
 
@@ -387,7 +421,7 @@ A throwaway test branch validates the subagent dispatch end-to-end.
 
 The first real spec/ADR PR after this iteration ships exercises the new workflow end-to-end. Qualitative gut-check observations (compare to v1 behavior on PRs #11-#15):
 
-- **Reconstruction quality.** Does the subagent's per-finding disposition classification match what a controller-direct response would produce? Spot-check 3-5 dispositions per PR.
+- **Reconstruction quality.** Does the subagent's per-finding disposition classification match what a controller-direct response would produce? Spot-check 3-5 dispositions per PR. **Counterfactual baseline caveat:** after v2 ships, controller-direct responses are no longer being written, so there is no live counterfactual to compare against. The validation collapses to "does the subagent's disposition look reasonable to a reader on the merits?" — a weaker test than "is it as good as the alternative." A "v2 is meaningfully worse" signal will be hard to surface from spot-checks alone; if the reconstruction-quality tripwire never fires across N=2 PRs despite genuine degradation, the validation is producing false negatives. Mitigation: on the first 1-2 spec/ADR PRs after v2 ships, the controller can ALSO write a shadow controller-direct response (not posted to the PR — held in the iteration's brainstorm notes) for a single finding, and qualitatively compare. The shadow-baseline is an option, not a requirement.
 - **Citation accuracy.** For `intentional, see <X>` dispositions: does the cited CLAUDE.md section / ADR slug / spec section actually exist AND say what the disposition claims? Or does the subagent hallucinate citations?
 - **Oversight identification.** Does the subagent correctly identify oversights (vs claiming `addressed` when the diff didn't actually address the finding)?
 - **Round-awareness.** Does the subagent correctly use prior respondent posts? (Should only respond to findings raised in the most recent re-review, not previously-disposed ones.)
@@ -417,6 +451,9 @@ See Post-merge implementation > Commit 5a verbatim. The Considering "Respondent 
 - **Agent-file discovery is session-bound.** Plan 1 runs in a fresh session post-merge (per the limitation documented in CLAUDE.md "Subagent reviewer PR-posting discipline > Agent file discovery is session-bound"). Same constraint that bit PRs #11 and #12.
 - **v1's out-of-scope.md propagation gap.** v1's spec planned two `docs/out-of-scope.md` additions ("Respondent subagent dispatch for cross-session consistency"; "Required re-reviewer engagement with respondent posts"); neither landed during v1's post-merge implementation. This is silent v1 tech debt that v2 surfaces but does not backfill. **Question for a future audit:** are there other v1 propagation gaps (e.g., the four planned roadmap.md updates in v1's spec — were all four landed)? Out of scope for v2; surfaced here for visibility.
 - **Pre-merge verification structurally skipped.** Same constraint as PRs #11-#15. Five commits land verbatim post-merge. Rollback path: revert 5 commits + restore prior CLAUDE.md / `.claude/agents/` / `.claude/reviewer-prompts/respondent.md` / roadmap / v1-spec state. Bounded.
+- **Sonnet 4.6 vs Opus 4.7 for citation accuracy.** v2 selects Sonnet 4.6 + effort:max on the "matches spec-quality pattern" + "independence-of-opinion isn't the value proposition" framing. That framing addresses model-selection-for-disposition-classification but sidesteps citation-verification specifically. Citation verification (read CLAUDE.md / ADRs / sibling specs; cross-check the cited content matches the disposition's claim) is multi-step retrieval-and-reasoning, exactly the kind of task where Opus's depth materially exceeds Sonnet's. The citation-hallucination tripwire fires after N=2 PRs of misuse — if it fires, the response is "escalate to Opus 4.7," not "strengthen the prompt." The model selection is not locked-in; v2 ships on the cheaper assumption with a tripwire-driven escalation path.
+- **Token cost not quantified (asymmetric with multi-model v1 rigor).** v2's token-cost discussion is "roughly doubles per round" without prompt-size or response-size estimates. Multi-model v1's spec quantified its per-PR cost step. The asymmetry is acknowledged; v2 ships without the quantification because the cost-magnitude bracket (small per-PR, small per-iteration) is judged adequate. A future iteration could backfill the numbers if cost surveillance becomes operational.
+- **v1 emergency fallback accessibility.** v2's Commit 2 rewrites `.claude/reviewer-prompts/respondent.md` end-to-end, overwriting the v1 controller-direct template. The "clean retire" framing in "Why not the bigger version" accepts this — if a future emergency demands controller-direct, it can be done ad hoc. The v1 template content remains accessible via v1's spec ([`2026-05-16-review-discussion-loop-v1.md`](2026-05-16-review-discussion-loop-v1.md) Post-merge implementation > Commit 3 verbatim) and via git history. Surfacing here for visibility: the v1 template is not lost, just not at its original `.claude/` path.
 
 ## Tripwires for known-quality concerns
 
