@@ -7,11 +7,11 @@
 
 ## Context
 
-`gcscode-reviewer[bot]` (introduced by the reviews-as-artifacts iteration, [`specs/2026-05-12-reviews-as-artifacts.md`](2026-05-12-reviews-as-artifacts.md)) is a single GitHub App identity shared across all 5 reviewer roles in the agentic-actor registry: Spec-compliance, Code-quality, Final cross-cutting, Red-team, Spec-quality. Per-role disambiguation lives in the review header (`## Red-team review — spec — Claude Opus 4.7` etc.).
+`gcscode-reviewer[bot]` (introduced by the reviews-as-artifacts iteration, [`2026-05-12-reviews-as-artifacts.md`](2026-05-12-reviews-as-artifacts.md)) is a single GitHub App identity shared across all 5 reviewer roles in the agentic-actor registry: Spec-compliance, Code-quality, Final cross-cutting, Red-team, Spec-quality. Per-role disambiguation lives in the review header (`## Red-team review — spec — Claude Opus 4.7` etc.).
 
 Two factors make the shared-identity scheme less load-bearing post-respondent-v2:
 
-1. **Identity granularity is now part of the architecture's vocabulary.** Respondent v1 introduced `gcscode-respondent[bot]` as a distinct identity from `gcscode-reviewer[bot]`, and ADR-0009 codified the actor-class concept (reviewer vs respondent). The "per-role identities" question goes from "would be nice" to "what does the registry want?" once two actor classes exist with structurally-different identities. The registry's `identity` column was added in ADR-0008 as a forward-looking field even when all rows shared one value (per CLAUDE.md's Reviewer-role design conventions); v3 fills that field with per-row distinct values.
+1. **Identity granularity is now part of the architecture's vocabulary.** Respondent v1 introduced `gcscode-respondent[bot]` as a distinct identity from `gcscode-reviewer[bot]`, and ADR-0009 codified the actor-class concept (reviewer vs respondent). The "per-role identities" question goes from "would be nice" to "what does the registry want?" once two actor classes exist with structurally-different identities. The registry's `identity` column was added in ADR-0008 as a forward-looking field even when all rows shared one value (per CLAUDE.md's Reviewer-role design conventions); v3 fills that field with per-row distinct values. ADR-0009's "Related" section (queued #3 follow-up) anticipated this iteration explicitly: "splits `gcscode-reviewer[bot]` into per-role App identities... the `identity` column gets per-row distinct values instead of the uniform v1 value." This spec is that follow-up.
 2. **Auto-merge gate currently relies on a brittle `(identity + body-prefix)` filter.** `.github/workflows/auto-merge.yml` counts red-team and spec-quality reviews by `select(.author.login == "gcscode-reviewer") | select(.body | startswith("## Red-team review"))`. Per-role identities collapse this to identity-only filters, removing the body-prefix coupling.
 
 The roadmap entry's trigger ("after respondent v2 establishes the multi-actor pattern, OR when the first domain-expert reviewer is added") fired on the first clause when respondent v2 shipped earlier today (2026-05-16). The debt-clearing iteration's unconditional drain commitment overrides any soft-trigger holdouts: queued items ship sequentially. This is queued item #3.
@@ -22,7 +22,7 @@ The bigger version would include:
 
 - **Unify reviewer + respondent helper into one parameterized script.** Single `gh-app-token <actor-slug>` covers all 6 identities. **Smaller wedge:** keep respondent's helper separate; per-role split is reviewer-side only. **Bigger wedge:** rewires respondent infrastructure that just stabilized in v2; scope creep into a different actor class. v3 accepts the asymmetry (`gh-app-token-reviewer` parameterized; `gh-app-token-respondent` point-to-file) as a tradeoff for not disturbing respondent.
 - **Per-model identities for the multi-model red-team pair.** Split `gcscode-red-team[bot]` into `gcscode-red-team-opus[bot]` + `gcscode-red-team-sonnet[bot]`. **Smaller wedge:** one identity per role (Opus + Sonnet both post under `gcscode-red-team[bot]`; model surfaced in header). **Bigger wedge:** the multi-model evaluation iteration (queued separately) may resolve to single-model, making per-model identities moot. Per-model identities are a future iteration if multi-model survives the evaluation.
-- **Backwards-compat shim for `gcscode-reviewer[bot]`.** Keep `gh-app-token` as an alias for `gh-app-token-reviewer red-team` (or some fallback). **Smaller wedge:** clean retire — `.claude/scripts/gh-app-token` is deleted. If a future emergency demands the old App, it can be reinstated via git history. **Bigger wedge:** documented dual-mode adds maintenance and decision-point ambiguity.
+- **Backwards-compat shim for `gcscode-reviewer[bot]`.** Keep `gh-app-token` as an alias for `gh-app-token-reviewer red-team` (or some fallback). **Smaller wedge:** clean retire — `.claude/scripts/gh-app-token` is deleted. If a future emergency demands the old App, the **script** can be reinstated via git history; the **App and its PEM** cannot be reinstated from git (PEMs never enter git; if the App is deleted on GitHub it is gone). Reinstating the App would require creating a new GitHub App and regenerating credentials. **Bigger wedge:** documented dual-mode adds maintenance and decision-point ambiguity.
 - **Bot permissions audit.** Tighten per-role App permissions (e.g., spec-compliance reviewer doesn't need write access to all PRs; only feature-PRs it's dispatched on). **Smaller wedge:** each new App is configured with the same permissions as `gcscode-reviewer` (read repo content + write PR reviews). **Bigger wedge:** per-role permissions design is a separate concern; v3 ships uniform permissions.
 - **Historical post backfill.** Rewrite historical `gcscode-reviewer[bot]` posts to per-role identities. **Smaller wedge:** historical posts stay under `gcscode-reviewer[bot]` (GitHub doesn't support post-author rewriting anyway). **Bigger wedge:** technically impossible without deleting + reposting, which destroys the audit trail.
 
@@ -68,7 +68,7 @@ Five new GitHub App identities, one per reviewer role. The slug is used in 4 pla
 | Red-team            | `red-team`        | `gcscode-red-team[bot]`        |
 | Spec-quality        | `spec-quality`    | `gcscode-spec-quality[bot]`    |
 
-**Mapping the role to its slug:** the slug derives from the role name in kebab-case with one exception — `Final cross-cutting` → `final-review` (not `final-cross-cutting`) because the rendered bot username `gcscode-final-cross-cutting[bot]` is unwieldy and the GitHub App slug has a 34-character soft limit on legibility. `final-review` captures the role's function ("the final review on a feature-PR") and is the only role with a slug that isn't a direct kebab-case of the registry's `Role` value. Spec calls this out explicitly so future readers know `final-review` ≡ "Final cross-cutting" in the registry.
+**Mapping the role to its slug:** the slug derives from the role name in kebab-case with one exception — `Final cross-cutting` → `final-review` (not `final-cross-cutting`). The exception is a **legibility judgment, not a length-limit constraint**: `gcscode-final-cross-cutting` is 27 chars and clears GitHub's 34-char App-name hard limit by 7 chars, but `final-review` captures the role's function ("the final review on a feature-PR") and reads cleaner inline. `final-review` is the only role with a slug that isn't a direct kebab-case of the registry's `Role` value. Spec calls this out explicitly so future readers know `final-review` ≡ "Final cross-cutting" in the registry. **Programmatic-transform note:** future automation that derives the slug from the Role value programmatically must special-case this row — it is a hand-curated exception, not a derivable transform.
 
 **Multi-model red-team:** Opus + Sonnet both post under `gcscode-red-team[bot]`. One identity per role, not per role-model pair. Model is still surfaced in the review header.
 
@@ -172,7 +172,9 @@ SPECQUALITY_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login 
 
 The body-prefix coupling is removed. The workflow's other logic (label check, mergeable check, class-aware gate selection) is untouched.
 
-**Filter correctness assumption:** no non-bot author can post under `gcscode-red-team` or `gcscode-spec-quality`. GitHub App-owned identities cannot be impersonated by user accounts, so the assumption holds structurally. If a future iteration adds a human reviewer who posts a `## Red-team review` markdown-prefixed comment, that iteration is responsible for updating the filter logic.
+**Multi-model count behavior.** Under multi-model red-team dispatch (per [`2026-05-16-multi-model-red-team-v1.md`](2026-05-16-multi-model-red-team-v1.md)), both Opus and Sonnet post under `gcscode-red-team[bot]`, so `REDTEAM_COUNT >= 2` per round. The gate threshold is `> 0`, so the gate is over-satisfied by design; the raw count is still informative for log diagnosis. The pre-iteration filter (`startswith("## Red-team review")` text-match) had the same property — both filters return the count of red-team reviews regardless of model.
+
+**Filter trust model.** The old `(identity + body-prefix)` filter was unforgeable on the identity dimension (only the App can post under its login) AND coupled to body content (an attacker would also need to know the prefix string). The new identity-only filter is strictly stricter on body content (it doesn't check) AND strictly stricter on identity (only one App per role passes). Net result: the entire correctness load now sits on the per-role App PEM. This is a cleaner shape, not free correctness — the new filter trusts the App's PEM strictly more than the old filter did. GitHub App-owned identities still cannot be impersonated by user accounts, so the "no non-bot author can post under `gcscode-red-team` or `gcscode-spec-quality`" assumption holds structurally for the impersonation dimension; the trust shift is around what a compromised App PEM (vs. an attacker who doesn't know the prefix string) would buy. If a future iteration adds a human reviewer who posts a `## Red-team review` markdown-prefixed comment, that iteration is responsible for updating the filter logic.
 
 Full verbatim content in Post-merge implementation > Commit 4d.
 
@@ -249,6 +251,10 @@ export GH_REVIEWER_APP_PRIVATE_KEY_DIR="$HOME/.config/gcscode"
 
 This points the helper at the directory where all 5 new PEMs live. `source ~/.zshrc` (or open a new terminal) for the next post-merge session to pick it up.
 
+### Local `settings.local.json` update (user-local, gitignored)
+
+`shell/.claude/settings.local.json` is globally gitignored (via `~/.config/git/ignore`), so this is not a spec commit — but it's part of the post-merge operational setup. The file currently contains the permission entry `Bash(.claude/scripts/gh-app-token)`; after post-merge the helper is renamed. Update the local file to replace the old entry with `Bash(.claude/scripts/gh-app-token-reviewer)` (or `Bash(.claude/scripts/gh-app-token-reviewer:*)` if you prefer to allow all argument forms). Otherwise the new helper invocation will produce a permission prompt the first time it runs.
+
 ### Verification
 
 Once all 5 Apps are created, installed, PEMs in place, env var set, and config populated, you can sanity-check each App by running:
@@ -268,7 +274,7 @@ Per the post-merge implementation convention, five direct-master commits. All co
 - **Commit 2:** Replace `.claude/agent-config.json` with the new shape, populated with the credentials you provide.
 - **Commit 3:** CLAUDE.md edits — registry table `identity` cells (5 rows) + "Dispatch prompt requirements" bullet rewrite + any inline `gcscode-reviewer[bot]` references that aren't historical citations.
 - **Commit 4:** Four sub-edits — (4a) `.claude/reviewer-prompts/red-team.md` helper invocation; (4b) `.claude/reviewer-prompts/spec-quality.md` helper invocation; (4c) `.claude/reviewer-prompts/respondent.md` reviewer filter; (4d) `.github/workflows/auto-merge.yml` filter logic.
-- **Commit 5:** Documentation propagation — roadmap.md flip + reviews-as-artifacts breadcrumb.
+- **Commit 5:** Documentation propagation — roadmap.md flip + reviews-as-artifacts breadcrumb + `out-of-scope.md` per-model-identities entry.
 
 ### Verbatim — Commit 1 (`.claude/scripts/gh-app-token-reviewer`)
 
@@ -446,6 +452,14 @@ Replace with (preserving the design-convention itself, updating the "v1 all role
 
 > **`.claude/scripts/gh-app-token-reviewer`** — helper that generates short-lived installation tokens for per-role reviewer identities. Takes a role-slug argument. Reviewer subagents call `export GH_TOKEN=$(.claude/scripts/gh-app-token-reviewer <role-slug>)` before `gh pr review`. (Respondent uses `.claude/scripts/gh-app-token-respondent`.)
 
+**3i — "Further reading" `.claude/agent-config.json` bullet.** The line `**\`.claude/agent-config.json\`** — App ID and installation ID for the \`gcscode-reviewer\` GitHub App. Private key path lives in \`GH_APP_PRIVATE_KEY_PATH\` env var, not in repo.` — replace:
+
+> **`.claude/agent-config.json`** — App IDs and installation IDs for the per-role reviewer GitHub Apps (under the `reviewerApps` key, one sub-object per role-slug) and for the respondent App (under `respondentApp`). Private key paths live in `GH_REVIEWER_APP_PRIVATE_KEY_DIR` (a directory containing per-role PEMs) and `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` env vars; PEM files never enter git.
+
+**3j — "Respondent posting discipline > Config" bullet.** The line `**Config:** App ID and installation ID live in \`.claude/agent-config.json\` under the \`respondentApp\` key (additive; reviewer's \`githubApp\` key untouched). Private key path is read from the \`GH_RESPONDENT_APP_PRIVATE_KEY_PATH\` env var; the PEM file never enters git.` — replace the parenthetical:
+
+> **Config:** App ID and installation ID live in `.claude/agent-config.json` under the `respondentApp` key (sibling to the per-role `reviewerApps` keys). Private key path is read from the `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` env var; the PEM file never enters git.
+
 ### Verbatim — Commit 4 (four sub-edits)
 
 **4a — `.claude/reviewer-prompts/red-team.md`.** Locate the line containing `GH_TOKEN=$(.claude/scripts/gh-app-token)` and replace with `GH_TOKEN=$(.claude/scripts/gh-app-token-reviewer red-team)`. Pre-edit verification: `grep -n "gh-app-token" .claude/reviewer-prompts/red-team.md` should show exactly one occurrence. If multiple occurrences exist, reconcile each one with the role-slug `red-team`.
@@ -470,7 +484,7 @@ Replace with:
 
 The body-test second filter is unchanged (the header convention still discriminates by role-label + model for re-review tie-breaking). The note about `.author.login` carrying the App name without `[bot]` suffix stays.
 
-The CLAUDE.md "Respondent posting discipline" subsection bullet that references this filter mentions `author.login == "gcscode-reviewer"`; replace with `author.login | IN(<list>)` matching the same identities. Locate via `grep -n "author.login.*gcscode-reviewer" shell/CLAUDE.md` and update the surrounding sentence to point at the per-role identities.
+(Note: an earlier draft of this commit instructed grepping CLAUDE.md for `author.login.*gcscode-reviewer` and updating a sibling sentence there. That grep returns zero results — the literal jq filter text lives only in `respondent.md`. No CLAUDE.md edit is needed for the filter under 4c; CLAUDE.md's reviewer-filter reference is handled prose-only by Commit 3.)
 
 **4d — `.github/workflows/auto-merge.yml` filter.** Locate the two `REDTEAM_COUNT` / `SPECQUALITY_COUNT` jq filter lines and replace per the "Architecture > Auto-merge workflow" section above:
 
@@ -530,6 +544,8 @@ DELETE the above entry from the Considering section, and ADD the following entry
 
 The breadcrumb does NOT modify the reviews-as-artifacts spec's substantive content — its design decisions stand as historical record. This is the third application of the specs-as-historical-record convention (first: ADR-0009 number-reservation; second: respondent-v2 supersession of v1's controller-direct premise).
 
+**5c — `docs/out-of-scope.md` per-model-identities entry.** Append the entry specified in the "`docs/out-of-scope.md` propagation" section above to the "Agentic team architecture deferrals" section of `shell/docs/out-of-scope.md`. Locate the section via `grep -n "Agentic team architecture deferrals" shell/docs/out-of-scope.md`. Add the bullet at the bottom of that section (alongside the other agentic-team deferrals).
+
 ## Data flow — how this iteration ships
 
 1. Brainstorm → spec → spec-PR. **Twelfth iteration shipping via the spec-PR workflow.**
@@ -583,7 +599,15 @@ Propagation to `shell/docs/vs-code-alignment.md`: none.
 
 ## `docs/out-of-scope.md` propagation
 
-**No edit.** This iteration is not a cross-cutting deferral; it's a normal iteration shipping the queued item from the debt-clearing list.
+This iteration is mostly a normal queued-item iteration (no architectural deferral beyond what the Non-goals section enumerates as per-iteration scope cuts). One Non-goal, however, is a deliberate architectural deferral that affects how future identity-design iterations are scoped: **per-model identities for the multi-model red-team pair**. The decision "one identity per role, not per role-model pair" is a forward-looking shape choice that anyone designing future per-actor-identity scope needs to know about. Per CLAUDE.md "Non-goals propagate to `docs/out-of-scope.md`": cross-cutting deferrals propagate.
+
+**Edit:** under the "Agentic team architecture deferrals" section of `shell/docs/out-of-scope.md`, append:
+
+```md
+- **Per-model identities for the multi-model red-team pair.** Both Claude Opus and Claude Sonnet post under `gcscode-red-team[bot]`; model is surfaced in the review header but not in the rendered bot identity. Trigger to revisit: the multi-model red-team v1 evaluation iteration (per [`docs/specs/2026-05-16-multi-model-red-team-v1.md`](specs/2026-05-16-multi-model-red-team-v1.md)) resolves to KEEP-BOTH AND per-model audit-trail demand surfaces (e.g., it becomes hard to find "all Sonnet red-team reviews" in a tooling scan). See [`docs/specs/2026-05-16-per-role-bot-identities-for-reviewers.md`](specs/2026-05-16-per-role-bot-identities-for-reviewers.md) "Non-goals" and "Future iterations".
+```
+
+The other Non-goals (unified reviewer + respondent helper, bot permissions audit, historical post backfill, backwards-compat shim, custom dispatch for feature-PR reviewers, pre-merge mechanics validation) are per-iteration scope cuts with their own triggers and stay in this spec only.
 
 ## `docs/roadmap.md` propagation
 
@@ -596,8 +620,14 @@ Net change: 1 Considering → Queued/Shipped flip.
 - **Setup-cost reality.** Creating 5 new GitHub Apps is manual UI work on github.com. Partial state (e.g., 3 of 5 Apps created) is bounded — helpers fail loudly for missing identities; rollback path is commit-revert. **Tripwire below.**
 - **PEM filename convention legibility.** `gcscode-final-review.pem` reads slightly off (registry role-name is "Final cross-cutting"; slug `final-review` is a shorthand). Spec's Architecture > Identity naming section calls out the mapping explicitly. If the legibility cost is bigger than anticipated, a future iteration could rename `final-review` → some other slug at the cost of recreating that App on GitHub.
 - **Multi-model red-team identity.** Both Opus and Sonnet post under `gcscode-red-team[bot]`. If the multi-model evaluation iteration resolves to KEEP-BOTH and the per-model identity question becomes load-bearing later, that's its own iteration.
-- **Auto-merge filter assumption.** The new identity-only filter assumes no non-bot author can post under `gcscode-red-team` or `gcscode-spec-quality`. GitHub App identities cannot be impersonated structurally, so the assumption holds today. If a future iteration introduces a human-account-authored red-team review for some reason, that iteration owns updating the filter.
+- **Auto-merge filter assumption.** The new identity-only filter assumes no non-bot author can post under `gcscode-red-team` or `gcscode-spec-quality`. GitHub App identities cannot be impersonated structurally, so the assumption holds today. If a future iteration introduces a human-account-authored red-team review for some reason, that iteration owns updating the filter. **Tripwire below** (auto-merge regression).
+- **Auto-merge filter API dependency on `author.login` suffix stripping.** The new filter compares against literal `gcscode-red-team` / `gcscode-spec-quality` without the `[bot]` suffix. This depends on GitHub's GraphQL/REST `author.login` field returning App logins **without** the `[bot]` suffix (the suffix is a UI render artifact, not a stored value) — consistent with current behavior, with the existing respondent.md filter, and with the workflow's pre-iteration filter, but worth surfacing as an external API dependency. If GitHub ever changes this behavior, all three filters (workflow + respondent.md + any future ones) silently return 0.
 - **In-flight PR transition.** Spec/ADR PRs opened pre-merge that complete post-merge land in the new workflow; the new filter returns 0; auto-merge gate fails. User must `gh pr merge --merge` manually. One-time cliff bounded to in-flight PRs at the merge boundary.
+- **In-flight cliff × multi-model v1 N=5 counter interaction.** Per `2026-05-16-multi-model-red-team-v1.md`, each spec/ADR PR is one observation against an N=5 evaluation counter. In-flight PRs that complete post-merge under `gcscode-reviewer[bot]` reach the new auto-merge workflow but fail the new identity filter (the cliff above). The N=5 evaluation iteration counts those PRs as completed observations with auto-merge "failed"; the failure is attributable to the in-flight cliff, not to a multi-model signal. The evaluation iteration should annotate this in its input data so the regression isn't double-counted.
+- **Commit 1 → Commit 2 intermediate-state window.** Commit 1 deletes `.claude/scripts/gh-app-token` (which reads the old `githubApp` key) and creates `.claude/scripts/gh-app-token-reviewer` (which reads the new `reviewerApps` key). Commit 2 replaces the config to add the new shape. Between the two commits, the old script is gone AND the new shape isn't in the config yet — any reviewer dispatch landing in this window fails loudly (`appId or installationId missing for <slug>`). Bounded because the post-merge commits run serially in one session; the cliff is the same as the in-flight one above. Noted for completeness.
+- **Ongoing rotation cost across 5 Apps.** PEM rotation (security incident, GitHub key-expiry policy, routine hygiene) becomes 5× work compared to the single-App scheme. The "unified reviewer + respondent helper" future iteration may centralize this if it ships, but until then rotation is fan-out work. Acceptable now; revisit if a rotation event surfaces the friction.
+- **Commit 2 controller pause + pre-create-Apps alternative.** Per-App setup is nominally ~5 minutes × 5 = ~25 min UI work + Commit 2 pauses inline for the credentials. The pause is structurally a session-lifetime risk: if the controller session times out mid-pause, post-merge resumes in a fresh session (awkward for a 5-commit verbatim flow). Mitigation: the user MAY pre-create all 5 Apps **before** merging this spec-PR. Doing so collapses the Commit 2 pause to zero — the controller pastes the credentials it already has. Pre-creation is optional; the spec doesn't depend on it.
+- **Historical PR attribution depends on keeping the App alive.** PRs #1 and #11 are kept-open reference artifacts; their value depends on the `gcscode-reviewer[bot]` icon staying attached to historical reviews. If the user later **deletes** the `gcscode-reviewer` App from GitHub (vs. just uninstalling it from the repo), historical posts render as "ghost" attribution and the reference artifacts degrade. Spec's recommendation is keep the App alive but uninstalled. Strengthening this from recommendation to requirement is a small operational call left to the user; flagging here so the cost of deletion is explicit.
 - **Pre-merge verification structurally skipped.** Same constraint as PRs #11-#16. Five commits land verbatim post-merge. Rollback path: revert 5 commits + restore prior `gh-app-token`, prior `agent-config.json` shape, prior CLAUDE.md / prompt template / workflow content. Bounded.
 
 ## Tripwires for known-quality concerns
