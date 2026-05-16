@@ -7,7 +7,7 @@
 
 ## Context
 
-The multi-model red-team v1 spec (2026-05-16) named "effort dimension bundled with model defaults" as a known v1 limitation: the `Agent` tool we use for subagent dispatch exposes `model` (opus/sonnet/haiku) but not `thinking_budget` or any direct effort knob. The spec queued "Custom subagent dispatch for effort-level control" as a future iteration that would build a dispatcher hitting the Anthropic API directly — substantial new infrastructure.
+The multi-model red-team v1 spec (2026-05-16) named "effort dimension bundled with model defaults" as a known v1 limitation: the `Agent` tool we use for subagent dispatch exposes `model` (opus/sonnet/haiku) but not `thinking_budget` or any direct effort knob. The spec queued "Custom subagent dispatch for effort-level control" as a future iteration that would build a dispatcher hitting the Anthropic API directly — substantial new infrastructure. The current dispatch path doesn't set `subagent_type` explicitly — the controller dispatches via the Agent tool with the full prompt template as the user message, defaulting to `general-purpose`. CLAUDE.md doesn't currently mention `subagent_type: general-purpose` as a stated default; the prior behavior is "no subagent_type specified."
 
 Subsequent investigation surfaced a cleaner path: **Claude Code's `AgentDefinition` supports an `effort` field** in `.claude/agents/<name>.md` frontmatter, with values `low | medium | high | xhigh | max | number`. When a subagent is dispatched via `subagent_type: "<name>"`, the agent file's `effort` field propagates to the dispatched subagent. **No custom dispatcher needed.** This is a much smaller wedge than the queued infra iteration: define custom `subagent_type`s for our reviewer roles with `effort: max` in frontmatter; change the dispatch identifier; done.
 
@@ -47,7 +47,7 @@ The multi-model v1 spec (`2026-05-16-multi-model-red-team-v1.md`) defined an N=5
 
 **Resolution: reset the N=5 counter.** Multi-model v1's official N=5 evaluation counts the first FIVE spec/ADR PRs **after this iteration merges**. PR #9 and PR #11 are pre-`effort: max` baseline observations — kept as informal evidence (and useful for the "did effort: max change anything?" question in Plan 2 below), but excluded from the formal N=5 multi-model comparison.
 
-The multi-model v1 spec itself isn't edited (it's the historical record); this section is the authoritative reference for the counter reset. The first spec/ADR PR after this iteration's merge becomes the new N=1 of multi-model v1's evaluation.
+This section is the authoritative reference for the counter reset. To make the reset discoverable from the multi-model v1 spec (the natural starting point for a future evaluation), the post-merge implementation adds a one-line cross-reference pointer near multi-model v1's Evaluation plan section — small editorial pointer, not a content amendment. The substantive evaluation methodology in multi-model v1 stays as the historical record; only a discoverability breadcrumb is added.
 
 ## Architecture
 
@@ -62,7 +62,7 @@ The agent body includes a defensive backstop: if the dispatching controller forg
 ````md
 ---
 name: red-team-reviewer
-description: Red-team reviewer subagent for gcscode spec/ADR PRs. Premise challenger + consistency reviewer. Dispatched by the auto-dispatch obligation in CLAUDE.md.
+description: Dispatch wrapper for the red-team reviewer role. Role behavior is defined in `.claude/reviewer-prompts/red-team.md`; see the registry in CLAUDE.md for context.
 model: opus
 effort: max
 ---
@@ -79,7 +79,7 @@ Otherwise: follow the template precisely.
 ````md
 ---
 name: spec-quality-reviewer
-description: Spec-quality reviewer subagent for gcscode spec/ADR PRs. Document structure + within-document consistency + link mechanics. Dispatched by the auto-dispatch obligation in CLAUDE.md.
+description: Dispatch wrapper for the spec-quality reviewer role. Role behavior is defined in `.claude/reviewer-prompts/spec-quality.md`; see the registry in CLAUDE.md for context.
 model: sonnet
 effort: max
 ---
@@ -93,7 +93,7 @@ Otherwise: follow the template precisely.
 
 ### Dispatch identifier change
 
-Auto-dispatch on a spec/ADR PR currently uses `subagent_type: "general-purpose"` with the full prompt template as the user message. After this iteration, it uses the custom subagent_types:
+Auto-dispatch on a spec/ADR PR currently dispatches via the Agent tool without specifying `subagent_type` (defaulting to `general-purpose`), with the full prompt template as the user message. After this iteration, it uses the custom subagent_types:
 
 - **Red-team Opus (primary):** `subagent_type: "red-team-reviewer"` — model and effort inherited from frontmatter (`opus`, `max`).
 - **Red-team Sonnet (secondary):** `subagent_type: "red-team-reviewer", model: "sonnet"` — model overridden at dispatch; effort still inherited (`max`).
@@ -113,16 +113,17 @@ The reviewer-role registry table stays exactly as-is. The `Prompt template` colu
 
 ## Post-merge implementation
 
-Per the post-merge implementation convention, three direct-master commits (one per file). All content fully specified verbatim above; no judgment required during implementation.
+Per the post-merge implementation convention, four direct-master commits. All content fully specified verbatim above (or below for Commit 4); no judgment required during implementation.
 
 - **Commit 1: Create `.claude/agents/red-team-reviewer.md`** with the verbatim content shown above.
 - **Commit 2: Create `.claude/agents/spec-quality-reviewer.md`** with the verbatim content shown above.
 - **Commit 3: Two CLAUDE.md edits** — replace the "Auto-dispatch on spec/ADR PRs" paragraph and the **first bullet** of the "Auto-dispatch controller obligations" checklist with the verbatim text below. Bullet 2 of that checklist (`Code-review-followup:` re-dispatch) stays unchanged.
+- **Commit 4: Cross-reference pointer in `shell/docs/specs/2026-05-16-multi-model-red-team-v1.md`** — append one footnote-style sentence to the spec's Evaluation plan section (or, if no dedicated section, immediately after the first mention of "N=5"). Verbatim text: `> **N=5 counter reset (added 2026-05-16):** Effort-max iteration ([docs/specs/2026-05-16-effort-max-custom-reviewers.md](2026-05-16-effort-max-custom-reviewers.md)) resets this counter at its merge. PR #9 and PR #11 are pre-effort:max baseline observations; the formal N=5 count starts from the first spec/ADR PR after that iteration's merge.`
 
 ### Verbatim text — Edit A (Auto-dispatch on spec/ADR PRs paragraph)
 
 ````md
-**Auto-dispatch on spec/ADR PRs.** When a `spec/<topic>` or `adr/<slug>` PR is opened, the controller automatically dispatches THREE reviewer subagents in parallel: red-team Opus 4.7 (primary), red-team Sonnet 4.6 (secondary, from the registry's `Secondary model` field for red-team), and spec-quality Sonnet 4.6. Dispatch identifiers: `subagent_type: red-team-reviewer` for the primary Opus dispatch, `subagent_type: red-team-reviewer, model: sonnet` for the secondary dispatch (model overridden at dispatch; `effort: max` still inherited from the agent file frontmatter), and `subagent_type: spec-quality-reviewer` for spec-quality. The three subagents dispatch as independent calls; none blocks any other; each posts an independent review under the `gcscode-reviewer[bot]` identity. The two red-team dispatches use the same prompt template (`.claude/reviewer-prompts/red-team.md`) and the same context; only the `model` parameter differs. All three subagents run with `effort: max` per their `.claude/agents/<role>-reviewer.md` agent definitions. The multi-model pair is an independence-of-opinion experiment from [`docs/specs/2026-05-16-multi-model-red-team-v1.md`](docs/specs/2026-05-16-multi-model-red-team-v1.md) and runs for N=5 spec/ADR PRs before an evaluation iteration decides whether to keep both, revert to single-model, or extend the experiment. All three verdicts are `--comment` only in v1 (advisory). On a `Code-review-followup:` commit to the spec/ADR branch, the controller re-dispatches ALL THREE roles in parallel. Each re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit.
+**Auto-dispatch on spec/ADR PRs.** When a `spec/<topic>` or `adr/<slug>` PR is opened, the controller automatically dispatches THREE reviewer subagents in parallel: red-team Opus 4.7 (primary), red-team Sonnet 4.6 (secondary, from the registry's `Secondary model` field for red-team), and spec-quality Sonnet 4.6. Dispatch identifiers: `subagent_type: red-team-reviewer` for the primary Opus dispatch, `subagent_type: red-team-reviewer, model: sonnet` for the secondary dispatch (model overridden at dispatch; `effort: max` still inherited from the agent file frontmatter), and `subagent_type: spec-quality-reviewer` for spec-quality. The three subagents dispatch as independent calls; none blocks any other; each posts an independent review under the `gcscode-reviewer[bot]` identity. The two red-team dispatches use the same prompt template (`.claude/reviewer-prompts/red-team.md`) and the same context; only the `model` parameter differs. All three subagents run with `effort: max` per the `effort` field in their agent files (`.claude/agents/red-team-reviewer.md` and `.claude/agents/spec-quality-reviewer.md`). The multi-model pair is an independence-of-opinion experiment from [`docs/specs/2026-05-16-multi-model-red-team-v1.md`](docs/specs/2026-05-16-multi-model-red-team-v1.md) and runs for N=5 spec/ADR PRs before an evaluation iteration decides whether to keep both, revert to single-model, or extend the experiment. All three verdicts are `--comment` only in v1 (advisory). On a `Code-review-followup:` commit to the spec/ADR branch, the controller re-dispatches ALL THREE roles in parallel. Each re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit.
 ````
 
 ### Verbatim text — Edit B (controller obligations bullet 1)
@@ -168,7 +169,7 @@ This dovetails with the multi-model v1 evaluation, whose N=5 counter resets at t
 - (multi-model v1, N=5 post-reset) Do Opus and Sonnet produce distinct findings at `effort: max`?
 - (effort v1) Do max-effort reviews seem materially deeper than the pre-iteration default-effort baseline (PRs #9 and #11 being the closest comparables — same iteration shape, default effort)?
 
-**Failure response:** if `effort: max` reviews are NOT noticeably better than default-effort, document the finding. The agent file frontmatter is the source of the setting; future iterations could investigate whether the harness honors `effort: max` correctly or whether the doc's claims about effort propagation hold in practice.
+**Failure response:** if `effort: max` reviews are NOT noticeably better than default-effort, document the finding. The agent file frontmatter is the source of the setting; future iterations could investigate whether the harness honors `effort: max` correctly or whether the doc's claims about effort propagation hold in practice. If the frontmatter `effort` field is confirmed to be a no-op (reviews unchanged AND no harness log signal that effort took effect), open a dedicated investigation iteration: the shipped agent files would need a different mechanism, and the out-of-scope/roadmap reframing ("rationale invalidated by smaller wedge") would need to be revised — the wedge didn't actually do anything.
 
 ## VS Code alignment
 
@@ -197,10 +198,11 @@ Three updates:
 - **Does `effort: max` produce noticeably better reviews?** Subjective question; Plan 2's qualitative observation answers it. Could be that the harness's default effort is already "max" in practice for the models we use (Opus 4.7's deprecated-manual-thinking note hints at this), in which case `effort: max` is a no-op.
 - **Does the `model` override at dispatch time correctly preserve `effort` from the agent file?** Specifically: when we dispatch `subagent_type: red-team-reviewer, model: sonnet`, does the Sonnet subagent run with `effort: max` (from the agent file) or does the model override reset to defaults? Plan 1's three-dispatch smoke test exercises this path explicitly. The multi-model red-team Sonnet dispatch on the first real spec/ADR PR fully answers it through qualitative review-depth observation.
 - **Cost increase.** `effort: max` likely increases per-dispatch cost (more thinking tokens). Across red-team-Opus + red-team-Sonnet + spec-quality on every spec/ADR PR, the increase compounds. Worth monitoring; future iteration could refine to per-role effort if cost becomes a concern.
+- **Pre-merge verification is structurally skipped.** The spec-PR workflow puts the new agent files into the world only after merge (verbatim spec → post-merge implementation convention). Pre-merge dispatch of `subagent_type: red-team-reviewer` is impossible because the agent file doesn't exist until Commit 1 of post-merge lands. Plan 1's smoke test therefore runs post-merge. Accepted trade-off; if Plan 1 surfaces a frontmatter no-op, the rollback work is non-trivial (revert Commits 1-3 of post-merge; restore the prior out-of-scope and roadmap framing). Future iterations could explore a different shipping shape (e.g., land agent files in a feat branch with a smoke test before the verbatim-spec wedge) if this trade-off becomes painful.
 
 ## Why no ADR for `.claude/agents/` structural layer
 
-ADR-0008 covered the reviewer-role registry as the source-of-truth for role behavior. The agent files this iteration adds are dispatch wrappers around that registry — they don't introduce a new architectural concept, just use Claude Code's own subagent-definition mechanism to set `effort` and `model` defaults at dispatch identifier level. The prompt template remains the source-of-truth for role behavior (the agent body is a thin defensive shim, not the role definition). No new ADR needed; if the agent files ever grow to carry role behavior (e.g., the deferred "consolidate prompt templates into agent file bodies" future iteration), THAT iteration would warrant an ADR update or supersede.
+[`ADR-0008`](../decisions/ADR-0008-reviewer-role-registry.md) covered the reviewer-role registry as the source-of-truth for role behavior. The agent files this iteration adds are dispatch wrappers around that registry — they don't introduce a new architectural concept, just use Claude Code's own subagent-definition mechanism to set `effort` and `model` defaults at dispatch identifier level. The prompt template remains the source-of-truth for role behavior; the agent body is a thin defensive shim and the `description` frontmatter field is kept short (dispatch-wrapper language only) to minimize the coordinated-text surface. No new ADR needed; if the agent files ever grow to carry role behavior (e.g., the deferred "consolidate prompt templates into agent file bodies" future iteration), THAT iteration would warrant an ADR update or supersede.
 
 ## Future iterations
 
