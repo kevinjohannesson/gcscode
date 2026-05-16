@@ -19,14 +19,14 @@ This iteration introduces a **respondent bot identity** (`gcscode-respondent`) t
 
 The bigger version would include:
 
-- **A respondent subagent** with its own role definition and prompt template, dispatched per response. v1 uses the controller (this Claude Code session) directly — session context already contains the reasoning that needs to be captured; dispatching a subagent that would need to re-derive that reasoning is wasted machinery.
-- **Required re-reviewer engagement** with respondent posts. v1 ships optional engagement — re-reviewers MAY push back if they disagree, but aren't required to engage. Required engagement is v2.
-- **Threaded inline replies on specific review comments** (using GitHub's `--reply-to` / `in_reply_to` API). v1 uses review-level comments (one per review). Threading is a v2 ergonomics improvement.
-- **Open-question ledger file** (`docs/reviewer-open-questions.md`). User chose the smallest cut: route to existing files via documented disposition; no new ledger.
-- **Human-comment-triggered respondent revisions.** v1: human disagreements with respondent dispositions become regular PR comments, addressed in the next followup commit.
-- **Per-role bot identities for reviewers** (separate from respondent). Already a Considering item on the roadmap; orthogonal to this iteration.
+- **A respondent subagent** with its own role definition and prompt template, dispatched per response. v1 uses the controller (this Claude Code session) directly — session context contains the reasoning within a single session, and the prompt template enforces a consistent format across sessions. The cross-session reconstruction cost is the explicit limitation v1 accepts; see Known Unknowns. **Smaller wedge:** controller-direct + prompt template + accepted cross-session limitation. **Bigger wedge:** subagent dispatch infrastructure (its own role definition, prompt template, return-to-controller contract, audit-trail format).
+- **Required re-reviewer engagement** with respondent posts. v1 ships optional engagement — re-reviewers MAY push back if they disagree, but aren't required to engage. **Smaller wedge:** optional engagement (one-liner prompt addition). **Bigger wedge:** required engagement (structured push-back/accept verdict per disposition; reviewer prompts grow substantially; risk of meta-debates).
+- **Threaded inline replies on specific review comments** (using GitHub's `--reply-to` / `in_reply_to` API). v1 uses review-level comments (one per review). **Smaller wedge:** one comment per review. **Bigger wedge:** per-finding inline reply threading via the GitHub review-comment API (different posting mechanics; different audit-trail structure).
+- **Open-question ledger file** (`docs/reviewer-open-questions.md`). User chose the smallest cut: route to existing files via documented disposition; no new ledger. **Smaller wedge:** route to existing files (roadmap/out-of-scope/spec known-unknowns). **Bigger wedge:** dedicated catalog with lifecycle conventions.
+- **Human-comment-triggered respondent revisions.** v1: human disagreements with respondent dispositions become regular PR comments, addressed in the next followup commit. **Smaller wedge:** existing PR comment mechanism. **Bigger wedge:** triggered-respondent-revision flow with its own dispatch and audit trail.
+- **Per-role bot identities for reviewers** (separate from respondent). Already a Considering item on the roadmap; orthogonal to this iteration. Out of scope here regardless of size.
 
-This iteration ships: one new GitHub App identity, one new helper script, one new prompt template, three CLAUDE.md additions, optional re-reviewer engagement language in two reviewer prompt templates.
+This iteration ships: one new GitHub App identity, one new helper script, one new prompt template, two CLAUDE.md additions, optional re-reviewer engagement language in two reviewer prompt templates.
 
 ## Goals
 
@@ -92,7 +92,7 @@ Reviewer's `githubApp` key stays untouched. The placeholder strings are filled i
 
 ### CLAUDE.md additions
 
-Three text changes in the "Subagent reviewer PR-posting discipline" subsection of CLAUDE.md.
+Two text changes in the "Subagent reviewer PR-posting discipline" subsection of CLAUDE.md.
 
 **Edit A: New "Respondent posting discipline" subsection** — inserted immediately after the existing "Subagent reviewer PR-posting discipline" subsection's content (before "Reviewer-role design conventions"). Full content below in Post-merge implementation > Commit 4.
 
@@ -372,7 +372,13 @@ Propagation to `shell/docs/vs-code-alignment.md`: none.
 
 ## `docs/out-of-scope.md` propagation
 
-No new entries. None of this iteration's non-goals are cross-cutting architectural deferrals (they are per-iteration scope cuts with their own future triggers, listed in Future iterations below).
+Two new entries; both are cross-cutting architectural deferrals (not per-iteration scope cuts).
+
+1. **Add: "Respondent subagent dispatch for cross-session consistency."** v1 ships controller-direct response writing as a Day 1 accepted limitation. The deferral is architectural (subagent dispatch infrastructure vs controller-direct), not per-iteration. Trigger to revisit: the first real cross-session PR that requires meaningful reconstruction of prior-session reasoning (the cross-session tripwire above). Reference: this spec's Known Unknowns section.
+
+2. **Add: "Required re-reviewer engagement with respondent posts."** v1 ships optional engagement. The deferral is architectural (whether reviewers must explicitly accept/push-back on each disposition) not per-iteration. Trigger to revisit: the optional-engagement-never-fires tripwire above.
+
+(The threaded-replies, ledger-file, and human-comment-trigger non-goals stay per-iteration scope cuts with their own Future iterations triggers; they don't meet the cross-cutting threshold.)
 
 ## `docs/roadmap.md` propagation
 
@@ -380,7 +386,8 @@ Three updates:
 
 1. **Add a Shipped entry for this iteration** under the agentic-team track: `review-discussion-loop-v1`.
 2. **Update the existing "Per-role bot identities for reviewers" Considering entry** (if present; otherwise add it) — note that this iteration's `gcscode-respondent` App is a NEW actor identity (controller voice), not a per-role identity for the reviewer roles themselves. Per-role reviewer identities remain on Considering.
-3. **No new Considering entry for respondent enhancements** — defer until v1 operational evidence shows what's worth iterating on (subagent dispatch, threaded replies, required engagement, ledger). Future iterations are listed in this spec's Future iterations section; they migrate to roadmap.md Considering only when triggered.
+3. **Add a new Considering entry: "Agentic-team tech-debt clearing iteration"** — user has explicitly flagged this as the next iteration after PR #12 (per Origin section's user-quote). Audits deferred ADRs, missing conventions, partially-resolved items, and accepted limitations from PRs #11 and #12. Trigger: user kicks off the brainstorm; accumulated tech debt has reached the point where one consolidating iteration beats more small wedges.
+4. **No new Considering entries for the per-iteration respondent enhancements** (subagent dispatch, threaded replies, required engagement, ledger). Those are listed in this spec's Future iterations section; they migrate to roadmap.md Considering only when triggered by Plan 2's tripwires firing or by the debt-clearing iteration deciding to address them.
 
 ## Known unknowns
 
@@ -388,21 +395,44 @@ Three updates:
 - **Are 3 respondent posts per followup-commit round noisy?** A 4-round iteration (like the recent PR #11) would generate 12 respondent posts. The PR conversation tab gets dense. Plan 2 observes readability.
 - **Token cost.** Three respondent posts per round, each ~150-300 tokens of content the controller writes. Across iterations this is small; flagging only because PR API quotas and visual density compound.
 - **Pre-merge verification is structurally skipped.** Same constraint as effort-max iteration: the respondent App + helper script don't exist until post-merge implementation lands. Plan 1's smoke test runs post-merge. If the helper script has a bug or the App ID is misconfigured, the failure surfaces after the spec is merged. Accepted trade-off; the rollback path is "revert all six post-merge commits + restore the prior CLAUDE.md state" — non-trivial but bounded.
-- **Does the controller-writes-directly pattern survive across sessions?** The respondent prompt template specifies the format; different Claude Code sessions (different controllers) should produce consistent output if they read the template. But there's no enforcement — a controller could go off-format. Plan 2 observes consistency across iterations. Failure response: respondent subagent dispatch (Future iteration #1).
+- **Cross-session controller-direct response writing is a Day 1 limitation, not a future risk.** v1 ships controller-direct with the load-bearing premise that "session context already contains the reasoning that needs to be captured." That premise is true within ONE session, but multi-session PRs are the norm — PR #11 ran four followup rounds across what was almost certainly multiple sessions. A new session picking up a mid-iteration PR has NO prior reasoning context: it must reconstruct intent from the followup commits, the diff, and prior reviews — which is exactly what a subagent dispatch would do. v1 accepts this limitation by trading off subagent dispatch infrastructure for the simpler controller-direct pattern. The respondent prompt template's format is the consistency mechanism across sessions (different controllers reading the same template produce consistent output structure), but the *substance* of each disposition still requires the controller to reconstruct reasoning each time the session boundary crosses. Failure response: respondent subagent dispatch (Future iteration #1). **Trigger is no longer speculative** — the next real cross-session PR validates whether reconstruction-cost is bearable or not. If a controller spends meaningful time reconstructing prior-session reasoning before writing a response, the subagent iteration is warranted.
 - **What happens to disposition disagreements after merge?** Pre-merge, human disagreements with respondent dispositions become PR comments addressed in the next followup. Post-merge, the PR is closed; disagreements become next-iteration brainstorm fodder. v1 accepts this; future iteration could explore a "post-merge respondent appendix" mechanism if it becomes painful.
+
+## Why no dedicated ADR for the respondent-as-new-actor pattern
+
+The respondent introduces a new actor class — a non-reviewer GitHub App identity carrying controller voice on PRs. ADR-0008 (reviewer-role registry) was scoped to reviewer roles specifically; the respondent doesn't fit cleanly under it. Three options were considered:
+
+1. **Extend ADR-0008** to cover non-reviewer App identities (controller-voice actors). Reframes ADR-0008 from "reviewer-role registry" to "agentic-actor registry."
+2. **Write ADR-0009** specifically for the respondent-as-new-actor pattern.
+3. **No new/updated ADR;** rationale lives in this spec.
+
+**v1 takes Option 3 with explicit acknowledgment that this is the same accepted-limitation pattern as PR #11's `.claude/agents/` structural layer.** The respondent is one new actor; ADR-0008 doesn't break. But this is the SECOND iteration in a row where a real architectural addition has avoided an ADR (PR #11's agent files were also "Why no ADR"-rationalized). The pattern is starting to look like deferred-ADR-debt rather than principled minimal architecture.
+
+**This is explicit input to the next iteration**, which the user has flagged as a debt-clearing iteration: audit the deferred-ADR queue, decide on ADR-0008 extension vs ADR-0009 vs supersession patterns, and formalize the agentic-actor registry shape. This iteration ships without the ADR but does NOT pretend the architectural addition is too small to need one.
+
+## Tripwires for known-quality concerns
+
+Per the design conventions in CLAUDE.md (Reviewer-role design conventions > Tripwires), validation plans should include explicit tripwires for concerns tied to this iteration's specific failure modes:
+
+- **Cross-session reconstruction tripwire.** If during the first 2 multi-round spec/ADR PRs after this iteration ships, the controller (in a new session) spends >10 minutes reconstructing prior-session disposition intent before writing a response — pull the respondent subagent iteration forward and prioritize it. The 10-minute threshold is operational, not algorithmic; the controller's session log is the signal.
+- **Optional-engagement-never-fires tripwire.** If across the first 5 spec/ADR PRs after this iteration ships, NO re-reviewer ever pushes back on a respondent disposition under the optional-engagement provision — flag that the loop isn't actually a loop. v1 ships engagement as optional; the operational data tells us whether the option is ever exercised. If never, the discussion-loop hypothesis fails operationally and the required-engagement iteration is warranted.
+- **Routing-evaporates tripwire.** If across the first 3 spec/ADR PRs after this iteration ships, respondent posts document "routed to docs/roadmap.md" dispositions that NEVER result in actual roadmap.md commits at merge time — flag that the routing-via-existing-files model is failing. The respondent post documents intent; only post-merge propagation makes it concrete. If the intent-to-actual gap is non-zero, the ledger file (Future iteration #4) or stronger propagation enforcement may be needed.
+
+These tripwires are manual review items, not automated checks; they live in this spec and migrate to the next iteration's brainstorm input if any fires.
 
 ## Future iterations
 
 Each gets its own brainstorm when triggered.
 
-1. **Respondent subagent dispatch** — dedicate a subagent role for response writing instead of controller-direct. Trigger: controller-written responses prove inconsistent across sessions or burdensome to write.
+1. **Respondent subagent dispatch** — dedicate a subagent role for response writing instead of controller-direct. **Trigger: first real cross-session PR** (likely the very first multi-round spec/ADR PR after this iteration ships). The cross-session reconstruction cost is the validation signal — if reconstruction is materially expensive, the subagent iteration is warranted. (Per v1's accepted limitation in Known Unknowns; this is no longer speculative.)
 2. **Required re-reviewer engagement** — re-reviewer prompts require reading respondent posts and explicitly accepting or pushing back on each disposition. Trigger: optional engagement isn't producing discussion-loop value (Plan 2's observation answers this).
 3. **Inline review-comment replies via `--reply-to`** — thread responses to specific review comments instead of review-level comments. Trigger: review-level grouping proves insufficient for readability.
 4. **Open-question ledger file** (`docs/reviewer-open-questions.md`) — dedicated catalog for "noted, no current action" items. Trigger: that disposition becomes frequent enough to need browse-ability across iterations.
 5. **Per-role bot identities for reviewers** — already on roadmap as Considering; separate iteration.
 6. **Initial-review-round respondent commentary** — controller may want to flag intent before writing the followup. Trigger: operational case for early signal.
 7. **Respondent posting on feature-PRs** — extend the discipline beyond spec/ADR PRs. Requires updating the superpowers-dispatched reviewer prompts (or forking that dispatch). Trigger: feature-PR review workflow starts producing similar disposition-invisibility gaps.
-8. **Multi-model v1 deprecation** — user flagged as next-up after this iteration; separate brainstorm.
+8. **Multi-model v1 deprecation** — user flagged in earlier brainstorm; pending the upcoming debt-clearing iteration's audit.
+9. **Agentic-team tech-debt clearing** — **user has explicitly flagged this as the next iteration after PR #12.** Audits deferred ADRs (respondent-as-actor, `.claude/agents/` structural layer, others), missing conventions (specs-as-historical-record convention status, agent file discovery session-binding), partially-resolved roadmap items, and the routing-enforcement and cross-session limitations accepted in v1 of this iteration. Possibly decomposes into a housekeeping-style audit + A/B/C cut + execute pattern. Per user 2026-05-16: "we have chosen to accept limitations for the past 3 or 4 iterations, we are building up technical debt. Lets make a note to design a plan to tackle this in the next iteration."
 
 ## Origin
 
