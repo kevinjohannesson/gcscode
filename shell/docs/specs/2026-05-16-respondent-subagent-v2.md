@@ -65,12 +65,12 @@ Dispatch wrapper, same structural pattern as `red-team-reviewer.md` and `spec-qu
 
 Subagent-shaped. v1's controller-direct template content is REPLACED end-to-end (not edited in place — the role's frame changes from "the controller writes" to "the subagent reads inputs, fetches round-aware context, posts, returns summary"). The new template specifies:
 
-- **Dispatch substitutions:** placeholders the controller fills in (`{{PR_NUMBER}}`, `{{FOLLOWUP_SHA}}`, `{{REVIEWER_ROLE}}`, `{{REVIEWER_MODEL}}`).
+- **Dispatch substitutions:** placeholders the controller fills in (`{{PR_NUMBER}}`, `{{FOLLOWUP_SHA}}`, `{{REVIEWER_ROLE}}`, `{{REVIEWER_MODEL}}`, `{{ROLE_LABEL}}`).
 - **Structured inputs (controller pre-fetches):** the reviewer's review body, the followup commit diff, the spec/ADR content. Subagent receives these inline; does NOT re-fetch.
 - **Self-fetch:** prior respondent posts on the PR via `gh pr view {{PR_NUMBER}} --json reviews`. The only thing the subagent fetches itself.
 - **How to post:** `gh-app-token-respondent` + `gh pr review --comment` (identical to v1).
 - **Header convention:** identical to v1.
-- **Response body structure:** identical to v1 disposition vocabulary, with one strengthening — `intentional, see <X>` requires the subagent to verify the citation exists before using it; fall back to `noted, no current action` if the citation cannot be verified.
+- **Response body structure:** identical to v1 disposition vocabulary, with one strengthening — `intentional, see <X>` requires the subagent to verify the citation exists before using it; fall back to the `noted, no current action — citation unverified: <one-sentence rationale>` disposition variant (a new entry added in Commit 2's vocabulary; the `citation unverified:` prefix is the discriminator). Do NOT use the bare `noted, no current action — <rationale>` form for citation-verification fallbacks — that's reserved for non-citation-related noted dispositions.
 - **Closing line:** identical to v1.
 - **Per-followup cadence + initial-review-round exclusion:** identical to v1.
 - **Return-to-controller contract:** new (v1 didn't have this — controller-direct had no subagent to return from). One-line summary string the subagent emits after posting.
@@ -176,6 +176,7 @@ When dispatching, the controller substitutes:
 - `{{FOLLOWUP_SHA}}` — the SHA of the `Code-review-followup:` commit this response covers.
 - `{{REVIEWER_ROLE}}` — the reviewer role being responded to (`red-team` or `spec-quality`).
 - `{{REVIEWER_MODEL}}` — the reviewer model that posted the review (`Claude Opus 4.7` or `Claude Sonnet 4.6`).
+- `{{ROLE_LABEL}}` — the role's display form as it appears in review headers, derivable from `{{REVIEWER_ROLE}}`. Specifically: `Red-team` for `red-team`, `Spec-quality` for `spec-quality`. Used inside the "Structured inputs" section's filter regex (which is in the template body below); declared here so the dispatch contract is complete.
 
 ## Structured inputs (controller pre-fetches; received inline at dispatch)
 
