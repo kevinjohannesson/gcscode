@@ -213,13 +213,14 @@ Red-team auto-dispatches on PR open per the agentic-actor registry. Future revie
 
 ### Respondent posting discipline
 
-After each `Code-review-followup:` commit on a spec/ADR PR, the controller posts a **respondent response** for each reviewer that posted on the PR. The respondent voice is a distinct GitHub App identity (`gcscode-respondent[bot]`) that documents the controller's per-finding dispositions for the round. The respondent is NOT a reviewer; it has no verdict; it carries the controller's voice for response purposes.
+After each `Code-review-followup:` commit on a spec/ADR PR, the controller dispatches **respondent subagents** to post per-finding disposition responses for each reviewer that posted on the PR. The respondent is a distinct GitHub App identity (`gcscode-respondent[bot]`) that documents the controller's per-finding dispositions for the round. The respondent is NOT a reviewer; it has no verdict; it carries the controller's voice for response purposes.
 
 **Dispatch sequence** (controller obligation, integrates with the auto-dispatch obligation):
 
 1. Push the `Code-review-followup:` commit to the PR's branch.
-2. For each reviewer's most recent review on the PR (red-team Opus, red-team Sonnet, spec-quality — three responses total), post a respondent comment using the template at `.claude/reviewer-prompts/respondent.md`. Token: `export GH_TOKEN=$(.claude/scripts/gh-app-token-respondent)`. Verdict: `--comment`.
-3. Re-dispatch the three reviewer subagents per the existing auto-dispatch obligation. Re-reviewers may engage with the respondent posts (optional engagement; see updated reviewer prompts).
+2. Pre-fetch: (a) the 3 most-recent reviewer reviews via `gh pr view <PR> --json reviews`; (b) the followup commit diff via `git show <SHA>`; (c) the spec/ADR file content via the Read tool.
+3. Dispatch 3 `subagent_type: respondent` subagents in parallel — one per reviewer role on the PR (red-team Opus, red-team Sonnet, spec-quality). Each subagent receives: its reviewer's review body + the shared followup diff + the spec/ADR content + the full respondent prompt template (`.claude/reviewer-prompts/respondent.md`) inline. Each subagent fetches prior respondent posts on the PR (round-aware context) as its first step, then posts under `gcscode-respondent[bot]` via the respondent token helper, then returns a one-line summary to the controller.
+4. Re-dispatch the 3 reviewer subagents per the existing auto-dispatch obligation. Re-reviewers may engage with the respondent posts (optional engagement; see the reviewer prompts).
 
 **Response header convention** (mandatory):
 
@@ -229,7 +230,7 @@ After each `Code-review-followup:` commit on a spec/ADR PR, the controller posts
 
 Where `<SHA>` is the followup commit, `<reviewer role>` is `red-team` or `spec-quality`, and `<reviewer model>` is the model that posted the review being responded to.
 
-**Token + posting:**
+**Token + posting** (the subagent runs this internally):
 
 ```bash
 GH_TOKEN=$(.claude/scripts/gh-app-token-respondent) gh pr review <PR> --comment --body "..."
@@ -237,15 +238,17 @@ GH_TOKEN=$(.claude/scripts/gh-app-token-respondent) gh pr review <PR> --comment 
 
 **Identity:** `gcscode-respondent[bot]`. Distinct from `gcscode-reviewer[bot]`. Same posting permissions on PRs; different audit-trail attribution.
 
+**Subagent dispatch:** `subagent_type: respondent` with the prompt template content inline. The agent file at `.claude/agents/respondent.md` selects model (Claude Sonnet 4.6) + effort (max); the role's instructions live in `.claude/reviewer-prompts/respondent.md`. The subagent inherits the standard tool surface (Read, Grep, Bash) and uses it ONLY to verify citations for `intentional, see <X>` dispositions; structured inputs are authoritative for everything else (see the prompt template's "Tool surface" section). The session-bound agent-file discovery limitation (documented above) applies: the post-merge session that introduces this agent file falls back to `subagent_type: general-purpose` + the prompt template inline for the rest of that session.
+
 **Config:** App ID and installation ID live in `.claude/agent-config.json` under the `respondentApp` key (additive; reviewer's `githubApp` key untouched). Private key path is read from the `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` env var; the PEM file never enters git.
 
-**Open-question routing:** the respondent's response documents each open question's destination. The actual edit to `docs/roadmap.md` or `docs/out-of-scope.md` lands post-merge per the existing propagation pattern. Spec known-unknowns are edited inline as part of the followup commit (existing pattern). There is no dedicated open-question ledger file in v1; route to existing files via documented disposition.
+**Open-question routing:** the respondent's response documents each open question's destination. The actual edit to `docs/roadmap.md` or `docs/out-of-scope.md` lands post-merge per the existing propagation pattern. Spec known-unknowns are edited inline as part of the followup commit (existing pattern). There is no dedicated open-question ledger file in v2; route to existing files via documented disposition.
 
-**Initial-review round:** the respondent does NOT post on the initial-review round (before any followup commit). Initial reviews have nothing to dispose of yet. Respondent enters after the first followup commit.
+**Initial-review round:** the respondent is NOT dispatched on the initial-review round (before any followup commit). Initial reviews have nothing to dispose of yet. The respondent enters after the first followup commit.
 
-**Discipline note:** the respondent's response is the controller's documented disposition. Skipping the respondent step on a followup commit makes the iteration's per-finding dispositions invisible — exactly the gap this iteration addresses. Treat the respondent post as required, not optional, on spec/ADR PRs.
+**Discipline note:** dispatching the respondent subagents is the controller's documented disposition step. Skipping it on a followup commit makes the iteration's per-finding dispositions invisible — exactly the gap respondent v1 was introduced to close. Treat the respondent dispatch as required, not optional, on spec/ADR PRs after a followup commit.
 
-**Out of scope for v1:** respondent subagent dispatch (controller writes directly), threaded inline replies on specific review comments (uses review-level comments), required re-reviewer engagement (engagement is optional in v1), and a dedicated open-question ledger file (routes to existing files). Each has its own future-iteration trigger in [`docs/specs/2026-05-16-review-discussion-loop-v1.md`](docs/specs/2026-05-16-review-discussion-loop-v1.md).
+**Out of scope for v2:** threaded inline replies on specific review comments (uses review-level comments), required re-reviewer engagement (engagement is optional in v2), a dedicated open-question ledger file (routes to existing files), and consolidation to fewer-than-3 posts per round. Each has its own future-iteration trigger in [`docs/specs/2026-05-16-respondent-subagent-v2.md`](docs/specs/2026-05-16-respondent-subagent-v2.md).
 
 **Public repo note:** as with reviewer posts, respondent posts are world-readable. Keep them professional. Don't paste credentials, internal URLs, or sensitive context.
 
