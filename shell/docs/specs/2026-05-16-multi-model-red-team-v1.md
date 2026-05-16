@@ -11,9 +11,13 @@ The reviewer-role registry currently assigns one model per role: red-team and fi
 
 The roadmap's queued "Multi-model heterogeneous reviewers" item asks: **does running two different models on the same role-instance produce meaningfully different findings?** If yes, multi-model dispatch is worth the doubled cost. If no, single-model is sufficient and the second dispatch is waste.
 
-This iteration tests the question on **red-team** specifically — the broadest-mandate, highest-critique-value role, and the role that consistently produced substantive findings across PRs #4, #5, #7 (the agentic-team track's organic spec reviews). If multi-model isn't valuable for red-team, it's probably not valuable elsewhere. If it IS valuable for red-team, the next iteration can extend the experiment.
+This iteration tests the question on **red-team** specifically. The choice is **NOT** "red-team generalizes" (it doesn't — narrower roles like spec-quality have less surface area for two models to diverge on, so multi-model results on red-team don't predict multi-model on spec-quality). The choice is "red-team has the most existing review samples (PRs #4, #5, #7) to compare new multi-model output against expectations, and its broad mandate produces enough finding-volume per review to make a 5-PR experiment actually informative." If multi-model returns KEEP-BOTH on red-team, that's evidence the diversity has value for at least one role and the question becomes worth extending; if it returns KEEP-OPUS-ONLY or KEEP-SONNET-ONLY, that's evidence within-Claude pairs don't add value FOR RED-TEAM — see the within-Claude-bias caveat below.
 
-The mechanism: red-team auto-dispatches as TWO independent subagents (Opus 4.7 AND Sonnet 4.6) in parallel. Each posts its own review. Each is dispatched with the same prompt template and the same context; neither sees the other's output. Reviews are distinguished by the model name already encoded in the header convention (`## Red-team review — <kind> — Claude Opus 4.7` vs `... Claude Sonnet 4.6`). The experiment runs for N=5 spec/ADR PRs, after which a follow-up iteration decides KEEP-BOTH / KEEP-OPUS / KEEP-SONNET / EXTEND-TO-10.
+The mechanism: red-team auto-dispatches as TWO independent subagents (Opus 4.7 AND Sonnet 4.6) in parallel. Each posts its own review. Each is dispatched with the same prompt template and the same context; neither sees the other's output. Reviews are distinguished by the model name already encoded in the header convention (`## Red-team review — <kind> — Claude Opus 4.7` vs `... Claude Sonnet 4.6`). The experiment runs for N=5 spec/ADR PRs, after which a follow-up iteration decides KEEP-BOTH / KEEP-OPUS-ONLY / KEEP-SONNET-ONLY / EXTEND-TO-10.
+
+**Within-Claude bias caveat.** Opus 4.7 and Sonnet 4.6 share architecture, training-data lineage, and constitutional-AI training. The within-Claude pair is structurally biased toward HIGH overlap regardless of model-size differences. A KEEP-OPUS-ONLY or KEEP-SONNET-ONLY outcome of v1 must NOT be read as evidence against cross-vendor multi-model — the within-Claude experiment tests a strict subset of the independence-of-opinion hypothesis. A negative within-Claude result still leaves Claude/GPT or Claude/Gemini pairs untested. This caveat applies to ALL interpretations of v1's evaluation; the cross-vendor question is a separate future iteration (queued).
+
+**N=5 is user-bandwidth-limited, not statistically derived.** The user reads 5 PR-pairs (10 red-team reviews) side-by-side and judges qualitatively. More PR-pairs produce more signal but cost user time. 5 is what the user accepts as the v1 budget for qualitative evaluation; EXTEND-TO-10 exists as an outcome precisely because 5 may not be enough to distinguish "model-size effect" from "PR-content variance."
 
 ## Why not the bigger version
 
@@ -29,8 +33,8 @@ That's a multi-iteration roadmap. This iteration is the smallest concrete wedge:
 
 ## Goals
 
-1. Add a `model_pair_secondary` field to the reviewer-role registry. Populated for red-team only in v1; empty/`—` for other roles.
-2. Update the auto-dispatch behavior on spec/ADR PRs: red-team dispatches as TWO parallel subagents (one Opus 4.7 + one Sonnet 4.6) when `model_pair_secondary` is set. Spec-quality continues as single-model Sonnet. Total: three parallel dispatches per spec/ADR PR.
+1. Add a `Secondary model` field to the reviewer-role registry. Populated for red-team only in v1; empty/`—` for other roles.
+2. Update the auto-dispatch behavior on spec/ADR PRs: red-team dispatches as TWO parallel subagents (one Opus 4.7 + one Sonnet 4.6) when `Secondary model` is set. Spec-quality continues as single-model Sonnet. Total: three parallel dispatches per spec/ADR PR.
 3. Both red-team reviews post under `gcscode-reviewer[bot]` with the existing header convention (model name in header naturally distinguishes the two).
 4. Document the N=5 evaluation methodology and the four possible outcomes so the next iteration has clear criteria to act on.
 5. Update CLAUDE.md "Subagent reviewer PR-posting discipline" (registry, header examples, auto-dispatch paragraph) and "Auto-dispatch controller obligations" checklist to reflect three-dispatch behavior.
@@ -45,19 +49,21 @@ Each has its own future trigger.
 - **Sequential dispatch / cross-model awareness.** The two models dispatch in parallel with no shared context. They cannot see or reference each other's output. Pure independence-of-opinion test.
 - **Aggregation of the two reviews.** Two separate reviews on the PR; aggregation would defeat the test.
 - **Automated counting of "N=5 PRs reached."** The counter is human-tracked; user notes when N=5 hits and triggers the evaluation iteration.
-- **Auto-merge gate-3b strictness change.** Currently the gate requires `red-team count >= 1`. With multi-model, count is 2 (both Opus and Sonnet); gate still satisfies. No change in v1. A stricter version (require both model variants) is a future refinement if the experiment outcome is KEEP-BOTH.
+- **Auto-merge gate-3b strictness change — known v1 regression.** Currently the gate requires `red-team count >= 1`. With multi-model, the gate is satisfied as soon as the FIRST red-team review posts (Opus OR Sonnet, whichever finishes first), not when BOTH have posted. This is a **regression in obligation enforcement** vs the auto-merge spec's stated rationale ("user shouldn't merge a spec/ADR PR before reading the bot reviews"): if the user adds the `auto-merge` label before both reviews land, the PR could merge with only one of the two red-team reviews visible. v1 accepts this regression with the rationale: the user is expected to add `auto-merge` AFTER reading the bot reviews; eager labeling that pre-empts review reading is the user's explicit choice to skip the secondary review. Trigger to fix: first observed race where Opus merges the PR before Sonnet's review posts AND the user wishes Sonnet had been seen. Fix shape: gate 3b becomes "if `Secondary model` is set on red-team, require BOTH variants posted (not just `>= 1 primary`)."
 
 ## Architecture
 
 Three small changes: registry-field addition, dispatch-behavior change, evaluation criteria documentation.
 
-### Registry change: add `model_pair_secondary` field
+**No ADR for the registry schema extension.** ADR-0008 establishes the reviewer-role registry as the architectural contract. This iteration extends the registry schema (12th column) — that's a structural change to the contract. Prior precedent: the spec-quality iteration ADDED a row, which didn't warrant an ADR. Adding a COLUMN is a different shape. However, the column extension is **provisional**: if v1's evaluation returns KEEP-OPUS-ONLY or KEEP-SONNET-ONLY, the column gets removed (since no role uses `Secondary model` anymore). The schema change becomes permanent only on KEEP-BOTH. v1 defers the ADR question: if the evaluation iteration lands on KEEP-BOTH, the column becomes a permanent schema element and ADR-0009 ("Reviewer-role registry secondary-model field") gets written at that point. If the evaluation returns OPUS/SONNET-only, no ADR is needed because the column gets removed.
+
+### Registry change: add `Secondary model` field
 
 The reviewer-role registry currently has these fields per row: `name`, `kind`, `identity`, `model`, `targets`, `trigger`, `verdicts`, `character`, `header`, `re-review header`, `prompt template`. Add a 12th field:
 
 | Field                   | Purpose                                                                                                          |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `model_pair_secondary`  | Optional. If set, controller dispatches BOTH this model AND the `model` field's value in parallel for this role. |
+| `Secondary model`  | Optional. If set, controller dispatches BOTH this model AND the `model` field's value in parallel for this role. |
 
 Populated for red-team only in v1; empty/`—` for the other four roles.
 
@@ -66,7 +72,7 @@ Populated for red-team only in v1; empty/`—` for the other four roles.
 When a spec/ADR PR opens (or a `Code-review-followup:` commit lands), the controller dispatches THREE subagents in parallel:
 
 1. **Red-team Opus 4.7** — primary model from `model` field.
-2. **Red-team Sonnet 4.6** — secondary model from `model_pair_secondary` field.
+2. **Red-team Sonnet 4.6** — secondary model from `Secondary model` field.
 3. **Spec-quality Sonnet 4.6** — single model from `model` field (no secondary).
 
 Both red-team dispatches use the same prompt template (`.claude/reviewer-prompts/red-team.md`); the only difference is the `model` parameter passed to the Agent tool. Same PR context, same priors-access; neither sees the other's review until both have posted (independence preserved).
@@ -87,9 +93,11 @@ Re-review headers follow the same pattern:
 - `## Red-team review — spec (re-review of <SHA>) — Claude Opus 4.7`
 - `## Red-team review — spec (re-review of <SHA>) — Claude Sonnet 4.6`
 
-### Auto-merge gate-3b: unchanged
+### Auto-merge gate-3b: unchanged (known regression)
 
-The auto-merge workflow's gate-3b for spec/ADR PRs counts reviews matching `body | startswith("## Red-team review")`. With multi-model red-team, the count is 2 (or 4 with both initial + re-reviews). Gate's threshold is `>= 1`, so multi-model satisfies it cleanly. No change to `.github/workflows/auto-merge.yml` in this iteration.
+The auto-merge workflow's gate-3b for spec/ADR PRs counts reviews matching `body | startswith("## Red-team review")`. With multi-model red-team, the gate satisfies as soon as the FIRST review (Opus OR Sonnet) posts — not when both have. This is **the v1 known regression** documented in Non-goals above: the auto-merge spec's stated rationale (user shouldn't merge before reading the bot reviews) weakens silently under multi-model. v1 accepts the regression; gate-3b fix is queued as Future iteration item if a race is observed.
+
+No change to `.github/workflows/auto-merge.yml` in this iteration. The workflow YAML stays as it is on master.
 
 ### Evaluation methodology (load-bearing for v1's value)
 
@@ -97,18 +105,24 @@ After the **5th spec/ADR PR** with multi-model red-team has merged, run the eval
 
 **Across the 5 PR-pairs (10 red-team reviews total), the user qualitatively assesses:**
 
-1. **Distinct-finding rate** — count findings that appear in Opus's review but NOT Sonnet's, and vice versa. What fraction of findings is unique to one model? Substantively-equivalent findings phrased differently count as overlapping (the question is whether two minds see different things, not whether they word things differently).
-2. **Quality where they differ** — when each model surfaces something the other missed, which model's finding is more useful in retrospect? Track per-PR-pair: Opus-better / Sonnet-better / both-useful / both-unimportant.
-3. **Cost vs benefit** — the extra dispatch costs tokens and a bit of latency. Is the diversity worth that?
+1. **Per-PR-pair distinct-finding judgment** — for each PR-pair, list (a) findings unique to Opus, (b) findings unique to Sonnet, (c) findings substantively shared (same observation, possibly phrased differently). The user records this per-PR-pair as the experiment progresses, NOT retrospectively at N=5. A lightweight tally file or section in roadmap.md (TBD where lives) captures the per-PR-pair notes.
+2. **Quality where they differ** — for each "unique to Opus" or "unique to Sonnet" finding, the user judges per-finding: was it useful? Did acting on it (or noting it for later) improve the artifact? Was it noise?
+3. **Cost vs benefit** — qualitative gut-check. The extra dispatch costs tokens, latency, review-reading attention. Across 5 PRs, did the second model surface enough useful unique findings to justify the cost?
 
-**Four possible outcomes for the evaluation iteration:**
+**Four MUTUALLY EXCLUSIVE outcomes for the evaluation iteration:**
 
-- **KEEP-BOTH** — Distinct-finding rate is meaningful (rough threshold: ≥30% of findings per PR are unique to one model); both models surface things the other misses; multi-model is permanent for red-team. Triggers v3-style iteration: consider extending to spec-quality.
-- **KEEP-OPUS-ONLY** — Sonnet's findings are largely a subset of Opus's, or Sonnet's unique findings are not useful. Revert red-team to single-model Opus 4.7 (current state pre-iteration). Document why Sonnet didn't add value.
-- **KEEP-SONNET-ONLY** — Sonnet's findings are competitive with Opus's (high overlap; Opus's unique findings rarely useful enough to justify cost). Switch red-team primary to Sonnet 4.6 (cheaper, faster). Document why Opus's depth didn't justify cost.
-- **EXTEND-TO-10** — Indeterminate: signal is mixed or PRs were atypical. Extend the experiment to N=10 PRs and re-evaluate.
+- **KEEP-BOTH** — at least one PR-pair had unique findings from BOTH models that the user judged useful (not just present), AND the cost-vs-benefit gut-check favors keeping both. Multi-model is permanent for red-team; consider extending to spec-quality in a follow-up iteration (separately triggered).
+- **KEEP-OPUS-ONLY** — Sonnet's unique findings across all 5 PR-pairs were either ABSENT (Sonnet only echoed Opus) or NOT USEFUL (the user wouldn't have acted on them anyway). Revert red-team to single-model Opus 4.7. Document why Sonnet didn't add value.
+- **KEEP-SONNET-ONLY** — Opus's unique findings across all 5 PR-pairs were COSTLY TO LOSE — but in addition, Sonnet's unique findings were ALSO present and useful, OR Opus's unique findings could have been re-surfaced by re-prompting Sonnet. This outcome triggers when Sonnet alone covers the surface area Opus covers, including the diversity that Opus's depth provided. Switch red-team primary to Sonnet 4.6. Document why Opus's depth didn't justify cost.
+- **EXTEND-TO-10** — first three outcomes' conditions are all NOT cleanly met. Signal mixed or PRs were atypical (e.g., all 5 happened to be small docs-only iterations). Extend the experiment to N=10 PRs and re-evaluate.
 
-The evaluation is NOT this iteration. This iteration ships the **mechanism** to run the experiment. The evaluation iteration (small decision-spec) ships when the 5th multi-model spec/ADR PR is observed.
+The four outcomes partition the data: KEEP-BOTH requires "useful unique findings from BOTH"; KEEP-OPUS-ONLY requires "Sonnet's unique findings absent OR not useful"; KEEP-SONNET-ONLY requires "Sonnet covers Opus's surface area including diversity"; EXTEND-TO-10 fires when none of the above is cleanly true.
+
+**No numeric threshold.** v1 deliberately does NOT use a "≥X% distinct" rule — qualitative judgments + fuzzy operationalization ("substantively-equivalent phrased differently") don't support clean percentage thresholds. The user judges in plain English; the four outcome rules above are the criteria, not the math.
+
+**Tripwire for early signal.** If the FIRST 2 PR-pairs show **100% overlap** (every Sonnet finding present in Opus's review and vice versa, no unique findings from either) OR **100% distinct** (no shared findings at all), the user can choose to call the experiment early — the signal is unambiguous. The two-extreme tripwire avoids wasting 3 more PR-pairs when 2 is enough.
+
+The evaluation is NOT this iteration. This iteration ships the **mechanism** to run the experiment. The evaluation iteration (small decision-spec) ships when the 5th multi-model spec/ADR PR is observed — or when the tripwire fires earlier.
 
 ### Effort dimension: known limitation
 
@@ -204,11 +218,11 @@ Per the post-merge implementation convention, two direct-master commits:
 
 Two plans.
 
-### Plan 1: Mechanics smoke test (PR #9)
+### Plan 1: Mechanics smoke test (next test/* PR after merge)
 
-A throwaway test branch verifies triple-dispatch mechanics. Same shape as PR #1, #3, #6, #8.
+A throwaway test branch verifies triple-dispatch mechanics. Same shape as PR #1, #3, #6, #8. (Note: this spec PR is #9; the smoke-test PR will get a later number — the spec doesn't pre-commit to a specific PR number.)
 
-- **Branch:** `test/multi-model-red-team-validation` off master (post-merge).
+- **Branch:** `test/multi-model-red-team-validation` off master (post-merge of this spec).
 - **Content:** a trivial throwaway spec at `shell/docs/specs/test-multi-model-red-team-validation.md`.
 - **PR opened** with the spec/ADR-PR template. Controller dispatches THREE scripted subagents in parallel: red-team Opus, red-team Sonnet, spec-quality Sonnet.
 - **Scripted dispatches** for all three roles. Verify:
@@ -220,15 +234,19 @@ A throwaway test branch verifies triple-dispatch mechanics. Same shape as PR #1,
   - No token-helper collisions under triple-parallel dispatch (extends PR #6's two-parallel evidence).
 - **Disposition:** kept open in draft state as the fifth permanent reference artifact (joining PR #1, #3, #6, #8). NOT merged.
 
-### Plan 2: Live evaluation (next 5 spec/ADR PRs)
+### Plan 2: Live evaluation (next 5 spec/ADR PRs, OR earlier if tripwire fires)
 
-Multi-model red-team runs organically on the next 5 spec/ADR PRs after this iteration ships. User keeps an informal tally of:
+Multi-model red-team runs organically on the next 5 spec/ADR PRs after this iteration ships. User records per-PR-pair (NOT retrospectively at N=5):
 
-- Findings unique to Opus vs Sonnet (per PR-pair).
-- Quality-where-they-differ judgment (per PR-pair).
+- Findings unique to Opus vs unique to Sonnet vs substantively-shared.
+- Quality-where-they-differ judgment per unique finding (useful / noise).
 - Subjective cost-vs-benefit sense.
 
-After the 5th PR, trigger the evaluation iteration (a small decision-spec). Evaluation outcomes per "Architecture > Evaluation methodology" above.
+The per-PR-pair recording happens incrementally to avoid the "user lost recall by N=5" failure mode noted in Known unknowns. Suggested capture location: a lightweight tally file like `docs/agentic-team/multi-model-eval.md` or per-PR comments on each spec/ADR PR. The evaluation iteration spec will codify where these notes live; v1 just ensures they happen.
+
+**Tripwire (early exit):** if the FIRST 2 PR-pairs show **100% overlap** (no unique findings from either) OR **100% distinct** (no shared findings at all), the user MAY trigger the evaluation iteration early — the signal is unambiguous. The two-extreme tripwire avoids wasting 3 more PR-pairs on a foregone conclusion. Tripwire is OPTIONAL — the user judges whether the early signal is robust enough.
+
+After the 5th PR (or the tripwire fires), trigger the evaluation iteration (a small decision-spec). Outcomes per "Architecture > Evaluation methodology" above.
 
 **Failure response:** if Plan 1 fails on triple-parallel mechanics (e.g., token collision, missing review, malformed header), refine the dispatch obligation or prompt template via Code-review-followup before merging this iteration's spec.
 
@@ -254,7 +272,7 @@ Three updates:
 1. **Flip "Multi-model heterogeneous reviewers" from Queued to Shipped** when this iteration merges. Note that v1 is scoped to red-team only.
 2. **Update description text** to match the actual mechanism: "v1 scope: red-team only; Opus 4.7 + Sonnet 4.6 within-Claude; parallel dispatch; N=5 PR evaluation."
 3. **Add two new Considering entries:**
-   - "Multi-model evaluation iteration (triggered at N=5 spec/ADR PRs)" — small decision-spec to decide KEEP-BOTH / KEEP-OPUS / KEEP-SONNET / EXTEND.
+   - "Multi-model evaluation iteration (triggered at N=5 spec/ADR PRs OR earlier if the tripwire fires)" — small decision-spec to decide KEEP-BOTH / KEEP-OPUS-ONLY / KEEP-SONNET-ONLY / EXTEND-TO-10.
    - "Custom subagent dispatch for effort-level control" — independent dimension; substantial new infra (custom dispatcher hitting Anthropic API directly with `thinking_budget`).
 
 ## Known unknowns
@@ -263,13 +281,13 @@ Three updates:
 - **Effort dimension is bundled into model defaults.** Documented above. v1's results conflate "model size" with "default thinking depth." Future custom-dispatch iteration could disentangle.
 - **Sonnet may produce findings that simply repeat Opus's in different words.** "Substantively-equivalent findings phrased differently" is hard to count objectively; the evaluation is qualitative.
 - **The user's effort budget on the evaluation.** Reading 5 PR-pairs (10 red-team reviews) side-by-side and judging quality is non-trivial work. If the experiment ends because the user lacks bandwidth to evaluate rather than because evidence converged, that's a process failure worth flagging.
-- **Triple-parallel dispatch may stress the token helper.** PR #6 validated dual-parallel; PR #9 (Plan 1 smoke test) validates triple-parallel. Probably fine but worth observing.
+- **Triple-parallel dispatch may stress the token helper.** PR #6 validated dual-parallel; the multi-model validation PR (Plan 1 smoke test, opened post-merge) validates triple-parallel. Probably fine but worth observing.
 
 ## Future iterations
 
 Each gets its own brainstorm when triggered.
 
-1. **Multi-model evaluation iteration** (triggered at N=5 spec/ADR PRs). Decides KEEP-BOTH / KEEP-OPUS / KEEP-SONNET / EXTEND-TO-10. Small decision-spec.
+1. **Multi-model evaluation iteration** (triggered at N=5 spec/ADR PRs OR earlier if the tripwire fires). Decides KEEP-BOTH / KEEP-OPUS-ONLY / KEEP-SONNET-ONLY / EXTEND-TO-10. Small decision-spec.
 2. **Multi-model on spec-quality** (triggered by v1 evaluation outcome KEEP-BOTH). Extends the experiment to the other spec/ADR-PR-class role.
 3. **Multi-model on feature-PR reviewers** (triggered by sufficient evidence from spec/ADR-PR-class results). Spec-compliance, code-quality, final cross-cutting evaluated.
 4. **Cross-vendor multi-model** (Claude + non-Claude). Different infra: API keys, dispatch script, cost tracking. Standalone iteration.
