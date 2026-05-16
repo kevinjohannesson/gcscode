@@ -124,6 +124,8 @@ The four outcomes partition the data: KEEP-BOTH requires "useful unique findings
 
 The evaluation is NOT this iteration. This iteration ships the **mechanism** to run the experiment. The evaluation iteration (small decision-spec) ships when the 5th multi-model spec/ADR PR is observed — or when the tripwire fires earlier.
 
+> **N=5 counter reset (added 2026-05-16):** Effort-max iteration ([2026-05-16-effort-max-custom-reviewers.md](2026-05-16-effort-max-custom-reviewers.md)) resets this counter at its merge. PR #9 and PR #11 are pre-effort:max baseline observations; the formal N=5 count starts from the first spec/ADR PR after that iteration's merge.
+
 ### Effort dimension: known limitation
 
 The Agent tool currently used for subagent dispatch exposes a `model` parameter (`opus`/`sonnet`/`haiku`) but does NOT expose effort/thinking-budget. Subagents run at whatever default thinking depth the harness assigns per model. This iteration's experiment therefore tests **bundled (model size + default effort)**, not pure model-size variation.
