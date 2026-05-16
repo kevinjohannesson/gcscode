@@ -15,13 +15,19 @@ The triggers are being met but not acted on. Across the most recent three iterat
 - **PR #11 mid-session discovery:** `.claude/agents/*.md` files are NOT discoverable mid-session — the Agent tool loads `subagent_type` registry at session start. Falls back to `subagent_type: general-purpose` if you create agent files in the same session. Undocumented in CLAUDE.md or out-of-scope.md.
 - **PR #12 (review-discussion-loop-v1)** deferred: ADR for respondent-as-new-actor pattern, cross-session controller-direct premise as Day 1 limitation, auto-merge-bypasses-final-respondent structural contradiction, tripwire condition (iii) compliance, `gh pr review --comment` vs `gh pr comment` voice-separation premise.
 
-The pattern: each spec routes its limitations to "future iteration with explicit trigger," but the queue never gets drained. Documented in the user's auto-memory under [`project-agentic-team-tech-debt`](file:///Users/kevinkroon/.claude/projects/-Users-kevinkroon-Projects-gcscode/memory/project_agentic_team_tech_debt.md) (private memory; mentioned here for tracking, not for public-reader resolution).
+The pattern: each spec routes its limitations to "future iteration with explicit trigger," but the queue never gets drained.
 
 **User explicit intent (2026-05-16):**
 
 > "Yes accept the limitation in this iteration. However we have chosen to accept limitations for the past 3 or 4 iterations, we are building up technical debt. Lets make a note to design a plan to tackle this in the next iteration. Example: We should have written an ADR for this, like you suggest. The next iteration will be a big one where we clear a lot of this tech debt."
 
 This iteration is that designed plan. It is itself a planning spec, not a code-touching iteration: its deliverables are a small set of in-spec decisions + a queue of named follow-up iterations.
+
+**Drain mechanism — the load-bearing commitment that distinguishes this iteration from "more deferral":**
+
+The reviewers correctly flagged that adding seven Considering entries to roadmap.md is structurally identical to the queue-accumulation pattern that caused the debt. What makes this iteration different from "accept-and-defer-again" is the **explicit commitment that the NEXT iteration after this planning spec is the first queued item (ADR-0009), with no other iterations interleaved.** The queue is drained sequentially, in the priority order documented below, starting immediately after this spec merges. If a future iteration jumps the queue (e.g., adds a queued item to scope), that's a deliberate decision documented at that iteration's brainstorm, not a silent defer.
+
+Without that commitment, this iteration would indeed be the same pattern with more ceremony. With it, the planning spec serves as the contract: the controller picks up the queue and starts draining.
 
 ## Why not the bigger version
 
@@ -64,6 +70,8 @@ The three in-spec decisions, in detail.
 
 **The call:** ADR-0009 is the next ADR-PR. It broadens ADR-0008's "reviewer-role registry" into an "agentic-actor registry" that covers reviewer roles (existing) AND non-reviewer controller-voice actors (respondent in v1; future variants).
 
+**ADR-0009 number-reservation note.** The multi-model-red-team-v1 spec (`docs/specs/2026-05-16-multi-model-red-team-v1.md`) predicted that if its evaluation returned KEEP-BOTH, an ADR titled "Reviewer-role registry secondary-model field" would be written and take ADR-0009. That prediction is now superseded: this iteration claims ADR-0009 for the agentic-actor registry (which is a higher-priority architectural change and is happening immediately, not contingent on a future evaluation). If the multi-model v1 evaluation returns KEEP-BOTH and an ADR is warranted, it gets the next available number at that time (likely ADR-0010 or later depending on intervening ADRs). The multi-model v1 spec itself is the historical record per the specs-as-historical-record convention introduced in Decision 2 below; its mention of ADR-0009 is a prediction that didn't bind reality, not a fact that needs correcting.
+
 **Mechanics (industry-standard ADR supersession):**
 
 - ADR-0008's Status field changes from `Accepted` to `Superseded by ADR-0009`.
@@ -96,6 +104,8 @@ The actual ADR-0009 brainstorm happens when the queued ADR-PR is kicked off; thi
 > **Why the convention:** legibility. A reader (human or future agent) reading a merged spec should be able to trust its content is the historical record of what the iteration decided. Substantive revisions surfacing as edits to old specs makes the historical record unreliable.
 
 **Why hybrid rather than strict:** factual corrections must remain possible (broken links rot; file renames cascade). The "substantive vs factual" distinction is a judgment call; the convention provides the framing, not an algorithm. Concretely: if you find yourself changing what the predecessor SAID (its goals, non-goals, architecture, decisions), that's substantive and goes in a successor spec. If you find yourself changing how the predecessor refers to something that has since moved (link path, filename, section anchor), that's factual.
+
+**On the cited precedents.** The PR #11 N=5 counter-reset example is an example of the convention's USAGE (breadcrumb added to predecessor without deep edits), not an example of the problem the convention prevents. The problem itself — silent deep-editing of merged specs — has not happened yet on this project; the convention is **forward-looking guardrail**, codifying a pattern that emerged in practice (PR #11) before someone decides to deep-edit a predecessor without realizing the implications. If the convention isn't followed and a future spec deep-edits a predecessor's substantive content, Plan 1 below catches it.
 
 ### Decision 3: Session-bound agent-file discovery (CLAUDE.md addition + out-of-scope.md entry)
 
@@ -150,12 +160,25 @@ Insert the following paragraph inside the "Subagent reviewer PR-posting discipli
 Add the following entry to `shell/docs/out-of-scope.md` under the "Agentic team architecture deferrals" section (or whichever section contains agentic-team out-of-scope items; the exact section header should be verified at implementation time):
 
 ````md
-- **Agent file discovery hot-reload.** `.claude/agents/*.md` files are loaded into the Agent tool's `subagent_type` registry at session start only. Creating a new agent file mid-session does not make it discoverable in that session; a fresh session is required. Fixing this would require Claude Code's harness to watch `.claude/agents/` and re-load the registry, which is a harness-level behavior outside gcscode's scope. Trigger to revisit: the harness gains hot-reload behavior, OR gcscode iterations frequently want to dispatch newly-created agent files in the same session (low likelihood given the verbatim-spec ship pattern).
+- **Agent file discovery hot-reload.** `.claude/agents/*.md` files are loaded into the Agent tool's `subagent_type` registry at session start only. Creating a new agent file mid-session does not make it discoverable in that session; a fresh session is required. **Observed evidence:** PR #11 (effort-max) and PR #12 (review-discussion-loop-v1) both were bitten by this — the dispatching session in each case fell back to `subagent_type: general-purpose` because the new agent files weren't discoverable. Fixing this would require Claude Code's harness to watch `.claude/agents/` and re-load the registry, which is a harness-level behavior outside gcscode's scope. Trigger to revisit: the harness gains hot-reload behavior, OR a future iteration finds the session-restart workaround painful enough to warrant a workaround (e.g., always create new agent files in a separate session before opening the spec-PR). The workaround pattern (`subagent_type: general-purpose` fallback with full prompt inline) is functionally adequate even when the harness behavior doesn't change.
 ````
 
-### Verbatim — Commit 4 (roadmap.md updates)
+### Verbatim — Commit 4 (roadmap.md consolidation + new entries)
 
-Three updates to `shell/docs/roadmap.md`:
+Commit 4 **consolidates** existing Considering entries (which overlap with this iteration's queued items) AND adds new entries for queued items that didn't exist before. The result is one Considering section without duplicates.
+
+**Existing Considering entries to UPDATE (not duplicate):**
+
+- `Per-role bot identities` (currently line 78 of roadmap.md) — REPLACED with the richer entry from this iteration's queue (item #3 in the priority order below).
+- `Reviewer routing layer` (currently line 79) — REPLACED with the richer entry from this iteration's queue (item #4).
+- `Multi-model evaluation iteration` (currently line 81) — REPLACED with this iteration's queued item #5 entry. The existing entry's reference to "ADR-0009 ('Reviewer-role registry secondary-model field') gets written at the same time" is REMOVED because ADR-0009 is now claimed for the agentic-actor registry (see Architecture > Decision 1). If the multi-model evaluation returns KEEP-BOTH and an ADR is warranted, that ADR gets the next available number at that time.
+
+**Existing Considering entries to LEAVE UNCHANGED:**
+
+- All `Custom subagent dispatch for effort-level control` and `Custom dispatch for feature-PR reviewers` entries (currently lines 82-83). These don't overlap with this iteration's queue.
+- All other existing Considering entries (Linear integration, webhook router, override semantics, retroactive ADR for reviews-as-artifacts, the resolved `Superpowers baseline reviewers on spec/ADR PRs?` entry).
+
+**Net change:** three existing entries replaced + four new entries added (queued items #1, #2, #6, #7 from this iteration's queue) + one Shipped entry added. Total roadmap.md Considering section size grows by 4 entries, not 7.
 
 **Update 1: Add a Shipped entry** for this planning iteration under the agentic-team track:
 
@@ -175,7 +198,7 @@ Three updates to `shell/docs/roadmap.md`:
 - [ ] **Tripwire condition (iii) compliance** — small alignment between `review-discussion-loop-v1`'s tripwires and the design convention in CLAUDE.md "Reviewer-role design conventions > Tripwires" (condition iii: detectable as a pattern across N PRs rather than per-PR). Some of v1's tripwires are per-session detection. Either revise the tripwires or revise the convention. Trigger: ready to address as a quick micro-iteration; no external prerequisite.
 ````
 
-**Update 3:** No changes to existing Considering entries; the seven new entries are additive.
+**Update 3:** Existing entries `Per-role bot identities`, `Reviewer routing layer`, and `Multi-model evaluation iteration` are replaced (not duplicated) by the consolidated entries in Update 2. See the "Existing Considering entries to UPDATE" header above for the consolidation details.
 
 ## Data flow — how this iteration ships
 
