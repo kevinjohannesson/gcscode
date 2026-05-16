@@ -124,7 +124,7 @@ Per-task reviewers may post `--comment` (clean or informational) or `--request-c
 
 **Re-review after a Code-review-followup commit:** controller re-dispatches the same reviewer role + model after the followup commit lands. The re-review posts a **new** review (`--comment` "addressed in `<SHA>`" or another `--request-changes`). Prior reviews stay in the PR timeline — reviewers never dismiss their own prior reviews.
 
-**Auto-dispatch on spec/ADR PRs.** When a `spec/<topic>` or `adr/<slug>` PR is opened, the controller automatically dispatches BOTH the red-team reviewer AND the spec-quality reviewer per their registry entries. The two roles dispatch in parallel as independent subagents — neither blocks the other; both post independent reviews. The dispatches use the same boilerplate (token helper, PR posting requirement) and each reads its own prompt template from `.claude/reviewer-prompts/`. Both roles' verdicts are `--comment` only in v1 (advisory). On a `Code-review-followup:` commit to the spec/ADR branch, the controller re-dispatches BOTH roles. Each re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit.
+**Auto-dispatch on spec/ADR PRs.** When a `spec/<topic>` or `adr/<slug>` PR is opened, the controller automatically dispatches THREE reviewer subagents in parallel: red-team Opus 4.7 (primary), red-team Sonnet 4.6 (secondary, from the registry's `Secondary model` field for red-team), and spec-quality Sonnet 4.6. The three subagents dispatch as independent calls; none blocks any other; each posts an independent review under the `gcscode-reviewer[bot]` identity. The two red-team dispatches use the same prompt template (`.claude/reviewer-prompts/red-team.md`) and the same context; only the `model` parameter differs. The pair is an independence-of-opinion experiment from [`docs/specs/2026-05-16-multi-model-red-team-v1.md`](docs/specs/2026-05-16-multi-model-red-team-v1.md) and runs for N=5 spec/ADR PRs before an evaluation iteration decides whether to keep both, revert to single-model, or extend the experiment. All three verdicts are `--comment` only in v1 (advisory). On a `Code-review-followup:` commit to the spec/ADR branch, the controller re-dispatches ALL THREE roles in parallel. Each re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit.
 
 **Review header convention** (mandatory so the single bot identity remains role-legible):
 
@@ -139,8 +139,11 @@ Examples:
 - `## Final cross-cutting review — Claude Opus 4.7`
 - `## Spec-compliance review — task 3 (re-review of abc1234) — Claude Sonnet 4.6`
 - `## Red-team review — spec — Claude Opus 4.7`
+- `## Red-team review — spec — Claude Sonnet 4.6`
 - `## Red-team review — ADR — Claude Opus 4.7`
+- `## Red-team review — ADR — Claude Sonnet 4.6`
 - `## Red-team review — spec (re-review of def5678) — Claude Opus 4.7`
+- `## Red-team review — spec (re-review of def5678) — Claude Sonnet 4.6`
 - `## Spec-quality review — spec — Claude Sonnet 4.6`
 - `## Spec-quality review — ADR — Claude Sonnet 4.6`
 - `## Spec-quality review — spec (re-review of def5678) — Claude Sonnet 4.6`
@@ -206,8 +209,8 @@ When designing a new reviewer role (devil's advocate v2, expert reviewers, futur
 
 The reviewer-role registry's `trigger` field declares WHEN a role fires (e.g., red-team's `trigger` is "Automatic on PR open"). In v1 there is no automated dispatcher; the controller (human or LLM session) honors the trigger. This checklist makes the controller's action points legible **for roles whose `trigger` is `Automatic on PR open`**. Other trigger forms (`After each task commit` for per-task reviewers; `End of iteration` for final cross-cutting) have their own existing dispatch patterns documented in "Subagent-driven plan execution" and "Subagent reviewer PR-posting discipline":
 
-- **Before opening a `spec/<topic>` or `adr/<slug>` PR:** plan to dispatch BOTH the red-team subagent AND the spec-quality subagent immediately after `gh pr create`. They dispatch in parallel (independent subagents). Do not consider the PR-open step complete until both have posted their reviews.
-- **After every `Code-review-followup:` commit on a spec/ADR branch:** re-dispatch BOTH red-team AND spec-quality (in parallel). Each role's re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). Note: a followup that does not touch content either reviewer commented on will still trigger both re-dispatches. v1 accepts the duplicative-review cost; if the pattern produces material noise, a future iteration can condition the obligation on whether the followup touches reviewed content for each role.
+- **Before opening a `spec/<topic>` or `adr/<slug>` PR:** plan to dispatch THREE subagents immediately after `gh pr create`: red-team Opus 4.7, red-team Sonnet 4.6 (the registry's `Secondary model` for red-team), and spec-quality Sonnet 4.6. They dispatch in parallel (independent subagents). Do not consider the PR-open step complete until all three have posted their reviews.
+- **After every `Code-review-followup:` commit on a spec/ADR branch:** re-dispatch ALL THREE (in parallel). Each role's re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). For the red-team multi-model pair, both Opus and Sonnet re-review independently. Note: a followup that does not touch content any reviewer commented on will still trigger all three re-dispatches. v1 accepts the duplicative-review cost; if the pattern produces material noise, a future iteration can condition the obligations on whether the followup touches reviewed content for each role.
 - **No automated enforcement in v1.** Convention-based; the obligation is the controller's. Detection of a skip is by user observation — a merged spec/ADR PR with no red-team review is the failure signature. Trigger to add automated enforcement: first observed silent skip on a real spec/ADR PR.
 
 When new reviewer roles join the registry whose `trigger` is also `Automatic on PR open` (e.g., devil's advocate v2), append their obligations to this checklist alongside red-team's. Other trigger forms get their own checklist if/when they're added.
