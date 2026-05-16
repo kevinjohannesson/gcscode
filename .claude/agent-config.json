@@ -2,5 +2,9 @@
   "githubApp": {
     "appId": "3693536",
     "installationId": "131834383"
+  },
+  "respondentApp": {
+    "appId": "3733841",
+    "installationId": "132842105"
   }
 }
