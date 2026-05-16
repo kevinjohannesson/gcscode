@@ -205,6 +205,8 @@ Red-team auto-dispatches on PR open per the reviewer-role registry. Future revie
 
 **Config locations:** App ID and installation ID live in `.claude/agent-config.json` (versioned). Private key path is read from `GH_APP_PRIVATE_KEY_PATH` env var; the PEM file never enters git.
 
+**Agent file discovery is session-bound.** Newly-created `.claude/agents/*.md` files are NOT discoverable via `subagent_type: <name>` in the same Claude Code session that creates them — the Agent tool loads its `subagent_type` registry at session start. Post-merge implementations that introduce new agent files (the effort-max iteration's `red-team-reviewer.md` and `spec-quality-reviewer.md`; future agent-file additions) cannot validate the new dispatch identifier in the session that lands the files. **Workaround:** dispatch with `subagent_type: general-purpose` + the full prompt template inline (the pre-effort-max dispatch pattern) for the rest of that session. Plan 1 mechanics smoke tests for new agent files must run in a fresh session, post-merge. The harness-level fix (agent-file hot-reload) is out of scope per `docs/out-of-scope.md`.
+
 ### Respondent posting discipline
 
 After each `Code-review-followup:` commit on a spec/ADR PR, the controller posts a **respondent response** for each reviewer that posted on the PR. The respondent voice is a distinct GitHub App identity (`gcscode-respondent[bot]`) that documents the controller's per-finding dispositions for the round. The respondent is NOT a reviewer; it has no verdict; it carries the controller's voice for response purposes.
