@@ -30,7 +30,7 @@ Future iterations may add more actor classes (e.g., devil's advocate v2 may be i
 
 **When to add a new actor-class vs a new row under an existing class.** A new actor-class is warranted when the structural fields the actor needs differ enough from existing classes that more than one cell carries a "doesn't apply" or category-stretched value. If a new actor fits the existing reviewer or respondent column semantics (model is a Claude model, verdicts come from the existing set, trigger uses existing vocabulary), it gets a new row under an existing class. If multiple cells stretch (a controller-action-bot with no model, no verdict, no character — only identity + trigger + prompt template apply), it warrants a new actor-class. Borderline cases get brainstormed in the iteration that introduces the new actor; this ADR establishes the framing, not a closed taxonomy.
 
-**Applied to respondent:** Two cells stretch — `model` (annotated as column-value stretch awaiting v2) and `re-review header` (annotated as "—" with explicit note that respondent doesn't re-review). Plus a third introduces a new enum value (`kind: per-followup-commit`). Per the test above, more-than-one-cell-stretches warrants a new actor-class. Hence: `actor-class: respondent`, not a new row under `reviewer`. The test's application to the respondent is the v1 worked example for future actor authors.
+**Applied to respondent:** Two cells genuinely stretch under the criterion above — `model` (annotated as column-value stretch awaiting v2; carries a "doesn't apply" value where a Claude model identifier is expected) and `re-review header` (annotated as "—" with explicit note that respondent doesn't re-review; the column's semantic doesn't apply since respondent posts a new comment per followup, not a re-review). Two stretches > one → warrants a new actor-class. (Separately, the `kind` cell carries a new enum value `per-followup-commit` — that's a vocabulary extension of the column's enum, not a "doesn't apply" stretch; it's noted here for completeness but is not part of the boundary test's count.) Hence: `actor-class: respondent`, not a new row under `reviewer`. The test's application to the respondent is the v1 worked example for future actor authors.
 
 **2. Registry schema: one combined table, one new column.** The registry table keeps all 12 existing columns from PR #11's evolution of ADR-0008. One new column is prepended:
 
@@ -114,7 +114,7 @@ Append the following row to the verdict-permission table in CLAUDE.md (locate vi
 
 ### Verbatim — Commit 3 (prose reference updates)
 
-Prose-only updates in CLAUDE.md. `grep "reviewer-role registry\|Reviewer-role registry" shell/CLAUDE.md` surfaces six occurrences. The following per-occurrence dispositions are mechanical (no implementer judgment):
+Prose-only updates in CLAUDE.md. `grep "reviewer-role registry\|Reviewer-role registry" shell/CLAUDE.md` surfaces SEVEN occurrences. The following per-occurrence dispositions are mechanical (no implementer judgment):
 
 | Approx line | Context | Disposition |
 | --- | --- | --- |
@@ -124,6 +124,7 @@ Prose-only updates in CLAUDE.md. `grep "reviewer-role registry\|Reviewer-role re
 | 250 | "When designing a new reviewer role (devil's advocate v2, expert reviewers, future expansions of the reviewer-role registry), apply these conventions." | **Keep as-is** — the section is specifically about reviewer-role design (one actor-class); the "reviewer-role registry" reference here is to the reviewer subset of the registry, not the registry-as-a-whole |
 | 256 | "**`identity` field in the registry, even when all roles share one bot.** Every entry in the reviewer-role registry carries an `identity` field." | **Keep as-is** — the surrounding section is reviewer-role-specific (talks about "all roles share `gcscode-reviewer[bot]`"); the reference is to the reviewer subset |
 | 262 | "The reviewer-role registry's `trigger` field declares WHEN a role fires..." | **Rename** to "agentic-actor registry's" (registry-as-a-whole field reference) |
+| 301 | Further reading entry: "second iteration of the agentic-team-architecture track: red-team reviewer on spec/ADR PRs + reviewer-role registry." | **Keep as-is** — historical reference to what the 2026-05-14 red-team-reviewer iteration introduced; renaming would falsify the historical record per the specs-as-historical-record convention |
 
 **Edit B: Further reading section update (CLAUDE.md ~line 302).** The existing Further reading entry `docs/decisions/ADR-0008-reviewer-role-registry.md — registry pattern decision; source of truth for reviewer role definitions.` is **replaced** with:
 
@@ -134,7 +135,7 @@ Prose-only updates in CLAUDE.md. `grep "reviewer-role registry\|Reviewer-role re
 **Edit C.** Add an explicit cross-link inside the new "Agentic-actor registry" section (the one Commit 1 replaces the old reviewer-role header with): append the following sentence to the end of the **note paragraph** that introduces the registry table (the prose paragraph immediately above the table itself, which Commit 1 verbatim updates):
 
 ````md
-The respondent row's dispatch mechanics + posting discipline are documented in the "Respondent posting discipline" subsection above; the registry row is the source of truth for the respondent's structural fields (identity, trigger, header, prompt template), while the posting discipline subsection covers the controller's operational obligation to post after each `Code-review-followup:` commit.
+The respondent row's dispatch mechanics + posting discipline are documented in the "Respondent posting discipline" subsection (located below this section in CLAUDE.md); the registry row is the source of truth for the respondent's structural fields (identity, trigger, header, prompt template), while the posting discipline subsection covers the controller's operational obligation to post after each `Code-review-followup:` commit.
 ````
 
 **Edit D.** No changes to existing reviewer prompt files (`.claude/reviewer-prompts/red-team.md`, `.claude/reviewer-prompts/spec-quality.md`, `.claude/reviewer-prompts/respondent.md`) — those documents are role-specific, and the registry rename doesn't affect their content.
