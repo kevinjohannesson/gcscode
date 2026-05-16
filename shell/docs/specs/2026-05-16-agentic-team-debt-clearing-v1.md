@@ -70,7 +70,9 @@ The three in-spec decisions, in detail.
 
 **The call:** ADR-0009 is the next ADR-PR. It broadens ADR-0008's "reviewer-role registry" into an "agentic-actor registry" that covers reviewer roles (existing) AND non-reviewer controller-voice actors (respondent in v1; future variants).
 
-**ADR-0009 number-reservation note.** The multi-model-red-team-v1 spec (`docs/specs/2026-05-16-multi-model-red-team-v1.md`) predicted that if its evaluation returned KEEP-BOTH, an ADR titled "Reviewer-role registry secondary-model field" would be written and take ADR-0009. That prediction is now superseded: this iteration claims ADR-0009 for the agentic-actor registry (which is a higher-priority architectural change and is happening immediately, not contingent on a future evaluation). If the multi-model v1 evaluation returns KEEP-BOTH and an ADR is warranted, it gets the next available number at that time (likely ADR-0010 or later depending on intervening ADRs). The multi-model v1 spec itself is the historical record per the specs-as-historical-record convention introduced in Decision 2 below; its mention of ADR-0009 is a prediction that didn't bind reality, not a fact that needs correcting.
+**ADR-0009 number-reservation note.** The multi-model-red-team-v1 spec (`docs/specs/2026-05-16-multi-model-red-team-v1.md`) predicted that if its evaluation returned KEEP-BOTH, an ADR titled "Reviewer-role registry secondary-model field" would be written and take ADR-0009. That prediction is now superseded: this iteration claims ADR-0009 for the agentic-actor registry (which is a higher-priority architectural change and is happening immediately, not contingent on a future evaluation). If the multi-model v1 evaluation returns KEEP-BOTH and an ADR is warranted, it gets the next available number at that time (likely ADR-0010 or later depending on intervening ADRs).
+
+**Per Decision 2's convention** (specs-as-historical-record), this prediction-correction warrants a one-line breadcrumb in the multi-model v1 spec — the same pattern as PR #11's N=5 counter-reset breadcrumb. The breadcrumb is added as **Commit 5** of this iteration's post-merge implementation. This makes the very first use of the convention the same iteration that introduces it — a deliberate dogfooding moment.
 
 **Mechanics (industry-standard ADR supersession):**
 
@@ -120,14 +122,15 @@ The actual ADR-0009 brainstorm happens when the queued ADR-PR is kicked off; thi
 
 ## Post-merge implementation
 
-Per the post-merge implementation convention, four direct-master commits. All content fully specified verbatim below; no judgment required during implementation.
+Per the post-merge implementation convention, five direct-master commits. All content fully specified verbatim below; no judgment required during implementation.
 
 - **Commit 1: Add the specs-as-historical-record convention** to CLAUDE.md under the existing "Planning conventions and long-term alignment" section. Verbatim text below.
 - **Commit 2: Add the session-bound agent-file finding** to CLAUDE.md under the existing "Subagent reviewer PR-posting discipline" subsection (near "Config locations"). Verbatim text below.
 - **Commit 3: Add the out-of-scope entry** for agent-file discovery hot-reload to `shell/docs/out-of-scope.md`. Verbatim text below.
-- **Commit 4: Add the seven queued follow-up iterations to `shell/docs/roadmap.md`** as Considering entries, in priority order, plus a Shipped entry for this planning iteration. Verbatim text below.
+- **Commit 4: Consolidate + add Considering entries in `shell/docs/roadmap.md`** per the seven queued follow-up iterations, in priority order, plus a Shipped entry for this planning iteration. Verbatim text below.
+- **Commit 5: Add the ADR-0009 number-reservation breadcrumb** to `shell/docs/specs/2026-05-16-multi-model-red-team-v1.md` per Decision 1's note + Decision 2's convention. Verbatim text below.
 
-The ADR-0009 work (Decision 1) is the NEXT ADR-PR, not part of this iteration's post-merge.
+The ADR-0009 work itself (writing the agentic-actor registry ADR) is the NEXT ADR-PR, not part of this iteration's post-merge.
 
 ### Verbatim — Commit 1 (specs-as-historical-record convention in CLAUDE.md)
 
@@ -144,7 +147,7 @@ The substantive-vs-factual line is a judgment call, but the test is concrete: if
 
 **Why the convention:** legibility. A reader (human or future agent) reading a merged spec should be able to trust the content is the historical record of what the iteration decided. Substantive revisions surfacing as silent edits to old specs makes the historical record unreliable.
 
-Codified during the agentic-team debt-clearing iteration (`docs/specs/2026-05-16-agentic-team-debt-clearing-v1.md`) after the pattern was repeatedly used in practice (PR #11's N=5 counter reset; PR #12's tripwire references).
+Codified during the agentic-team debt-clearing iteration (`docs/specs/2026-05-16-agentic-team-debt-clearing-v1.md`) as a **forward-looking guardrail**. The breadcrumb pattern emerged in practice (PR #11's N=5 counter-reset breadcrumb is the canonical example) but the deep-edit-of-predecessor problem the convention prevents has not happened yet. The convention codifies the breadcrumb pattern as the default + the substantive-vs-factual line as the test for when to use it.
 ````
 
 ### Verbatim — Commit 2 (session-bound agent-file finding in CLAUDE.md)
@@ -200,13 +203,25 @@ Commit 4 **consolidates** existing Considering entries (which overlap with this 
 
 **Update 3:** Existing entries `Per-role bot identities`, `Reviewer routing layer`, and `Multi-model evaluation iteration` are replaced (not duplicated) by the consolidated entries in Update 2. See the "Existing Considering entries to UPDATE" header above for the consolidation details.
 
+### Verbatim — Commit 5 (ADR-0009 number-reservation breadcrumb in multi-model v1 spec)
+
+Append the following one-line breadcrumb to the end of the `### Effort dimension: known limitation` subsection of `shell/docs/specs/2026-05-16-multi-model-red-team-v1.md` (currently lines 127-end of that subsection). Position chosen so the breadcrumb sits adjacent to the section where the ADR-0009 prediction lives without deep-editing it.
+
+Verbatim text to append (as a blockquote, same shape as PR #11's N=5 counter-reset breadcrumb):
+
+````md
+> **ADR-0009 number-reservation update (added 2026-05-16):** The debt-clearing iteration ([2026-05-16-agentic-team-debt-clearing-v1.md](2026-05-16-agentic-team-debt-clearing-v1.md)) claims ADR-0009 for the agentic-actor registry (superseding ADR-0008). The prediction in this spec that ADR-0009 would carry "Reviewer-role registry secondary-model field" is invalidated; if the evaluation iteration returns KEEP-BOTH and an ADR is warranted, that ADR gets the next available number at that time (likely ADR-0010 or later).
+````
+
+The breadcrumb does NOT modify the original spec's substantive content (the decision to defer the ADR until KEEP-BOTH is intact; only the predicted number is corrected). This is the first application of the specs-as-historical-record convention introduced in Commit 1.
+
 ## Data flow — how this iteration ships
 
 1. Brainstorm → spec → spec-PR. **Ninth iteration shipping via the spec-PR workflow.**
 2. **On PR open: red-team Opus + red-team Sonnet + spec-quality auto-dispatch in parallel** per the current obligation. Reviewers run under the new `subagent_type: red-team-reviewer` / `subagent_type: spec-quality-reviewer` dispatch pattern IF this iteration runs in a fresh session (post-PR-11-merge); otherwise falls back to `subagent_type: general-purpose` per the session-bound finding documented in Decision 3.
 3. User reads reviews + approves. Code-review-followup commits trigger re-dispatch per the existing obligation.
 4. User merges via `gh pr merge --merge` or `auto-merge` label.
-5. Post-merge implementation: four direct-master commits per the post-merge convention.
+5. Post-merge implementation: five direct-master commits per the post-merge convention.
 6. **Next iteration:** ADR-0009 ADR-PR (queued iteration #1) kicks off when ready; no external prerequisite.
 
 ## Validation
@@ -248,14 +263,14 @@ The other debt items are either (a) addressed in-spec via Decisions 1-3, or (b) 
 
 ## `docs/roadmap.md` propagation
 
-See Commit 4 verbatim above. Net additions: 1 Shipped entry (this planning iteration) + 7 Considering entries (the queued follow-up iterations in priority order).
+See Commit 4 verbatim above. Net change: 1 Shipped entry added + 4 net new Considering entries (7 queued follow-up iterations added, minus 3 existing entries consolidated into the new ones per the "Existing Considering entries to UPDATE" header in Commit 4). The total Considering section size grows by 4 entries, not 7.
 
 ## Known unknowns
 
 - **Will the queue actually drain?** The whole point of this planning iteration is to address the accept-limitations-and-queue pattern. If the queued items themselves accumulate their own limitations and queue follow-ups, the debt grows recursively. Plan 3 observes this.
 - **Are seven follow-ups too many or too few?** Seven is the size of the current debt list (top items only); some items may merge with each other naturally (e.g., per-role bot identities might land inside ADR-0009 if it's expanded). Some may turn out to be irrelevant if upstream changes obviate them. The priority order is a v1 guess based on operational pressure (cross-session premise likely-next) and architectural dependency (ADR-0009 before respondent v2 to establish the registry shape).
 - **Does the specs-as-historical-record convention slow iteration?** The convention says "substantive revisions = successor spec" which adds a spec-PR cycle for what could have been an inline edit. For factual corrections, the convention allows in-place edits. The line between substantive and factual is a judgment call; if it slows us down (cycles spent debating "is this substantive?"), the convention needs revision.
-- **Pre-merge verification structurally skipped (carry-forward).** Same constraint as PRs #11 and #12: this spec's post-merge implementation lands on master directly per the verbatim-spec convention; if any of the four commits' verbatim text has a bug, it surfaces post-merge. Rollback path: revert the four commits + restore prior CLAUDE.md / out-of-scope.md / roadmap.md state. Bounded but non-trivial.
+- **Pre-merge verification structurally skipped (carry-forward).** Same constraint as PRs #11 and #12: this spec's post-merge implementation lands on master directly per the verbatim-spec convention; if any of the five commits' verbatim text has a bug, it surfaces post-merge. Rollback path: revert the five commits + restore prior CLAUDE.md / out-of-scope.md / roadmap.md / multi-model v1 spec state. Bounded but non-trivial.
 
 ## Future iterations
 
