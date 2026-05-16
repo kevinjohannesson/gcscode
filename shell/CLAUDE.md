@@ -78,7 +78,7 @@ When executing a plan, use the `superpowers:subagent-driven-development` skill: 
 
 This pattern surfaces the same class of issues at three different points (implementer self-review, per-task spec/quality review, final cross-cutting review), and produces a legible `git log` where every followup is traced to the review note that prompted it. Don't squash followups into the originating commit — the review trail is part of the history.
 
-Specs and ADRs now ship via their own PRs (see "Spec-PR workflow" and "ADR-PR workflow" in the Branching and merging section above) and receive a red-team auto-dispatched review per the reviewer-role registry. Plans continue to land on master directly.
+Specs and ADRs now ship via their own PRs (see "Spec-PR workflow" and "ADR-PR workflow" in the Branching and merging section above) and receive a red-team auto-dispatched review per the agentic-actor registry. Plans continue to land on master directly.
 
 ### Subagent worktree discipline
 
@@ -200,7 +200,7 @@ Per-task reviewers post under task-headers. Final cross-cutting review posts at 
 
 ## Reviewer instructions
 
-Red-team auto-dispatches on PR open per the reviewer-role registry. Future reviewer roles (e.g., domain expert, when they exist) follow per the registry.
+Red-team auto-dispatches on PR open per the agentic-actor registry. Future reviewer roles (e.g., domain expert, when they exist) follow per the registry.
 
 🤖 Reviews authored by `gcscode-reviewer[bot]` — see [docs/specs/2026-05-12-reviews-as-artifacts.md](../blob/master/shell/docs/specs/2026-05-12-reviews-as-artifacts.md) for the workflow.
 ```
@@ -263,7 +263,7 @@ When designing a new reviewer role (devil's advocate v2, expert reviewers, futur
 
 #### Auto-dispatch controller obligations
 
-The reviewer-role registry's `trigger` field declares WHEN a role fires (e.g., red-team's `trigger` is "Automatic on PR open"). In v1 there is no automated dispatcher; the controller (human or LLM session) honors the trigger. This checklist makes the controller's action points legible **for roles whose `trigger` is `Automatic on PR open`**. Other trigger forms (`After each task commit` for per-task reviewers; `End of iteration` for final cross-cutting) have their own existing dispatch patterns documented in "Subagent-driven plan execution" and "Subagent reviewer PR-posting discipline":
+The agentic-actor registry's `trigger` field declares WHEN a role fires (e.g., red-team's `trigger` is "Automatic on PR open"). In v1 there is no automated dispatcher; the controller (human or LLM session) honors the trigger. This checklist makes the controller's action points legible **for roles whose `trigger` is `Automatic on PR open`**. Other trigger forms (`After each task commit` for per-task reviewers; `End of iteration` for final cross-cutting) have their own existing dispatch patterns documented in "Subagent-driven plan execution" and "Subagent reviewer PR-posting discipline":
 
 - **Before opening a `spec/<topic>` or `adr/<slug>` PR:** plan to dispatch THREE subagents immediately after `gh pr create`: `subagent_type: red-team-reviewer` (Opus 4.7, effort: max from agent file), `subagent_type: red-team-reviewer` with `model: sonnet` override (Sonnet 4.6, effort: max from agent file), and `subagent_type: spec-quality-reviewer` (Sonnet 4.6, effort: max from agent file). They dispatch in parallel (independent subagents). Do not consider the PR-open step complete until all three have posted their reviews.
 - **After every `Code-review-followup:` commit on a spec/ADR branch:** (a) push the commit, (b) post respondent responses per the Respondent posting discipline subsection above — one per reviewer that has posted on the PR (three posts total for spec/ADR PRs with the current three reviewers), then (c) re-dispatch ALL THREE reviewer roles in parallel. Each role's re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). For the red-team multi-model pair, both Opus and Sonnet re-review independently. Note: a followup that does not touch content any reviewer commented on will still trigger all three re-dispatches AND all three respondent posts. v1 accepts the duplicative-review-and-response cost; if the pattern produces material noise, a future iteration can condition the obligations on whether the followup touches reviewed content for each role.
@@ -303,7 +303,7 @@ The pattern catches silent drift (stale READMEs, out-of-date out-of-scope langua
 - `.claude/commands/housekeeping.md` — `/housekeeping` slash command. Run periodically (every 2–3 iterations) to sweep for drift, sharpen rough edges, fill articulation gaps.
 - `docs/specs/2026-05-12-reviews-as-artifacts.md` — first iteration of the agentic-team-architecture track: GitHub PR workflow + reviewer subagents posting under a GitHub App identity.
 - `docs/specs/2026-05-14-red-team-reviewer.md` — second iteration of the agentic-team-architecture track: red-team reviewer on spec/ADR PRs + reviewer-role registry.
-- `docs/decisions/ADR-0008-reviewer-role-registry.md` — registry pattern decision; source of truth for reviewer role definitions.
+- `docs/decisions/ADR-0009-agentic-actor-registry.md` — registry pattern decision; source of truth for agentic-actor definitions (reviewers + non-reviewer controller-voice actors). Supersedes ADR-0008 (which remains in `docs/decisions/` as the historical record).
 - `.claude/reviewer-prompts/red-team.md` — red-team reviewer prompt template (review behavior, tone, output structure).
 - `.claude/agent-config.json` — App ID and installation ID for the `gcscode-reviewer` GitHub App. Private key path lives in `GH_APP_PRIVATE_KEY_PATH` env var, not in repo.
 - `.claude/scripts/gh-app-token` — helper that generates short-lived installation tokens. Reviewer subagents call `export GH_TOKEN=$(.claude/scripts/gh-app-token)` before `gh pr review`.
