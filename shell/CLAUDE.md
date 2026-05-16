@@ -193,6 +193,44 @@ Red-team auto-dispatches on PR open per the reviewer-role registry. Future revie
 
 **Config locations:** App ID and installation ID live in `.claude/agent-config.json` (versioned). Private key path is read from `GH_APP_PRIVATE_KEY_PATH` env var; the PEM file never enters git.
 
+### Respondent posting discipline
+
+After each `Code-review-followup:` commit on a spec/ADR PR, the controller posts a **respondent response** for each reviewer that posted on the PR. The respondent voice is a distinct GitHub App identity (`gcscode-respondent[bot]`) that documents the controller's per-finding dispositions for the round. The respondent is NOT a reviewer; it has no verdict; it carries the controller's voice for response purposes.
+
+**Dispatch sequence** (controller obligation, integrates with the auto-dispatch obligation):
+
+1. Push the `Code-review-followup:` commit to the PR's branch.
+2. For each reviewer's most recent review on the PR (red-team Opus, red-team Sonnet, spec-quality — three responses total), post a respondent comment using the template at `.claude/reviewer-prompts/respondent.md`. Token: `export GH_TOKEN=$(.claude/scripts/gh-app-token-respondent)`. Verdict: `--comment`.
+3. Re-dispatch the three reviewer subagents per the existing auto-dispatch obligation. Re-reviewers may engage with the respondent posts (optional engagement; see updated reviewer prompts).
+
+**Response header convention** (mandatory):
+
+```
+## Respondent — re commit <SHA> — to <reviewer role> review by <reviewer model>
+```
+
+Where `<SHA>` is the followup commit, `<reviewer role>` is `red-team` or `spec-quality`, and `<reviewer model>` is the model that posted the review being responded to.
+
+**Token + posting:**
+
+```bash
+GH_TOKEN=$(.claude/scripts/gh-app-token-respondent) gh pr review <PR> --comment --body "..."
+```
+
+**Identity:** `gcscode-respondent[bot]`. Distinct from `gcscode-reviewer[bot]`. Same posting permissions on PRs; different audit-trail attribution.
+
+**Config:** App ID and installation ID live in `.claude/agent-config.json` under the `respondentApp` key (additive; reviewer's `githubApp` key untouched). Private key path is read from the `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` env var; the PEM file never enters git.
+
+**Open-question routing:** the respondent's response documents each open question's destination. The actual edit to `docs/roadmap.md` or `docs/out-of-scope.md` lands post-merge per the existing propagation pattern. Spec known-unknowns are edited inline as part of the followup commit (existing pattern). There is no dedicated open-question ledger file in v1; route to existing files via documented disposition.
+
+**Initial-review round:** the respondent does NOT post on the initial-review round (before any followup commit). Initial reviews have nothing to dispose of yet. Respondent enters after the first followup commit.
+
+**Discipline note:** the respondent's response is the controller's documented disposition. Skipping the respondent step on a followup commit makes the iteration's per-finding dispositions invisible — exactly the gap this iteration addresses. Treat the respondent post as required, not optional, on spec/ADR PRs.
+
+**Out of scope for v1:** respondent subagent dispatch (controller writes directly), threaded inline replies on specific review comments (uses review-level comments), required re-reviewer engagement (engagement is optional in v1), and a dedicated open-question ledger file (routes to existing files). Each has its own future-iteration trigger in [`docs/specs/2026-05-16-review-discussion-loop-v1.md`](docs/specs/2026-05-16-review-discussion-loop-v1.md).
+
+**Public repo note:** as with reviewer posts, respondent posts are world-readable. Keep them professional. Don't paste credentials, internal URLs, or sensitive context.
+
 ### Reviewer-role design conventions
 
 When designing a new reviewer role (devil's advocate v2, expert reviewers, future expansions of the reviewer-role registry), apply these conventions. They emerged from the red-team v1 user-review pass and the reviews-as-artifacts mechanics validation (PR #1 + PR #3 on 2026-05-14). The four patterns generalize from one data point (red-team v1); the generalization is a forward-looking bet. Known unknown: which patterns hold up across the future expert-reviewer track. Adjust as evidence accumulates.
@@ -210,7 +248,7 @@ When designing a new reviewer role (devil's advocate v2, expert reviewers, futur
 The reviewer-role registry's `trigger` field declares WHEN a role fires (e.g., red-team's `trigger` is "Automatic on PR open"). In v1 there is no automated dispatcher; the controller (human or LLM session) honors the trigger. This checklist makes the controller's action points legible **for roles whose `trigger` is `Automatic on PR open`**. Other trigger forms (`After each task commit` for per-task reviewers; `End of iteration` for final cross-cutting) have their own existing dispatch patterns documented in "Subagent-driven plan execution" and "Subagent reviewer PR-posting discipline":
 
 - **Before opening a `spec/<topic>` or `adr/<slug>` PR:** plan to dispatch THREE subagents immediately after `gh pr create`: `subagent_type: red-team-reviewer` (Opus 4.7, effort: max from agent file), `subagent_type: red-team-reviewer` with `model: sonnet` override (Sonnet 4.6, effort: max from agent file), and `subagent_type: spec-quality-reviewer` (Sonnet 4.6, effort: max from agent file). They dispatch in parallel (independent subagents). Do not consider the PR-open step complete until all three have posted their reviews.
-- **After every `Code-review-followup:` commit on a spec/ADR branch:** re-dispatch ALL THREE (in parallel). Each role's re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). For the red-team multi-model pair, both Opus and Sonnet re-review independently. Note: a followup that does not touch content any reviewer commented on will still trigger all three re-dispatches. v1 accepts the duplicative-review cost; if the pattern produces material noise, a future iteration can condition the obligations on whether the followup touches reviewed content for each role.
+- **After every `Code-review-followup:` commit on a spec/ADR branch:** (a) push the commit, (b) post respondent responses per the Respondent posting discipline subsection above — one per reviewer that has posted on the PR (three posts total for spec/ADR PRs with the current three reviewers), then (c) re-dispatch ALL THREE reviewer roles in parallel. Each role's re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). For the red-team multi-model pair, both Opus and Sonnet re-review independently. Note: a followup that does not touch content any reviewer commented on will still trigger all three re-dispatches AND all three respondent posts. v1 accepts the duplicative-review-and-response cost; if the pattern produces material noise, a future iteration can condition the obligations on whether the followup touches reviewed content for each role.
 - **No automated enforcement in v1.** Convention-based; the obligation is the controller's. Detection of a skip is by user observation — a merged spec/ADR PR with no red-team review is the failure signature. Trigger to add automated enforcement: first observed silent skip on a real spec/ADR PR.
 
 When new reviewer roles join the registry whose `trigger` is also `Automatic on PR open` (e.g., devil's advocate v2), append their obligations to this checklist alongside red-team's. Other trigger forms get their own checklist if/when they're added.
