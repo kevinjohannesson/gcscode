@@ -143,9 +143,9 @@ Per the post-merge implementation convention, six direct-master commits. All con
 
 1. (Needed before Plan 1's smoke test, not for the post-merge commits themselves) Generate a private key for the `gcscode-respondent` App from its GitHub App settings page (Settings > GitHub Apps > gcscode-respondent > Generate a private key). Store the resulting `.pem` file outside the repo (the existing reviewer App's key path pattern is the precedent — see CLAUDE.md "Subagent reviewer PR-posting discipline > Config locations").
 2. (Needed before Plan 1's smoke test) Set `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` in the shell environment, following the same convention as the existing `GH_APP_PRIVATE_KEY_PATH`.
-3. (Needed before Commit 2) Copy the App ID and installation ID from the App's settings + installation pages — these get filled into the `respondentApp` block in Commit 2.
+3. (Preferred before Commit 2; placeholder-acceptable) Copy the App ID and installation ID from the App's settings + installation pages — these get filled into the `respondentApp` block in Commit 2. If the values aren't yet available, Commit 2 can ship with placeholder strings (`<RESPONDENT_APP_ID>` and `<RESPONDENT_INSTALLATION_ID>`) and a small followup commit substitutes the real values when the user provides them.
 
-Items 1 and 2 can be deferred until Plan 1 runs; Commits 1, 3, 4, 5, 6 land without needing the private key. Item 3 is needed at Commit 2 time, but Commit 2 can ship with placeholder values if the App identifiers aren't yet available — Commits 1, 3, 4, 5, 6 still land, and a followup commit substitutes the real values when the user provides them.
+Items 1 and 2 are private-key prerequisites for running Plan 1's mechanics smoke test only; Commits 1, 3, 4, 5, 6 land regardless. Item 3 is preferred at Commit 2 time but degrades gracefully to a placeholder + followup substitution.
 
 - **Commit 1: Create `.claude/scripts/gh-app-token-respondent`** via the `cp` + sed pipeline below.
 - **Commit 2: Update `.claude/agent-config.json`** — add the `respondentApp` block with App ID + installation ID values provided by the user.
@@ -359,7 +359,7 @@ A throwaway test branch verifies the respondent App token + posting works.
   1. Run `.claude/scripts/gh-app-token-respondent` and verify it succeeds (App ID + installation ID + private key path all valid; token printed to stdout).
   2. Post a test comment to the test PR using the respondent identity — verify it lands under `gcscode-respondent[bot]`.
   3. Verify the comment is visually distinct from `gcscode-reviewer[bot]` posts in the PR conversation (different avatar, different name).
-- **Disposition:** kept open as the seventh permanent reference artifact (PR #1, #3, #6, #8, #10, PR #11's effort-max smoke-test artifact, this new one). NOT merged.
+- **Disposition:** kept open as a permanent reference artifact alongside the existing five (PR #1, #3, #6, #8, #10) and PR #11's effort-max smoke-test artifact (when that test PR is created and kept open per PR #11's Plan 1). NOT merged.
 
 ### Plan 2: Live workflow on the next real spec/ADR PR
 
