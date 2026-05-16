@@ -43,7 +43,7 @@ This iteration ships: one new GitHub App identity, one new helper script, one ne
 
 Each has its own future trigger.
 
-- **Respondent subagent dispatch.** Controller writes responses directly using session context. Trigger: controller-written responses prove inconsistent across sessions or burdensome to write.
+- **Respondent subagent dispatch.** Controller writes responses directly using session context. Trigger: first real cross-session PR (see Known Unknowns and Future iterations for the sharper articulation of this trigger).
 - **Required re-reviewer engagement.** v1 makes engagement optional. Trigger: optional engagement isn't producing discussion-loop value.
 - **Inline review-comment replies via `--reply-to`.** v1 posts review-level comments (one per review). Trigger: review-level grouping proves insufficient for readability.
 - **Open-question ledger file.** No `docs/reviewer-open-questions.md`. Route to existing files. Trigger: "noted, no current action" residual proves significant enough to warrant a dedicated catalog.
@@ -138,6 +138,14 @@ PR opens → 3 reviewers post initial reviews (auto-dispatch)
 ## Post-merge implementation
 
 Per the post-merge implementation convention, six direct-master commits. All content fully specified verbatim (or below); one piece of judgment required during implementation — the App ID + installation ID values, which the user provides at implementation time.
+
+**Prerequisites (user-provided before Commit 2):**
+
+1. Generate a private key for the `gcscode-respondent` App from its GitHub App settings page (Settings > GitHub Apps > gcscode-respondent > Generate a private key). Store the resulting `.pem` file outside the repo (the existing reviewer App's key path pattern is the precedent).
+2. Set `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` in the shell environment (or in a project `.env` if that convention exists; check the existing `GH_APP_PRIVATE_KEY_PATH` convention).
+3. Copy the App ID and installation ID from the App's settings + installation pages — these get filled into the `respondentApp` block in Commit 2.
+
+The user provides Items 1, 2, and 3 to the controller running the post-merge implementation. Without these, Commit 2 can ship a placeholder but Plan 1's mechanics smoke test cannot run.
 
 - **Commit 1: Create `.claude/scripts/gh-app-token-respondent`** via the `cp` + sed pipeline below.
 - **Commit 2: Update `.claude/agent-config.json`** — add the `respondentApp` block with App ID + installation ID values provided by the user.
@@ -351,7 +359,7 @@ A throwaway test branch verifies the respondent App token + posting works.
   1. Run `.claude/scripts/gh-app-token-respondent` and verify it succeeds (App ID + installation ID + private key path all valid; token printed to stdout).
   2. Post a test comment to the test PR using the respondent identity — verify it lands under `gcscode-respondent[bot]`.
   3. Verify the comment is visually distinct from `gcscode-reviewer[bot]` posts in the PR conversation (different avatar, different name).
-- **Disposition:** kept open as the seventh permanent reference artifact (PR #1, #3, #6, #8, #10, the in-flight effort-max PR, this new one). NOT merged.
+- **Disposition:** kept open as the seventh permanent reference artifact (PR #1, #3, #6, #8, #10, PR #11's effort-max smoke-test artifact when it lands, this new one). NOT merged.
 
 ### Plan 2: Live workflow on the next real spec/ADR PR
 
@@ -374,20 +382,20 @@ Propagation to `shell/docs/vs-code-alignment.md`: none.
 
 Two new entries; both are cross-cutting architectural deferrals (not per-iteration scope cuts).
 
-1. **Add: "Respondent subagent dispatch for cross-session consistency."** v1 ships controller-direct response writing as a Day 1 accepted limitation. The deferral is architectural (subagent dispatch infrastructure vs controller-direct), not per-iteration. Trigger to revisit: the first real cross-session PR that requires meaningful reconstruction of prior-session reasoning (the cross-session tripwire above). Reference: this spec's Known Unknowns section.
+1. **Add: "Respondent subagent dispatch for cross-session consistency."** v1 ships controller-direct response writing as a Day 1 accepted limitation. The deferral is architectural (subagent dispatch infrastructure vs controller-direct), not per-iteration. Trigger to revisit: the first real cross-session PR that requires meaningful reconstruction of prior-session reasoning (the cross-session tripwire in the Tripwires section below). Reference: this spec's Known Unknowns section.
 
-2. **Add: "Required re-reviewer engagement with respondent posts."** v1 ships optional engagement. The deferral is architectural (whether reviewers must explicitly accept/push-back on each disposition) not per-iteration. Trigger to revisit: the optional-engagement-never-fires tripwire above.
+2. **Add: "Required re-reviewer engagement with respondent posts."** v1 ships optional engagement. The deferral is architectural (whether reviewers must explicitly accept/push-back on each disposition) not per-iteration. Trigger to revisit: the optional-engagement-never-fires tripwire in the Tripwires section below.
 
 (The threaded-replies, ledger-file, and human-comment-trigger non-goals stay per-iteration scope cuts with their own Future iterations triggers; they don't meet the cross-cutting threshold.)
 
 ## `docs/roadmap.md` propagation
 
-Three updates:
+Four updates:
 
 1. **Add a Shipped entry for this iteration** under the agentic-team track: `review-discussion-loop-v1`.
 2. **Update the existing "Per-role bot identities for reviewers" Considering entry** (if present; otherwise add it) — note that this iteration's `gcscode-respondent` App is a NEW actor identity (controller voice), not a per-role identity for the reviewer roles themselves. Per-role reviewer identities remain on Considering.
-3. **Add a new Considering entry: "Agentic-team tech-debt clearing iteration"** — user has explicitly flagged this as the next iteration after PR #12 (per Origin section's user-quote). Audits deferred ADRs, missing conventions, partially-resolved items, and accepted limitations from PRs #11 and #12. Trigger: user kicks off the brainstorm; accumulated tech debt has reached the point where one consolidating iteration beats more small wedges.
-4. **No new Considering entries for the per-iteration respondent enhancements** (subagent dispatch, threaded replies, required engagement, ledger). Those are listed in this spec's Future iterations section; they migrate to roadmap.md Considering only when triggered by Plan 2's tripwires firing or by the debt-clearing iteration deciding to address them.
+3. **Add a new Considering entry: "Agentic-team tech-debt clearing iteration"** — user has explicitly flagged this as the next iteration after PR #12 (per Origin section's user-quote). Audits deferred ADRs, missing conventions, partially-resolved items, and accepted limitations from PRs #11 and #12. **Trigger:** the debt-clearing brainstorm starts as soon as PR #12 merges (no pending external prerequisite). The user-flagged debt list is the input; the iteration's scope decision is part of the brainstorm itself.
+4. **Add Considering entries for the two cross-cutting v1 deferrals** that also landed in out-of-scope.md (respondent subagent dispatch and required re-reviewer engagement). The roadmap.md / out-of-scope.md propagation should remain symmetric: deferrals listed as out-of-scope are also listed as roadmap-trackable Considering items. Failure to add them would create the logical inconsistency Red-team Sonnet flagged in re-review of 4e68d7c.
 
 ## Known unknowns
 
