@@ -6,7 +6,7 @@ name: Auto-merge
 # Gate 2: The PR's headRefName is `feat/*`, `spec/*`, or `adr/*`.
 # Gate 3: Bot signal — class-aware:
 #         - feat/*: PR's reviewDecision is APPROVED (canonical GitHub check).
-#         - spec/* or adr/*: BOTH `gcscode-reviewer` red-team AND spec-quality
+#         - spec/* or adr/*: BOTH `gcscode-red-team` AND `gcscode-spec-quality`
 #           have posted at least one review on the PR (enforces auto-dispatch
 #           obligation from CLAUDE.md).
 # Gate 4: The PR is mergeable (no conflicts).
@@ -93,8 +93,8 @@ jobs:
             # Enforces the auto-dispatch obligation from CLAUDE.md "Reviewer-role design
             # conventions" — prevents an eager auto-merge label at PR-open time from racing
             # past the auto-dispatch step.
-            REDTEAM_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-reviewer") | select(.body | startswith("## Red-team review"))] | length')
-            SPECQUALITY_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-reviewer") | select(.body | startswith("## Spec-quality review"))] | length')
+            REDTEAM_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-red-team")] | length')
+            SPECQUALITY_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-spec-quality")] | length')
             if [[ "$REDTEAM_COUNT" == "0" || "$SPECQUALITY_COUNT" == "0" ]]; then
               echo "Gate 3b FAILED: red-team count=${REDTEAM_COUNT}, spec-quality count=${SPECQUALITY_COUNT} (both required > 0). Exiting cleanly."
               exit 0

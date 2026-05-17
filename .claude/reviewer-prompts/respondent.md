@@ -22,7 +22,7 @@ The controller pre-fetches and packs the following into the dispatch prompt:
 
   ```jq
   .reviews[]
-  | select(.author.login == "gcscode-reviewer")
+  | select(.author.login | IN("gcscode-spec-compliance", "gcscode-code-quality", "gcscode-final-review", "gcscode-red-team", "gcscode-spec-quality"))
   | select(.body | test("^## {{ROLE_LABEL}} review — (spec|ADR)( \\(re-review of [0-9a-f]+\\))? — {{REVIEWER_MODEL}}\\b"))
   ```
 

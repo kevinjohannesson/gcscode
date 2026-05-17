@@ -67,7 +67,7 @@ You have read access to the repo, but you should read only:
 Post your review to PR #{{PR_NUMBER}} using:
 
 ```bash
-GH_TOKEN=$(.claude/scripts/gh-app-token) gh pr review {{PR_NUMBER}} --comment --body "$(cat <<'EOF'
+GH_TOKEN=$(.claude/scripts/gh-app-token-reviewer spec-quality) gh pr review {{PR_NUMBER}} --comment --body "$(cat <<'EOF'
 <your review body here, starting with the header below>
 EOF
 )"
