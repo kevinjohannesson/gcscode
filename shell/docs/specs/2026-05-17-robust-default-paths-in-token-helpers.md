@@ -35,7 +35,7 @@ This iteration ships: 2 helper script edits + 1 CLAUDE.md "Further reading" note
 
 1. Add a default-path fallback to `.claude/scripts/gh-app-token-reviewer`: if `GH_REVIEWER_APP_PRIVATE_KEY_DIR` is unset or empty, default to `$HOME/.config/gcscode`.
 2. Add a default-path fallback to `.claude/scripts/gh-app-token-respondent`: if `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` is unset or empty, default to `$HOME/.config/gcscode/gcscode-respondent.pem`.
-3. Update CLAUDE.md "Further reading" bullets for both helpers to note the default-path-fallback convention and that the env vars are optional overrides.
+3. Update FOUR CLAUDE.md locations to reflect the optional-env-var status: (a) the "Subagent reviewer PR-posting discipline > Config locations" bullet (around line 212); (b) the "Respondent posting discipline > Config" bullet (around line 245); (c) the "Further reading > `.claude/agent-config.json`" bullet (around line 315); (d) the "Further reading > `.claude/scripts/gh-app-token-reviewer`" bullet (around line 316). The respondent helper does not have its own dedicated "Further reading" bullet in the current CLAUDE.md (it's cross-referenced from the reviewer-helper bullet), so the respondent helper's default-path-fallback note lives inside the same reviewer-helper bullet update for compactness.
 4. Roadmap propagation.
 
 ## Non-goals (this iteration)
@@ -68,9 +68,11 @@ fi
 ```
 
 The `: "${VAR:=default}"` syntax (POSIX shell):
-- If `VAR` is unset OR empty, sets `VAR` to `default` and exports the result.
+- If `VAR` is unset OR empty, **assigns** `default` to `VAR` in the current shell scope. Does NOT export to child processes (that would require `export VAR` separately).
 - If `VAR` is already set to a non-empty value, leaves it unchanged.
 - The `:` is a no-op command that's there to consume the parameter expansion as a statement.
+
+This is sufficient for the helper script's needs: the script reads `$VAR` later in its own body, where current-shell scope is exactly what's required. The script does not invoke any child process that needs `VAR` in its environment — the PEM-path resolution is internal. The "no export to child processes" property is a feature, not a defect, for this use case.
 
 After this line, the rest of the script proceeds using `$GH_REVIEWER_APP_PRIVATE_KEY_DIR` as before. The subsequent file-existence check (`[[ ! -f "$pem_path" ]]`) still fires loudly if the PEM is actually missing — the fallback only handles env-var absence, not file absence.
 
@@ -94,8 +96,10 @@ The change is strictly **opt-out**, not opt-in: existing callers that pass the e
 ## Validation
 
 - **Validation by review on this PR**: reviewers verify the shell-parameter-expansion pattern is correct + the default paths match the canonical user setup + the failure-mode preservation argument holds.
+- **Explicit unset-then-invoke test (mandatory before declaring v1 working)**: the env-var is currently set in this user's environment, so the default-path code path never runs by default. To validate the default path actually works, the post-merge implementation includes a one-shot manual test (per Commit 3's verification step): explicitly unset both env vars in a subshell and invoke each helper with a known role-slug; verify the helper returns a token using the default path. Red-team Opus flagged the "validation is vacuous without an unset-then-invoke" gap; this addresses it.
 - **Validation by use on the FIRST spec/ADR PR after merge**: any reviewer / respondent dispatch on the next spec/ADR PR exercises the helper script. If the env var IS set, behavior is unchanged. If a subagent's shell doesn't have the var (the failure mode this iteration targets), the default path kicks in and the dispatch posts under the correct bot identity instead of the user-identity fallback.
-- **No new tripwire required**: the leak-recurrence tripwire (per `2026-05-17-relative-paths-in-reviewer-output.md`) is the closest analog — but for user-identity fallback the existing reviewer-identity check on the PR's reviews list is sufficient. The controller observing a `kevinjohannesson` post that should have been a bot post is the signal.
+- **PR #22's root cause stays a known unknown.** The explicit unset-then-invoke test validates the "env-var missing" failure mode. It does NOT validate the "env-var set but `gh` used user-auth anyway" mode (which is one of two plausible diagnostic options for PR #22, per the Tripwire section). If user-identity-fallback recurs on a future PR despite the default-path fix being live, the diagnostic should distinguish: was the helper invoked at all? Did it return a token? Did `gh` see GH_TOKEN? The default-path fix targets the first of these; the other two have separate remediation paths.
+- **No new tripwire required**: the user-identity-fallback recurrence tripwire below covers detection. The controller observing a `kevinjohannesson` post that should have been a bot post is the signal.
 
 ## VS Code alignment
 
@@ -121,7 +125,11 @@ Verbatim edit content in Post-merge implementation > Commit 3.
 
 ## Tripwires for known-quality concerns
 
-- **User-identity-fallback recurrence tripwire**: if any reviewer or respondent posts under `kevinjohannesson` (or any user identity) AFTER this iteration ships AND the controller did not intentionally manually-post as the user, the helper-script default-path-fallback is not catching the failure. Per CLAUDE.md "Reviewer-role design conventions > Tripwires" condition (iii)'s binary-rule carve-out: this is a single observation binary signal (post identity is either bot or user), N=1 acceptable. Response: diagnose whether (a) the helper script's default path didn't catch, (b) the agent prompt is failing to use the helper, or (c) the PEM file is missing at the default path.
+- **User-identity-fallback recurrence tripwire**: if any reviewer or respondent posts under `kevinjohannesson` (or any user identity) AFTER this iteration ships AND the controller did not intentionally manually-post as the user, the helper-script default-path-fallback is not catching the failure. Per CLAUDE.md "Reviewer-role design conventions > Tripwires" condition (iii)'s binary-rule carve-out: this is a single observation binary signal (post identity is either bot or user), N=1 acceptable. Response: enumerate which diagnostic option fired (the spec acknowledges PR #22's root cause was undiagnosed and explicitly enumerates the candidate options below):
+  - **(a) Helper-script default-path-fallback didn't catch**: env-var unset AND the default path didn't resolve. Symptom: helper aborts with "PEM not found at <default-path>" in stderr. Remediation: the PEM is misplaced or the default path's assumption broke.
+  - **(b) Agent prompt is failing to use the helper**: the subagent's dispatch prompt invokes `gh pr review` without first running the helper. Symptom: no helper invocation in the subagent's session trace; `gh` falls back to user-local auth. Remediation: tighten the dispatch prompt's helper-invocation wording.
+  - **(c) Helper succeeded but `gh` used user-auth anyway**: the helper returned a token, but `GH_TOKEN` wasn't actually passed to `gh pr review` (e.g., subshell capture failed, the env-var-prefix syntax got mangled, or `gh` preferred a stored auth over the env var). Symptom: helper succeeded in session trace but the resulting post is under user identity. **This is the plausible root cause of PR #22's recurrence even though `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` was set by then; the default-path fix DOES NOT directly address this mode.** Remediation: tighten the dispatch prompt's `GH_TOKEN=$(...)` capture or add explicit `--token` flag to `gh pr review`.
+  - **(d) PEM file actually missing at the default path**: e.g., user moved the PEMs elsewhere. Symptom: helper aborts with "PEM not found." Remediation: restore the PEM at the canonical path OR set the env-var override.
 
 ## Future iterations
 
@@ -141,7 +149,8 @@ Per the post-merge implementation convention, **three direct-master commits**. A
 
 - **Commit 1:** Edit `.claude/scripts/gh-app-token-reviewer` to replace the env-var-required check with the default-path-fallback pattern.
 - **Commit 2:** Edit `.claude/scripts/gh-app-token-respondent` to apply the same pattern.
-- **Commit 3:** Update CLAUDE.md "Further reading" bullets for both helpers + add roadmap.md `[x]` entry.
+- **Commit 3:** Update FOUR CLAUDE.md locations (3a-3d covering "Config locations" + "Respondent posting discipline > Config" + "Further reading > agent-config.json" + "Further reading > gh-app-token-reviewer") + roadmap.md flip (3e).
+- **Pre-merge verification step** (runs before Commit 1 but is post-merge in the spec-PR sense — exercised by the controller after this spec ships and before declaring v1 working): explicitly unset both env vars in a subshell and invoke each helper with a known-good role-slug, verify each returns a token. Documented in Validation > "Explicit unset-then-invoke test." This is a manual one-shot test; if it fails, post-merge Commits 1 and 2 are reverted and the spec is reconsidered.
 
 ### Verbatim — Commit 1 (`gh-app-token-reviewer` default-path fallback)
 
@@ -189,22 +198,70 @@ fi
 
 No other changes. The subsequent `[[ ! -f "$GH_RESPONDENT_APP_PRIVATE_KEY_PATH" ]]` check continues to fail loudly if the PEM is missing at the resolved path.
 
-### Verbatim — Commit 3 (CLAUDE.md notes + roadmap.md flip)
+### Verbatim — Commit 3 (CLAUDE.md edits + roadmap.md flip — five sub-edits)
 
-**3a — CLAUDE.md "Further reading" updates.** Locate the two helper bullets in CLAUDE.md "Further reading" section.
+**3a — CLAUDE.md "Subagent reviewer PR-posting discipline > Config locations" bullet.** Locate (around line 212):
 
-**Before** (the reviewer-helper bullet):
+**Before:**
+
+> **Config locations:** App IDs and installation IDs live in `.claude/agent-config.json` under `reviewerApps.<role-slug>` (versioned). Private keys live at `$GH_REVIEWER_APP_PRIVATE_KEY_DIR/gcscode-<role-slug>.pem` for reviewer roles; PEM files never enter git. (Respondent uses `respondentApp` + `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` as before.)
+
+**After:**
+
+> **Config locations:** App IDs and installation IDs live in `.claude/agent-config.json` under `reviewerApps.<role-slug>` (versioned). Private keys live at `$HOME/.config/gcscode/gcscode-<role-slug>.pem` for reviewer roles (default); `GH_REVIEWER_APP_PRIVATE_KEY_DIR` is an optional override. PEM files never enter git. (Respondent uses `respondentApp` + a default PEM path of `$HOME/.config/gcscode/gcscode-respondent.pem`; `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` is the optional override.)
+
+**3b — CLAUDE.md "Respondent posting discipline > Config" bullet.** Locate (around line 245):
+
+**Before:**
+
+> **Config:** App ID and installation ID live in `.claude/agent-config.json` under the `respondentApp` key (sibling to the per-role `reviewerApps` keys). Private key path is read from the `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` env var; the PEM file never enters git.
+
+**After:**
+
+> **Config:** App ID and installation ID live in `.claude/agent-config.json` under the `respondentApp` key (sibling to the per-role `reviewerApps` keys). Private key path defaults to `$HOME/.config/gcscode/gcscode-respondent.pem`; `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` is an optional override. The PEM file never enters git.
+
+**3c — CLAUDE.md "Further reading > `.claude/agent-config.json`" bullet.** Locate (around line 315):
+
+**Before:**
+
+> - `.claude/agent-config.json` — App IDs and installation IDs for the per-role reviewer GitHub Apps (under the `reviewerApps` key, one sub-object per role-slug) and for the respondent App (under `respondentApp`). Private key paths live in `GH_REVIEWER_APP_PRIVATE_KEY_DIR` (a directory containing per-role PEMs) and `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` env vars; PEM files never enter git.
+
+**After:**
+
+> - `.claude/agent-config.json` — App IDs and installation IDs for the per-role reviewer GitHub Apps (under the `reviewerApps` key, one sub-object per role-slug) and for the respondent App (under `respondentApp`). Private keys live at canonical default paths: `$HOME/.config/gcscode/gcscode-<role-slug>.pem` for reviewer roles, `$HOME/.config/gcscode/gcscode-respondent.pem` for respondent. The `GH_REVIEWER_APP_PRIVATE_KEY_DIR` and `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` env vars are optional overrides (per [`docs/specs/2026-05-17-robust-default-paths-in-token-helpers.md`](docs/specs/2026-05-17-robust-default-paths-in-token-helpers.md)). PEM files never enter git.
+
+**3d — CLAUDE.md "Further reading > `.claude/scripts/gh-app-token-reviewer`" bullet.** Locate (around line 316):
+
+**Before:**
 
 > - `.claude/scripts/gh-app-token-reviewer` — helper that generates short-lived installation tokens for per-role reviewer identities. Takes a role-slug argument. Reviewer subagents call `export GH_TOKEN=$(.claude/scripts/gh-app-token-reviewer <role-slug>)` before `gh pr review`. (Respondent uses `.claude/scripts/gh-app-token-respondent`.)
 
-**After**:
+**After:**
 
-> - `.claude/scripts/gh-app-token-reviewer` — helper that generates short-lived installation tokens for per-role reviewer identities. Takes a role-slug argument. Reviewer subagents call `export GH_TOKEN=$(.claude/scripts/gh-app-token-reviewer <role-slug>)` before `gh pr review`. PEM path defaults to `$HOME/.config/gcscode/gcscode-<role-slug>.pem`; `GH_REVIEWER_APP_PRIVATE_KEY_DIR` is an optional override (per [`docs/specs/2026-05-17-robust-default-paths-in-token-helpers.md`](docs/specs/2026-05-17-robust-default-paths-in-token-helpers.md)). (Respondent uses `.claude/scripts/gh-app-token-respondent`.)
+> - `.claude/scripts/gh-app-token-reviewer` — helper that generates short-lived installation tokens for per-role reviewer identities. Takes a role-slug argument. Reviewer subagents call `export GH_TOKEN=$(.claude/scripts/gh-app-token-reviewer <role-slug>)` before `gh pr review`. PEM path defaults to `$HOME/.config/gcscode/gcscode-<role-slug>.pem`; `GH_REVIEWER_APP_PRIVATE_KEY_DIR` is an optional override (per [`docs/specs/2026-05-17-robust-default-paths-in-token-helpers.md`](docs/specs/2026-05-17-robust-default-paths-in-token-helpers.md)). Respondent equivalent: `.claude/scripts/gh-app-token-respondent` defaults PEM to `$HOME/.config/gcscode/gcscode-respondent.pem`; `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` is the respondent's optional override.
 
-If a `gh-app-token-respondent` bullet exists under "Further reading," append the same default-path-fallback note to it. If no such bullet exists, no edit is needed for the respondent helper in "Further reading."
-
-**3b — roadmap.md flip.** Add the following entry to the **Queued** section of the agentic-team architecture track in `shell/docs/roadmap.md`, immediately after the existing "Tripwire condition (iii) compliance" `[x]`-marked entry:
+**3e — roadmap.md flip.** Add the following entry to the **Queued** section of the agentic-team architecture track in `shell/docs/roadmap.md`, immediately after the existing "Tripwire condition (iii) compliance" `[x]`-marked entry:
 
 ```md
-- [x] **Robust default paths in token helpers** — ad-hoc reliability iteration. Adds default-path fallback to `.claude/scripts/gh-app-token-reviewer` (`$HOME/.config/gcscode`) and `.claude/scripts/gh-app-token-respondent` (`$HOME/.config/gcscode/gcscode-respondent.pem`). The `GH_REVIEWER_APP_PRIVATE_KEY_DIR` and `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` env vars stay as optional overrides. Strict-env-var-required behavior was producing user-identity-fallback failures across PRs #20 and #22 when env propagation was transient or stale; convention over configuration removes the dependency. CLAUDE.md "Further reading" updated to note the default-path-fallback convention. Spec: [`specs/2026-05-17-robust-default-paths-in-token-helpers.md`](specs/2026-05-17-robust-default-paths-in-token-helpers.md).
+- [x] **Robust default paths in token helpers** — ad-hoc reliability iteration. Adds default-path fallback to `.claude/scripts/gh-app-token-reviewer` (default `$HOME/.config/gcscode`) and `.claude/scripts/gh-app-token-respondent` (default `$HOME/.config/gcscode/gcscode-respondent.pem`). The `GH_REVIEWER_APP_PRIVATE_KEY_DIR` and `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` env vars stay as optional overrides. Strict-env-var-required behavior was producing user-identity-fallback failures across PRs #20 and #22 when env propagation was transient or stale; convention over configuration removes the dependency on env-var propagation. Four CLAUDE.md locations updated for consistency (Config locations + Respondent Config + Further reading × 2). Spec: [`specs/2026-05-17-robust-default-paths-in-token-helpers.md`](specs/2026-05-17-robust-default-paths-in-token-helpers.md).
 ```
+
+### Pre-merge verification step (manual, mandatory before declaring v1 working)
+
+Run this in a clean subshell before post-merge Commits 1-3 land (the order is: ship the spec-PR, then run this test, then run the post-merge commits):
+
+```bash
+# Unset both env vars in a subshell, invoke each helper with a known role-slug,
+# verify each returns a token using the default path.
+(unset GH_REVIEWER_APP_PRIVATE_KEY_DIR GH_RESPONDENT_APP_PRIVATE_KEY_PATH; \
+ .claude/scripts/gh-app-token-reviewer red-team | head -c 16) \
+ && echo " (reviewer default-path test: token OK)" \
+ || echo "FAIL: reviewer default-path test"
+
+(unset GH_RESPONDENT_APP_PRIVATE_KEY_PATH GH_REVIEWER_APP_PRIVATE_KEY_DIR; \
+ .claude/scripts/gh-app-token-respondent | head -c 16) \
+ && echo " (respondent default-path test: token OK)" \
+ || echo "FAIL: respondent default-path test"
+```
+
+If either test FAILs, revert the post-merge commits and reconsider. If both succeed, the default-path fallback works as designed; the post-merge commits land.
