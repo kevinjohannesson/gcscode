@@ -1,7 +1,7 @@
 # Tripwire condition (iii) compliance
 
 **Slug:** tripwire-condition-iii-compliance
-**Iteration on the agentic-team track:** sixteenth. Seventh and final of the seven queued items from [`docs/specs/2026-05-16-agentic-team-debt-clearing-v1.md`](2026-05-16-agentic-team-debt-clearing-v1.md), following queued #1 (ADR-0009), #2 (respondent-subagent-v2), #3 (per-role-bot-identities), #4 (reviewer routing layer — still blocked), #5 (multi-model v1 evaluation — still blocked), #6 (auto-merge-bypasses-final-respondent v2). Items #4 and #5 remain blocked on external triggers; this iteration closes the unblocked tail of the debt-clearing queue.
+**Iteration on the agentic-team track:** sixteenth. Seventh and final of the seven queued items from [`docs/specs/2026-05-16-agentic-team-debt-clearing-v1.md`](2026-05-16-agentic-team-debt-clearing-v1.md), following queued #1 (ADR-0009), #2 (respondent-subagent-v2), #3 (per-role-bot-identities), #4 (reviewer routing layer — still blocked), #5 (multi-model v1 evaluation — still blocked), #6 (auto-merge-bypasses-final-respondent v2). Items #4 and #5 remain blocked on external triggers; this iteration closes the unblocked tail of the debt-clearing queue. **Interleaved iteration note:** an ad-hoc fifteenth iteration ([`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](2026-05-17-relative-paths-in-reviewer-output.md)) shipped between #6 and this #7 — it surfaced as an operational-discipline cleanup mid-queue and explicitly queued the convention-revision question that THIS iteration resolves.
 **Type:** convention-alignment iteration. Revises CLAUDE.md "Reviewer-role design conventions > Tripwires" condition (iii) wording + adds one inline supersession breadcrumb to a prior spec's tripwire that the convention rendered obsolete. No code, no agent files, no workflow changes.
 **No bootstrap exceptions.** Spec ships via spec-PR workflow; implementation lands per the post-merge implementation convention.
 
@@ -60,15 +60,23 @@ Current condition (iii) wording (CLAUDE.md line 269):
 
 Revised wording adds one sentence after the existing text, clarifying the distinction:
 
-> (iii) detectable as a pattern across N PRs rather than per-PR — with an explicit carve-out for **binary grep-able rules** where the failure is a single observable event (e.g., "any review body contains `/Users/...`"). For those, N=1 is the correct threshold because the rule has no noise floor — a single observation IS the failure. The "across N PRs" guard applies to noise-prone signals (subjective judgments, vibes-checks, per-session experiences) where one observation could be coincidence.
+> (iii) detectable as a pattern across N PRs rather than per-PR — with an explicit carve-out for **binary grep-able rules** where the failure is a single observable event (e.g., "any review body contains an absolute filesystem path"). For binary rules, N=1 is the correct threshold because the rule has no noise floor — a single observation IS the failure. The "across N PRs" guard applies to noise-prone signals (subjective judgments, vibes-checks, per-session experiences) where one observation could be coincidence. Canonical example of the binary-rule carve-out: the leak-recurrence tripwire in [`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](2026-05-17-relative-paths-in-reviewer-output.md).
+
+**Definition of "binary grep-able rule" (tightened per red-team Opus's review of this PR).** A tripwire qualifies for the N=1 carve-out only when it satisfies **all three** of these properties:
+
+1. **Decidable in constant time on the review body's text** — a deterministic check (string contains, regex match, structural match) over the review's raw markdown, not a judgment about the review's argument or quality.
+2. **No false-positive surface from legitimate use** — the rule's "failure" matches the rule's intent without ambiguity. (The leak-recurrence tripwire's carve-out for code-block-flagged-as-leak is itself the mechanism that satisfies this property — without the carve-out, the rule would have false-positive surface and the binary classification would fail.)
+3. **The failure-signature is the rule's whole semantics** — there's no implicit "but maybe it was OK in context" interpretation. The rule is what it says.
+
+A tripwire that doesn't satisfy all three properties stays under the default "across N PRs" guard.
 
 ### The supersession breadcrumb
 
-`docs/specs/2026-05-16-review-discussion-loop-v1.md`'s "Cross-session reconstruction tripwire" is mooted by respondent-subagent-v2's shipping. The tripwire's premise — "the controller in a new session reconstructs prior-session disposition intent" — no longer applies because respondent dispatch is now subagent-driven with structured-input pre-fetch (per `docs/specs/2026-05-16-respondent-subagent-v2.md`). Inline breadcrumb on the tripwire entry (per the CLAUDE.md "Specs as historical record" pattern of one-line cross-references).
+`docs/specs/2026-05-16-review-discussion-loop-v1.md`'s "Cross-session reconstruction tripwire" targeted the **controller's** reconstruction cost — the time a new-session controller spent reading prior-session PR state before writing a response. Respondent-subagent-v2 (per [`docs/specs/2026-05-16-respondent-subagent-v2.md`](2026-05-16-respondent-subagent-v2.md)) moved response composition into a dedicated subagent that receives structured-input pre-fetch. **This materially reduces the controller's reconstruction cost but does not eliminate it entirely** — the controller still pre-fetches the reviewer review + followup diff + spec content before dispatching the respondent subagent, and that pre-fetch retains some cross-session lookup cost. The tripwire's "10 minutes" threshold is no longer the principal cost-bearing case; the tripwire is effectively obsolete-in-practice even if not strictly mooted. Inline breadcrumb on the tripwire entry (per the CLAUDE.md "Specs as historical record" pattern of one-line cross-references) reflects this honestly.
 
 ### What about the relative-paths spec?
 
-No edit. The spec's "Divergence from condition (iii)" subsection explicitly states "v1 documents the divergence explicitly here so future readers don't mistake it for an oversight; whether condition (iii) should be revised to permit 'N=1 tripwires for binary rules' is queued as a future-iteration question." That queued question is **answered by this iteration** — the convention now permits the form. The relative-paths spec stays as historical record of the divergence-at-the-time; future readers following the convention's history can trace the resolution via this spec.
+Per red-team Sonnet's review of this PR (asymmetric-breadcrumb finding), the relative-paths spec gets a one-line forward-breadcrumb parallel to the one Commit 2 adds to `review-discussion-loop-v1`. The breadcrumb pattern is mechanical (a cross-reference pointer, per CLAUDE.md "Specs as historical record" allowance for one-line breadcrumbs), not a substantive edit. The relative-paths spec's "Divergence from condition (iii)" subsection stays as historical record of the divergence-at-the-time; the breadcrumb just makes the resolution visible to readers who land on that spec without traversing the convention history forward. See Post-merge implementation > Commit 3 verbatim.
 
 ## Validation
 
@@ -120,11 +128,12 @@ Designed 2026-05-17, immediately after [`docs/specs/2026-05-17-relative-paths-in
 
 ## Post-merge implementation
 
-Per the post-merge implementation convention, **three direct-master commits**. All content fully specified verbatim below.
+Per the post-merge implementation convention, **four direct-master commits**. All content fully specified verbatim below.
 
-- **Commit 1:** Revise CLAUDE.md "Reviewer-role design conventions > Tripwires" condition (iii) wording.
-- **Commit 2:** Append an inline supersession breadcrumb to `docs/specs/2026-05-16-review-discussion-loop-v1.md`'s "Cross-session reconstruction tripwire" bullet.
-- **Commit 3:** roadmap.md flip (Considering → Queued/Shipped `[x]`).
+- **Commit 1:** Revise CLAUDE.md "Reviewer-role design conventions > Tripwires" condition (iii) wording + add the "binary grep-able rule" tightened definition (three properties).
+- **Commit 2:** Append an inline obsolete-in-practice breadcrumb to `docs/specs/2026-05-16-review-discussion-loop-v1.md`'s "Cross-session reconstruction tripwire" bullet.
+- **Commit 3:** Append a parallel forward-breadcrumb to `docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`'s "Divergence from condition (iii)" subsection (parity with Commit 2 per red-team Sonnet's review).
+- **Commit 4:** roadmap.md flip (Considering → Queued/Shipped `[x]`).
 
 ### Verbatim — Commit 1 (CLAUDE.md condition (iii) revision)
 
@@ -136,7 +145,7 @@ Locate the "Tripwires for known-quality concerns" paragraph in `shell/CLAUDE.md`
 
 **After:**
 
-> Tripwire-worthy concerns are those (i) tied to a specific failure mode of the role (not generic critique-quality worries), (ii) observable in the review's structured output rather than requiring artifact-level human judgment, and (iii) detectable as a pattern across N PRs rather than per-PR — with an explicit carve-out for **binary grep-able rules** where the failure is a single observable event (e.g., "any review body contains an absolute filesystem path"). For binary rules, N=1 is the correct threshold because the rule has no noise floor — a single observation IS the failure. The "across N PRs" guard applies to noise-prone signals (subjective judgments, vibes-checks, per-session experiences) where one observation could be coincidence. Canonical example of the binary-rule carve-out: the leak-recurrence tripwire in [`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](docs/specs/2026-05-17-relative-paths-in-reviewer-output.md).
+> Tripwire-worthy concerns are those (i) tied to a specific failure mode of the role (not generic critique-quality worries), (ii) observable in the review's structured output rather than requiring artifact-level human judgment, and (iii) detectable as a pattern across N PRs rather than per-PR — with an explicit carve-out for **binary grep-able rules** where the failure is a single observable event (e.g., "any review body contains an absolute filesystem path"). For binary rules, N=1 is the correct threshold because the rule has no noise floor — a single observation IS the failure. The "across N PRs" guard applies to noise-prone signals (subjective judgments, vibes-checks, per-session experiences) where one observation could be coincidence. **A tripwire qualifies for the N=1 carve-out only when it satisfies all three of:** (a) decidable in constant time on the review body's text (deterministic check, not a judgment about the review's argument), (b) no false-positive surface from legitimate use (any carve-out the rule defines is itself the mechanism that satisfies this), (c) the failure-signature is the rule's whole semantics (no "but maybe it was OK in context" interpretation). Tripwires that don't satisfy all three stay under the default "across N PRs" guard. Canonical example of the binary-rule carve-out: the leak-recurrence tripwire in [`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](docs/specs/2026-05-17-relative-paths-in-reviewer-output.md).
 
 ### Verbatim — Commit 2 (review-discussion-loop-v1 inline breadcrumb)
 
@@ -144,12 +153,25 @@ Locate the "Cross-session reconstruction tripwire" bullet in `shell/docs/specs/2
 
 ```md
 
-  > **Superseded 2026-05-17 by [`2026-05-16-respondent-subagent-v2.md`](2026-05-16-respondent-subagent-v2.md):** respondent dispatch became subagent-driven with structured-input pre-fetch; the controller no longer reconstructs prior-session disposition intent. Tripwire is no longer applicable. Convention-(iii) compliance for this tripwire is moot regardless.
+  > **Effectively obsolete 2026-05-17 per [`2026-05-16-respondent-subagent-v2.md`](2026-05-16-respondent-subagent-v2.md) + [`2026-05-17-tripwire-condition-iii-compliance.md`](2026-05-17-tripwire-condition-iii-compliance.md):** respondent dispatch became subagent-driven with structured-input pre-fetch. The controller's reconstruction cost is materially reduced but not eliminated (the controller still pre-fetches reviewer review + diff + spec before dispatch). The tripwire's 10-minute threshold is no longer the principal cost-bearing case; the tripwire is left in place as historical record of the original concern rather than removed.
 ```
 
 (Note: the breadcrumb is indented to align with the bullet's continuation per markdown nested-list convention.)
 
-### Verbatim — Commit 3 (roadmap.md flip)
+### Verbatim — Commit 3 (relative-paths spec forward-breadcrumb — parity with Commit 2)
+
+Per red-team Sonnet's review of this PR (asymmetric-breadcrumb finding): the review-discussion-loop-v1 spec gets an inline breadcrumb noting its tripwire is now obsolete-in-practice; the relative-paths spec's "Divergence from condition (iii)" subsection should get a parallel one noting the queued question is now resolved.
+
+Locate the "Divergence from CLAUDE.md ... condition (iii)" subsection within the "Leak-recurrence tripwire" section of `shell/docs/specs/2026-05-17-relative-paths-in-reviewer-output.md` (within the Tripwires section). Append the following blockquote on a new line at the END of the Divergence-from-condition-(iii) paragraph (after its closing period):
+
+```md
+
+  > **Resolved 2026-05-17 by [`2026-05-17-tripwire-condition-iii-compliance.md`](2026-05-17-tripwire-condition-iii-compliance.md):** condition (iii) was revised to permit binary grep-able tripwires at N=1. The leak-recurrence tripwire is no longer a divergence; it is the canonical example of the binary-rule carve-out cited in the convention.
+```
+
+(Note: the breadcrumb is indented to align with the section's continuation per markdown convention.)
+
+### Verbatim — Commit 4 (roadmap.md flip)
 
 **Pre-edit verification:** `grep -n "Tripwire condition (iii)" shell/docs/roadmap.md` to locate the existing Considering entry.
 
