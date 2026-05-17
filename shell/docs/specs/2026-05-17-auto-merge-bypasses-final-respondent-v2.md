@@ -135,7 +135,7 @@ v2 ships F2 as the smallest cut. F1 and F4 are the structural answers; both are 
 Accept the asymmetry at the respondent level, with three honest caveats:
 
 1. The controller-voice audit trail has a real gap at the final round when re-reviews are "strong with residuals" (clean by verdict but containing new items).
-2. The bound on the gap is the typology of net-new re-review findings — by construction, second-order critiques not first-order.
+2. The bound on the gap is the followup-diff surface — net-new re-review findings fall into two shapes: (a) second-order critiques of HOW the followup addressed prior findings, and (b) first-order observations on NEW content the followup introduced. Both are bounded by the diff (the surface area the followup added), NOT by "second-order only" (which would be a stronger and empirically-false claim). See "Why not the bigger version" for the empirical reasoning and PR #18's evidence of both shapes.
 3. Under auto-merge, the controller's "merge action" is the `ready-for-review` + `labeled auto-merge` two-step, NOT the workflow's `gh pr merge` call. Option (3) above proposes capturing the two-step as a respondent post; v2 accepts that it stays implicit but commits the workflow-side gate fix so the two-step actually gates correctly.
 
 ### CLAUDE.md edit (v2 — replaces v1's never-landed Commit 1)
@@ -182,6 +182,8 @@ Verbatim edit content in Post-merge implementation > Commit 3.
 - **Empirical sample size of two (PRs #18 and #19).** The cost-bearing case (strong-with-residuals + no followup) appeared on PR #18 (Opus's residuals went undisposed); the race appeared on PR #19. v2's tripwire and gate fix together close both gaps for future PRs.
 - **Gate 3b coupling to multi-model dispatch.** Documented in Architecture > Auto-merge workflow gate fix. Future multi-model evaluation iteration must revert if it drops Sonnet from the red-team dispatch.
 - **Option (3) is preferred for the future final-wrap iteration.** Documented in Why not the bigger version.
+- **`docs/specs/2026-05-14-auto-merge-on-user-approval.md` (the spec that originally introduced Gate 3b) drifts post-Commit 1.** That spec documents Gate 3b's original `>= 1` semantics. Per CLAUDE.md "Specs as historical record," merged specs are NOT deeply edited substantively; they stand as historical record of their iteration's decisions. v2's Commit 1 changes the workflow Gate 3b, which renders that spec's Gate 3b description historical. **No edit to `auto-merge-on-user-approval.md` planned.** v2 supersedes its Gate 3b semantics via this spec; readers of the auto-merge-on-user-approval spec who want the current gate semantics should follow the same forward-breadcrumb pattern v2 applies to v1 — by reading newer specs in the spec timeline. A future iteration may add a breadcrumb to the auto-merge spec if the forward-reference becomes load-bearing.
+- **F2's operational mitigation (remove label after each Code-review-followup commit, re-apply after re-reviews post) is structurally the same shape as v1's "discipline-as-substitute-for-gate" pattern that v2 critiques.** Acknowledged: v2's mitigation is a smaller substitution (it applies only to the re-review-round race, not the initial-round race, which v2 closes structurally), and the re-review-round race tripwire instruments the escalation to F1/F4. The asymmetry is intentional: v2 ships F2 as the smallest cut; the structural answer (F1/F4) is queued.
 
 ## Tripwires for known-quality concerns
 
@@ -281,9 +283,9 @@ Also update the workflow's leading comment block (around line 9) — the spec/* 
 
 **Before:** `for \`spec/*\` or \`adr/*\` PRs both red-team AND spec-quality have posted at least one review`
 
-**After:** `for \`spec/*\` or \`adr/*\` PRs \`gcscode-red-team\` has posted >=2 reviews (both Opus and Sonnet under multi-model dispatch) AND \`gcscode-spec-quality\` has posted >=1 review`
+**After:** `for \`spec/*\` or \`adr/*\` PRs \`gcscode-red-team\` has posted >=2 reviews (both Opus and Sonnet under multi-model dispatch) AND \`gcscode-spec-quality\` has posted >=1 review (enforcing the auto-dispatch obligation AND preventing the initial-round merge race)`
 
-The rest of the bullet (auto-merge label semantics, branch-class scoping, etc.) is unchanged.
+The rest of the bullet (auto-merge label semantics, branch-class scoping, etc.) is unchanged. The "enforcing the auto-dispatch obligation" phrase is preserved from the original wording (matches CLAUDE.md's existing rationale framing); the added clause names the v2 race-prevention purpose explicitly.
 
 ### Verbatim — Commit 3 (docs propagation + v1 forward-breadcrumb)
 
