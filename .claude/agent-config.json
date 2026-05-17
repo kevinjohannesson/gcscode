@@ -1,10 +1,10 @@
 {
-  "githubApp": {
-    "appId": "3693536",
-    "installationId": "131834383"
+  "reviewerApps": {
+    "spec-compliance": { "appId": "3742240", "installationId": "133058924" },
+    "code-quality":    { "appId": "3742253", "installationId": "133059467" },
+    "final-review":    { "appId": "3742256", "installationId": "133059507" },
+    "red-team":        { "appId": "3742257", "installationId": "133059552" },
+    "spec-quality":    { "appId": "3742259", "installationId": "133059587" }
   },
-  "respondentApp": {
-    "appId": "3733841",
-    "installationId": "132842105"
-  }
+  "respondentApp": { "appId": "3733841", "installationId": "132842105" }
 }
