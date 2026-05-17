@@ -24,6 +24,8 @@ The "cowork" arc as initially scoped on claude.ai included a webhook router, a q
 - Reviewer identity is a GitHub App (`gcscode-reviewer`), not the user's account — this is what lets the agent legitimately `--request-changes` on a PR the user authored.
 - The end-to-end workflow is encoded in `CLAUDE.md` instructions plus a small token helper script; no new TypeScript code, no new slash commands.
 
+> **per-role-bot-identities-for-reviewers breadcrumb (added 2026-05-16):** The single shared `gcscode-reviewer[bot]` identity introduced here was split into 5 per-role identities by [`2026-05-16-per-role-bot-identities-for-reviewers.md`](2026-05-16-per-role-bot-identities-for-reviewers.md) per the agentic-team debt-clearing v1 commitment ([`2026-05-16-agentic-team-debt-clearing-v1.md`](2026-05-16-agentic-team-debt-clearing-v1.md))'s queued-item-3 entry. The shared-identity scheme + the `gh-app-token` helper are historical as of 2026-05-16; per-role identities + `gh-app-token-reviewer <role-slug>` replace them. The retirement is a clean retire (no backwards-compat shim).
+
 ## Non-goals
 
 - **No Linear integration**, in any form, in this iteration.
