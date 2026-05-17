@@ -33,10 +33,9 @@ if [[ ! -f "$config" ]]; then
   exit 1
 fi
 
-if [[ -z "${GH_REVIEWER_APP_PRIVATE_KEY_DIR:-}" ]]; then
-  echo "gh-app-token-reviewer: GH_REVIEWER_APP_PRIVATE_KEY_DIR not set" >&2
-  exit 1
-fi
+# Default path: $HOME/.config/gcscode (the canonical gcscode PEM directory).
+# GH_REVIEWER_APP_PRIVATE_KEY_DIR can be set to override (e.g., for testing).
+: "${GH_REVIEWER_APP_PRIVATE_KEY_DIR:=$HOME/.config/gcscode}"
 
 pem_path="$GH_REVIEWER_APP_PRIVATE_KEY_DIR/gcscode-$role_slug.pem"
 
