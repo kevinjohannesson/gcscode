@@ -59,6 +59,15 @@ Reviewers + respondents writing to GitHub PR comments MUST use **repo-relative p
 
 The "git root" here is the directory containing the `.claude/` subdirectory and the `shell/` workspace; in current gcscode layout, the git root is one level above `shell/`.
 
+**Scope (all four output forms):** the rule applies uniformly to (a) quoted file references in review prose, (b) entries on `Checked against:` / `Cross-checked:` / `Tested:` lines, (c) link-resolution paths in spec-quality output, (d) citation targets in respondent `intentional, see <X>` dispositions. The rule does NOT apply to: external URLs (https://...), package names (`@gcscode/shell`), or anchored references that aren't filesystem paths.
+
+**Exception — "the leak IS the finding."** When a reviewer is REPORTING a leaked absolute path (e.g., spec-quality's link-mechanics review flags a malformed link target that's an absolute path), the reviewer SHOULD quote the leaked path inside a fenced code block AND explicitly flag it as a leak. The rule prohibits absolute paths the reviewer chooses to include; it does not prohibit quoting absolute paths the reviewer is FLAGGING. Example forms:
+
+- ✓ Allowed: ``link target `[link](/Users/foo/bar)` at line 42 contains absolute path — leak``
+- ✗ Forbidden: `the spec contains a /Users/ path` (no code-block delimiters, no leak-flag)
+
+The same carve-out applies to respondent posts citing a finding from a prior reviewer review.
+
 ### CLAUDE.md addition
 
 A new paragraph is added to CLAUDE.md "Subagent reviewer PR-posting discipline" subsection, near the existing "Re-review after a Code-review-followup commit" paragraph. It establishes the rule, names the rationale (privacy + portability), and gives examples of allowed vs forbidden forms.
@@ -85,8 +94,12 @@ This is a controller-behavior change, not a template change. It's documented in 
 
 ## Validation
 
-- **Direct validation by reviewer behavior on this PR.** Each reviewer that reviews this spec-PR must use repo-relative paths in their output. If any reviewer's review contains `/Users/`, `/home/`, or similar absolute prefix, the rule is being violated even as it's being defined. The controller should validate each reviewer post for leak patterns before applying the auto-merge label.
-- **Post-merge validation on the FIRST spec/ADR PR after the rule ships.** The post-merge implementation lands the CLAUDE.md and prompt-template changes; the next spec/ADR PR's reviewers should naturally use repo-relative paths without the controller dispatching with absolute-path orientation.
+Two distinct tests, with different mechanisms:
+
+- **Test 1 — Dispatch-prompt-discipline validation (THIS PR).** The controller dispatched this PR's reviewers WITHOUT including absolute paths as orientation (deliberately exercising the new dispatch-side discipline). If reviewers produce repo-relative output without dispatch-prompt prodding, the dispatch-side discipline holds. The controller scans each reviewer post before applying the `auto-merge` label; any `/Users/`, `/home/`, `/private/` leak that ISN'T inside a code-block flagged-as-leak (per the carve-out) triggers an immediate followup commit + manual API patch (per the leak-recurrence tripwire's response). **This is a test of dispatch behavior, not template content** — the templates aren't yet updated on this PR.
+- **Test 2 — Template-content validation (FIRST post-merge spec/ADR PR).** After post-merge implementation lands the CLAUDE.md addition + the three prompt-template edits, the next real spec/ADR PR's reviewers will dispatch with the updated templates. The rule should hold without the controller doing dispatch-side enforcement. This is the real test that the template content is sufficient on its own. **This is a test of template content, not dispatch behavior.**
+
+If Test 1 fails (a leak appears on THIS PR's review output), the dispatch-side discipline alone is insufficient — the spec's case for template-level codification is strengthened, not weakened. If Test 2 fails (a leak appears post-merge), the templates need tightening; the leak-recurrence tripwire fires.
 
 ## VS Code alignment
 
@@ -96,7 +109,11 @@ Propagation to `shell/docs/vs-code-alignment.md`: none.
 
 ## `docs/out-of-scope.md` propagation
 
-**No edit.** This iteration is per-iteration scope (discipline + small documentation). Future iterations (automated enforcement, broader leak-class generalization) have their own triggers documented above.
+Both red-team reviewers (Opus + Sonnet) on this PR's initial review independently flagged that the Non-goals list contains cross-cutting architectural deferrals (not just per-iteration scope cuts) and that per CLAUDE.md "Non-goals propagate to `docs/out-of-scope.md`," those cross-cutting items should land in `out-of-scope.md`. The original spec's "No edit" call was wrong; the followup commit corrects it.
+
+**Edit:** under the "Agentic team architecture deferrals" section of `shell/docs/out-of-scope.md`, append three entries — automated leak enforcement, broader leak-class generalization, and scope extension to non-PR-posting subagents. The fourth Non-goal (historical audit) is a one-off cleanup not a cross-cutting deferral; it stays in this spec only.
+
+Verbatim edit content in Post-merge implementation > Commit 4.
 
 ## `docs/roadmap.md` propagation
 
@@ -112,9 +129,11 @@ Verbatim edit content in Post-merge implementation > Commit 3.
 
 ## Tripwires for known-quality concerns
 
-- **Leak-recurrence tripwire.** If a reviewer or respondent posts any PR comment containing `/Users/`, `/home/`, `/private/`, or other absolute-path prefix AFTER this rule lands, the rule is not being followed. **Fires at N=1 PR** (single observation; the rule is binary, not noise-prone). Response: investigate which subagent + dispatch prompt produced the leak, edit the post via API, and either revise the rule's wording for ambiguity OR escalate to automated enforcement.
+- **Leak-recurrence tripwire.** If a reviewer or respondent posts any PR comment containing `/Users/`, `/home/`, `/private/`, or other absolute-path prefix AFTER this rule lands, AND the absolute path is NOT inside a code-block flagged-as-leak per the carve-out (Architecture > The rule > Exception), the rule is not being followed. **Fires at N=1 PR** (single observation suffices because the rule is binary and the check is grep-able from the review's raw body — noise-prone failure modes are absent). Response: investigate which subagent + dispatch prompt produced the leak, edit the post via API, and either revise the rule's wording for ambiguity OR escalate to automated enforcement (per Future iterations > 1).
 
-This tripwire is a manual check; the controller should scan its own reviewer outputs before applying the auto-merge label.
+  **Divergence from CLAUDE.md "Reviewer-role design conventions > Tripwires" condition (iii):** condition (iii) says tripwires should be "detectable as a pattern across N PRs rather than per-PR." This tripwire is N=1 per-PR. The divergence is **deliberate**: condition (iii) is a guard against noise-prone signals (a single misfire on something subjective doesn't justify an iteration); a binary grep-able rule like this one doesn't have a noise floor. A single observation is the signal. v1 documents the divergence explicitly here so future readers don't mistake it for an oversight; whether condition (iii) should be revised to permit "N=1 tripwires for binary rules" is queued as a future-iteration question (it's not blocking — both the convention and this divergence stand as-is for now).
+
+This tripwire is a manual check; the controller should scan its own reviewer outputs before applying the `auto-merge` label.
 
 ## Future iterations
 
@@ -130,34 +149,47 @@ This iteration is not part of the agentic-team debt-clearing v1 queue (queued it
 
 ## Post-merge implementation
 
-Per the post-merge implementation convention, **three direct-master commits**. All content fully specified verbatim below.
+Per the post-merge implementation convention, **four direct-master commits**. All content fully specified verbatim below.
 
 - **Commit 1:** Add the rule paragraph to CLAUDE.md "Subagent reviewer PR-posting discipline" subsection.
-- **Commit 2:** Add the one-line rule to each of the three reviewer/respondent prompt templates.
+- **Commit 2:** Add the rule to each of the three reviewer/respondent prompt templates (2a-2c), all including the "leak IS the finding" carve-out.
 - **Commit 3:** Documentation propagation — add a single Queued/Shipped `[x]` entry to roadmap.md.
+- **Commit 4:** `docs/out-of-scope.md` propagation — add three Agentic-team-architecture-deferrals entries for the cross-cutting Non-goals (automated leak enforcement, broader leak-class generalization, scope extension to non-PR-posting subagents).
 
 ### Verbatim — Commit 1 (CLAUDE.md edit)
 
 Locate the "Subagent reviewer PR-posting discipline" subsection in `shell/CLAUDE.md`. After the existing paragraphs describing the discipline (the "Dispatch prompt requirements" bullets + the verdict table + the "Re-review after a Code-review-followup commit" paragraph), and **before** the "Auto-dispatch on spec/ADR PRs" subsection, insert the following NEW paragraph:
 
-> **Repo-relative paths in reviewer + respondent output (mandatory).** Reviewer and respondent subagents writing to GitHub PR comments MUST use repo-relative paths. Paths reference files from the git root (e.g., `shell/docs/specs/foo.md`, `.claude/scripts/gh-app-token-reviewer`, `.github/workflows/auto-merge.yml`). Absolute paths (`/Users/...`, `/home/...`, `/private/tmp/...`, etc.) MUST NOT appear in PR-comment output. This applies to all four output forms reviewers produce: quoted file references, `Checked against:` line items, link-resolution paths in spec-quality output, and citation paths in `intentional, see <X>` respondent dispositions. **Controller dispatch prompts MUST NOT include absolute paths as orientation** — the leak's actual source is the controller informing the subagent of the absolute working directory; subagents then echo it in output. Rationale: privacy (gcscode is a public repo; absolute paths leak the user's filesystem layout) and portability (paths must be meaningful to other contributors and future-self on a different machine). Spec: [`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](docs/specs/2026-05-17-relative-paths-in-reviewer-output.md).
+> **Repo-relative paths in reviewer + respondent output (mandatory).** Reviewer and respondent subagents writing to GitHub PR comments MUST use repo-relative paths. Paths reference files from the git root (e.g., `shell/docs/specs/foo.md`, `.claude/scripts/gh-app-token-reviewer`, `.github/workflows/auto-merge.yml`). Absolute paths (`/Users/...`, `/home/...`, `/private/tmp/...`, etc.) MUST NOT appear in PR-comment output. This applies to all four output forms reviewers produce: quoted file references, `Checked against:` line items, link-resolution paths in spec-quality output, and citation paths in `intentional, see <X>` respondent dispositions. **Exception — "the leak IS the finding":** when a reviewer or respondent is REPORTING a leaked path (e.g., spec-quality flags an absolute-path link target as a structural defect), the leaked path MUST be quoted inside a fenced code block AND explicitly flagged as a leak. The rule prohibits paths the subagent chooses to include in its own prose; it does not prohibit quoting paths the subagent is flagging. **Controller dispatch prompts MUST NOT include absolute paths as orientation** — the leak's actual source is the controller informing the subagent of the absolute working directory; subagents then echo it in output. Rationale: privacy (gcscode is a public repo; absolute paths leak the user's filesystem layout) and portability (paths must be meaningful to other contributors and future-self on a different machine). Spec: [`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](docs/specs/2026-05-17-relative-paths-in-reviewer-output.md).
 
 ### Verbatim — Commit 2 (reviewer + respondent prompt template edits — three sub-edits)
 
 **2a — `.claude/reviewer-prompts/red-team.md`.** Locate the "Tone" section. After the existing bullet list, append a new bullet:
 
-> - **Repo-relative paths only.** Use repo-relative paths in all output (e.g., `shell/docs/specs/foo.md`, `.claude/scripts/bar`); never include absolute paths revealing local filesystem layout. See CLAUDE.md "Subagent reviewer PR-posting discipline > Repo-relative paths" + spec [`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](../../shell/docs/specs/2026-05-17-relative-paths-in-reviewer-output.md).
+> - **Repo-relative paths only.** Use repo-relative paths in all output (e.g., `shell/docs/specs/foo.md`, `.claude/scripts/bar`); never include absolute paths revealing local filesystem layout. **Exception:** when the absolute path IS the finding (e.g., flagging a leaked path in the artifact under review), quote it inside a fenced code block AND flag it explicitly as a leak — the rule prohibits paths YOU choose to include, not paths you're REPORTING. See CLAUDE.md "Subagent reviewer PR-posting discipline > Repo-relative paths" + spec [`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](../../shell/docs/specs/2026-05-17-relative-paths-in-reviewer-output.md).
 
-**2b — `.claude/reviewer-prompts/spec-quality.md`.** Same as 2a — locate "Tone" section, append the bullet (same wording).
+**2b — `.claude/reviewer-prompts/spec-quality.md`.** Same as 2a — locate "Tone" section, append the bullet (same wording, including the "leak IS the finding" carve-out). Spec-quality reviewers verifying link mechanics are the most-likely class to need this carve-out: a malformed link target that's an absolute path IS a structural finding spec-quality is supposed to flag.
 
-**2c — `.claude/reviewer-prompts/respondent.md`.** Locate the "Response body structure" or "Tool surface" section (whichever comes first). After the existing rules, add a paragraph:
+**2c — `.claude/reviewer-prompts/respondent.md`.** Locate the "Tool surface (citation verification)" section. Append the following paragraph to the END of that section (immediately after the section's last paragraph, BEFORE the next `## Self-fetch (round-aware context)` heading begins):
 
-> **Repo-relative paths only.** Use repo-relative paths in all output (e.g., `shell/docs/specs/foo.md`, `.claude/scripts/bar`); never include absolute paths revealing local filesystem layout. This applies to citation targets in `intentional, see <X>` dispositions and any other file references in the response body. See CLAUDE.md "Subagent reviewer PR-posting discipline > Repo-relative paths" + spec [`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](../../shell/docs/specs/2026-05-17-relative-paths-in-reviewer-output.md).
+> **Repo-relative paths only.** Use repo-relative paths in all output (e.g., `shell/docs/specs/foo.md`, `.claude/scripts/bar`); never include absolute paths revealing local filesystem layout. This applies to citation targets in `intentional, see <X>` dispositions and any other file references in the response body. **Exception:** when the absolute path IS the finding being disposed of (e.g., a reviewer flagged a leaked path and the respondent is documenting that disposition), quote the leaked path inside a fenced code block AND flag it as a leak — the rule prohibits paths the respondent chooses to include, not paths the respondent is reporting. See CLAUDE.md "Subagent reviewer PR-posting discipline > Repo-relative paths" + spec [`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](../../shell/docs/specs/2026-05-17-relative-paths-in-reviewer-output.md).
 
 ### Verbatim — Commit 3 (roadmap.md propagation)
 
 In `shell/docs/roadmap.md`, add the following entry to the **Queued** section of the agentic-team architecture track, immediately after the existing "Auto-merge-bypasses-final-respondent design (v2)" `[x]`-marked entry:
 
 ```md
-- [x] **Relative paths in reviewer + respondent output** — codifies the rule "repo-relative paths only in PR-comment output" in CLAUDE.md "Subagent reviewer PR-posting discipline" subsection + adds the rule to each of the three reviewer/respondent prompt templates. Surfaced ad-hoc during PR #20's post-merge review when the user noticed 4 reviewer comments across PRs #18-#20 contained absolute `/Users/...` paths. 4 leaked reviews patched out-of-band via the GitHub Reviews API before this spec opened; this spec is the going-forward rule. Spec: [`specs/2026-05-17-relative-paths-in-reviewer-output.md`](specs/2026-05-17-relative-paths-in-reviewer-output.md).
+- [x] **Relative paths in reviewer + respondent output** — codifies the rule "repo-relative paths only in PR-comment output" in CLAUDE.md "Subagent reviewer PR-posting discipline" subsection + adds the rule to each of the three reviewer/respondent prompt templates. Surfaced ad-hoc during PR #20's post-merge review when the user noticed 4 reviewer comments across PRs #18-#20 contained absolute `/Users/...` paths. 4 leaked reviews patched out-of-band via the GitHub Reviews API before this spec opened; this spec is the going-forward rule. Includes "leak IS the finding" carve-out (quote-in-code-block + flag-as-leak) for reviewers/respondents reporting leaks. Spec: [`specs/2026-05-17-relative-paths-in-reviewer-output.md`](specs/2026-05-17-relative-paths-in-reviewer-output.md).
 ```
+
+### Verbatim — Commit 4 (`docs/out-of-scope.md` propagation)
+
+In `shell/docs/out-of-scope.md`, locate the "Agentic team architecture deferrals" section. Append the following three entries to the end of that section (alongside the existing entries):
+
+```md
+- **Automated enforcement of "repo-relative paths only" in reviewer/respondent output.** v1 of the rule (per [`specs/2026-05-17-relative-paths-in-reviewer-output.md`](specs/2026-05-17-relative-paths-in-reviewer-output.md)) is convention-only — no workflow gate, pre-commit hook, or per-post scan enforces it. Manual discipline (controller scans reviewer output before applying the `auto-merge` label) is the v1 mechanism. Trigger to revisit: the leak-recurrence tripwire fires (any reviewer/respondent posts an absolute path that isn't a code-block-flagged-as-leak per the carve-out).
+- **Broader leak-class enforcement (beyond filesystem paths).** Out of scope for v1. Future leak classes (env-var values, hostnames, IP addresses, other local-context identifiers) would each need their own rule + enforcement design. Trigger to revisit: a different leak class is observed in reviewer/respondent output.
+- **Scope extension of "repo-relative paths" to non-PR-posting subagents.** The rule applies only to reviewer + respondent subagents (the ones that write to GitHub PR comments). Implementer subagents (e.g., from `superpowers:subagent-driven-development`) and other non-PR-posting subagents are out of scope because their output is local-only and doesn't surface publicly. Trigger to revisit: implementer subagents start posting to PRs OR another subagent class begins producing public artifacts.
+```
+
+The fourth Non-goal (historical audit beyond PRs #18-#20) is intentionally NOT propagated: it's a one-off operational decision about which historical PRs to clean up, not a cross-cutting architectural deferral. The audit either happens (one-off iteration) or doesn't (no further cleanup); there's no class of future iterations to defer.
