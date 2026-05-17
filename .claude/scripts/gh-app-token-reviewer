@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Generates a short-lived GitHub App installation token for a per-role gcscode reviewer.
 # Usage: gh-app-token-reviewer <role-slug>
-# Valid role-slugs: spec-compliance, code-quality, final-review, red-team, spec-quality
+# Valid role-slugs: spec-compliance, code-quality, final-review, red-team, spec-quality, extension-architect
 # Reads App ID + installation ID from .claude/agent-config.json under reviewerApps.<role-slug>.
 # Reads private key from $GH_REVIEWER_APP_PRIVATE_KEY_DIR/gcscode-<role-slug>.pem.
 # Prints the installation token to stdout.
@@ -10,17 +10,17 @@ set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
   echo "gh-app-token-reviewer: usage: gh-app-token-reviewer <role-slug>" >&2
-  echo "gh-app-token-reviewer: valid role-slugs: spec-compliance, code-quality, final-review, red-team, spec-quality" >&2
+  echo "gh-app-token-reviewer: valid role-slugs: spec-compliance, code-quality, final-review, red-team, spec-quality, extension-architect" >&2
   exit 1
 fi
 
 role_slug="$1"
 
 case "$role_slug" in
-  spec-compliance|code-quality|final-review|red-team|spec-quality) ;;
+  spec-compliance|code-quality|final-review|red-team|spec-quality|extension-architect) ;;
   *)
     echo "gh-app-token-reviewer: unknown role-slug: $role_slug" >&2
-    echo "gh-app-token-reviewer: valid role-slugs: spec-compliance, code-quality, final-review, red-team, spec-quality" >&2
+    echo "gh-app-token-reviewer: valid role-slugs: spec-compliance, code-quality, final-review, red-team, spec-quality, extension-architect" >&2
     exit 1
     ;;
 esac
