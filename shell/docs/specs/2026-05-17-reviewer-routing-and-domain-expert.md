@@ -42,7 +42,7 @@ This iteration ships: registry column for routing + escape-valve output form + d
 5. **Blocking-question discipline.** Domain expert's "Open questions" section becomes blocking-by-default: each question requires an explicit substantive disposition before re-review can verify it as addressed. Uses existing respondent disposition vocabulary; no new infrastructure. Silent dispositions ("noted, no current action — we'll consider it") are re-flagged.
 6. **Output format aligned to existing 4-section convention.** Domain expert produces the same 4-section structure as red-team and spec-quality (Premises challenged / Drift from existing decisions / Open questions / Summary), adapted to its mandate. NOT the 5-section draft format from the prior brainstorm — alignment with existing conventions wins over inherited draft structure.
 7. **Operational prerequisite: 1 new GitHub App.** User creates `gcscode-domain-expert`, provides appId + installationId, saves PEM at the canonical default path. Spec specifies the App-creation steps.
-8. **CLAUDE.md additions.** Registry table gets new column + new row. "Auto-dispatch on spec/ADR PRs" subsection updated. New "Routing layer discipline" + "Blocking-question discipline" subsections added.
+8. **CLAUDE.md additions.** Registry table gets new column + new row. Verdict-permission table gets new row for domain expert. "Auto-dispatch on spec/ADR PRs" subsection updated. PR-template footer text updated (drop "domain expert, when they exist" since the role exists now). Two new CLAUDE.md subsections: "Routing layer discipline" (which embeds the Out-of-scope skip exit pattern as part of its content) + "Blocking-question discipline."
 9. **Tripwires for the new behaviors.** Heuristic-false-negative + self-triage abuse + silent-disposition pattern.
 10. **Documentation propagation.** roadmap.md flip for queued #4 + new entry. out-of-scope.md propagation for the deferred future iterations.
 
@@ -86,12 +86,12 @@ The heuristic for domain expert (the only heuristic-conditional role in v1):
 
 **`heuristic: PR touches extension-architecture concerns`** — concretely, the controller dispatches domain expert if ANY of:
 
-- The spec/ADR text contains terms like "extension", "host", "lifecycle", "API surface", "contribute", "disposable", "host-extension boundary", "extension model", "IPC", "plugin"
-- The PR's file changes touch `packages/extension-api/` (the extension-API package)
-- The spec/ADR cites prior extension-architecture ADRs (e.g., ADR-0003, ADR-0005, ADR-0007 — the extension boundary / lifecycle / manifest ADRs)
-- The spec/ADR's "VS Code alignment" section is non-trivial (more than "no implications") — this is a strong signal that extension architecture is being touched
+- The spec/ADR text contains domain-specific terms like "extension API", "host↔extension", "extension lifecycle", "contribution surface", "Disposable contract", "extension boundary", "extension model", "IPC", "plugin" (NOT every occurrence of bare "extension" or "host" — those are too generic; the heuristic targets architecture-meaningful uses, typically multi-word).
+- The PR's file changes touch `packages/extension-api/` (the extension-API package).
+- The spec/ADR cites prior extension-architecture ADRs (e.g., ADR-0003, ADR-0005, ADR-0007 — the extension boundary / lifecycle / manifest ADRs).
+- The spec/ADR's "VS Code alignment" section names a NEW alignment-or-divergence row that affects gcscode's extension architecture (NOT just any non-empty VS Code alignment section — many specs have alignment sections about the reviewer's lens or general patterns without touching architecture; the signal is "this iteration adds or changes a gcscode-architecture row in `vs-code-alignment.md`").
 
-The heuristic is **inclusive** (dispatch if ANY match), not exclusive. Controller's judgment supplements when the heuristic is ambiguous: when in doubt, dispatch.
+The heuristic is **inclusive** (dispatch if ANY match), not exclusive. Controller's judgment supplements when the heuristic is ambiguous: when in doubt, dispatch. (Red-team Sonnet's review of this PR flagged that the original "non-trivial VS Code alignment section" signal was over-inclusive — many specs touch VS Code alignment about reviewer personas, conventions, etc. without touching extension architecture. The tightened wording above scopes the signal to "extension-architecture rows in the cumulative ledger.")
 
 ### Out-of-scope skip exit pattern
 
@@ -144,9 +144,13 @@ Domain expert's output uses the same 4-section structure as red-team and spec-qu
 
 The draft's "Read" section (characterize what the proposal is actually deciding) and "What looks right" section (decisions the reviewer would defend) are sound concerns, but the 4-section convention absorbs them: the "Read" content fits naturally into the Summary's opening framing; the "What looks right" content fits into Summary OR into a `_strong_` verdict's reasoning. Format alignment wins; content isn't lost.
 
-### Blocking-question discipline (applies to domain expert primarily; general pattern)
+### Blocking-question discipline (architectural-intent questions only)
 
-Existing reviewers' "Open questions" sections are informational — the controller may or may not address them. The domain expert's "Open questions" section is **blocking-by-default**: each question requires an explicit substantive disposition in the respondent post for the round before re-review can verify it as addressed.
+Existing reviewers' "Open questions" sections are informational — the controller may or may not address them. **A subset of domain expert's open questions — those tagged architectural-intent — are blocking-by-default**: each tagged question requires an explicit substantive disposition in the respondent post for the round before re-review can verify it as addressed.
+
+Per red-team Opus's review of this PR: the blocking-by-default property attaches to a CLASS of question (architectural intent — "did you mean to commit to X by saying Y?"), NOT to all of domain expert's open questions. Other domain-expert open questions (e.g., minor clarification, future-iteration suggestions, devil's-advocate flags) remain informational. The role's prompt template defines the convention: the reviewer marks blocking questions explicitly (e.g., with **bold-leading-text** or a `[blocking]` prefix) in the "Open questions" section. The controller's respondent then knows which ones need substantive dispositions vs which can use bare-noted forms.
+
+The architectural-intent vs informational distinction matters because domain expert's mandate is architecture-correctness, but the reviewer may surface broader open questions (UX adjacents, plausibly-related concerns) that don't rise to "must answer before merge." Forcing substantive dispositions on every question would create disposition-theater; reserving the discipline for architectural-intent questions preserves its signal.
 
 **Disposition vocabulary (existing, no new variants):**
 
@@ -161,7 +165,7 @@ The blocking-by-default discipline is **specific to domain expert's "Open questi
 
 ### Operational prerequisite — `gcscode-domain-expert` GitHub App
 
-One new GitHub App to be created by the user out-of-band, between spec-merge and post-merge implementation Commit 2 (config-population). Same flow as the per-role-bot-identities operational prerequisite, scaled down to one App:
+One new GitHub App to be created by the user out-of-band, between spec-merge and post-merge implementation Commit 1 (config-population). Same flow as the per-role-bot-identities operational prerequisite, scaled down to one App. Note: in THIS iteration's post-merge sequence, Commit 1 is the config-population commit (the user provides credentials at that point); Commit 2 is the helper-script enum extension (no user input needed). Sequence is: spec merges → user creates App + provides credentials → Commit 1 lands → Commits 2-6 land in order.
 
 1. Visit https://github.com/settings/apps/new
 2. **Name:** `gcscode-domain-expert` (exactly — determines the rendered `[bot]` username)
@@ -209,6 +213,16 @@ CLAUDE.md "Auto-dispatch on spec/ADR PRs" subsection currently mandates 3 subage
 ### Gate 3b unaffected
 
 The auto-merge workflow's Gate 3b (`gcscode-red-team count >= 2 + gcscode-spec-quality count >= 1`) is **unchanged**. Domain expert is advisory and out of the gate. Its skip-or-substantive-review status doesn't affect merge readiness. The user can manually intervene (don't apply `auto-merge` label) if domain expert raises blocking concerns.
+
+### In-flight PR transition handling
+
+Mirrors the per-role-bot-identities + respondent-v2 precedents. Spec/ADR PRs that opened BEFORE this iteration's post-merge implementation finishes are handled as follows:
+
+- **PRs opened pre-merge that complete post-merge**: domain expert is NOT dispatched on them retroactively. The role didn't exist when the PR was reviewed; introducing it mid-flight would re-trigger reviewer rounds on PRs the user has already cognitively closed. Treated as a one-time cliff: pre-iteration PRs miss out on domain-expert coverage; post-iteration PRs get it.
+- **The first post-iteration spec/ADR PR** is where the routing-layer + domain-expert behavior is exercised live. The controller applies the heuristic for the first time AND verifies the auto-dispatch obligation correctly includes domain expert (if in-scope) or correctly skips it (if out-of-scope).
+- **No retroactive scope-evaluation**: even if a pre-merge PR's content matches the heuristic in hindsight, domain expert is not dispatched on it. The cliff is acceptable because the cost of retroactive dispatch (re-triggering reviewer rounds, re-running respondents on stale dispositions) exceeds the value (one missed review on a PR the user already closed).
+
+This is consistent with how PR #18 (per-role-bot-identities) handled the legacy `gcscode-reviewer[bot]` identity on in-flight PRs: keep the legacy behavior for those, switch new behavior for new PRs.
 
 ### Identity naming
 
@@ -262,7 +276,7 @@ Domain expert's persona is VSCode/Atom/Eclipse-flavored. gcscode is explicitly "
 
 The reviewer's pushback license (free to challenge gcscode's prior choices, including the VS Code alignment itself) is a deliberate over-correction against the persona becoming a "VS Code defender." The reviewer is an architect-on-extensible-hosts, not a VS-Code-conformance-checker.
 
-Propagation to `shell/docs/vs-code-alignment.md`: append a one-line row in the cumulative ledger documenting the alignment ("Domain expert reviewer persona is VSCode/Atom/Eclipse-class; gcscode's VS Code alignment supports this persona's lens; pushback on past alignment choices is licensed, not forbidden").
+Propagation to `shell/docs/vs-code-alignment.md`: **none.** Per the ledger's documented structure (Alignments / Divergences / Deferrals tables, each row recording a gcscode behavior/architecture concern), the domain expert reviewer's persona is meta — it's about the reviewer's frame, not about gcscode's behavior. The persona being VS-Code-flavored is internal-to-this-spec; it doesn't add an alignment-or-divergence row to the cumulative gcscode-behavior ledger. (Red-team Sonnet's and spec-quality's reviews of this PR flagged that the original Commit 6c verbatim was ill-formatted — 3 columns vs the ledger's 4 — AND that the categorization wasn't specified. The right fix is no propagation: the ledger isn't the right place for reviewer-persona alignment.)
 
 ## `docs/out-of-scope.md` propagation
 
@@ -276,8 +290,8 @@ Three new entries under "Agentic team architecture deferrals":
 
 Two roadmap updates:
 
-1. Flip the existing Queued #4 "Reviewer routing layer" entry: it ships as part of this iteration. The combined-with-domain-expert framing is captured in the new Queued/Shipped entry.
-2. Add a new Queued/Shipped `[x]` entry for this iteration.
+1. The pre-existing entry for "Reviewer routing layer" currently lives in the **Considering** section of `shell/docs/roadmap.md` (the debt-clearing v1 spec queued it conceptually as item #4, but the operational state in `roadmap.md` puts it in Considering since its trigger — 4th reviewer role — hadn't fired). This iteration adds the 4th reviewer role AND ships the routing layer, so the Considering entry is deleted.
+2. A new Queued/Shipped `[x]` entry is added for this combined iteration.
 
 Verbatim edit content in Post-merge implementation > Commit 6.
 
@@ -338,8 +352,8 @@ Per the post-merge implementation convention (per-role-bot-identities precedent:
 - **Commit 2:** Extend `.claude/scripts/gh-app-token-reviewer` role-slug enum to include `domain-expert`.
 - **Commit 3:** Create `.claude/agents/domain-expert-reviewer.md` (agent file with model + effort frontmatter).
 - **Commit 4:** Create `.claude/reviewer-prompts/domain-expert.md` (prompt template with persona, scope, lens questions, 4-section output structure, posting block).
-- **Commit 5:** CLAUDE.md edits — registry table (new column `Routing condition` + new row for domain expert) + "Auto-dispatch on spec/ADR PRs" subsection update (heuristic evaluation step) + new "Routing layer discipline" + "Blocking-question discipline" + "Out-of-scope skip exit pattern" subsections.
-- **Commit 6:** Documentation propagation — roadmap.md flip + out-of-scope.md propagation (3 entries) + vs-code-alignment.md ledger row.
+- **Commit 5:** CLAUDE.md edits (seven sub-edits, 5a-5g). Registry table (new column `Routing condition` + new row for domain expert), verdict-permission table (new row for domain expert), "Auto-dispatch on spec/ADR PRs" subsection update, PR-template footer update (drops "domain expert, when they exist"), two new subsections (Routing layer discipline embedding the Out-of-scope skip pattern; Blocking-question discipline).
+- **Commit 6:** Documentation propagation — roadmap.md flip (delete Considering entry; add Queued/Shipped entry) + out-of-scope.md propagation (DELETE stale "Reviewer routing layer" entry at line 56; ADD 3 new entries for the v1-deferrals). No vs-code-alignment.md edit (per the rationale in the VS Code alignment section above).
 
 ### Verbatim — Commit 1 (`.claude/agent-config.json` update)
 
@@ -665,7 +679,7 @@ Replace the existing paragraph beginning `**Auto-dispatch on spec/ADR PRs.**` wi
 
 **5e — Add "Blocking-question discipline" subsection.** Insert immediately after the "Routing layer discipline" subsection:
 
-> **Blocking-question discipline (domain expert).** Domain expert's "Open questions" section findings are **blocking-by-default**: each open question requires an explicit substantive disposition in the round's respondent post before re-review can verify the question as addressed. This applies specifically to domain expert in v1; existing reviewers' open questions remain informational.
+> **Blocking-question discipline (domain expert, architectural-intent questions only).** A subset of domain expert's "Open questions" findings — those tagged architectural-intent (the reviewer marks them explicitly, typically with a `[blocking]` prefix or **bold-leading-text**) — are **blocking-by-default**: each tagged question requires an explicit substantive disposition in the round's respondent post before re-review can verify the question as addressed. Other domain-expert open questions (minor clarifications, future-iteration suggestions, devil's-advocate flags) remain informational. This applies specifically to domain expert in v1; existing reviewers' open questions remain informational.
 >
 > Acceptable substantive dispositions (using existing respondent vocabulary):
 >
@@ -674,7 +688,23 @@ Replace the existing paragraph beginning `**Auto-dispatch on spec/ADR PRs.**` wi
 > - `noted, no current action — <FULL ANSWER TEXT>` — the controller's answer goes in the rationale field. **NOT** bare `noted, no current action — we'll consider it`; silent dispositions are insufficient.
 > - `routed to docs/roadmap.md / out-of-scope.md` — for future-iteration questions.
 >
-> Domain expert's re-review checks each prior question for substantive disposition; silent dispositions are re-flagged. Spec: [`docs/specs/2026-05-17-reviewer-routing-and-domain-expert.md`](docs/specs/2026-05-17-reviewer-routing-and-domain-expert.md).
+> Domain expert's re-review checks each tagged-blocking question for substantive disposition; silent dispositions are re-flagged. Spec: [`docs/specs/2026-05-17-reviewer-routing-and-domain-expert.md`](docs/specs/2026-05-17-reviewer-routing-and-domain-expert.md).
+
+**5f — Add domain expert row to the verdict-permission table.** The verdict-permission table currently has 6 rows (Per-task spec-compliance, Per-task code-quality, Final cross-cutting, Red-team, Spec-quality, Respondent). Add a new row immediately after the Spec-quality row (before Respondent):
+
+```md
+| Domain-expert (per-artifact, spec/ADR-PRs, heuristic-routed) |      ✓      |          ✗          |      ✗      |
+```
+
+`--comment` only (advisory, consistent with red-team and spec-quality v1; verdict promotion is a future iteration).
+
+**5g — Update PR-template footer.** The Spec/ADR-PR template footer at line 205 currently reads:
+
+> Red-team auto-dispatches on PR open per the agentic-actor registry. Future reviewer roles (e.g., domain expert, when they exist) follow per the registry.
+
+Replace with:
+
+> Red-team and domain expert (heuristic-routed) auto-dispatch on PR open per the agentic-actor registry. Spec-quality auto-dispatches unconditionally. Future reviewer roles follow per the registry.
 
 ### Verbatim — Commit 6 (docs propagation)
 
@@ -692,7 +722,17 @@ DELETE the above entry from Considering. ADD the following entry to the **Queued
 - [x] **Reviewer routing layer + Domain expert (combined)** — closes queued #4 (routing layer) AND ships the first reviewer role that uses routing (domain expert on extension architecture). Agentic-actor registry gains `Routing condition` column (`always` default for existing roles; `heuristic: <description>` for new heuristic-conditional roles). Controller auto-dispatch obligation extended to evaluate routing condition before dispatching. Out-of-scope skip exit pattern (`## <Role> review — out-of-scope skip — <model>`) for heuristic-conditional roles when controller's heuristic was wrong. Domain expert persona: principal-level architect on extensible hosts (VSCode/Atom/Eclipse-flavored + gcscode-specific awareness, free to push back on past architectural commitments). Output format aligns to existing 4-section convention. Blocking-question discipline: domain expert's open questions require substantive dispositions (silent `we'll consider it` insufficient). Gate 3b unchanged (domain expert is advisory, out of gate). New `gcscode-domain-expert` GitHub App; appId/installationId added to `reviewerApps` config. Tripwires: heuristic-false-negative + self-triage abuse + silent-disposition pattern. Spec: [`specs/2026-05-17-reviewer-routing-and-domain-expert.md`](specs/2026-05-17-reviewer-routing-and-domain-expert.md).
 ```
 
-**6b — out-of-scope.md propagation.** In `shell/docs/out-of-scope.md`, append three entries to the "Agentic team architecture deferrals" section:
+**6b — out-of-scope.md propagation (delete stale entry + add 3 new entries).**
+
+**6b.i — DELETE** the existing entry at line 56 of `shell/docs/out-of-scope.md`:
+
+```md
+- **Reviewer routing layer.** Which reviewer roles fire on which PRs. Out of scope until there is more than one non-baseline reviewer role. Trigger: a second non-baseline reviewer role is added (e.g., devil's advocate v2 or the first expert reviewer).
+```
+
+This iteration ships the reviewer routing layer; the deferral entry is now stale. All three reviewers (red-team Opus + Sonnet + spec-quality) on this PR independently flagged this as drift in initial review.
+
+**6b.ii — APPEND** three new entries to the "Agentic team architecture deferrals" section:
 
 ```md
 - **Verdict promotion for domain expert** (`--request-changes` blocking power). v1 ships domain expert with `--comment` only, consistent with red-team and spec-quality v1. Trigger to revisit: advisory mandate proves insufficient (a blocking-concern is repeatedly ignored across multiple PRs).
@@ -700,10 +740,4 @@ DELETE the above entry from Considering. ADD the following entry to the **Queued
 - **Automated heuristic enforcement** for routing (workflow-side check). v1 ships convention-only routing — the controller applies the heuristic per the auto-dispatch obligation; no workflow gate enforces. Trigger to revisit: convention-only enforcement produces recurring routing misses across N=3 PRs.
 ```
 
-**6c — vs-code-alignment.md ledger row.** In `shell/docs/vs-code-alignment.md`, append a one-line row to the cumulative ledger:
-
-```md
-| 2026-05-17 | reviewer-routing-and-domain-expert | Domain expert reviewer persona is VSCode/Atom/Eclipse-class — aligned with gcscode's existing "VS Code-style" architectural anchor. Reviewer is licensed to push back on past alignment choices (not shackled to defending them). |
-```
-
-(Adjust the actual ledger column structure to match the existing file's table — confirm format via `head shell/docs/vs-code-alignment.md` before editing.)
+(The original Commit 6c proposing a vs-code-alignment.md ledger row was dropped — see the VS Code alignment section above for rationale.)
