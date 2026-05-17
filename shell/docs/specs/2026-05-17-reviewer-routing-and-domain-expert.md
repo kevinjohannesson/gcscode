@@ -43,7 +43,7 @@ This iteration ships: registry column for routing + escape-valve output form + d
 6. **Output format aligned to existing 4-section convention.** Domain expert produces the same 4-section structure as red-team and spec-quality (Premises challenged / Drift from existing decisions / Open questions / Summary), adapted to its mandate. NOT the 5-section draft format from the prior brainstorm — alignment with existing conventions wins over inherited draft structure.
 7. **Operational prerequisite: 1 new GitHub App.** User creates `gcscode-domain-expert`, provides appId + installationId, saves PEM at the canonical default path. Spec specifies the App-creation steps.
 8. **CLAUDE.md additions.** Registry table gets new column + new row. Verdict-permission table gets new row for domain expert. "Auto-dispatch on spec/ADR PRs" subsection updated. PR-template footer text updated (drop "domain expert, when they exist" since the role exists now). Two new CLAUDE.md subsections: "Routing layer discipline" (which embeds the Out-of-scope skip exit pattern as part of its content) + "Blocking-question discipline."
-9. **Tripwires for the new behaviors.** Heuristic-false-negative + self-triage abuse + silent-disposition pattern.
+9. **Tripwires for the new behaviors.** Heuristic-false-negative + self-triage abuse + silent-disposition pattern + architectural-intent tagging failure-mode (tag-zero / tag-everything).
 10. **Documentation propagation.** roadmap.md flip for queued #4 + new entry. out-of-scope.md propagation for the deferred future iterations.
 
 ## Non-goals (this iteration)
@@ -105,7 +105,6 @@ A reviewer whose `Routing condition` is `heuristic` can determine at review time
 
 - Skip is a no-op: doesn't trigger any followup loop, doesn't count in any Gate, doesn't request re-review on subsequent commits in the same PR's lifecycle — **except** when a `Code-review-followup:` commit materially changes scope (e.g., adds extension-architecture content not present at initial-review time), in which case the controller may re-evaluate the heuristic and re-dispatch. The skip is a determination on the PR AS IT WAS at skip time; if the PR's content shifts, the skip is not load-bearing on future-state evaluation. The reviewer's next dispatch (if it fires) is a fresh determination.
 - The skip post stays on the PR as a record of the reviewer's determination (useful for future tripwire analysis: was the heuristic over-inclusive?).
-- If a `Code-review-followup:` commit changes the PR's scope (e.g., adds extension-architecture content that wasn't there at initial-review time), the controller may re-evaluate the heuristic and re-dispatch.
 
 The escape valve is the reviewer's "I read it; it's not for me" signal, and it carries the same audit weight as a substantive review — the reviewer's name is on the determination.
 
@@ -139,7 +138,7 @@ Domain expert's output uses the same 4-section structure as red-team and spec-qu
 
 1. **Premises challenged** — architectural premises the spec/ADR treats as given. For each: state the premise (quote), state the challenge (with the failure mode in production), suggest what would resolve it.
 2. **Drift from existing decisions** — opens with `Checked against:` line enumerating prior architecture-relevant documents (ADRs, prior specs, extension-API README, current `packages/extension-api/` source). For each drift item: name the drift, cite the prior decision, note whether intentional.
-3. **Open questions** — architectural-intent questions the spec doesn't answer that the reviewer needs answered before sign-off. **Blocking-by-default per the discipline below.**
+3. **Open questions** — questions the spec doesn't answer that the reviewer wants raised. Mixed: architectural-intent questions are tagged (`[blocking]` prefix or **bold-leading-text**) and are blocking-by-default per the discipline below; other questions (minor clarification, future-iteration suggestions, devil's-advocate flags) remain informational.
 4. **Summary** — one paragraph. Overall assessment: _strong_ / _has-gaps_ / _fundamentally-suspect_. Free to dissent from gcscode's prior architectural commitments if the reviewer's read warrants.
 
 The draft's "Read" section (characterize what the proposal is actually deciding) and "What looks right" section (decisions the reviewer would defend) are sound concerns, but the 4-section convention absorbs them: the "Read" content fits naturally into the Summary's opening framing; the "What looks right" content fits into Summary OR into a `_strong_` verdict's reasoning. Format alignment wins; content isn't lost.
@@ -299,7 +298,9 @@ Verbatim edit content in Post-merge implementation > Commit 6.
 
 - **Heuristic false-negative recall**: the heuristic uses keyword + path-touch + ADR-citation + VS-Code-alignment-section signals. False negatives are possible (a spec touches extension architecture conceptually but uses different vocabulary). Controller's judgment supplements; v1 tripwire below detects post-hoc.
 - **Self-triage abuse**: domain expert always defers via the escape valve (never produces a substantive review across N=3 PRs). v1 tripwire below.
-- **Silent-disposition pattern on blocking questions**: controller's respondent uses bare `noted, no current action — <generic>` without inline answer on domain expert's open questions. v1 tripwire below.
+- **Silent-disposition pattern on blocking questions**: controller's respondent uses bare `noted, no current action — <generic>` without inline answer on domain expert's tagged-blocking open questions. v1 tripwire below.
+- **Architectural-intent tagging failure-modes** (tag-zero / tag-everything): the architectural-intent tagging mechanic has two failure modes — the reviewer tags zero questions (avoiding accountability) OR tags every question (restoring original blocking-all problem). v1 tripwire below.
+- **Tripwire interaction (silent-disposition × tag-zero/tag-everything)**: if the silent-disposition tripwire fires AND the tag-zero/tag-everything tripwire fires concurrently, the joint failure mode is more severe than either alone — the discipline collapses on both ends. v1 treats these as independent tripwires; if BOTH fire across a single iteration, that's a stronger signal for prompt-template revision. No separate joint tripwire; the union of responses applies (sharpen template framing on both class boundary AND substantive-disposition discipline).
 - **Heuristic specificity vs generality**: the v1 heuristic enumerates extension-architecture signals concretely. Future heuristic-conditional roles will need their own heuristics. The heuristic shape — informal one-line description in the registry — may need formalization if multiple heuristic-conditional roles ship.
 - **Persona drift**: the persona's "free to push back on gcscode commitments" license could over-correct into reflexive contrarianism. The 4-section output structure + the substantive-disposition discipline together prevent this from accumulating into noise; if drift surfaces, the role's prompt template is sharpened.
 - **Gate 3b unchanged but domain expert visible**: a future reader may expect domain expert in the gate. The CLAUDE.md text explicitly notes domain expert is advisory + out-of-gate to prevent confusion.
