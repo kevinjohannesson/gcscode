@@ -35,6 +35,8 @@ This iteration ships: 2 helper script edits + 1 CLAUDE.md "Further reading" note
 
 1. Add a default-path fallback to `.claude/scripts/gh-app-token-reviewer`: if `GH_REVIEWER_APP_PRIVATE_KEY_DIR` is unset or empty, default to `$HOME/.config/gcscode`.
 2. Add a default-path fallback to `.claude/scripts/gh-app-token-respondent`: if `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` is unset or empty, default to `$HOME/.config/gcscode/gcscode-respondent.pem`.
+
+> **Note added 2026-05-17 (post-merge `fix(spec):` clarification):** the env-var naming asymmetry — `GH_REVIEWER_APP_PRIVATE_KEY_DIR` (a directory containing per-role PEMs) vs `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` (a single file path) — is inherited from [`docs/specs/2026-05-16-per-role-bot-identities-for-reviewers.md`](2026-05-16-per-role-bot-identities-for-reviewers.md), where the asymmetry was an accepted tradeoff (avoiding disturbing respondent infrastructure that had just stabilized in v2). This spec preserves the asymmetry; the default-path fallback applies uniformly to both shapes (directory for reviewer, file for respondent). A future "unified reviewer + respondent helper" iteration (per the per-role-bot-identities spec's Future iterations) may resolve the naming asymmetry; out of scope here.
 3. Update FOUR CLAUDE.md locations to reflect the optional-env-var status: (a) the "Subagent reviewer PR-posting discipline > Config locations" bullet (around line 212); (b) the "Respondent posting discipline > Config" bullet (around line 245); (c) the "Further reading > `.claude/agent-config.json`" bullet (around line 315); (d) the "Further reading > `.claude/scripts/gh-app-token-reviewer`" bullet (around line 316). The respondent helper does not have its own dedicated "Further reading" bullet in the current CLAUDE.md (it's cross-referenced from the reviewer-helper bullet), so the respondent helper's default-path-fallback note lives inside the same reviewer-helper bullet update for compactness.
 4. Roadmap propagation.
 
@@ -146,6 +148,8 @@ Not part of the agentic-team-debt-clearing v1 queue — ad-hoc operational relia
 ## Post-merge implementation
 
 Per the post-merge implementation convention, **three direct-master commits**. All content fully specified verbatim below.
+
+> **Note added 2026-05-17 (post-merge `fix(spec):` clarification):** CLAUDE.md "Post-merge implementation conventions" says "direct master commits for purely mechanical CLAUDE.md or docs edits whose exact text is fully specified in the spec; feat branches for code or for changes that require judgment during implementation." Commits 1 and 2 of this iteration edit SCRIPTS (code), not CLAUDE.md or docs. The direct-master path is appropriate here per the **per-role-bot-identities precedent** (PR #18 / [`docs/specs/2026-05-16-per-role-bot-identities-for-reviewers.md`](2026-05-16-per-role-bot-identities-for-reviewers.md)), where 5 helper-script commits shipped via direct master because the script content was fully specified verbatim with no implementation judgment required. The convention's spirit ("fully specified content requiring no judgment") applies to scripts equally; the literal wording will sharpen in a future convention-revision iteration if needed.
 
 - **Commit 1:** Edit `.claude/scripts/gh-app-token-reviewer` to replace the env-var-required check with the default-path-fallback pattern.
 - **Commit 2:** Edit `.claude/scripts/gh-app-token-respondent` to apply the same pattern.
