@@ -155,3 +155,5 @@ DELETE the above entry from the Considering section. ADD the following entry to 
 ```md
 - [x] **Auto-merge-bypasses-final-respondent design** — decision-only iteration. Accepts the asymmetry between the respondent's per-`Code-review-followup`-commit dispatch cadence and the spec/ADR PR's final-round flow (when re-reviews are clean and no followup commit is needed). The clean re-review's body + the controller's merge action are the audit trail. CLAUDE.md "Respondent posting discipline" subsection documents the asymmetry as intentional + trigger to revisit. Spec: [`specs/2026-05-17-auto-merge-bypasses-final-respondent.md`](specs/2026-05-17-auto-merge-bypasses-final-respondent.md).
 ```
+
+> **Superseded 2026-05-17 by [`2026-05-17-auto-merge-bypasses-final-respondent-v2.md`](2026-05-17-auto-merge-bypasses-final-respondent-v2.md):** v2 preserves the accept-asymmetry decision and rebuilds the supporting case + adds the Gate 3b fix v1 declined.
