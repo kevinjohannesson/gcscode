@@ -18,9 +18,9 @@ v1 of this iteration was merged at 07:28:54Z on 2026-05-17, **AFTER only 2 of 3 
 
 Red-team Opus's review surfaced 6 premise challenges + 4 drift items + 4 open questions, including: (a) the "final re-review's body is the controller's acknowledgment" premise — v1 collapsed reviewer-voice and controller-voice as equivalent; (b) v1's "binary choice" framing missed a third design option (the `ready-for-review + labeled auto-merge` two-step as a respondent dispatch trigger — Opus-surfaced); (c) v1's PR-#18 empirical record was "clean termination" — actually strong-with-residuals with a deliberate two-step merge action; (d) v1's "N=3 controller-wants-to-write" trigger required per-session introspection, violating the tripwire-condition-(iii) convention in CLAUDE.md.
 
-**The race fired on the spec that documented it.** v1 codified an operational discipline ("don't apply the `auto-merge` label until all current-round re-reviews have posted") but the controller violated the discipline by applying the label at PR-open. The result: PR #19 merged with 2 of 3 reviewers posted, on the same iteration that's supposed to address this exact race.
+**The race fired on the spec that documented it — but not in the way originally framed.** The pre-existing Gate 3b threshold (`gcscode-red-team` count >= 1, inherited from pre-multi-model days) is structurally loose under multi-model red-team dispatch — any one of Opus or Sonnet plus spec-quality satisfies it. v1 did NOT codify a "don't label until reviews post" workflow gate; v1's only post-merge mechanic was a CLAUDE.md prose paragraph about respondent dispatch cadence. **There was no prior operational discipline for the controller to violate — v1 substituted prose for a gate change.** PR #19 was the first opportunity to test that substitution; it failed at the first opportunity.
 
-v2 supersedes v1 to (a) rebuild the case for accept-asymmetry from honest premises (responding to Opus's substantive critique), and (b) **add a workflow gate fix** so the race cannot recur — manual discipline failed empirically; the gate must enforce the invariant the spec relies on.
+v2 supersedes v1 to (a) rebuild the case for accept-asymmetry from honest premises (responding to Opus's substantive critique), and (b) **ship the gate change v1 declined**. The framing is not "manual discipline failed empirically and must be replaced by a gate." The framing is "the underlying gate threshold has always been loose; multi-model red-team dispatch made the looseness exploitable; v1 didn't fix it; v2 does." Cheap structural mitigation is available for a real failure mode that has been demonstrated once — the YAGNI counter-argument is "wait for a second observation," but the cost of adding the gate now is small enough to justify ahead of N=2.
 
 ## Why not the bigger version
 
@@ -34,12 +34,16 @@ The bigger versions add infrastructure for a wrap post whose information value i
 
 **Counter-argument for designing it now:** symmetry. If every initial-review round gets a respondent post, the final round should too. The symmetry argument has real weight — the respondent's purpose is to document **controller-voice dispositions**, and when a final re-review surfaces new items, those items genuinely need disposing of. The absence makes them invisible from a controller-voice perspective, exactly the gap respondent v1 was introduced to close.
 
-**Why v2 still accepts the asymmetry:** two narrower premises hold even after Opus's critique:
+**Why v2 still accepts the asymmetry:** two narrower premises hold even after Opus's critique, with explicit caveats this followup adds:
 
-- The respondent has **already** disposed of the load-bearing findings (the initial reviews, via the per-followup-commit dispatch).
-- Net-new findings in re-reviews are bounded by construction — re-reviewers focus on whether the followup addressed prior findings; net-new items are second-order critiques of HOW the followup addressed prior findings, not first-order critiques the respondent didn't already dispose of.
+- The respondent has **already** disposed of the **initial-round findings** (via the per-followup-commit dispatch). "Initial-round" here is a temporal criterion, not a load-bearing-ness judgment — initial-round findings get a respondent because the trigger fired (a followup commit landed); re-review findings don't get one because no second followup is being made. The asymmetry is in the trigger, not in importance ranking.
+- Net-new findings in re-reviews fall into TWO shapes (per Opus's review of PR #20):
+  - **Second-order critiques of HOW the followup addressed prior findings.** Bounded by construction — re-reviewers focus on the followup's diff.
+  - **First-order observations on NEW content the followup introduced.** Empirically observed: PR #18's red-team Opus re-review surfaced three such items (credential-persistence premise; uninstall-vs-delete attribution claim; wildcard-vs-literal permission form), all triggered by NEW content the followup added (Operational prerequisite section; historical-attribution claim; settings.local.json subsection).
 
-Net: the cost of the asymmetry is bounded (limited to second-order undisposed items); the cost of filling it (any of options 1, 2, 3) is real new infrastructure. YAGNI says wait until the cost-bearing case earns its own evidence — and the v2 tripwire below provides observable instrumentation for that evidence.
+The bound on the asymmetry's cost is therefore narrower than v2's original framing claimed: the surface area of net-new re-review findings is **the followup's diff** (which can include new content), not the whole spec. This still supports the YAGNI argument — the surface is bounded by what the followup added — but does NOT support a "second-order critiques only" claim.
+
+Net: the cost of the asymmetry is bounded by the followup-diff surface; the cost of filling it (any of options 1, 2, 3) is real new infrastructure. YAGNI says wait until the cost-bearing case earns its own evidence — and the v2 tripwire below provides observable instrumentation for that evidence.
 
 ## Goals
 
@@ -100,7 +104,7 @@ fi
 
 This counts cumulative reviews across all rounds, treating any single red-team review + any single spec-quality review as sufficient. The race on PR #19: red-team Sonnet + spec-quality posted within 7 seconds; workflow fired on the second post; gate passed (count 1+1); merged before Opus posted.
 
-**v2's fix:** require **REDTEAM_COUNT >= 2** on spec/ADR PRs while multi-model red-team dispatch is in effect (per [`docs/specs/2026-05-16-multi-model-red-team-v1.md`](2026-05-16-multi-model-red-team-v1.md)). Both Opus and Sonnet post under `gcscode-red-team[bot]`, so requiring count >= 2 implicitly requires both models to have posted. spec-quality stays at >= 1 (single-model dispatch).
+**v2's fix (F2 in the option enumeration below):** require **REDTEAM_COUNT >= 2** on spec/ADR PRs while multi-model red-team dispatch is in effect (per [`docs/specs/2026-05-16-multi-model-red-team-v1.md`](2026-05-16-multi-model-red-team-v1.md), specifically its Future iterations item #6 "Auto-merge gate-3b strictness for multi-model red-team" — v2 ships that item early, motivated by PR #19's race rather than waiting for the multi-model evaluation's KEEP-BOTH gate). Both Opus and Sonnet post under `gcscode-red-team[bot]`, so requiring count >= 2 implicitly requires both models to have posted **on the initial-review round**. spec-quality stays at >= 1 (single-model dispatch).
 
 ```bash
 REDTEAM_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-red-team")] | length')
@@ -113,15 +117,18 @@ if [[ "$REDTEAM_COUNT" -lt 2 || "$SPECQUALITY_COUNT" -lt 1 ]]; then
 fi
 ```
 
-**Coupling note:** this fix couples Gate 3b to the multi-model dispatch shape. If the multi-model v1 evaluation iteration (queued #5) resolves to KEEP-OPUS-ONLY or KEEP-SONNET-ONLY, that iteration must revert Gate 3b's red-team threshold to >= 1. The coupling is explicit by design — the alternative (counting distinct model headers from review bodies) is more robust but adds parsing complexity unjustified at v1's small-cut tempo.
+**Coupling note:** this fix couples Gate 3b to the multi-model dispatch shape. **Cross-iteration obligation:** if the multi-model v1 evaluation iteration (queued #5) resolves to KEEP-OPUS-ONLY or KEEP-SONNET-ONLY, **that iteration's post-merge implementation MUST revert Gate 3b's red-team threshold to >= 1 in the same post-merge commit batch as the evaluation's other changes.** This is not a soft "should revisit" — it is a hard cross-spec obligation that v2 imposes on the evaluation iteration. Until then, v2's gate is over-strict in the wrong direction if multi-model dispatch is removed; users would have to manually merge OR remember to revert. v2 records this as a documented forward dependency on the evaluation iteration's brainstorm.
 
-**Why not the bigger workflow fix:** I considered three alternatives:
+**Known limitation — cumulative-count semantics in re-review rounds (Sonnet P1).** Gate 3b's count is cumulative across all rounds, not per-round. After the first `Code-review-followup:` commit, both Opus's re-review AND Sonnet's re-review fire. If Opus posts first, `REDTEAM_COUNT=3` (initial Opus + initial Sonnet + re-review Opus); gate passes immediately, before Sonnet's re-review has been seen. The same race that motivated v2 re-fires at the re-review round — v2's F2 closes the initial-round race but leaves the re-review-round race open. This is an **accepted limitation** of F2 in v1; the fix shape that closes both races is F1 (parse model + round from headers) or F4 (per-PR reviewer manifest), both rejected as too invasive for v2's small cut. **Operational mitigation while v2's F2 is in effect:** treat the `auto-merge` label as a per-round signal — remove the label after pushing each `Code-review-followup:` commit, re-apply it only after all expected reviewers have re-posted on that round. This restores the round-discipline the gate can't enforce cumulatively. **Tripwire for upgrading from F2 to F1/F4:** documented below in Tripwires.
 
-- **F1 — Parse model from review header.** More robust; doesn't couple to identity counts. But: complex header-parsing inside jq + the gate must know the expected (model × role) tuples for each PR class. Punt to a future iteration if the multi-model evaluation lands KEEP-BOTH and the gate needs richer semantics.
-- **F3 — Fixed wait window.** Wait N seconds after gates pass before merging, then re-check. Simple. But: delays every merge by N seconds even when no extra reviewer is expected; coupling to "expected" reviewer count is implicit (relies on timing alone).
-- **F4 — Per-PR reviewer manifest.** PR author declares which reviewers are expected; gate waits for all. Cleanest semantics. But: invasive; requires manifest format + maintenance.
+**Why not the bigger workflow fix (the F-label enumeration):**
 
-v2 ships F2 (the `>= 2` threshold) as the smallest cut. The other options are documented here so the future iteration starts from this analysis.
+- **F1 — Parse model from review header.** More robust; doesn't couple to identity counts. Closes both initial-round and re-review-round races. But: complex header-parsing inside jq + the gate must know the expected (model × role) tuples for each PR class. **Punt to the future Gate 3b refinement iteration.**
+- **F2 — `REDTEAM_COUNT >= 2` (this v2 ships).** Smallest cut. Closes the initial-round race. Leaves the re-review-round race per the known limitation above.
+- **F3 — Fixed wait window.** Wait N seconds after gates pass before merging, then re-check. Simple. But: delays every merge by N seconds even when no extra reviewer is expected; coupling to "expected" reviewer count is implicit (relies on timing alone). Doesn't close the re-review-round race semantically.
+- **F4 — Per-PR reviewer manifest.** PR author declares which reviewers are expected; gate waits for all. Cleanest semantics. Closes both races. But: invasive; requires manifest format + maintenance.
+
+v2 ships F2 as the smallest cut. F1 and F4 are the structural answers; both are punted to the future Gate 3b refinement iteration triggered by the re-review-round race tripwire below.
 
 ### Decision (v2)
 
@@ -149,9 +156,10 @@ v1's "controller wants to write" trigger is removed — per-session introspectio
 
 ## Validation
 
-- **The v2 workflow fix is validated by THIS PR.** PR #19 (v1) merged before Opus posted because Gate 3b required only count=1 for red-team. Under v2's Gate 3b, this PR (v2) cannot merge until red-team count >= 2 (both Opus and Sonnet posted) AND spec-quality count >= 1. The test is structural: if v2 merges with all 3 reviewers posted, the fix works.
-- **The substantive reasoning is validated by the spec-PR's red-team + spec-quality reviews under v2's gate.** Both red-team models will get to post on v2 before any merge.
-- **Tripwire instrumentation** (strong-with-residuals at N=2) is encoded in this spec for observation on future PRs.
+- **v2's workflow fix is NOT in effect during v2's own review phase.** Commit 1 (the workflow YAML edit) is a post-merge direct-master commit. PR #20 is gated by the OLD `>= 1` threshold, the same gate that produced PR #19's race. The "same race window that caused v1's merge is open for v2." There is therefore no structural validation of the fix from PR #20's own merge; the validation is **counterfactual**: under v2's proposed gate, PR #20 could not have merged without both red-team Opus and Sonnet posted + spec-quality.
+- **Operational mitigation for PR #20 itself (recursive risk):** the controller deliberately did NOT apply the `auto-merge` label to PR #20 until after all 3 initial reviewers had posted, exercising manual discipline as the structural fix doesn't gate this PR. **This is the exact discipline v1 implicitly relied on without codifying as a gate;** the failure mode v2 closes structurally is the same one this PR mitigates manually for itself. If reviewers re-dispatch after a `Code-review-followup:` commit on PR #20, the same manual discipline applies — wait for all 3 re-reviewers before re-labeling.
+- **Substantive reasoning** is validated by the spec-PR's red-team + spec-quality reviews under the OLD gate. Both red-team models posted (gcscode-red-team count=2: Sonnet 08:01:51Z + Opus 08:04:13Z) plus spec-quality (08:01:37Z). The reviewer outputs are the substantive validation.
+- **Tripwire instrumentation** (strong-with-residuals at N=2; re-review-round race observation; Gate 3b false-positive pattern) is encoded in this spec for observation on future PRs. Post-merge implementation lands the gate change; the gate then validates structurally on the FIRST spec/ADR PR after v2 ships.
 
 ## VS Code alignment
 
@@ -165,10 +173,7 @@ Propagation to `shell/docs/vs-code-alignment.md`: none.
 
 ## `docs/roadmap.md` propagation
 
-Update the existing v1 Queued/Shipped `[x]` entry (added by v1's post-merge implementation — which actually didn't land yet since v1's post-merge was skipped due to the race). v2's post-merge implementation will:
-
-- ADD a NEW `[x]` entry for v2 immediately after v1's entry (if v1's entry exists from any other source — it doesn't currently, but the original Considering entry should be flipped).
-- Flip the original "Auto-merge-bypasses-final-respondent design" Considering entry to Queued/Shipped `[x]` — the v1 spec doesn't have a roadmap entry because v1's post-merge Commit 2 didn't land before v1 was superseded. v2 lands ONE entry that supersedes v1's intended entry.
+The pre-existing Considering entry for "Auto-merge-bypasses-final-respondent design" still exists at `shell/docs/roadmap.md` (created when the item was queued, before v1 shipped). v1's post-merge Commit 2 was meant to flip this entry to Queued/Shipped `[x]` but never landed (v1's PR was merged before Opus's review, and the post-merge work was redirected into v2). v2 ships ONE Queued/Shipped `[x]` entry (for v2 itself, citing the v2 spec), deleting the pre-existing Considering entry.
 
 Verbatim edit content in Post-merge implementation > Commit 3.
 
@@ -180,15 +185,18 @@ Verbatim edit content in Post-merge implementation > Commit 3.
 
 ## Tripwires for known-quality concerns
 
+All tripwires below are formulated as pattern-across-N signals (per CLAUDE.md "Reviewer-role design conventions > Tripwires" condition iii); none requires per-PR introspection.
+
 - **Strong-with-residuals tripwire.** If a spec/ADR PR's final re-review verdict is "strong" but the body surfaces ≥3 net-new items AND the controller chooses no followup, that's a single-PR signal that the asymmetry is producing meaningful undisposed-residuals. **Fires at N=2 consecutive PRs** matching this pattern. Response: a future iteration designs option (3).
-- **Gate 3b false-positive tripwire (NEW for v2).** If v2's Gate 3b causes legitimate merges to be blocked (e.g., a PR where only one red-team model was dispatched intentionally) or fails to block illegitimate ones, flag the gate's coupling to multi-model dispatch as having semantic-mismatch with the actual dispatch shape. Response: revisit the gate's threshold logic (consider F1 or F4 from "Why not the bigger version").
+- **Re-review-round race tripwire (NEW for v2 — addresses Sonnet P1).** If a spec/ADR PR merges on a Code-review-followup commit's re-review event with fewer than ALL expected reviewers having re-posted in that round (observable from the PR's `mergedAt` vs the timestamps of the latest reviews from each reviewer), F2's cumulative-count semantics has produced the gap. **Fires at N=2 PRs** to avoid noise. Response: replace F2 with F1 (parse model + round from headers) or F4 (per-PR reviewer manifest).
+- **Gate 3b false-positive tripwire.** If F2 blocks legitimate merges (e.g., a PR where only one red-team model was dispatched intentionally — multi-model evaluation iteration lands KEEP-OPUS-ONLY/KEEP-SONNET-ONLY and the gate isn't reverted in the same iteration), the gate is over-strict. **Fires at N=2 PRs** matching this pattern. Response: enforce the cross-iteration obligation documented in Architecture > Auto-merge workflow gate fix > Coupling note (the multi-model evaluation iteration MUST revert Gate 3b in its post-merge implementation).
 
 Tripwires are manual review items, not automated checks. They live in this spec and migrate to a future iteration's brainstorm input if any fires.
 
 ## Future iterations
 
 1. **Final-wrap respondent post design — option (3) preferred.** Trigger: strong-with-residuals at N=2, OR authorization-trail audit need, OR process change. Per "Trigger to revisit" above. Implements option (3) (the `ready+label` two-step as a respondent dispatch trigger).
-2. **Gate 3b refinement.** Trigger: Gate 3b false-positive tripwire OR multi-model evaluation iteration (queued #5) lands and changes the dispatch shape. Either revisit the threshold or replace F2 with F1/F4.
+2. **Gate 3b refinement (F1 or F4).** Trigger: re-review-round race tripwire at N=2 OR multi-model evaluation iteration's revert obligation can't be discharged. Implements F1 (parse model + round from headers) or F4 (per-PR reviewer manifest). Closes both initial-round AND re-review-round races structurally.
 
 ## Origin
 
@@ -196,23 +204,27 @@ v1 of this iteration was opened, reviewed by 2 of 3 expected reviewers, and merg
 
 v2 supersedes v1 by integrating Opus's substantive corrections AND closing the race that prevented v1 from being properly reviewed in the first place. Per CLAUDE.md "Specs as historical record," v2 ships as a successor spec; v1 stays as the historical record of the initial decision (with a one-line forward-breadcrumb added by v2's Commit 3 pointing to this file).
 
-Operational lesson for future spec-PRs: the v1 controller violated the discipline v1 was codifying (don't label until all reviews posted). v2 closes this by moving the discipline into the workflow gate itself. Manual discipline failed empirically; the gate enforces.
+Operational lesson for future spec-PRs: v1 substituted prose for a gate change. The underlying Gate 3b threshold has always been loose (`gcscode-red-team` count >= 1), and multi-model red-team dispatch made it exploitable. v1 documented the asymmetry but didn't tighten the gate. v2 ships the gate change v1 declined. Cross-iteration coupling with the multi-model evaluation iteration is a hard obligation (see Architecture > Auto-merge workflow gate fix > Coupling note), not a soft hand-off.
 
 ## Post-merge implementation
 
 Per the post-merge implementation convention, **three direct-master commits**. All content fully specified verbatim below.
 
-- **Commit 1:** Update `.github/workflows/auto-merge.yml` Gate 3b to require `REDTEAM_COUNT >= 2`.
-- **Commit 2:** Add the v2 CLAUDE.md paragraph (supersedes v1's Commit 1 which never landed).
-- **Commit 3:** Documentation propagation — roadmap.md flip (single Queued/Shipped entry for v2; original Considering entry deleted); v1 forward-breadcrumb appended to v1 spec; CLAUDE.md auto-merge gate reference if any.
+- **Commit 1:** Update `.github/workflows/auto-merge.yml` Gate 3b — replace leading comment block + threshold logic; update top-of-file comment block for spec/* + adr/* description.
+- **Commit 2:** Two CLAUDE.md sub-edits: (2a) add v2 paragraph to "Respondent posting discipline" subsection; (2b) update the "Auto-merge on user approval" bullet in "Branching and merging" to match the new Gate 3b semantics.
+- **Commit 3:** Documentation propagation — (3a) roadmap.md flip (delete pre-existing Considering entry; add single Queued/Shipped entry for v2); (3b) v1 forward-breadcrumb appended to v1 spec.
 
 ### Verbatim — Commit 1 (`.github/workflows/auto-merge.yml` Gate 3b)
 
-Locate the Gate 3b block in `.github/workflows/auto-merge.yml` (around lines 95–102, the block beginning with `# spec/* and adr/* PRs: spec-PR gate (Gate 3b)`).
+Locate the Gate 3b block in `.github/workflows/auto-merge.yml` (around lines 92–103). The block includes a leading comment block followed by the gate logic. **Replace BOTH the leading comment AND the gate logic** with the After block — do not leave the old leading comment in place.
 
-**Before:**
+**Before** (includes leading comment block to be REPLACED):
 
 ```bash
+# Gate 3b: BOTH red-team AND spec-quality must have posted at least one review.
+# Enforces the auto-dispatch obligation from CLAUDE.md "Reviewer-role design
+# conventions" — prevents an eager auto-merge label at PR-open time from racing
+# past the auto-dispatch step.
 REDTEAM_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-red-team")] | length')
 SPECQUALITY_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-spec-quality")] | length')
 if [[ "$REDTEAM_COUNT" == "0" || "$SPECQUALITY_COUNT" == "0" ]]; then
@@ -222,13 +234,17 @@ fi
 echo "Gate 3b OK: red-team count=${REDTEAM_COUNT}, spec-quality count=${SPECQUALITY_COUNT}"
 ```
 
-**After:**
+**After** (replaces the entire block above, comment + logic):
 
 ```bash
+# Gate 3b: gcscode-red-team count >= 2 (both Opus and Sonnet under multi-model
+# dispatch per multi-model-red-team-v1) AND gcscode-spec-quality count >= 1.
+# Enforces auto-dispatch obligation AND prevents the initial-round merge race
+# documented in 2026-05-17-auto-merge-bypasses-final-respondent-v2.md. Known
+# limitation: cumulative counting does not gate re-review-round races; see v2
+# spec's "Known limitation — cumulative-count semantics in re-review rounds".
 REDTEAM_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-red-team")] | length')
 SPECQUALITY_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-spec-quality")] | length')
-# v2: red-team is multi-model (Opus + Sonnet) per multi-model-red-team-v1; both must have posted.
-# spec-quality is single-model; >=1 suffices. Revisit when multi-model evaluation lands.
 if [[ "$REDTEAM_COUNT" -lt 2 || "$SPECQUALITY_COUNT" -lt 1 ]]; then
   echo "Gate 3b FAILED: red-team count=${REDTEAM_COUNT} (need >=2 for multi-model dispatch), spec-quality count=${SPECQUALITY_COUNT} (need >=1). Exiting cleanly."
   exit 0
@@ -255,11 +271,19 @@ Also update the workflow's leading comment block (around line 9) — the spec/* 
 #           Per spec: 2026-05-17-auto-merge-bypasses-final-respondent-v2.md.
 ```
 
-### Verbatim — Commit 2 (CLAUDE.md edit)
+### Verbatim — Commit 2 (CLAUDE.md edits — two sub-edits)
 
-Locate the "Respondent posting discipline" subsection in `shell/CLAUDE.md` (around line 214). Locate the "Initial-review round" paragraph that begins `**Initial-review round:**` (around line 252). Locate the next paragraph that begins `**Discipline note:**` (around line 254). Insert the following NEW paragraph between them:
+**2a — Respondent posting discipline paragraph.** Locate the "Respondent posting discipline" subsection in `shell/CLAUDE.md` (around line 214). Locate the "Initial-review round" paragraph that begins `**Initial-review round:**` (around line 252). Locate the next paragraph that begins `**Discipline note:**` (around line 254). Insert the following NEW paragraph between them:
 
-> **Final-round asymmetry (intentional, paired with the initial-round asymmetry above).** The respondent dispatches **only after a `Code-review-followup:` commit**. The initial-round skip (above) and this final-round skip are **bookends of one rule**: the respondent fires only when the controller has produced a followup commit containing dispositions to document. The opening side has nothing to dispose; the closing side has the controller's implicit "no further followup" judgment. When final re-reviews are "strong with residuals" (clean verdict but containing net-new items), the controller-voice acknowledgment of those residuals stays implicit. Under auto-merge, the controller's merge-authorization step is the `ready-for-review` + `labeled auto-merge` two-step, not the workflow's `gh pr merge` call. v2 keeps this gap but closes the auto-merge mid-round race that exposed it: Gate 3b now requires `gcscode-red-team` count >= 2 (both Opus and Sonnet posted under multi-model dispatch) AND `gcscode-spec-quality` count >= 1 before merge. Option (3) — making the `ready+label` two-step a respondent dispatch trigger — is the leading future-iteration design. Triggers to revisit: (a) strong-with-residuals pattern at **N=2 consecutive spec/ADR PRs** (final re-review verdict "strong" with ≥3 net-new items and no followup) — observable from PR timelines; (b) authorization-trail audit need; (c) process change requiring explicit per-finding acknowledgment before merge. Spec: [`docs/specs/2026-05-17-auto-merge-bypasses-final-respondent-v2.md`](docs/specs/2026-05-17-auto-merge-bypasses-final-respondent-v2.md) (supersedes [v1](docs/specs/2026-05-17-auto-merge-bypasses-final-respondent.md)).
+> **Final-round asymmetry (intentional, paired with the initial-round asymmetry above).** The respondent dispatches **only after a `Code-review-followup:` commit**. The initial-round skip (above) and this final-round skip are **bookends of one rule**: the respondent fires only when the controller has produced a followup commit containing dispositions to document. The opening side has nothing to dispose; the closing side has the controller's implicit "no further followup" judgment. When final re-reviews are "strong with residuals" (clean verdict but containing net-new items), the controller-voice acknowledgment of those residuals stays implicit. Under auto-merge, the controller's merge-authorization step is the `ready-for-review` + `labeled auto-merge` two-step, not the workflow's `gh pr merge` call. v2 keeps this gap but closes the auto-merge initial-round merge race that exposed it: Gate 3b now requires `gcscode-red-team` count >= 2 (both Opus and Sonnet posted under multi-model dispatch) AND `gcscode-spec-quality` count >= 1 before merge. Cumulative-count semantics leave a known re-review-round race; operational mitigation while v2's F2 is in effect: remove the `auto-merge` label after each `Code-review-followup:` commit and re-apply only after all expected re-reviewers have posted. Option (3) — making the `ready+label` two-step a respondent dispatch trigger — is the leading future-iteration design. Triggers to revisit: (a) strong-with-residuals pattern at **N=2 consecutive spec/ADR PRs** (final re-review verdict "strong" with ≥3 net-new items and no followup) — observable from PR timelines; (b) authorization-trail audit need; (c) process change requiring explicit per-finding acknowledgment before merge. Spec: [`docs/specs/2026-05-17-auto-merge-bypasses-final-respondent-v2.md`](docs/specs/2026-05-17-auto-merge-bypasses-final-respondent-v2.md) (supersedes [v1](docs/specs/2026-05-17-auto-merge-bypasses-final-respondent.md)).
+
+**2b — "Auto-merge on user approval" bullet (Branching and merging section).** Locate the bullet in `shell/CLAUDE.md` that begins `**Auto-merge on user approval.**` (around line 46). Within that bullet, locate the text describing the spec/ADR PR gate:
+
+**Before:** `for \`spec/*\` or \`adr/*\` PRs both red-team AND spec-quality have posted at least one review`
+
+**After:** `for \`spec/*\` or \`adr/*\` PRs \`gcscode-red-team\` has posted >=2 reviews (both Opus and Sonnet under multi-model dispatch) AND \`gcscode-spec-quality\` has posted >=1 review`
+
+The rest of the bullet (auto-merge label semantics, branch-class scoping, etc.) is unchanged.
 
 ### Verbatim — Commit 3 (docs propagation + v1 forward-breadcrumb)
 
@@ -276,7 +300,7 @@ Pre-edit verification: `grep -n "Auto-merge-bypasses-final-respondent" shell/doc
 DELETE the above from Considering. ADD the following to the Queued section of the agentic-team architecture track, immediately after the existing "Per-role bot identities for reviewers" `[x]`-marked entry:
 
 ```md
-- [x] **Auto-merge-bypasses-final-respondent design (v2)** — accepted-asymmetry decision + auto-merge workflow gate fix (Gate 3b now requires `gcscode-red-team` count >= 2 + `gcscode-spec-quality` count >= 1, enforcing the multi-model dispatch shape). v2 supersedes v1 ([`specs/2026-05-17-auto-merge-bypasses-final-respondent.md`](specs/2026-05-17-auto-merge-bypasses-final-respondent.md)) which merged with only 2 of 3 reviewers posted (the workflow mid-round race fired on the spec that documented it). v2 closes the race; v1's accept-asymmetry decision survives the corrected reasoning. Option (3) — making the `ready+label` two-step a respondent dispatch trigger — is named as the leading future-iteration design. Spec: [`specs/2026-05-17-auto-merge-bypasses-final-respondent-v2.md`](specs/2026-05-17-auto-merge-bypasses-final-respondent-v2.md).
+- [x] **Auto-merge-bypasses-final-respondent design (v2)** — accepted-asymmetry decision + Gate 3b workflow fix shipping multi-model-red-team-v1's Future iteration #6 early. Gate 3b now requires `gcscode-red-team` count >= 2 (both Opus and Sonnet under multi-model dispatch) + `gcscode-spec-quality` count >= 1. Closes the initial-round merge race that produced PR #19's early merge; leaves a known re-review-round race (operational mitigation: remove the label after each Code-review-followup commit, re-apply only after all re-reviewers post). v2 supersedes v1 ([`specs/2026-05-17-auto-merge-bypasses-final-respondent.md`](specs/2026-05-17-auto-merge-bypasses-final-respondent.md)); v1's accept-asymmetry decision survives the corrected reasoning. Option (3) — making the `ready+label` two-step a respondent dispatch trigger — is named as the leading future-iteration design. Future iterations: F1/F4 (Gate 3b refinement closing the re-review race); option (3) (final-wrap respondent). Spec: [`specs/2026-05-17-auto-merge-bypasses-final-respondent-v2.md`](specs/2026-05-17-auto-merge-bypasses-final-respondent-v2.md).
 ```
 
 **3b — v1 forward-breadcrumb.**
@@ -284,7 +308,7 @@ DELETE the above from Considering. ADD the following to the Queued section of th
 Append the following one-line blockquote to the end of `shell/docs/specs/2026-05-17-auto-merge-bypasses-final-respondent.md`:
 
 ```md
-> **v2 supersession breadcrumb (added 2026-05-17):** This spec was superseded by [`2026-05-17-auto-merge-bypasses-final-respondent-v2.md`](2026-05-17-auto-merge-bypasses-final-respondent-v2.md) on the same day. v2 rebuilds the case for accept-asymmetry from honest premises (per red-team Opus's post-merge review of v1's PR #19) AND adds an auto-merge workflow Gate 3b fix to prevent the mid-round race that merged v1 with only 2 of 3 reviewers posted. v1's accept-asymmetry decision survives v2 unchanged; only the supporting reasoning + the workflow gate change.
+> **Superseded 2026-05-17 by [`2026-05-17-auto-merge-bypasses-final-respondent-v2.md`](2026-05-17-auto-merge-bypasses-final-respondent-v2.md):** v2 preserves the accept-asymmetry decision and rebuilds the supporting case + adds the Gate 3b fix v1 declined.
 ```
 
 Per CLAUDE.md "Specs as historical record," this breadcrumb is a one-line cross-reference (the convention's explicit pattern), not a deep substantive edit to v1's content.
