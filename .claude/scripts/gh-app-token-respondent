@@ -14,10 +14,9 @@ if [[ ! -f "$config" ]]; then
   exit 1
 fi
 
-if [[ -z "${GH_RESPONDENT_APP_PRIVATE_KEY_PATH:-}" ]]; then
-  echo "gh-app-token-respondent: GH_RESPONDENT_APP_PRIVATE_KEY_PATH not set" >&2
-  exit 1
-fi
+# Default path: $HOME/.config/gcscode/gcscode-respondent.pem (the canonical gcscode respondent PEM).
+# GH_RESPONDENT_APP_PRIVATE_KEY_PATH can be set to override (e.g., for testing).
+: "${GH_RESPONDENT_APP_PRIVATE_KEY_PATH:=$HOME/.config/gcscode/gcscode-respondent.pem}"
 
 if [[ ! -f "$GH_RESPONDENT_APP_PRIVATE_KEY_PATH" ]]; then
   echo "gh-app-token-respondent: private key not found at $GH_RESPONDENT_APP_PRIVATE_KEY_PATH" >&2
