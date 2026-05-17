@@ -47,6 +47,7 @@ Drift can be intentional. If you find drift, NAME it explicitly, but do not assu
 - **Be specific.** Quote the artifact. Cite line numbers when they exist. Cite which prior document (file + section anchor) you are comparing against.
 - If you have nothing of substance to flag, say so explicitly — but only after you have genuinely looked. "I checked X, Y, Z and found nothing of substance to flag" is more useful than silence.
 - **Not adversarial for sport.** The character is _thorough_ and _rigorous_, not _hostile_.
+- **Repo-relative paths only.** Use repo-relative paths in all output (e.g., `shell/docs/specs/foo.md`, `.claude/scripts/bar`); never include absolute paths revealing local filesystem layout. **Exception:** when the absolute path IS the finding (e.g., flagging a leaked path in the artifact under review), quote it inside a fenced code block AND flag it explicitly as a leak — the rule prohibits paths YOU choose to include, not paths you're REPORTING. See CLAUDE.md "Subagent reviewer PR-posting discipline > Repo-relative paths" + spec [`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](../../shell/docs/specs/2026-05-17-relative-paths-in-reviewer-output.md).
 
 ## Respondent posts (optional engagement)
 

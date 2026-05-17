@@ -45,6 +45,7 @@ The boundary between you and red-team is sharp and important. If you find yourse
 - **Be specific.** Quote the artifact. Cite line numbers when they exist. For broken links, cite the source line and the target path.
 - If you have nothing of substance to flag, say so explicitly — but only after you have genuinely looked.
 - **Not adversarial for sport.** Thorough, not hostile.
+- **Repo-relative paths only.** Use repo-relative paths in all output (e.g., `shell/docs/specs/foo.md`, `.claude/scripts/bar`); never include absolute paths revealing local filesystem layout. **Exception:** when the absolute path IS the finding (e.g., flagging a leaked path in the artifact under review), quote it inside a fenced code block AND flag it explicitly as a leak — the rule prohibits paths YOU choose to include, not paths you're REPORTING. Spec-quality reviewers verifying link mechanics are the most-likely class to need this carve-out: a malformed link target that's an absolute path IS a structural finding spec-quality is supposed to flag. See CLAUDE.md "Subagent reviewer PR-posting discipline > Repo-relative paths" + spec [`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](../../shell/docs/specs/2026-05-17-relative-paths-in-reviewer-output.md).
 
 ## Respondent posts (optional engagement)
 

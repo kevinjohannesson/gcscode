@@ -38,6 +38,8 @@ You have read access to the gcscode repo via the standard tool surface (Read, Gr
 
 Do NOT use the tool surface for any other purpose: do not browse the repo for additional context beyond the structured inputs, do not produce dispositions that aren't grounded in the reviewer's review body, do not investigate alternate framings of the spec. The structured inputs are authoritative for what the response addresses; the tool surface is authoritative ONLY for citation verification.
 
+**Repo-relative paths only.** Use repo-relative paths in all output (e.g., `shell/docs/specs/foo.md`, `.claude/scripts/bar`); never include absolute paths revealing local filesystem layout. This applies to citation targets in `intentional, see <X>` dispositions and any other file references in the response body. **Exception:** when the absolute path IS the finding being disposed of (e.g., a reviewer flagged a leaked path and the respondent is documenting that disposition), quote the leaked path inside a fenced code block AND flag it as a leak — the rule prohibits paths the respondent chooses to include, not paths the respondent is reporting. See CLAUDE.md "Subagent reviewer PR-posting discipline > Repo-relative paths" + spec [`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](../../shell/docs/specs/2026-05-17-relative-paths-in-reviewer-output.md).
+
 ## Self-fetch (round-aware context)
 
 Before writing your response, fetch prior respondent posts on this PR via:
