@@ -96,7 +96,7 @@ The change is strictly **opt-out**, not opt-in: existing callers that pass the e
 ## Validation
 
 - **Validation by review on this PR**: reviewers verify the shell-parameter-expansion pattern is correct + the default paths match the canonical user setup + the failure-mode preservation argument holds.
-- **Explicit unset-then-invoke test (mandatory before declaring v1 working)**: the env-var is currently set in this user's environment, so the default-path code path never runs by default. To validate the default path actually works, the post-merge implementation includes a one-shot manual test (per Commit 3's verification step): explicitly unset both env vars in a subshell and invoke each helper with a known role-slug; verify the helper returns a token using the default path. Red-team Opus flagged the "validation is vacuous without an unset-then-invoke" gap; this addresses it.
+- **Explicit unset-then-invoke test (mandatory between Commits 2 and 3)**: the env-var is currently set in this user's environment, so the default-path code path never runs by default. To validate the default path actually works, the post-merge implementation includes a one-shot manual test (per the Verbatim > "Mid-implementation verification step" subsection): explicitly unset both env vars in a subshell and invoke each helper with a known role-slug; verify the helper returns a token using the default path. Three correctness criteria: exit code 0, non-empty output, output starts with `ghs_`. Test runs AFTER Commits 1 and 2 land (so the default-path code exists) but BEFORE Commit 3 lands (so the documentation propagation doesn't precede the working implementation). Red-team Opus flagged the "validation is vacuous without an unset-then-invoke" gap; this addresses it. (Earlier draft had the test running BEFORE Commits 1-2 — that was a logic error caught by red-team Sonnet's re-review of `ec8f4a3`; the test exercises code that Commits 1 and 2 introduce.)
 - **Validation by use on the FIRST spec/ADR PR after merge**: any reviewer / respondent dispatch on the next spec/ADR PR exercises the helper script. If the env var IS set, behavior is unchanged. If a subagent's shell doesn't have the var (the failure mode this iteration targets), the default path kicks in and the dispatch posts under the correct bot identity instead of the user-identity fallback.
 - **PR #22's root cause stays a known unknown.** The explicit unset-then-invoke test validates the "env-var missing" failure mode. It does NOT validate the "env-var set but `gh` used user-auth anyway" mode (which is one of two plausible diagnostic options for PR #22, per the Tripwire section). If user-identity-fallback recurs on a future PR despite the default-path fix being live, the diagnostic should distinguish: was the helper invoked at all? Did it return a token? Did `gh` see GH_TOKEN? The default-path fix targets the first of these; the other two have separate remediation paths.
 - **No new tripwire required**: the user-identity-fallback recurrence tripwire below covers detection. The controller observing a `kevinjohannesson` post that should have been a bot post is the signal.
@@ -150,7 +150,7 @@ Per the post-merge implementation convention, **three direct-master commits**. A
 - **Commit 1:** Edit `.claude/scripts/gh-app-token-reviewer` to replace the env-var-required check with the default-path-fallback pattern.
 - **Commit 2:** Edit `.claude/scripts/gh-app-token-respondent` to apply the same pattern.
 - **Commit 3:** Update FOUR CLAUDE.md locations (3a-3d covering "Config locations" + "Respondent posting discipline > Config" + "Further reading > agent-config.json" + "Further reading > gh-app-token-reviewer") + roadmap.md flip (3e).
-- **Pre-merge verification step** (runs before Commit 1 but is post-merge in the spec-PR sense — exercised by the controller after this spec ships and before declaring v1 working): explicitly unset both env vars in a subshell and invoke each helper with a known-good role-slug, verify each returns a token. Documented in Validation > "Explicit unset-then-invoke test." This is a manual one-shot test; if it fails, post-merge Commits 1 and 2 are reverted and the spec is reconsidered.
+- **Mid-implementation verification step** (runs AFTER Commits 1 and 2 land, BEFORE Commit 3): the test exercises the default-path code that Commits 1 and 2 introduce, so it must run after those commits. The controller runs the test in a clean subshell with both env vars explicitly unset, verifies each helper returns a token using the default path. Documented in Verbatim > "Mid-implementation verification step" with three correctness criteria (exit code 0, non-empty output, starts with `ghs_`). This is a manual one-shot test; if it fails, Commits 1 and 2 are reverted before Commit 3 lands.
 
 ### Verbatim — Commit 1 (`gh-app-token-reviewer` default-path fallback)
 
@@ -246,22 +246,41 @@ No other changes. The subsequent `[[ ! -f "$GH_RESPONDENT_APP_PRIVATE_KEY_PATH" 
 - [x] **Robust default paths in token helpers** — ad-hoc reliability iteration. Adds default-path fallback to `.claude/scripts/gh-app-token-reviewer` (default `$HOME/.config/gcscode`) and `.claude/scripts/gh-app-token-respondent` (default `$HOME/.config/gcscode/gcscode-respondent.pem`). The `GH_REVIEWER_APP_PRIVATE_KEY_DIR` and `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` env vars stay as optional overrides. Strict-env-var-required behavior was producing user-identity-fallback failures across PRs #20 and #22 when env propagation was transient or stale; convention over configuration removes the dependency on env-var propagation. Four CLAUDE.md locations updated for consistency (Config locations + Respondent Config + Further reading × 2). Spec: [`specs/2026-05-17-robust-default-paths-in-token-helpers.md`](specs/2026-05-17-robust-default-paths-in-token-helpers.md).
 ```
 
-### Pre-merge verification step (manual, mandatory before declaring v1 working)
+### Mid-implementation verification step (manual, mandatory between Commits 2 and 3)
 
-Run this in a clean subshell before post-merge Commits 1-3 land (the order is: ship the spec-PR, then run this test, then run the post-merge commits):
+**Ordering correction (per red-team Sonnet's re-review of `ec8f4a3`):** the prior wording said "run BEFORE Commits 1-2 land" — that was wrong. The test validates the default-path code that ONLY exists AFTER Commits 1 and 2 land. The correct ordering is:
+
+1. Spec-PR merges (this PR #23).
+2. Post-merge Commit 1 lands (`gh-app-token-reviewer` default-path fallback).
+3. Post-merge Commit 2 lands (`gh-app-token-respondent` default-path fallback).
+4. **Run the verification test here** — the helpers now have the default-path code; the test exercises it.
+5. If the test fails, revert Commits 1 and 2 (do NOT proceed to Commit 3). If it succeeds, proceed.
+6. Post-merge Commit 3 lands (CLAUDE.md edits + roadmap flip).
+
+**Pipeline exit-status correction (per red-team Opus's re-review of `ec8f4a3`):** the prior `helper | head -c 16 && echo OK || echo FAIL` pattern was buggy. In a non-pipefail shell, the pipeline's exit status is `head`'s (which is 0 even when the helper fails and produces zero stdout), so the test would print "OK" even on helper failure. The corrected test captures the helper output into a variable and checks for non-empty content:
 
 ```bash
-# Unset both env vars in a subshell, invoke each helper with a known role-slug,
-# verify each returns a token using the default path.
-(unset GH_REVIEWER_APP_PRIVATE_KEY_DIR GH_RESPONDENT_APP_PRIVATE_KEY_PATH; \
- .claude/scripts/gh-app-token-reviewer red-team | head -c 16) \
- && echo " (reviewer default-path test: token OK)" \
- || echo "FAIL: reviewer default-path test"
+# Reviewer default-path test.
+out=$(unset GH_REVIEWER_APP_PRIVATE_KEY_DIR GH_RESPONDENT_APP_PRIVATE_KEY_PATH; \
+      .claude/scripts/gh-app-token-reviewer red-team 2>&1)
+rc=$?
+if [[ $rc -eq 0 && -n "$out" && "$out" =~ ^ghs_ ]]; then
+  echo "OK: reviewer default-path test (token prefix: ${out:0:8}...)"
+else
+  echo "FAIL: reviewer default-path test (rc=$rc, output: ${out:0:100})"
+fi
 
-(unset GH_RESPONDENT_APP_PRIVATE_KEY_PATH GH_REVIEWER_APP_PRIVATE_KEY_DIR; \
- .claude/scripts/gh-app-token-respondent | head -c 16) \
- && echo " (respondent default-path test: token OK)" \
- || echo "FAIL: respondent default-path test"
+# Respondent default-path test.
+out=$(unset GH_RESPONDENT_APP_PRIVATE_KEY_PATH GH_REVIEWER_APP_PRIVATE_KEY_DIR; \
+      .claude/scripts/gh-app-token-respondent 2>&1)
+rc=$?
+if [[ $rc -eq 0 && -n "$out" && "$out" =~ ^ghs_ ]]; then
+  echo "OK: respondent default-path test (token prefix: ${out:0:8}...)"
+else
+  echo "FAIL: respondent default-path test (rc=$rc, output: ${out:0:100})"
+fi
 ```
 
-If either test FAILs, revert the post-merge commits and reconsider. If both succeed, the default-path fallback works as designed; the post-merge commits land.
+Three correctness criteria for each test: (a) helper exit code is 0, (b) output is non-empty, (c) output starts with `ghs_` (the GitHub App installation token prefix). All three must hold for OK; any failure prints diagnostic context.
+
+If either test FAILs, revert Commits 1 and 2 (do NOT proceed to Commit 3). If both succeed, the default-path fallback works as designed; Commit 3 lands.
