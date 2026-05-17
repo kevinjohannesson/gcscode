@@ -4,7 +4,8 @@
     "code-quality":    { "appId": "3742253", "installationId": "133059467" },
     "final-review":    { "appId": "3742256", "installationId": "133059507" },
     "red-team":        { "appId": "3742257", "installationId": "133059552" },
-    "spec-quality":    { "appId": "3742259", "installationId": "133059587" }
+    "spec-quality":    { "appId": "3742259", "installationId": "133059587" },
+    "extension-architect":   { "appId": "3748928", "installationId": "133236796" }
   },
   "respondentApp": { "appId": "3733841", "installationId": "132842105" }
 }
