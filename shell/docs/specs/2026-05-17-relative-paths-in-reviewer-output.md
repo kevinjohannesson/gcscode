@@ -133,6 +133,8 @@ Verbatim edit content in Post-merge implementation > Commit 3.
 
   **Divergence from CLAUDE.md "Reviewer-role design conventions > Tripwires" condition (iii):** condition (iii) says tripwires should be "detectable as a pattern across N PRs rather than per-PR." This tripwire is N=1 per-PR. The divergence is **deliberate**: condition (iii) is a guard against noise-prone signals (a single misfire on something subjective doesn't justify an iteration); a binary grep-able rule like this one doesn't have a noise floor. A single observation is the signal. v1 documents the divergence explicitly here so future readers don't mistake it for an oversight; whether condition (iii) should be revised to permit "N=1 tripwires for binary rules" is queued as a future-iteration question (it's not blocking — both the convention and this divergence stand as-is for now).
 
+  > **Resolved 2026-05-17 by [`2026-05-17-tripwire-condition-iii-compliance.md`](2026-05-17-tripwire-condition-iii-compliance.md):** condition (iii) was revised to permit binary grep-able tripwires at N=1. The leak-recurrence tripwire is no longer a divergence; it is the canonical example of the binary-rule carve-out cited in the convention.
+
 This tripwire is a manual check; the controller should scan its own reviewer outputs before applying the `auto-merge` label.
 
 ## Future iterations
