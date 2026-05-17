@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Generates a short-lived GitHub App installation token for a per-role gcscode reviewer.
+# Usage: gh-app-token-reviewer <role-slug>
+# Valid role-slugs: spec-compliance, code-quality, final-review, red-team, spec-quality
+# Reads App ID + installation ID from .claude/agent-config.json under reviewerApps.<role-slug>.
+# Reads private key from $GH_REVIEWER_APP_PRIVATE_KEY_DIR/gcscode-<role-slug>.pem.
+# Prints the installation token to stdout.
+
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+  echo "gh-app-token-reviewer: usage: gh-app-token-reviewer <role-slug>" >&2
+  echo "gh-app-token-reviewer: valid role-slugs: spec-compliance, code-quality, final-review, red-team, spec-quality" >&2
+  exit 1
+fi
+
+role_slug="$1"
+
+case "$role_slug" in
+  spec-compliance|code-quality|final-review|red-team|spec-quality) ;;
+  *)
+    echo "gh-app-token-reviewer: unknown role-slug: $role_slug" >&2
+    echo "gh-app-token-reviewer: valid role-slugs: spec-compliance, code-quality, final-review, red-team, spec-quality" >&2
+    exit 1
+    ;;
+esac
+
+script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+config="$script_dir/../agent-config.json"
+
+if [[ ! -f "$config" ]]; then
+  echo "gh-app-token-reviewer: $config not found" >&2
+  exit 1
+fi
+
+if [[ -z "${GH_REVIEWER_APP_PRIVATE_KEY_DIR:-}" ]]; then
+  echo "gh-app-token-reviewer: GH_REVIEWER_APP_PRIVATE_KEY_DIR not set" >&2
+  exit 1
+fi
+
+pem_path="$GH_REVIEWER_APP_PRIVATE_KEY_DIR/gcscode-$role_slug.pem"
+
+if [[ ! -f "$pem_path" ]]; then
+  echo "gh-app-token-reviewer: private key not found at $pem_path" >&2
+  exit 1
+fi
+
+app_id=$(jq -r ".reviewerApps[\"$role_slug\"].appId" "$config")
+installation_id=$(jq -r ".reviewerApps[\"$role_slug\"].installationId" "$config")
+
+if [[ "$app_id" == "null" || "$installation_id" == "null" ]]; then
+  echo "gh-app-token-reviewer: appId or installationId missing for $role_slug in $config" >&2
+  exit 1
+fi
+
+if ! [[ "$app_id" =~ ^[0-9]+$ ]]; then
+  echo "gh-app-token-reviewer: appId must be a numeric string, got: $app_id" >&2
+  exit 1
+fi
+
+if ! [[ "$installation_id" =~ ^[0-9]+$ ]]; then
+  echo "gh-app-token-reviewer: installationId must be a numeric string, got: $installation_id" >&2
+  exit 1
+fi
+
+now=$(date +%s)
+exp=$((now + 540))  # JWT lifetime: 9 minutes (GitHub maximum is 10).
+
+b64url() {
+  openssl base64 -e -A | tr '+/' '-_' | tr -d '='
+}
+
+header=$(printf '%s' '{"alg":"RS256","typ":"JWT"}' | b64url)
+payload=$(printf '{"iat":%s,"exp":%s,"iss":"%s"}' "$now" "$exp" "$app_id" | b64url)
+signature=$(printf '%s.%s' "$header" "$payload" \
+  | openssl dgst -sha256 -sign "$pem_path" -binary \
+  | b64url)
+jwt="$header.$payload.$signature"
+
+response=$(curl -sS -X POST \
+  -H "Authorization: Bearer $jwt" \
+  -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "https://api.github.com/app/installations/$installation_id/access_tokens")
+
+token=$(printf '%s' "$response" | jq -r .token)
+
+if [[ "$token" == "null" || -z "$token" ]]; then
+  echo "gh-app-token-reviewer: GitHub did not return a token. Response:" >&2
+  printf '%s\n' "$response" >&2
+  exit 1
+fi
+
+printf '%s\n' "$token"
