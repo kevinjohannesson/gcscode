@@ -6,9 +6,10 @@ name: Auto-merge
 # Gate 2: The PR's headRefName is `feat/*`, `spec/*`, or `adr/*`.
 # Gate 3: Bot signal — class-aware:
 #         - feat/*: PR's reviewDecision is APPROVED (canonical GitHub check).
-#         - spec/* or adr/*: BOTH `gcscode-red-team` AND `gcscode-spec-quality`
-#           have posted at least one review on the PR (enforces auto-dispatch
-#           obligation from CLAUDE.md).
+#         - spec/* or adr/*: `gcscode-red-team` count >= 2 (both Opus and Sonnet
+#           under multi-model dispatch) AND `gcscode-spec-quality` count >= 1.
+#           Enforces auto-dispatch obligation AND prevents mid-round merge race.
+#           Per spec: 2026-05-17-auto-merge-bypasses-final-respondent-v2.md.
 # Gate 4: The PR is mergeable (no conflicts).
 #
 # Spec: docs/specs/2026-05-14-auto-merge-on-user-approval.md
@@ -89,14 +90,16 @@ jobs:
             fi
             echo "Gate 3a OK: PR reviewDecision is APPROVED"
           else
-            # Gate 3b: BOTH red-team AND spec-quality must have posted at least one review.
-            # Enforces the auto-dispatch obligation from CLAUDE.md "Reviewer-role design
-            # conventions" — prevents an eager auto-merge label at PR-open time from racing
-            # past the auto-dispatch step.
+            # Gate 3b: gcscode-red-team count >= 2 (both Opus and Sonnet under multi-model
+            # dispatch per multi-model-red-team-v1) AND gcscode-spec-quality count >= 1.
+            # Enforces auto-dispatch obligation AND prevents the initial-round merge race
+            # documented in 2026-05-17-auto-merge-bypasses-final-respondent-v2.md. Known
+            # limitation: cumulative counting does not gate re-review-round races; see v2
+            # spec's "Known limitation — cumulative-count semantics in re-review rounds".
             REDTEAM_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-red-team")] | length')
             SPECQUALITY_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-spec-quality")] | length')
-            if [[ "$REDTEAM_COUNT" == "0" || "$SPECQUALITY_COUNT" == "0" ]]; then
-              echo "Gate 3b FAILED: red-team count=${REDTEAM_COUNT}, spec-quality count=${SPECQUALITY_COUNT} (both required > 0). Exiting cleanly."
+            if [[ "$REDTEAM_COUNT" -lt 2 || "$SPECQUALITY_COUNT" -lt 1 ]]; then
+              echo "Gate 3b FAILED: red-team count=${REDTEAM_COUNT} (need >=2 for multi-model dispatch), spec-quality count=${SPECQUALITY_COUNT} (need >=1). Exiting cleanly."
               exit 0
             fi
             echo "Gate 3b OK: red-team count=${REDTEAM_COUNT}, spec-quality count=${SPECQUALITY_COUNT}"
