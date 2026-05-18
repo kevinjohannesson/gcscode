@@ -10,7 +10,7 @@
 Two articulation gaps surfaced during the 2026-05-14 housekeeping pass and are not currently captured in repo docs:
 
 1. **Reviewer-role design patterns.** Four patterns emerged from the red-team v1 user-review pass and the reviews-as-artifacts mechanics validation (PR #1 + PR #3 on 2026-05-14). They live in agent memory only; future agents designing devil's advocate v2 or the broader expert-reviewer track don't carry that memory and would re-discover the same patterns the hard way.
-2. **Red-team auto-dispatch obligation.** The new spec-PR / ADR-PR workflow specifies that red-team "auto-dispatches on PR open." That sentence is in CLAUDE.md's "Subagent reviewer PR-posting discipline" subsection — it tells the reader the *rule*, but it doesn't make the *controller's action point* legible (when exactly does the controller need to fire the dispatch?). v1 of the workflow has no automated enforcement; the controller (human or LLM, in a fresh-context session) must remember.
+2. **Red-team auto-dispatch obligation.** The new spec-PR / ADR-PR workflow specifies that red-team "auto-dispatches on PR open." That sentence is in CLAUDE.md's "Subagent reviewer PR-posting discipline" subsection — it tells the reader the _rule_, but it doesn't make the _controller's action point_ legible (when exactly does the controller need to fire the dispatch?). v1 of the workflow has no automated enforcement; the controller (human or LLM, in a fresh-context session) must remember.
 
 Both gaps are silent-failure modes we **expect to compound** as the agentic-team track grows. The expectation is a forward-looking bet, not established failure-mode reasoning — the track has only run for two iterations (reviews-as-artifacts, red-team-reviewer) and the patterns crystallized organically in agent memory exactly when needed. v1 ships ahead of compounding-failure evidence on the bet that **articulation cost < re-discovery cost**; first observed skip or first new-reviewer-role that re-derives a pattern from scratch will be the empirical check on the bet.
 
@@ -43,7 +43,7 @@ The new subsection has two parts:
 
 Cross-references back to the registry table (source of truth for role metadata) and to the prompt template convention (`.claude/reviewer-prompts/<role>.md`).
 
-**Deliberate bundling of two-audience content.** The four design patterns are read at *brainstorm time* by someone designing a future reviewer role; the auto-dispatch checklist is read at *PR-open time* by a controller running an iteration. Different audiences, different read moments. v1 co-locates them under one subsection because both are agentic-team-track meta-conventions and clustering keeps the agentic-team substrate compact. Cost accepted: a reader landing on "Reviewer-role design conventions" sees content adjacent to but not immediately relevant to their current task. If the cost compounds, splitting is the obvious next-iteration refactor.
+**Deliberate bundling of two-audience content.** The four design patterns are read at _brainstorm time_ by someone designing a future reviewer role; the auto-dispatch checklist is read at _PR-open time_ by a controller running an iteration. Different audiences, different read moments. v1 co-locates them under one subsection because both are agentic-team-track meta-conventions and clustering keeps the agentic-team substrate compact. Cost accepted: a reader landing on "Reviewer-role design conventions" sees content adjacent to but not immediately relevant to their current task. If the cost compounds, splitting is the obvious next-iteration refactor.
 
 **Denormalization with existing CLAUDE.md auto-dispatch prose.** CLAUDE.md already has a "Red-team auto-dispatch" paragraph in the "Subagent reviewer PR-posting discipline" subsection that describes the rule. The new "Auto-dispatch controller obligations" checklist denormalizes that rule into actionable form — intentional duplication for legibility, similar to how the verdict-permissions table denormalizes the registry per ADR-0008's "registry is source of truth" framing. If the two drift on a future edit, consolidate by promoting the checklist form as canonical and shortening the existing paragraph to a registry pointer.
 
@@ -51,7 +51,7 @@ Cross-references back to the registry table (source of truth for role metadata) 
 
 ## The new subsection (exact text to add)
 
-````md
+```md
 ### Reviewer-role design conventions
 
 When designing a new reviewer role (devil's advocate v2, expert reviewers, future expansions of the reviewer-role registry), apply these conventions. They emerged from the red-team v1 user-review pass and the reviews-as-artifacts mechanics validation (PR #1 + PR #3 on 2026-05-14). The four patterns generalize from one data point (red-team v1); the generalization is a forward-looking bet. Known unknown: which patterns hold up across the future expert-reviewer track. Adjust as evidence accumulates.
@@ -73,15 +73,15 @@ The reviewer-role registry's `trigger` field declares WHEN a role fires (e.g., r
 - **No automated enforcement in v1.** Convention-based; the obligation is the controller's. Detection of a skip is by user observation — a merged spec/ADR PR with no red-team review is the failure signature. Trigger to add automated enforcement: first observed silent skip on a real spec/ADR PR.
 
 When new reviewer roles join the registry whose `trigger` is also `Automatic on PR open` (e.g., devil's advocate v2), append their obligations to this checklist alongside red-team's. Other trigger forms get their own checklist if/when they're added.
-````
+```
 
 ## The second CLAUDE.md edit — "Branching and merging" addition
 
 Add a new bullet to the "Branching and merging" section, immediately after the existing "PR workflow" bullet (keeping the workflow-bullet group — Feature branches, Spec-PR workflow, ADR-PR workflow, PR workflow — contiguous; the post-merge rule comes after them as a successor concern):
 
-````md
+```md
 - **Post-merge implementation conventions.** When a spec-PR or ADR-PR merges, implementation follows the same conventions as any other change: feat branches (with the subagent-driven plan execution pipeline) for code or for changes that require judgment during implementation (decomposition, integration, file structure beyond what the spec specifies); direct master commits for purely mechanical CLAUDE.md or docs edits whose exact text is fully specified in the spec. The spec-PR's red-team review serves as the cross-cutting review of the behavioral change; the post-merge mechanical commit is execution-only. If you find yourself making decisions during the post-merge commit that the spec didn't make, stop and use a feat branch.
-````
+```
 
 This bullet generalizes the carve-out into a named convention, not a one-off. Future docs-only iterations (housekeeping passes, articulation passes) inherit it.
 

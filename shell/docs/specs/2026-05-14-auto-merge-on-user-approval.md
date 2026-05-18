@@ -21,7 +21,7 @@ The bigger version would include:
 - **CI integration** so the workflow waits on green checks (no CI exists yet in gcscode).
 - **Override mechanism** for force-merging despite failed gates.
 - **Configurable per-PR-class gates** (e.g., per-role required-approvals on spec/ADR PRs once verdict promotion lands).
-- **Auto-merge for non-`feat`/`spec`/`adr` branches** (test/*, fix/*, etc.).
+- **Auto-merge for non-`feat`/`spec`/`adr` branches** (test/_, fix/_, etc.).
 
 That's a multi-iteration roadmap, not a single spec. This iteration ships the smallest concrete wedge: a workflow that handles the two existing PR classes with their existing gates. CI integration, override semantics, and branch protection happen in their own iterations when triggered.
 
@@ -131,7 +131,7 @@ Three implementation choices in the verbatim YAML are easy to miss from the Gate
 
 Per the post-merge implementation convention, the implementation lands as a direct-master commit; the full workflow content is specified here verbatim:
 
-````yaml
+```yaml
 name: Auto-merge
 
 # Auto-merges PRs when:
@@ -246,7 +246,7 @@ jobs:
           # All gates pass — merge
           echo "All gates passed; merging PR #${PR_NUMBER} via --merge --delete-branch"
           gh pr merge "$PR_NUMBER" --merge --delete-branch
-````
+```
 
 ## CLAUDE.md changes
 
@@ -333,7 +333,7 @@ Each gets its own brainstorm when triggered.
 2. **Branch protection rules.** Add GitHub-native branch protection that requires the auto-merge workflow to have run successfully (or status checks to pass). Trigger: observed bypass.
 3. **Per-PR-class gates for spec/ADR PRs.** When verdict promotion lands (red-team + spec-quality can `--request-changes`), the workflow's gate 3 logic extends to require bot `--approve` on spec/ADR PRs too. Bundles with the verdict-promotion iteration.
 4. **Override mechanism.** A `force-merge` label or comment that bypasses gates 2-4 (but not gate 1 — must still have `auto-merge` label). For edge cases where the user is confident bypassing gates is correct. Trigger: first real need.
-5. **Auto-merge for other branch classes.** If we ever want test/* or fix/* to auto-merge under different gate logic. Trigger: real use case.
+5. **Auto-merge for other branch classes.** If we ever want test/_ or fix/_ to auto-merge under different gate logic. Trigger: real use case.
 
 ## Origin
 

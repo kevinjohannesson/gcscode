@@ -212,7 +212,7 @@ Operational lesson for future spec-PRs: v1 substituted prose for a gate change. 
 
 Per the post-merge implementation convention, **three direct-master commits**. All content fully specified verbatim below.
 
-- **Commit 1:** Update `.github/workflows/auto-merge.yml` Gate 3b — replace leading comment block + threshold logic; update top-of-file comment block for spec/* + adr/* description.
+- **Commit 1:** Update `.github/workflows/auto-merge.yml` Gate 3b — replace leading comment block + threshold logic; update top-of-file comment block for spec/_ + adr/_ description.
 - **Commit 2:** Two CLAUDE.md sub-edits: (2a) add v2 paragraph to "Respondent posting discipline" subsection; (2b) update the "Auto-merge on user approval" bullet in "Branching and merging" to match the new Gate 3b semantics.
 - **Commit 3:** Documentation propagation — (3a) roadmap.md flip (delete pre-existing Considering entry; add single Queued/Shipped entry for v2); (3b) v1 forward-breadcrumb appended to v1 spec.
 
@@ -254,7 +254,7 @@ fi
 echo "Gate 3b OK: red-team count=${REDTEAM_COUNT}, spec-quality count=${SPECQUALITY_COUNT}"
 ```
 
-Also update the workflow's leading comment block (around line 9) — the spec/* or adr/* gate description:
+Also update the workflow's leading comment block (around line 9) — the spec/_ or adr/_ gate description:
 
 **Before:**
 
@@ -281,9 +281,9 @@ Also update the workflow's leading comment block (around line 9) — the spec/* 
 
 **2b — "Auto-merge on user approval" bullet (Branching and merging section).** Locate the bullet in `shell/CLAUDE.md` that begins `**Auto-merge on user approval.**` (around line 46). Within that bullet, locate the text describing the spec/ADR PR gate:
 
-**Before:** `for \`spec/*\` or \`adr/*\` PRs both red-team AND spec-quality have posted at least one review`
+**Before:** `for \`spec/_\` or \`adr/_\` PRs both red-team AND spec-quality have posted at least one review`
 
-**After:** `for \`spec/*\` or \`adr/*\` PRs \`gcscode-red-team\` has posted >=2 reviews (both Opus and Sonnet under multi-model dispatch) AND \`gcscode-spec-quality\` has posted >=1 review (enforcing the auto-dispatch obligation AND preventing the initial-round merge race)`
+**After:** `for \`spec/_\` or \`adr/_\` PRs \`gcscode-red-team\` has posted >=2 reviews (both Opus and Sonnet under multi-model dispatch) AND \`gcscode-spec-quality\` has posted >=1 review (enforcing the auto-dispatch obligation AND preventing the initial-round merge race)`
 
 The rest of the bullet (auto-merge label semantics, branch-class scoping, etc.) is unchanged. The "enforcing the auto-dispatch obligation" phrase is preserved from the original wording (matches CLAUDE.md's existing rationale framing); the added clause names the v2 race-prevention purpose explicitly.
 

@@ -23,6 +23,16 @@ function makeFakeHost(opts?: {
     extensions: {
       getExtension: vi.fn(() => undefined),
     },
+    configuration: {
+      registerConfiguration: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+      getConfiguration: vi.fn().mockReturnValue({
+        get: vi.fn((_key: string, defaultValue?: unknown) => defaultValue),
+        has: vi.fn().mockReturnValue(false),
+        inspect: vi.fn().mockReturnValue(undefined),
+        update: vi.fn().mockResolvedValue(undefined),
+      }),
+      onDidChangeConfiguration: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+    },
   };
 }
 

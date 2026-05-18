@@ -314,9 +314,9 @@ GH_TOKEN=$(.claude/scripts/gh-app-token-respondent) gh pr review <PR> --comment 
 
 Replace the existing "After every `Code-review-followup:` commit on a spec/ADR branch:" bullet of the "Auto-dispatch controller obligations" checklist with:
 
-````md
+```md
 - **After every `Code-review-followup:` commit on a spec/ADR branch:** (a) push the commit, (b) post respondent responses per the Respondent posting discipline subsection above — one per reviewer that has posted on the PR (three posts total for spec/ADR PRs with the current three reviewers), then (c) re-dispatch ALL THREE reviewer roles in parallel. Each role's re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). For the red-team multi-model pair, both Opus and Sonnet re-review independently. Note: a followup that does not touch content any reviewer commented on will still trigger all three re-dispatches AND all three respondent posts. v1 accepts the duplicative-review-and-response cost; if the pattern produces material noise, a future iteration can condition the obligations on whether the followup touches reviewed content for each role.
-````
+```
 
 Bullets 1 and 3 of the same checklist stay unchanged. (Bullet 1 covers "Before opening a `spec/<topic>` or `adr/<slug>` PR" auto-dispatch; bullet 3 covers "No automated enforcement in v1.")
 
@@ -324,7 +324,7 @@ Bullets 1 and 3 of the same checklist stay unchanged. (Bullet 1 covers "Before o
 
 For both `.claude/reviewer-prompts/red-team.md` and `.claude/reviewer-prompts/spec-quality.md`, insert the following section immediately AFTER the existing `## Tone` section's content and BEFORE the next `## ` heading (which is `## What you have access to` in both templates):
 
-````md
+```md
 ## Respondent posts (optional engagement)
 
 After a `Code-review-followup:` commit, the controller may post a response from `gcscode-respondent[bot]` documenting per-finding dispositions ("addressed in `<SHA>`", "intentional, see `<X>`", "routed to `<destination>`", "noted, no action"). You may read these posts when re-reviewing.
@@ -332,7 +332,7 @@ After a `Code-review-followup:` commit, the controller may post a response from 
 If you disagree with a documented disposition (e.g., the rationale doesn't actually address your concern; the routing destination is wrong; the "intentional" rationale is mistaken), push back in your re-review under the relevant section — quote the disposition, state your disagreement, suggest what would actually address it. Otherwise, proceed as normal: react to the diff.
 
 Optional means optional. If the respondent's dispositions look reasonable to you, you don't have to acknowledge them — react to the diff as you would in any re-review.
-````
+```
 
 The exact anchor is the line immediately after the existing `## Tone` section content, before the blank line preceding `## What you have access to`. In both templates this is at approximately line 49-50; verify by reading the file before inserting.
 
@@ -349,7 +349,7 @@ The exact anchor is the line immediately after the existing `## Tone` section co
 
 Two plans.
 
-### Plan 1: Mechanics smoke test (next test/* PR after merge)
+### Plan 1: Mechanics smoke test (next test/\* PR after merge)
 
 A throwaway test branch verifies the respondent App token + posting works.
 
@@ -403,9 +403,10 @@ Four updates:
 - **Are 3 respondent posts per followup-commit round noisy?** A 4-round iteration (like the recent PR #11) would generate 12 respondent posts. The PR conversation tab gets dense. Plan 2 observes readability.
 - **Token cost.** Three respondent posts per round, each ~150-300 tokens of content the controller writes. Across iterations this is small; flagging only because PR API quotas and visual density compound.
 - **Pre-merge verification is structurally skipped.** Same constraint as effort-max iteration: the respondent App + helper script don't exist until post-merge implementation lands. Plan 1's smoke test runs post-merge. If the helper script has a bug or the App ID is misconfigured, the failure surfaces after the spec is merged. Accepted trade-off; the rollback path is "revert all six post-merge commits + restore the prior CLAUDE.md state" — non-trivial but bounded.
-- **Cross-session controller-direct response writing is a Day 1 limitation, not a future risk.** v1 ships controller-direct with the load-bearing premise that "session context already contains the reasoning that needs to be captured." That premise is true within ONE session, but multi-session PRs are the norm — PR #11 ran four followup rounds across what was almost certainly multiple sessions. A new session picking up a mid-iteration PR has NO prior reasoning context: it must reconstruct intent from the followup commits, the diff, and prior reviews — which is exactly what a subagent dispatch would do. v1 accepts this limitation by trading off subagent dispatch infrastructure for the simpler controller-direct pattern. The respondent prompt template's format is the consistency mechanism across sessions (different controllers reading the same template produce consistent output structure), but the *substance* of each disposition still requires the controller to reconstruct reasoning each time the session boundary crosses. Failure response: respondent subagent dispatch (Future iteration #1). **Trigger is no longer speculative** — the next real cross-session PR validates whether reconstruction-cost is bearable or not. If a controller spends meaningful time reconstructing prior-session reasoning before writing a response, the subagent iteration is warranted.
+- **Cross-session controller-direct response writing is a Day 1 limitation, not a future risk.** v1 ships controller-direct with the load-bearing premise that "session context already contains the reasoning that needs to be captured." That premise is true within ONE session, but multi-session PRs are the norm — PR #11 ran four followup rounds across what was almost certainly multiple sessions. A new session picking up a mid-iteration PR has NO prior reasoning context: it must reconstruct intent from the followup commits, the diff, and prior reviews — which is exactly what a subagent dispatch would do. v1 accepts this limitation by trading off subagent dispatch infrastructure for the simpler controller-direct pattern. The respondent prompt template's format is the consistency mechanism across sessions (different controllers reading the same template produce consistent output structure), but the _substance_ of each disposition still requires the controller to reconstruct reasoning each time the session boundary crosses. Failure response: respondent subagent dispatch (Future iteration #1). **Trigger is no longer speculative** — the next real cross-session PR validates whether reconstruction-cost is bearable or not. If a controller spends meaningful time reconstructing prior-session reasoning before writing a response, the subagent iteration is warranted.
 
   > **respondent-subagent-v2 breadcrumb (added 2026-05-16):** Respondent subagent v2 ([2026-05-16-respondent-subagent-v2.md](2026-05-16-respondent-subagent-v2.md)) ships per the agentic-team debt-clearing v1 commitment ([2026-05-16-agentic-team-debt-clearing-v1.md](2026-05-16-agentic-team-debt-clearing-v1.md))'s queued-item-2 entry. v2 supersedes this bullet's architectural premise: the controller-direct dispatch is replaced by a `subagent_type: respondent` parallel-3 dispatch with controller pre-fetches. The "first real cross-session PR" trigger this bullet anticipated was not the firing signal; the debt-clearing iteration's unconditional drain commitment overrode it.
+
 - **What happens to disposition disagreements after merge?** Pre-merge, human disagreements with respondent dispositions become PR comments addressed in the next followup. Post-merge, the PR is closed; disagreements become next-iteration brainstorm fodder. v1 accepts this; future iteration could explore a "post-merge respondent appendix" mechanism if it becomes painful.
 
 ## Why no dedicated ADR for the respondent-as-new-actor pattern
@@ -427,6 +428,7 @@ Per the design conventions in CLAUDE.md (Reviewer-role design conventions > Trip
 - **Cross-session reconstruction tripwire.** If during the first 2 multi-round spec/ADR PRs after this iteration ships, the controller (in a new session) spends >10 minutes reconstructing prior-session disposition intent before writing a response — pull the respondent subagent iteration forward and prioritize it. The 10-minute threshold is operational, not algorithmic; the controller's session log is the signal.
 
   > **Effectively obsolete 2026-05-17 per [`2026-05-16-respondent-subagent-v2.md`](2026-05-16-respondent-subagent-v2.md) + [`2026-05-17-tripwire-condition-iii-compliance.md`](2026-05-17-tripwire-condition-iii-compliance.md):** respondent dispatch became subagent-driven with structured-input pre-fetch. The controller's reconstruction cost is materially reduced but not eliminated (the controller still pre-fetches reviewer review + diff + spec before dispatch). The tripwire's 10-minute threshold is no longer the principal cost-bearing case; the tripwire is left in place as historical record of the original concern rather than removed.
+
 - **Optional-engagement-never-fires tripwire.** If across the first 5 spec/ADR PRs after this iteration ships, NO re-reviewer ever pushes back on a respondent disposition under the optional-engagement provision — flag that the loop isn't actually a loop. v1 ships engagement as optional; the operational data tells us whether the option is ever exercised. If never, the discussion-loop hypothesis fails operationally and the required-engagement iteration is warranted.
 - **Routing-evaporates tripwire.** If across the first 3 spec/ADR PRs after this iteration ships, respondent posts document "routed to docs/roadmap.md" dispositions that NEVER result in actual roadmap.md commits at merge time — flag that the routing-via-existing-files model is failing. The respondent post documents intent; only post-merge propagation makes it concrete. If the intent-to-actual gap is non-zero, the ledger file (Future iteration #4) or stronger propagation enforcement may be needed.
 

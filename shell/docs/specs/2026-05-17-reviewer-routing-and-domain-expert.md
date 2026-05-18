@@ -227,9 +227,9 @@ This is consistent with how PR #18 (per-role-bot-identities) handled the legacy 
 
 ### Identity naming
 
-| Role          | Role-slug       | Bot username (rendered)        |
-| ------------- | --------------- | ------------------------------ |
-| Extension architect | `extension-architect` | `gcscode-extension-architect[bot]`   |
+| Role                | Role-slug             | Bot username (rendered)            |
+| ------------------- | --------------------- | ---------------------------------- |
+| Extension architect | `extension-architect` | `gcscode-extension-architect[bot]` |
 
 The slug is direct kebab-case of the role name (unlike `final-review` which is a shorthand for "Final cross-cutting"). Bot username matches.
 
@@ -367,11 +367,11 @@ After the user creates the App and provides `appId` + `installationId`, replace 
 {
   "reviewerApps": {
     "spec-compliance": { "appId": "3742240", "installationId": "133058924" },
-    "code-quality":    { "appId": "3742253", "installationId": "133059467" },
-    "final-review":    { "appId": "3742256", "installationId": "133059507" },
-    "red-team":        { "appId": "3742257", "installationId": "133059552" },
-    "spec-quality":    { "appId": "3742259", "installationId": "133059587" },
-    "extension-architect":   { "appId": "<USER-PROVIDED>", "installationId": "<USER-PROVIDED>" }
+    "code-quality": { "appId": "3742253", "installationId": "133059467" },
+    "final-review": { "appId": "3742256", "installationId": "133059507" },
+    "red-team": { "appId": "3742257", "installationId": "133059552" },
+    "spec-quality": { "appId": "3742259", "installationId": "133059587" },
+    "extension-architect": { "appId": "<USER-PROVIDED>", "installationId": "<USER-PROVIDED>" }
   },
   "respondentApp": { "appId": "3733841", "installationId": "132842105" }
 }
@@ -450,7 +450,7 @@ Otherwise: follow the template precisely.
 
 Create the file with the following content. Note: this is the role template that the controller passes inline at dispatch time; the agent file in Commit 3 is just the wrapper.
 
-```markdown
+````markdown
 # Extension-architect reviewer prompt template
 
 This file defines the **review behavior** for the extension-architect reviewer role on gcscode spec-PRs and ADR-PRs. The controller dispatching a extension-architect subagent passes this content (with placeholders substituted) as part of the subagent's prompt. Layer 1 plumbing (token helper, PR posting requirement, header convention quick reference) is documented separately in `shell/CLAUDE.md` under "Subagent reviewer PR-posting discipline" and in the agentic-actor registry.
@@ -558,6 +558,7 @@ GH_TOKEN=$(.claude/scripts/gh-app-token-reviewer extension-architect) gh pr revi
 EOF
 )"
 ```
+````
 
 Re-fetch the token via the helper for each invocation; don't rely on environment persistence across bash calls.
 
@@ -628,7 +629,8 @@ After posting, return a brief summary to the controller. Under 150 words. Includ
 - One-line overall assessment
 
 Do not include the full review text in your return — it's on the PR.
-```
+
+````
 
 ### Verbatim — Commit 5 (CLAUDE.md edits — five sub-edits)
 
@@ -701,7 +703,7 @@ Replace the existing paragraph beginning `**Auto-dispatch on spec/ADR PRs.**` wi
 
 ```md
 | Extension-architect (per-artifact, spec/ADR-PRs, heuristic-routed) |      ✓      |          ✗          |      ✗      |
-```
+````
 
 `--comment` only (advisory, consistent with red-team and spec-quality v1; verdict promotion is a future iteration).
 

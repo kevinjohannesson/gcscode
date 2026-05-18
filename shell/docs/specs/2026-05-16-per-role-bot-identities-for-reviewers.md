@@ -99,10 +99,10 @@ After:
 {
   "reviewerApps": {
     "spec-compliance": { "appId": "<filled-post-merge>", "installationId": "<filled-post-merge>" },
-    "code-quality":    { "appId": "<filled-post-merge>", "installationId": "<filled-post-merge>" },
-    "final-review":    { "appId": "<filled-post-merge>", "installationId": "<filled-post-merge>" },
-    "red-team":        { "appId": "<filled-post-merge>", "installationId": "<filled-post-merge>" },
-    "spec-quality":    { "appId": "<filled-post-merge>", "installationId": "<filled-post-merge>" }
+    "code-quality": { "appId": "<filled-post-merge>", "installationId": "<filled-post-merge>" },
+    "final-review": { "appId": "<filled-post-merge>", "installationId": "<filled-post-merge>" },
+    "red-team": { "appId": "<filled-post-merge>", "installationId": "<filled-post-merge>" },
+    "spec-quality": { "appId": "<filled-post-merge>", "installationId": "<filled-post-merge>" }
   },
   "respondentApp": { "appId": "3733841", "installationId": "132842105" }
 }
@@ -280,7 +280,7 @@ Per the post-merge implementation convention, five direct-master commits. All co
 
 Create the new file with the following content (chmod 755). Delete `.claude/scripts/gh-app-token` in the same commit.
 
-````bash
+```bash
 #!/usr/bin/env bash
 # Generates a short-lived GitHub App installation token for a per-role gcscode reviewer.
 # Usage: gh-app-token-reviewer <role-slug>
@@ -375,7 +375,7 @@ if [[ "$token" == "null" || -z "$token" ]]; then
 fi
 
 printf '%s\n' "$token"
-````
+```
 
 Make executable: `chmod 755 .claude/scripts/gh-app-token-reviewer`.
 
@@ -385,18 +385,18 @@ Delete `.claude/scripts/gh-app-token` in the same commit (`git rm`).
 
 Replace the entire contents of `.claude/agent-config.json` with the following structure, filling the placeholder values with the appIds and installationIds the user provided after creating the 5 Apps:
 
-````json
+```json
 {
   "reviewerApps": {
     "spec-compliance": { "appId": "<USER-PROVIDED>", "installationId": "<USER-PROVIDED>" },
-    "code-quality":    { "appId": "<USER-PROVIDED>", "installationId": "<USER-PROVIDED>" },
-    "final-review":    { "appId": "<USER-PROVIDED>", "installationId": "<USER-PROVIDED>" },
-    "red-team":        { "appId": "<USER-PROVIDED>", "installationId": "<USER-PROVIDED>" },
-    "spec-quality":    { "appId": "<USER-PROVIDED>", "installationId": "<USER-PROVIDED>" }
+    "code-quality": { "appId": "<USER-PROVIDED>", "installationId": "<USER-PROVIDED>" },
+    "final-review": { "appId": "<USER-PROVIDED>", "installationId": "<USER-PROVIDED>" },
+    "red-team": { "appId": "<USER-PROVIDED>", "installationId": "<USER-PROVIDED>" },
+    "spec-quality": { "appId": "<USER-PROVIDED>", "installationId": "<USER-PROVIDED>" }
   },
   "respondentApp": { "appId": "3733841", "installationId": "132842105" }
 }
-````
+```
 
 The `respondentApp` values are preserved verbatim from the current file. The `<USER-PROVIDED>` placeholders are replaced with the actual numeric strings the user provides per the "Operational prerequisite — GitHub App creation" section above.
 
@@ -404,13 +404,13 @@ The `respondentApp` values are preserved verbatim from the current file. The `<U
 
 **3a — Agentic-actor registry table `identity` column.** In the 13-column agentic-actor registry table (locate via `grep -n "^| Actor class | Role" shell/CLAUDE.md`), replace the `identity` cell for each of the 5 reviewer rows:
 
-| Row (by `Role` column value) | Before                    | After                          |
-| ----------------------------- | ------------------------- | ------------------------------ |
-| `Spec-compliance`             | `` `gcscode-reviewer[bot]` ``   | `` `gcscode-spec-compliance[bot]` `` |
-| `Code-quality`                | `` `gcscode-reviewer[bot]` ``   | `` `gcscode-code-quality[bot]` ``    |
-| `Final cross-cutting`         | `` `gcscode-reviewer[bot]` ``   | `` `gcscode-final-review[bot]` ``    |
-| `Red-team`                    | `` `gcscode-reviewer[bot]` ``   | `` `gcscode-red-team[bot]` ``        |
-| `Spec-quality`                | `` `gcscode-reviewer[bot]` ``   | `` `gcscode-spec-quality[bot]` ``    |
+| Row (by `Role` column value) | Before                        | After                                |
+| ---------------------------- | ----------------------------- | ------------------------------------ |
+| `Spec-compliance`            | `` `gcscode-reviewer[bot]` `` | `` `gcscode-spec-compliance[bot]` `` |
+| `Code-quality`               | `` `gcscode-reviewer[bot]` `` | `` `gcscode-code-quality[bot]` ``    |
+| `Final cross-cutting`        | `` `gcscode-reviewer[bot]` `` | `` `gcscode-final-review[bot]` ``    |
+| `Red-team`                   | `` `gcscode-reviewer[bot]` `` | `` `gcscode-red-team[bot]` ``        |
+| `Spec-quality`               | `` `gcscode-reviewer[bot]` `` | `` `gcscode-spec-quality[bot]` ``    |
 
 The `respondent` row's `identity` cell stays `` `gcscode-respondent[bot]` ``.
 
@@ -440,7 +440,7 @@ Replace with (preserving the design-convention itself, updating the "v1 all role
 
 > **`identity` field in the registry, even when all roles share one bot.** Every entry in the agentic-actor registry carries an `identity` field. The reviewer-role registry's v1 (ADR-0008, 2026-05-14) had all reviewer roles sharing `gcscode-reviewer[bot]`; the column existed as a forward-looking field even when uniform. The per-role bot identities iteration (2026-05-16, [`docs/specs/2026-05-16-per-role-bot-identities-for-reviewers.md`](docs/specs/2026-05-16-per-role-bot-identities-for-reviewers.md)) filled per-row distinct values. Lesson: adding a structural field early — even when its values are uniform — costs less than retrofitting when the divergence iteration lands. Future reviewer-role registry expansions should preserve this discipline (e.g., a future `permissions` column added before per-role permissions diverge).
 
-**3f — "Identity" header line in the Respondent posting discipline subsection.** The line `**Identity:** \`gcscode-respondent[bot]\`. Distinct from \`gcscode-reviewer[bot]\`. Same posting permissions on PRs; different audit-trail attribution.` — replace the `gcscode-reviewer[bot]` reference:
+**3f — "Identity" header line in the Respondent posting discipline subsection.** The line `**Identity:** \`gcscode-respondent[bot]\`. Distinct from \`gcscode-reviewer[bot]\`. Same posting permissions on PRs; different audit-trail attribution.`— replace the`gcscode-reviewer[bot]` reference:
 
 > **Identity:** `gcscode-respondent[bot]`. Distinct from the per-role reviewer identities (`gcscode-spec-compliance[bot]`, `gcscode-code-quality[bot]`, `gcscode-final-review[bot]`, `gcscode-red-team[bot]`, `gcscode-spec-quality[bot]`). Same posting permissions on PRs; different audit-trail attribution.
 
@@ -448,11 +448,11 @@ Replace with (preserving the design-convention itself, updating the "v1 all role
 
 > **Config locations:** App IDs and installation IDs live in `.claude/agent-config.json` under `reviewerApps.<role-slug>` (versioned). Private keys live at `$GH_REVIEWER_APP_PRIVATE_KEY_DIR/gcscode-<role-slug>.pem` for reviewer roles; PEM files never enter git. (Respondent uses `respondentApp` + `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` as before.)
 
-**3h — Token-helper script reference.** The line `**\`.claude/scripts/gh-app-token\`** — helper that generates short-lived installation tokens. Reviewer subagents call \`export GH_TOKEN=$(.claude/scripts/gh-app-token)\` before \`gh pr review\`.` (in the "Further reading" section) — replace:
+**3h — Token-helper script reference.** The line `**\`.claude/scripts/gh-app-token\`\*\* — helper that generates short-lived installation tokens. Reviewer subagents call \`export GH_TOKEN=$(.claude/scripts/gh-app-token)\` before \`gh pr review\`.` (in the "Further reading" section) — replace:
 
 > **`.claude/scripts/gh-app-token-reviewer`** — helper that generates short-lived installation tokens for per-role reviewer identities. Takes a role-slug argument. Reviewer subagents call `export GH_TOKEN=$(.claude/scripts/gh-app-token-reviewer <role-slug>)` before `gh pr review`. (Respondent uses `.claude/scripts/gh-app-token-respondent`.)
 
-**3i — "Further reading" `.claude/agent-config.json` bullet.** The line `**\`.claude/agent-config.json\`** — App ID and installation ID for the \`gcscode-reviewer\` GitHub App. Private key path lives in \`GH_APP_PRIVATE_KEY_PATH\` env var, not in repo.` — replace:
+**3i — "Further reading" `.claude/agent-config.json` bullet.** The line `**\`.claude/agent-config.json\`\*\* — App ID and installation ID for the \`gcscode-reviewer\` GitHub App. Private key path lives in \`GH_APP_PRIVATE_KEY_PATH\` env var, not in repo.` — replace:
 
 > **`.claude/agent-config.json`** — App IDs and installation IDs for the per-role reviewer GitHub Apps (under the `reviewerApps` key, one sub-object per role-slug) and for the respondent App (under `respondentApp`). Private key paths live in `GH_REVIEWER_APP_PRIVATE_KEY_DIR` (a directory containing per-role PEMs) and `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` env vars; PEM files never enter git.
 
@@ -468,19 +468,19 @@ Replace with (preserving the design-convention itself, updating the "v1 all role
 
 **4c — `.claude/reviewer-prompts/respondent.md` reviewer filter.** In the "Structured inputs" section, locate the jq filter block (currently around line 24–26):
 
-````
+```
 .reviews[]
 | select(.author.login == "gcscode-reviewer")
 | select(.body | test("^## {{ROLE_LABEL}} review — (spec|ADR)( \\(re-review of [0-9a-f]+\\))? — {{REVIEWER_MODEL}}\\b"))
-````
+```
 
 Replace with:
 
-````
+```
 .reviews[]
 | select(.author.login | IN("gcscode-spec-compliance", "gcscode-code-quality", "gcscode-final-review", "gcscode-red-team", "gcscode-spec-quality"))
 | select(.body | test("^## {{ROLE_LABEL}} review — (spec|ADR)( \\(re-review of [0-9a-f]+\\))? — {{REVIEWER_MODEL}}\\b"))
-````
+```
 
 The body-test second filter is unchanged (the header convention still discriminates by role-label + model for re-review tie-breaking). The note about `.author.login` carrying the App name without `[bot]` suffix stays.
 
@@ -490,31 +490,31 @@ The body-test second filter is unchanged (the header convention still discrimina
 
 Before:
 
-````bash
+```bash
 REDTEAM_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-reviewer") | select(.body | startswith("## Red-team review"))] | length')
 SPECQUALITY_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-reviewer") | select(.body | startswith("## Spec-quality review"))] | length')
-````
+```
 
 After:
 
-````bash
+```bash
 REDTEAM_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-red-team")] | length')
 SPECQUALITY_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-spec-quality")] | length')
-````
+```
 
 Also update the workflow's leading comment block at the top of the file (the `# spec/* or adr/*: BOTH \`gcscode-reviewer\` red-team AND spec-quality` line, currently around line 9) to reflect the per-role identities:
 
 Before:
 
-````
+```
 #         - spec/* or adr/*: BOTH `gcscode-reviewer` red-team AND spec-quality
-````
+```
 
 After:
 
-````
+```
 #         - spec/* or adr/*: BOTH `gcscode-red-team` AND `gcscode-spec-quality`
-````
+```
 
 ### Verbatim — Commit 5 (documentation propagation)
 
@@ -526,21 +526,21 @@ Two sub-edits:
 
 **Before (in the Considering section, currently around line 82):**
 
-````md
+```md
 - [ ] **Per-role bot identities for reviewers** — long-standing Considering item; becomes load-bearing once respondent v2 ships (then we have reviewer bot + respondent bot + respondent subagent variants). Splits `gcscode-reviewer[bot]` into per-role App identities (`gcscode-red-team[bot]`, `gcscode-spec-quality[bot]`, etc.). Trigger: after respondent v2 establishes the multi-actor pattern, OR when the first domain-expert reviewer is added (whichever first).
-````
+```
 
 DELETE the above entry from the Considering section, and ADD the following entry to the **Queued** section of the agentic-team architecture track, immediately after the existing "Respondent subagent v2" `[x]`-marked entry (the entry lives in the "Queued (each needs its own brainstorm + spec cycle)" section despite the `[x]` checkbox; Queued items become `[x]` once they ship):
 
-````md
+```md
 - [x] **Per-role bot identities for reviewers** — splits `gcscode-reviewer[bot]` into 5 per-role App identities (`gcscode-spec-compliance[bot]`, `gcscode-code-quality[bot]`, `gcscode-final-review[bot]`, `gcscode-red-team[bot]`, `gcscode-spec-quality[bot]`). New parameterized helper `.claude/scripts/gh-app-token-reviewer <role-slug>` replaces `.claude/scripts/gh-app-token`. Config restructured under `reviewerApps` key; PEM files under `$GH_REVIEWER_APP_PRIVATE_KEY_DIR/gcscode-<role-slug>.pem`. Auto-merge workflow filter simplifies from `(identity + body-prefix)` to identity-only. `gcscode-reviewer[bot]` formally retired. Respondent identity untouched. Spec: [`specs/2026-05-16-per-role-bot-identities-for-reviewers.md`](specs/2026-05-16-per-role-bot-identities-for-reviewers.md).
-````
+```
 
 **5b — reviews-as-artifacts breadcrumb.** Per the specs-as-historical-record convention (CLAUDE.md "Specs as historical record"), append a one-line breadcrumb to `shell/docs/specs/2026-05-12-reviews-as-artifacts.md`. Locate the section that introduces the GitHub App identity (search for "Reviewer identity is a GitHub App" or similar — currently around line 24). Append the following blockquote immediately after that paragraph:
 
-````md
+```md
 > **per-role-bot-identities-for-reviewers breadcrumb (added 2026-05-16):** The single shared `gcscode-reviewer[bot]` identity introduced here was split into 5 per-role identities by [`2026-05-16-per-role-bot-identities-for-reviewers.md`](2026-05-16-per-role-bot-identities-for-reviewers.md) per the agentic-team debt-clearing v1 commitment ([`2026-05-16-agentic-team-debt-clearing-v1.md`](2026-05-16-agentic-team-debt-clearing-v1.md))'s queued-item-3 entry. The shared-identity scheme + the `gh-app-token` helper are historical as of 2026-05-16; per-role identities + `gh-app-token-reviewer <role-slug>` replace them. The retirement is a clean retire (no backwards-compat shim).
-````
+```
 
 The breadcrumb does NOT modify the reviews-as-artifacts spec's substantive content — its design decisions stand as historical record. This is the third application of the specs-as-historical-record convention (first: ADR-0009 number-reservation; second: respondent-v2 supersession of v1's controller-direct premise).
 

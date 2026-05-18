@@ -15,6 +15,9 @@
     "check": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },
+  "dependencies": {
+    "@types/json-schema": "^7.0.15"
+  },
   "peerDependencies": {
     "svelte": "^5.0.0"
   }

@@ -104,6 +104,92 @@ Consumers `import type { MyExports } from '@my-namespace/extension-my-extension'
 
 See [ADR-0005](../../docs/decisions/ADR-0005-extension-boundaries.md) for the full design and `@gcscode/extension-vehicle-status` for the canonical consumer.
 
+## Configuration (`host.configuration`)
+
+User-configurable settings live on `host.configuration`. The API mirrors VS Code's `vscode.workspace.getConfiguration` / `onDidChangeConfiguration` at the call site; the schema declaration shape is imperative per [ADR-0002](../../docs/decisions/ADR-0002-imperative-activate-api.md).
+
+### Registering a setting
+
+```ts
+context.subscriptions.push(
+  context.host.configuration.registerConfiguration({
+    key: 'my-namespace.my-extension.refreshIntervalMs',
+    schema: {
+      type: 'number',
+      minimum: 100,
+      maximum: 60_000,
+      description: 'How often to poll the upstream source, in milliseconds.',
+    },
+    default: 1000,
+  }),
+);
+```
+
+The `key` must start with your extension id; the `schema` is a JSON Schema Draft 07 object (TypeScript type: `JSONSchema7` re-exported from `@gcscode/extension-api`). The `default` is validated at registration; an invalid default throws synchronously.
+
+### Reading a setting
+
+```ts
+const cfg = context.host.configuration.getConfiguration('my-namespace.my-extension');
+
+// Returns T | undefined (no default value):
+const interval = cfg.get<number>('refreshIntervalMs');
+```
+
+Or, with a fallback for unregistered keys:
+
+```ts
+// Returns T (falls back to the supplied default when the key is unregistered):
+const intervalOrDefault = cfg.get<number>('refreshIntervalMs', 1000);
+```
+
+### Observing changes
+
+```ts
+context.subscriptions.push(
+  context.host.configuration.onDidChangeConfiguration((e) => {
+    if (e.affectsConfiguration('my-namespace.my-extension.refreshIntervalMs')) {
+      // re-read and apply
+    }
+  }),
+);
+```
+
+### Reactive reads in Svelte
+
+`cfg.get(...)` reads from a `SvelteMap`-backed store inside the call body. Reads inside `$derived` / template contexts auto-track and re-render on `update()`. **This is a different mechanism from ADR-0005's `$state`-proxy cross-extension exports** (property reactivity vs. map-key reactivity); both produce equivalent ergonomics for Svelte consumers.
+
+Reads cached into local variables outside a reactive context do NOT auto-track. Use `onDidChangeConfiguration` for non-Svelte consumers OR Svelte consumers caching reads.
+
+### Writing a setting
+
+```ts
+await cfg.update('refreshIntervalMs', 2000);
+```
+
+`update` returns `Promise<void>` and rejects on schema mismatch, unregistered key, unsupported target (`ConfigurationTarget.Workspace`/`WorkspaceFolder` reject in v1 with `'Target not supported in v1'`), or persistence failure (`'Persistence failed: <reason>'`). In-memory commit and listener invocations happen BEFORE persistence — listeners observe the new value even if the persist step subsequently rejects.
+
+### Trust posture
+
+- Registration is **strict-prefix**: an extension can only register settings whose key starts with its own id.
+- Reads are **open**: any extension can read any registered key.
+- Writes are **open after registration**: any extension can write any registered key. The strict-prefix rule applies at registration only. Capability-gating for cross-extension writes is deferred per [ADR-0003](../../docs/decisions/ADR-0003-plugin-api-refinements.md).
+
+### Operator UX in v1
+
+There is no settings editor UI in v1. Operators flip values via browser devtools:
+
+```js
+const cfg = JSON.parse(localStorage.getItem('gcscode.configuration') ?? '{}');
+cfg['my-namespace.my-extension.refreshIntervalMs'] = 2000;
+localStorage.setItem('gcscode.configuration', JSON.stringify(cfg));
+location.reload();
+```
+
+Known sharp edges of the devtools-only path: silent schema-validation failure on reload (the bad value stays in the blob, `get()` returns the default, no UI surface for the warning), no live-sync of devtools edits (reload required), and no UI surface for persistence-failure rejections from `update()`. A status-bar / boot-banner signal is a future iteration.
+
+For the full design rationale see [`docs/specs/2026-05-18-configuration-system-v1.md`](../../docs/specs/2026-05-18-configuration-system-v1.md).
+
 ## Lifecycle (`deactivate?()`)
 
 `Extension` may declare an optional `deactivate?(): void | Promise<void>` method for non-disposable / async cleanup (closing connections, flushing queues, awaiting workers). The host:

@@ -51,19 +51,19 @@ One new reviewer role in the registry; small CLAUDE.md updates; one new prompt t
 
 ### Registry entry
 
-| Field              | Value                                                                                  |
-| ------------------ | -------------------------------------------------------------------------------------- |
-| `name`             | Spec-quality                                                                           |
-| `kind`             | per-artifact                                                                           |
-| `identity`         | `gcscode-reviewer[bot]`                                                                |
-| `model`            | Claude Sonnet 4.6                                                                      |
-| `targets`          | spec-PR, ADR-PR                                                                        |
-| `trigger`          | Automatic on PR open                                                                   |
-| `verdicts`         | `--comment` only (v1)                                                                  |
-| `character`        | Document structure + within-document consistency + link mechanics                      |
-| `header`           | `## Spec-quality review — <spec or ADR> — Claude Sonnet 4.6`                           |
-| `re-review header` | `## Spec-quality review — <spec or ADR> (re-review of <SHA>) — Claude Sonnet 4.6`      |
-| `prompt template`  | `.claude/reviewer-prompts/spec-quality.md`                                             |
+| Field              | Value                                                                             |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `name`             | Spec-quality                                                                      |
+| `kind`             | per-artifact                                                                      |
+| `identity`         | `gcscode-reviewer[bot]`                                                           |
+| `model`            | Claude Sonnet 4.6                                                                 |
+| `targets`          | spec-PR, ADR-PR                                                                   |
+| `trigger`          | Automatic on PR open                                                              |
+| `verdicts`         | `--comment` only (v1)                                                             |
+| `character`        | Document structure + within-document consistency + link mechanics                 |
+| `header`           | `## Spec-quality review — <spec or ADR> — Claude Sonnet 4.6`                      |
+| `re-review header` | `## Spec-quality review — <spec or ADR> (re-review of <SHA>) — Claude Sonnet 4.6` |
+| `prompt template`  | `.claude/reviewer-prompts/spec-quality.md`                                        |
 
 ### Mandate — surgically narrow
 
