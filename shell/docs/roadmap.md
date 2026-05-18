@@ -28,7 +28,8 @@ The extension architecture grows in phases: **A** (contribution kinds), **B** (l
 
 - [x] **C1: ExtensionHost namespacing** — host API moves from flat (`registerCommand`, `registerStatusBarItem`, ...) to topic-namespaced (`host.commands.registerCommand`, `host.window.registerStatusBarItem`, ...). Spec: [`specs/2026-05-01-extensionhost-namespacing.md`](specs/2026-05-01-extensionhost-namespacing.md). ADR: [`decisions/ADR-0006-extensionhost-namespacing.md`](decisions/ADR-0006-extensionhost-namespacing.md).
 - [x] **C2: Command palette + `window.showQuickPick`** — `host.window.showQuickPick<T>(items, options): Promise<T | undefined>` + built-in `workbench` extension registering `workbench.action.showCommands` + `Ctrl+Shift+P`. Spec: [`specs/2026-05-02-command-palette.md`](specs/2026-05-02-command-palette.md).
-- [ ] **C3+: events, settings, themes, i18n** — TBD. Each lands as a new namespace under `host.*` when a feature extension pulls on it. Re-scope per-capability when triggered.
+- [x] **C3: Configuration system v1** — `host.configuration.*` namespace (`registerConfiguration` + `WorkspaceConfiguration` with `get`/`has`/`inspect`/`update` + `onDidChangeConfiguration`). JSON Schema Draft 07 via ajv, localStorage persistence, `ConfigurationTarget` enum (Global functional, Workspace/Folder stubbed). First consumer: `gcscode.sitl.connectionUrl`. No settings editor UI. Spec: [`specs/2026-05-18-configuration-system-v1.md`](specs/2026-05-18-configuration-system-v1.md).
+- [ ] **C4+: events, themes, i18n** — TBD. Each lands as a new namespace under `host.*` when a feature extension pulls on it. Re-scope per-capability when triggered.
 
 ## Feature extensions
 
@@ -52,6 +53,7 @@ The first-party extensions planned for the app. Each is a future consumer of the
 - [ ] **Sidebar / activity-bar chrome** — persistent UI region that would host the extensions panel (sidebar-mounted variant alongside the existing overlay), settings, output, search, etc. Trigger: a second sidebar tenant emerges (settings, output, search), OR operator UX feedback says the overlay is insufficient for longer browsing tasks. Operator-UX framing: floating/disappearing UI is the default; persistent chrome must justify its viewport cost.
 - [ ] **Map filter extension** — registry where extensions contributing map elements expose user-toggleable visibility (e.g., heading line, max-distance circle, future tracks/breadcrumbs). Trigger: second consumer wants opt-out of a sibling extension's layer. Surfaced during the drone-icon brainstorm (`docs/specs/2026-05-05-flight-overlay-drone-icon.md`).
 - [ ] **Map viewport constraints** — `maxBounds` + minimum zoom in `extension-map` so panning doesn't escape useful bounds and zoom-out doesn't reveal world-wrapping. Trigger: operator UX feedback or first integration test that surfaces an antimeridian artifact. Surfaced during the drone-icon brainstorm (`docs/specs/2026-05-05-flight-overlay-drone-icon.md`).
+- [ ] **Settings editor UI** — overlay (likely mirroring the extensions panel shape), search across keys + descriptions, type-aware widgets (text input, checkbox, number, enum dropdown), reset-to-default, JSON view as escape hatch. Trigger: operator UX feedback (specifically: a silent-schema-rejection failure causes confusion) OR a second real setting consumer landing. Substrate: [`specs/2026-05-18-configuration-system-v1.md`](specs/2026-05-18-configuration-system-v1.md).
 
 ## Agentic team architecture
 
