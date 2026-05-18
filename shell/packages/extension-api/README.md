@@ -131,9 +131,16 @@ The `key` must start with your extension id; the `schema` is a JSON Schema Draft
 
 ```ts
 const cfg = context.host.configuration.getConfiguration('my-namespace.my-extension');
+
+// Returns T | undefined (no default value):
 const interval = cfg.get<number>('refreshIntervalMs');
-// or with a fallback for unregistered keys:
-const interval = cfg.get<number>('refreshIntervalMs', 1000);
+```
+
+Or, with a fallback for unregistered keys:
+
+```ts
+// Returns T (falls back to the supplied default when the key is unregistered):
+const intervalOrDefault = cfg.get<number>('refreshIntervalMs', 1000);
 ```
 
 ### Observing changes
