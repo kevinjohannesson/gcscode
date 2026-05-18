@@ -1,4 +1,5 @@
-import type { ConfigurationTarget, WorkspaceConfiguration } from '@gcscode/extension-api';
+import { ConfigurationTarget } from '@gcscode/extension-api';
+import type { WorkspaceConfiguration } from '@gcscode/extension-api';
 
 /**
  * Internal contract the wrapper closes over. Lives in the store; the wrapper
@@ -49,7 +50,7 @@ export function createWorkspaceConfiguration(
     },
 
     update(key: string, value: unknown, target?: ConfigurationTarget) {
-      return facade.update(fullKey(key), value, target ?? 1); // 1 = ConfigurationTarget.Global
+      return facade.update(fullKey(key), value, target ?? ConfigurationTarget.Global);
     },
   };
 }

@@ -7,7 +7,7 @@ import {
 } from '@gcscode/extension-api';
 import Ajv, { type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { SvelteMap } from 'svelte/reactivity';
 
 import { writeConfigurationBlob, loadConfigurationBlob } from './persistence';
 import {
@@ -38,7 +38,8 @@ export class ConfigurationStore {
   private _schemas = new SvelteMap<string, CompiledSchemaEntry>();
   private _values = new SvelteMap<string, unknown>();
   private _storage: Storage;
-  private _listeners = new SvelteSet<(e: ConfigurationChangeEvent) => void>();
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- listeners are iterated synchronously inside update(), never observed in a reactive context
+  private _listeners = new Set<(e: ConfigurationChangeEvent) => void>();
   private _pendingPersisted: Record<string, unknown>;
 
   public constructor(storage: Storage = localStorage) {
