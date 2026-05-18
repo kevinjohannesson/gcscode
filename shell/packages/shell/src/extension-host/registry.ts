@@ -12,6 +12,8 @@ import type {
   ViewContribution,
 } from '@gcscode/extension-api';
 
+import { ConfigurationStore } from '../configuration/configuration-store.svelte';
+
 import { SvelteMap } from 'svelte/reactivity';
 
 import { quickPickState } from '../quick-pick/quick-pick-state.svelte';
@@ -41,6 +43,7 @@ export function createRegistry(): Registry {
   const exportsByExtension = new SvelteMap<string, unknown>();
   const subscriptionsByExtension = new Map<string, readonly Disposable[]>();
   const deactivateHooksByExtension = new Map<string, () => void | Promise<void>>();
+  const configurationStore = new ConfigurationStore();
 
   function execute<T>(id: string, args: unknown[], attribution: string): Promise<T> {
     const command = commands.get(id);
@@ -141,6 +144,17 @@ export function createRegistry(): Registry {
         getExtension<T = unknown>(id: string): { id: string; exports: T } | undefined {
           if (!exportsByExtension.has(id)) return undefined;
           return { id, exports: exportsByExtension.get(id) as T };
+        },
+      },
+      configuration: {
+        registerConfiguration(contribution) {
+          return configurationStore.registerConfiguration(contribution, extension.id);
+        },
+        getConfiguration(section) {
+          return configurationStore.getConfiguration(section);
+        },
+        onDidChangeConfiguration(listener) {
+          return configurationStore.onDidChangeConfiguration(listener);
         },
       },
     };

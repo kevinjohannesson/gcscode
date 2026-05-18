@@ -1065,6 +1065,55 @@ describe('createRegistry', () => {
     expect(a!.exports).not.toBe(b!.exports);
   });
 
+  describe('createRegistry — configuration namespace', () => {
+    it('exposes registerConfiguration / getConfiguration / onDidChangeConfiguration on host.configuration', () => {
+      const registry = createRegistry();
+      registry.activate(
+        extension('ext.cfg', (ctx) => {
+          expect(typeof ctx.host.configuration.registerConfiguration).toBe('function');
+          expect(typeof ctx.host.configuration.getConfiguration).toBe('function');
+          expect(typeof ctx.host.configuration.onDidChangeConfiguration).toBe('function');
+        }),
+      );
+    });
+
+    it('enforces the prefix using the activating extension id', () => {
+      const registry = createRegistry();
+      expect(() =>
+        registry.activate(
+          extension('ext.cfg', (ctx) => {
+            ctx.host.configuration.registerConfiguration({
+              key: 'other.id.foo',
+              schema: { type: 'string' },
+              default: 'x',
+            });
+          }),
+        ),
+      ).toThrow(/must start with "ext\.cfg\."/);
+    });
+
+    it('two extensions share the same configuration store (cross-extension reads work)', async () => {
+      const registry = createRegistry();
+      registry.activate(
+        extension('ext.a', (ctx) => {
+          ctx.host.configuration.registerConfiguration({
+            key: 'ext.a.foo',
+            schema: { type: 'string' },
+            default: 'hello',
+          });
+        }),
+      );
+
+      let readByB: string | undefined;
+      registry.activate(
+        extension('ext.b', (ctx) => {
+          readByB = ctx.host.configuration.getConfiguration().get<string>('ext.a.foo');
+        }),
+      );
+      expect(readByB).toBe('hello');
+    });
+  });
+
   describe('host.window.showQuickPick', () => {
     afterEach(() => {
       quickPickState.dismiss();
