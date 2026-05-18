@@ -55,6 +55,7 @@ Per-package narrowing: `pnpm --filter @gcscode/shell test`, `pnpm --filter @gcsc
 ## Task 1: Add `extension-api` types and namespace declaration
 
 **Files:**
+
 - Modify: `packages/extension-api/package.json`
 - Modify: `packages/extension-api/src/index.ts`
 
@@ -123,8 +124,7 @@ export const ConfigurationTarget = {
   Workspace: 2,
   WorkspaceFolder: 3,
 } as const;
-export type ConfigurationTarget =
-  (typeof ConfigurationTarget)[keyof typeof ConfigurationTarget];
+export type ConfigurationTarget = (typeof ConfigurationTarget)[keyof typeof ConfigurationTarget];
 
 /**
  * A configuration contribution registers a single setting key with its JSON
@@ -172,9 +172,7 @@ export interface WorkspaceConfiguration {
    * are each optional independently. Workspace/folder fields land additively
    * when scope expands.
    */
-  inspect<T>(
-    key: string,
-  ):
+  inspect<T>(key: string):
     | {
         key: string;
         defaultValue?: T;
@@ -192,11 +190,7 @@ export interface WorkspaceConfiguration {
    *
    * Rejection is via the returned Promise — not synchronous throw.
    */
-  update(
-    key: string,
-    value: unknown,
-    target?: ConfigurationTarget,
-  ): Promise<void>;
+  update(key: string, value: unknown, target?: ConfigurationTarget): Promise<void>;
 }
 ```
 
@@ -260,6 +254,7 @@ git commit -m "feat(extension-api): add host.configuration namespace types"
 ## Task 2: Configuration persistence helpers
 
 **Files:**
+
 - Create: `packages/shell/src/configuration/persistence.ts`
 - Create: `packages/shell/src/configuration/persistence.test.ts`
 
@@ -387,10 +382,7 @@ export function loadConfigurationBlob(storage: Storage = localStorage): Configur
  * context) — callers (the configuration store's `update()`) translate this into
  * a `Persistence failed` Promise rejection.
  */
-export function writeConfigurationBlob(
-  storage: Storage,
-  blob: ConfigurationBlob,
-): void {
+export function writeConfigurationBlob(storage: Storage, blob: ConfigurationBlob): void {
   storage.setItem(STORAGE_KEY, JSON.stringify(blob));
 }
 ```
@@ -412,6 +404,7 @@ git commit -m "feat(shell): add localStorage persistence helpers for configurati
 ## Task 3: ConfigurationStore — schema registration with ajv validation
 
 **Files:**
+
 - Create: `packages/shell/src/configuration/configuration-store.svelte.ts`
 - Create: `packages/shell/src/configuration/configuration-store.test.ts`
 - Modify: `packages/shell/package.json`
@@ -540,11 +533,7 @@ Expected: FAIL — module does not exist.
 Create `packages/shell/src/configuration/configuration-store.svelte.ts`:
 
 ```ts
-import type {
-  ConfigurationContribution,
-  Disposable,
-  JSONSchema7,
-} from '@gcscode/extension-api';
+import type { ConfigurationContribution, Disposable, JSONSchema7 } from '@gcscode/extension-api';
 import Ajv, { type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import { SvelteMap } from 'svelte/reactivity';
@@ -642,6 +631,7 @@ git commit -m "feat(shell): ConfigurationStore.registerConfiguration with ajv sc
 ## Task 4: WorkspaceConfiguration wrapper — get / has / inspect
 
 **Files:**
+
 - Create: `packages/shell/src/configuration/workspace-configuration.ts`
 - Create: `packages/shell/src/configuration/workspace-configuration.test.ts`
 - Modify: `packages/shell/src/configuration/configuration-store.svelte.ts`
@@ -741,10 +731,7 @@ Expected: FAIL — `getConfiguration` does not exist on `ConfigurationStore`.
 Create `packages/shell/src/configuration/workspace-configuration.ts`:
 
 ```ts
-import type {
-  ConfigurationTarget,
-  WorkspaceConfiguration,
-} from '@gcscode/extension-api';
+import type { ConfigurationTarget, WorkspaceConfiguration } from '@gcscode/extension-api';
 
 /**
  * Internal contract the wrapper closes over. Lives in the store; the wrapper
@@ -851,6 +838,7 @@ git commit -m "feat(shell): WorkspaceConfiguration wrapper (get/has/inspect)"
 ## Task 5: ConfigurationStore — update + ConfigurationTarget rejection + listener-before-persist + RMW
 
 **Files:**
+
 - Modify: `packages/shell/src/configuration/configuration-store.svelte.ts`
 - Modify: `packages/shell/src/configuration/configuration-store.test.ts`
 
@@ -1057,6 +1045,7 @@ git commit -m "feat(shell): ConfigurationStore.update with listener-before-persi
 ## Task 6: Boot-time blob load + per-key re-validation at register + Disposable dispose semantics
 
 **Files:**
+
 - Modify: `packages/shell/src/configuration/configuration-store.svelte.ts`
 - Modify: `packages/shell/src/configuration/configuration-store.test.ts`
 
@@ -1147,30 +1136,30 @@ In `configuration-store.svelte.ts`:
 Replace the `registerConfiguration` body's tail (where it currently stores the entry) with:
 
 ```ts
-    const entry: CompiledSchemaEntry = { contribution, validate };
-    this._schemas.set(key, entry);
+const entry: CompiledSchemaEntry = { contribution, validate };
+this._schemas.set(key, entry);
 
-    // Re-validate any persisted value for this key. Bad → warn + leave out of
-    // _values; the persisted blob is NOT touched (so schema loosening recovers it).
-    if (key in this._pendingPersisted) {
-      const persisted = this._pendingPersisted[key];
-      if (validate(persisted)) {
-        this._values.set(key, persisted);
-      } else {
-        console.warn(
-          `[configuration] persisted value for "${key}" violates schema; falling back to default (${summarizeAjvErrors(validate)})`,
-        );
-      }
+// Re-validate any persisted value for this key. Bad → warn + leave out of
+// _values; the persisted blob is NOT touched (so schema loosening recovers it).
+if (key in this._pendingPersisted) {
+  const persisted = this._pendingPersisted[key];
+  if (validate(persisted)) {
+    this._values.set(key, persisted);
+  } else {
+    console.warn(
+      `[configuration] persisted value for "${key}" violates schema; falling back to default (${summarizeAjvErrors(validate)})`,
+    );
+  }
+}
+
+return {
+  dispose: () => {
+    if (this._schemas.get(key) === entry) {
+      this._schemas.delete(key);
+      this._values.delete(key);
     }
-
-    return {
-      dispose: () => {
-        if (this._schemas.get(key) === entry) {
-          this._schemas.delete(key);
-          this._values.delete(key);
-        }
-      },
-    };
+  },
+};
 ```
 
 - [ ] **Step 4: Run the tests**
@@ -1190,6 +1179,7 @@ git commit -m "feat(shell): boot-time blob load + per-key re-validation + dispos
 ## Task 7: onDidChangeConfiguration + affectsConfiguration
 
 **Files:**
+
 - Modify: `packages/shell/src/configuration/configuration-store.test.ts`
 
 **Goal:** Verify the event semantics explicitly. The implementation already landed in Task 5 (as part of the listener-before-persist ordering); this task locks down the contract with dedicated tests.
@@ -1288,6 +1278,7 @@ git commit -m "test(shell): onDidChangeConfiguration semantics + affectsConfigur
 ## Task 8: Wire `host.configuration` into createHost / registry
 
 **Files:**
+
 - Modify: `packages/shell/src/extension-host/registry.ts`
 - Modify: `packages/shell/src/extension-host/registry.test.ts`
 
@@ -1402,6 +1393,7 @@ git commit -m "feat(shell): wire host.configuration namespace into createHost"
 ## Task 9: First consumer — extension-sitl wiring
 
 **Files:**
+
 - Modify: `packages/extension-sitl/src/index.ts`
 - Modify: `packages/extension-sitl/src/index.test.ts`
 
@@ -1413,95 +1405,95 @@ Edit `packages/extension-sitl/src/index.test.ts`'s `makeContext()` helper to pro
 
 ```ts
 // In makeContext():
-  const registerConfiguration = vi.fn().mockReturnValue({ dispose: vi.fn() });
-  const onDidChangeConfiguration = vi.fn().mockReturnValue({ dispose: vi.fn() });
-  // Mock WorkspaceConfiguration that returns the schema default for connectionUrl.
-  const getConfiguration = vi.fn().mockReturnValue({
-    get: (key: string, defaultValue?: unknown) =>
-      key === 'connectionUrl' ? 'ws://localhost:8088/v1/ws/mavlink' : defaultValue,
-    has: vi.fn().mockReturnValue(false),
-    inspect: vi.fn().mockReturnValue(undefined),
-    update: vi.fn().mockResolvedValue(undefined),
-  });
+const registerConfiguration = vi.fn().mockReturnValue({ dispose: vi.fn() });
+const onDidChangeConfiguration = vi.fn().mockReturnValue({ dispose: vi.fn() });
+// Mock WorkspaceConfiguration that returns the schema default for connectionUrl.
+const getConfiguration = vi.fn().mockReturnValue({
+  get: (key: string, defaultValue?: unknown) =>
+    key === 'connectionUrl' ? 'ws://localhost:8088/v1/ws/mavlink' : defaultValue,
+  has: vi.fn().mockReturnValue(false),
+  inspect: vi.fn().mockReturnValue(undefined),
+  update: vi.fn().mockResolvedValue(undefined),
+});
 
-  const context: ExtensionContext = {
-    host: {
-      window: { registerView, registerStatusBarItem, showQuickPick: vi.fn() },
-      commands: { registerCommand, executeCommand },
-      keybindings: { registerKeybinding },
-      extensions: { getExtension: vi.fn(() => undefined) },
-      configuration: { registerConfiguration, getConfiguration, onDidChangeConfiguration },
-    },
-    subscriptions,
-    extension: {
-      id: sitlExtension.manifest.id,
-      displayName: sitlExtension.manifest.displayName,
-      version: sitlExtension.manifest.version,
-    },
-  };
+const context: ExtensionContext = {
+  host: {
+    window: { registerView, registerStatusBarItem, showQuickPick: vi.fn() },
+    commands: { registerCommand, executeCommand },
+    keybindings: { registerKeybinding },
+    extensions: { getExtension: vi.fn(() => undefined) },
+    configuration: { registerConfiguration, getConfiguration, onDidChangeConfiguration },
+  },
+  subscriptions,
+  extension: {
+    id: sitlExtension.manifest.id,
+    displayName: sitlExtension.manifest.displayName,
+    version: sitlExtension.manifest.version,
+  },
+};
 
-  return {
-    context,
-    registerView,
-    registerCommand,
-    registerKeybinding,
-    registerConfiguration,
-    onDidChangeConfiguration,
-    getConfiguration,
-  };
+return {
+  context,
+  registerView,
+  registerCommand,
+  registerKeybinding,
+  registerConfiguration,
+  onDidChangeConfiguration,
+  getConfiguration,
+};
 ```
 
 Add the new tests at the end of `describe('sitlExtension', ...)`:
 
 ```ts
-  it('registers gcscode.sitl.connectionUrl with the expected schema + default', () => {
-    const { context, registerConfiguration } = makeContext();
-    sitlExtension.activate(context);
+it('registers gcscode.sitl.connectionUrl with the expected schema + default', () => {
+  const { context, registerConfiguration } = makeContext();
+  sitlExtension.activate(context);
 
-    expect(registerConfiguration).toHaveBeenCalledWith(
-      expect.objectContaining({
-        key: 'gcscode.sitl.connectionUrl',
-        default: 'ws://localhost:8088/v1/ws/mavlink',
-        schema: expect.objectContaining({ type: 'string', format: 'uri' }),
-      }),
-    );
+  expect(registerConfiguration).toHaveBeenCalledWith(
+    expect.objectContaining({
+      key: 'gcscode.sitl.connectionUrl',
+      default: 'ws://localhost:8088/v1/ws/mavlink',
+      schema: expect.objectContaining({ type: 'string', format: 'uri' }),
+    }),
+  );
+});
+
+it('composes the WebSocket URL from the configured base URL + compile-time FILTER', () => {
+  const { context } = makeContext();
+  sitlExtension.activate(context);
+
+  const mock = lastMock();
+  expect(mock.url).toMatch(/^ws:\/\/localhost:8088\/v1\/ws\/mavlink\?filter=/);
+});
+
+it('reconnects when gcscode.sitl.connectionUrl changes', async () => {
+  const { context, getConfiguration, onDidChangeConfiguration } = makeContext();
+  sitlExtension.activate(context);
+
+  // Grab the listener registered by activate().
+  const listener = onDidChangeConfiguration.mock.calls[0][0];
+
+  // Update the mock to return a new URL on the next read.
+  getConfiguration.mockReturnValue({
+    get: (key: string, defaultValue?: unknown) =>
+      key === 'connectionUrl' ? 'ws://192.168.1.42:8088/v1/ws/mavlink' : defaultValue,
+    has: vi.fn().mockReturnValue(true),
+    inspect: vi.fn().mockReturnValue(undefined),
+    update: vi.fn().mockResolvedValue(undefined),
   });
 
-  it('composes the WebSocket URL from the configured base URL + compile-time FILTER', () => {
-    const { context } = makeContext();
-    sitlExtension.activate(context);
+  // Fire the event.
+  listener({ affectsConfiguration: (s: string) => s === 'gcscode.sitl.connectionUrl' });
 
-    const mock = lastMock();
-    expect(mock.url).toMatch(/^ws:\/\/localhost:8088\/v1\/ws\/mavlink\?filter=/);
-  });
+  // Allow the reconnect microtask to settle.
+  await Promise.resolve();
 
-  it('reconnects when gcscode.sitl.connectionUrl changes', async () => {
-    const { context, getConfiguration, onDidChangeConfiguration } = makeContext();
-    sitlExtension.activate(context);
-
-    // Grab the listener registered by activate().
-    const listener = onDidChangeConfiguration.mock.calls[0][0];
-
-    // Update the mock to return a new URL on the next read.
-    getConfiguration.mockReturnValue({
-      get: (key: string, defaultValue?: unknown) =>
-        key === 'connectionUrl' ? 'ws://192.168.1.42:8088/v1/ws/mavlink' : defaultValue,
-      has: vi.fn().mockReturnValue(true),
-      inspect: vi.fn().mockReturnValue(undefined),
-      update: vi.fn().mockResolvedValue(undefined),
-    });
-
-    // Fire the event.
-    listener({ affectsConfiguration: (s: string) => s === 'gcscode.sitl.connectionUrl' });
-
-    // Allow the reconnect microtask to settle.
-    await Promise.resolve();
-
-    // A new mock WebSocket should have been constructed against the new URL.
-    expect(mockInstances.length).toBeGreaterThanOrEqual(2);
-    const latest = mockInstances[mockInstances.length - 1];
-    expect(latest.url).toMatch(/^ws:\/\/192\.168\.1\.42:8088\/v1\/ws\/mavlink/);
-  });
+  // A new mock WebSocket should have been constructed against the new URL.
+  expect(mockInstances.length).toBeGreaterThanOrEqual(2);
+  const latest = mockInstances[mockInstances.length - 1];
+  expect(latest.url).toMatch(/^ws:\/\/192\.168\.1\.42:8088\/v1\/ws\/mavlink/);
+});
 ```
 
 - [ ] **Step 2: Run the failing tests**
@@ -1651,6 +1643,7 @@ git commit -m "feat(sitl): read connectionUrl from host.configuration + reconnec
 ## Task 10: Update other mock-host helpers + reactive read smoke test
 
 **Files:**
+
 - Modify (as needed): any other test file with a mock host construction that now fails because `configuration` is missing.
 - Create: `packages/shell/src/configuration/reactive-read.test.ts`
 
@@ -1748,6 +1741,7 @@ git commit -m "test: add configuration namespace stub to existing mock hosts + r
 ## Task 11: Update `@gcscode/extension-api` README
 
 **Files:**
+
 - Modify: `packages/extension-api/README.md`
 
 **Goal:** Document the new namespace, the reactive-mechanism distinction from ADR-0005, the cross-extension read/write trust posture, and the operator UX sharp edges.

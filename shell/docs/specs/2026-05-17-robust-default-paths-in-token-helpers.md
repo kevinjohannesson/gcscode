@@ -36,9 +36,7 @@ This iteration ships: 2 helper script edits + 1 CLAUDE.md "Further reading" note
 1. Add a default-path fallback to `.claude/scripts/gh-app-token-reviewer`: if `GH_REVIEWER_APP_PRIVATE_KEY_DIR` is unset or empty, default to `$HOME/.config/gcscode`.
 2. Add a default-path fallback to `.claude/scripts/gh-app-token-respondent`: if `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` is unset or empty, default to `$HOME/.config/gcscode/gcscode-respondent.pem`.
 
-> **Note added 2026-05-17 (post-merge `fix(spec):` clarification):** the env-var naming asymmetry — `GH_REVIEWER_APP_PRIVATE_KEY_DIR` (a directory containing per-role PEMs) vs `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` (a single file path) — is inherited from [`docs/specs/2026-05-16-per-role-bot-identities-for-reviewers.md`](2026-05-16-per-role-bot-identities-for-reviewers.md), where the asymmetry was an accepted tradeoff (avoiding disturbing respondent infrastructure that had just stabilized in v2). This spec preserves the asymmetry; the default-path fallback applies uniformly to both shapes (directory for reviewer, file for respondent). A future "unified reviewer + respondent helper" iteration (per the per-role-bot-identities spec's Future iterations) may resolve the naming asymmetry; out of scope here.
-3. Update FOUR CLAUDE.md locations to reflect the optional-env-var status: (a) the "Subagent reviewer PR-posting discipline > Config locations" bullet (around line 212); (b) the "Respondent posting discipline > Config" bullet (around line 245); (c) the "Further reading > `.claude/agent-config.json`" bullet (around line 315); (d) the "Further reading > `.claude/scripts/gh-app-token-reviewer`" bullet (around line 316). The respondent helper does not have its own dedicated "Further reading" bullet in the current CLAUDE.md (it's cross-referenced from the reviewer-helper bullet), so the respondent helper's default-path-fallback note lives inside the same reviewer-helper bullet update for compactness.
-4. Roadmap propagation.
+> **Note added 2026-05-17 (post-merge `fix(spec):` clarification):** the env-var naming asymmetry — `GH_REVIEWER_APP_PRIVATE_KEY_DIR` (a directory containing per-role PEMs) vs `GH_RESPONDENT_APP_PRIVATE_KEY_PATH` (a single file path) — is inherited from [`docs/specs/2026-05-16-per-role-bot-identities-for-reviewers.md`](2026-05-16-per-role-bot-identities-for-reviewers.md), where the asymmetry was an accepted tradeoff (avoiding disturbing respondent infrastructure that had just stabilized in v2). This spec preserves the asymmetry; the default-path fallback applies uniformly to both shapes (directory for reviewer, file for respondent). A future "unified reviewer + respondent helper" iteration (per the per-role-bot-identities spec's Future iterations) may resolve the naming asymmetry; out of scope here. 3. Update FOUR CLAUDE.md locations to reflect the optional-env-var status: (a) the "Subagent reviewer PR-posting discipline > Config locations" bullet (around line 212); (b) the "Respondent posting discipline > Config" bullet (around line 245); (c) the "Further reading > `.claude/agent-config.json`" bullet (around line 315); (d) the "Further reading > `.claude/scripts/gh-app-token-reviewer`" bullet (around line 316). The respondent helper does not have its own dedicated "Further reading" bullet in the current CLAUDE.md (it's cross-referenced from the reviewer-helper bullet), so the respondent helper's default-path-fallback note lives inside the same reviewer-helper bullet update for compactness. 4. Roadmap propagation.
 
 ## Non-goals (this iteration)
 
@@ -70,6 +68,7 @@ fi
 ```
 
 The `: "${VAR:=default}"` syntax (POSIX shell):
+
 - If `VAR` is unset OR empty, **assigns** `default` to `VAR` in the current shell scope. Does NOT export to child processes (that would require `export VAR` separately).
 - If `VAR` is already set to a non-empty value, leaves it unchanged.
 - The `:` is a no-op command that's there to consume the parameter expansion as a statement.
@@ -87,6 +86,7 @@ After this line, the rest of the script proceeds using `$GH_REVIEWER_APP_PRIVATE
 ### Failure mode preservation
 
 The script still fails loudly if:
+
 - The PEM file does not exist at the resolved path (env-driven OR default-driven).
 - The role-slug is invalid (reviewer helper only — the case statement is unchanged).
 - The `.claude/agent-config.json` is missing or malformed.

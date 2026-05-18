@@ -18,6 +18,7 @@ The "across N PRs rather than per-PR" framing in condition (iii) was written to 
 2. **[`docs/specs/2026-05-17-relative-paths-in-reviewer-output.md`](2026-05-17-relative-paths-in-reviewer-output.md) "Leak-recurrence tripwire"** fires at N=1 PR for any absolute-path leak (not in code-block-flagged-as-leak per the carve-out). The spec explicitly acknowledged the divergence and queued the convention-revision question for this iteration. The rule is binary and grep-able from review bodies — there is no noise floor, so the convention's "across N PRs" guard is not load-bearing for this class of tripwire.
 
 The two specs surface two different judgments about the convention:
+
 - v1 of the review-discussion-loop's tripwire #1 is a **per-session signal** that doesn't fit "across N PRs" cleanly — but the underlying concern was structurally resolved by [`docs/specs/2026-05-16-respondent-subagent-v2.md`](2026-05-16-respondent-subagent-v2.md), making the tripwire itself obsolete regardless of (iii) compliance.
 - The relative-paths tripwire is a **binary grep-able rule** where N=1 is the correct threshold — single observation, no noise. The convention as-written would force N=2 for a rule whose first observation is the entire failure mode.
 
@@ -152,8 +153,7 @@ Locate the "Tripwires for known-quality concerns" paragraph in `shell/CLAUDE.md`
 Locate the "Cross-session reconstruction tripwire" bullet in `shell/docs/specs/2026-05-16-review-discussion-loop-v1.md` (around line 427). Append the following blockquote on a new line **immediately after** the bullet's closing period (before the next bullet begins):
 
 ```md
-
-  > **Effectively obsolete 2026-05-17 per [`2026-05-16-respondent-subagent-v2.md`](2026-05-16-respondent-subagent-v2.md) + [`2026-05-17-tripwire-condition-iii-compliance.md`](2026-05-17-tripwire-condition-iii-compliance.md):** respondent dispatch became subagent-driven with structured-input pre-fetch. The controller's reconstruction cost is materially reduced but not eliminated (the controller still pre-fetches reviewer review + diff + spec before dispatch). The tripwire's 10-minute threshold is no longer the principal cost-bearing case; the tripwire is left in place as historical record of the original concern rather than removed.
+> **Effectively obsolete 2026-05-17 per [`2026-05-16-respondent-subagent-v2.md`](2026-05-16-respondent-subagent-v2.md) + [`2026-05-17-tripwire-condition-iii-compliance.md`](2026-05-17-tripwire-condition-iii-compliance.md):** respondent dispatch became subagent-driven with structured-input pre-fetch. The controller's reconstruction cost is materially reduced but not eliminated (the controller still pre-fetches reviewer review + diff + spec before dispatch). The tripwire's 10-minute threshold is no longer the principal cost-bearing case; the tripwire is left in place as historical record of the original concern rather than removed.
 ```
 
 (Note: the breadcrumb is indented to align with the bullet's continuation per markdown nested-list convention.)
@@ -165,8 +165,7 @@ Per red-team Sonnet's review of this PR (asymmetric-breadcrumb finding): the rev
 Locate the "Divergence from CLAUDE.md ... condition (iii)" subsection within the "Leak-recurrence tripwire" section of `shell/docs/specs/2026-05-17-relative-paths-in-reviewer-output.md` (within the Tripwires section). Append the following blockquote on a new line at the END of the Divergence-from-condition-(iii) paragraph (after its closing period):
 
 ```md
-
-  > **Resolved 2026-05-17 by [`2026-05-17-tripwire-condition-iii-compliance.md`](2026-05-17-tripwire-condition-iii-compliance.md):** condition (iii) was revised to permit binary grep-able tripwires at N=1. The leak-recurrence tripwire is no longer a divergence; it is the canonical example of the binary-rule carve-out cited in the convention.
+> **Resolved 2026-05-17 by [`2026-05-17-tripwire-condition-iii-compliance.md`](2026-05-17-tripwire-condition-iii-compliance.md):** condition (iii) was revised to permit binary grep-able tripwires at N=1. The leak-recurrence tripwire is no longer a divergence; it is the canonical example of the binary-rule carve-out cited in the convention.
 ```
 
 (Note: the breadcrumb is indented to align with the section's continuation per markdown convention.)

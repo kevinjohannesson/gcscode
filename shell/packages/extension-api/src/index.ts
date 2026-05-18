@@ -190,6 +190,10 @@ export interface ExtensionHost {
      * map entry is cleared (the persisted localStorage value stays so the next
      * `registerConfiguration` for the same key can recover it).
      *
+     * `T` parameterizes the default value's type and is inferred from the
+     * `default` field at the call site — callers rarely need to supply it
+     * explicitly.
+     *
      * Throws synchronously if:
      *   - `key` does not start with `<extension-id>.`
      *   - a contribution for `key` is already registered
@@ -199,7 +203,7 @@ export interface ExtensionHost {
      * at registration time is logged (`console.warn`) and treated as absent
      * for read purposes; `get(key)` falls back to the schema default.
      */
-    registerConfiguration(contribution: ConfigurationContribution): Disposable;
+    registerConfiguration<T>(contribution: ConfigurationContribution<T>): Disposable;
 
     /** Return a section-scoped reader/writer. */
     getConfiguration(section?: string): WorkspaceConfiguration;
@@ -214,13 +218,13 @@ export interface ExtensionHost {
      * future `Event<T>` substrate iteration may retrofit if richer semantics
      * (filtering, replay, priority) become necessary.
      */
-    onDidChangeConfiguration(
-      listener: (e: ConfigurationChangeEvent) => void,
-    ): Disposable;
+    onDidChangeConfiguration(listener: (e: ConfigurationChangeEvent) => void): Disposable;
   };
 }
 
 // === Configuration ===
+
+import type { JSONSchema7 } from 'json-schema';
 
 /**
  * JSON Schema Draft 07 type, re-exported from `@types/json-schema`. Extension
@@ -228,8 +232,6 @@ export interface ExtensionHost {
  * validates the runtime shape and the value at write time.
  */
 export type { JSONSchema7 } from 'json-schema';
-
-import type { JSONSchema7 } from 'json-schema';
 
 /**
  * Numeric values are part of the API contract and stable across versions:
@@ -243,8 +245,7 @@ export const ConfigurationTarget = {
   Workspace: 2,
   WorkspaceFolder: 3,
 } as const;
-export type ConfigurationTarget =
-  (typeof ConfigurationTarget)[keyof typeof ConfigurationTarget];
+export type ConfigurationTarget = (typeof ConfigurationTarget)[keyof typeof ConfigurationTarget];
 
 /**
  * A configuration contribution registers a single setting key with its JSON
@@ -292,9 +293,7 @@ export interface WorkspaceConfiguration {
    * are each optional independently. Workspace/folder fields land additively
    * when scope expands.
    */
-  inspect<T>(
-    key: string,
-  ):
+  inspect<T>(key: string):
     | {
         key: string;
         defaultValue?: T;
@@ -312,11 +311,7 @@ export interface WorkspaceConfiguration {
    *
    * Rejection is via the returned Promise — not synchronous throw.
    */
-  update(
-    key: string,
-    value: unknown,
-    target?: ConfigurationTarget,
-  ): Promise<void>;
+  update(key: string, value: unknown, target?: ConfigurationTarget): Promise<void>;
 }
 
 /**

@@ -61,9 +61,9 @@ Three small changes: registry-field addition, dispatch-behavior change, evaluati
 
 The reviewer-role registry currently has these fields per row: `name`, `kind`, `identity`, `model`, `targets`, `trigger`, `verdicts`, `character`, `header`, `re-review header`, `prompt template`. Add a 12th field:
 
-| Field                   | Purpose                                                                                                          |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `Secondary model`  | Optional. If set, controller dispatches BOTH this model AND the `model` field's value in parallel for this role. |
+| Field             | Purpose                                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `Secondary model` | Optional. If set, controller dispatches BOTH this model AND the `model` field's value in parallel for this role. |
 
 Populated for red-team only in v1; empty/`—` for the other four roles.
 
@@ -148,27 +148,27 @@ Currently the registry table has 11 columns. Add `Secondary model` as a 12th col
 
 The updated registry table (replacing the existing one in CLAUDE.md):
 
-````md
-| Role                | Kind          | Identity                | Model            | Secondary model    | Targets             | Trigger                      | Verdicts                         | Character                                                         | Header                                                              | Re-review header                                                                  | Prompt template                                                              |
-| ------------------- | ------------- | ----------------------- | ---------------- | ------------------ | ------------------- | ---------------------------- | -------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Spec-compliance     | per-task      | `gcscode-reviewer[bot]` | Claude Sonnet 4.6 | —                  | feature-PR          | After each task commit       | `--comment`, `--request-changes` | Verify implementation matches the task's spec slice                | `## Spec-compliance review — task <N> — Claude Sonnet 4.6`          | `## Spec-compliance review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6`   | `superpowers:subagent-driven-development/spec-reviewer-prompt.md`            |
-| Code-quality        | per-task      | `gcscode-reviewer[bot]` | Claude Sonnet 4.6 | —                  | feature-PR          | After spec-compliance passes | `--comment`, `--request-changes` | Code quality, idioms, edge cases                                   | `## Code-quality review — task <N> — Claude Sonnet 4.6`             | `## Code-quality review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6`      | `superpowers:subagent-driven-development/code-quality-reviewer-prompt.md`    |
-| Final cross-cutting | cross-cutting | `gcscode-reviewer[bot]` | Claude Opus 4.7   | —                  | feature-PR          | End of iteration             | `--request-changes`, `--approve` | Cross-cutting concerns missed at per-task level                    | `## Final cross-cutting review — Claude Opus 4.7`                   | `## Final cross-cutting review (re-review of <SHA>) — Claude Opus 4.7`            | `superpowers:requesting-code-review/code-reviewer.md`                        |
-| Red-team            | per-artifact  | `gcscode-reviewer[bot]` | Claude Opus 4.7   | Claude Sonnet 4.6 | spec-PR, ADR-PR     | Automatic on PR open         | `--comment` only (v1)            | Premise challenger + consistency reviewer                          | `## Red-team review — <spec or ADR> — Claude Opus 4.7`              | `## Red-team review — <spec or ADR> (re-review of <SHA>) — Claude Opus 4.7`       | `.claude/reviewer-prompts/red-team.md`                                       |
-| Spec-quality        | per-artifact  | `gcscode-reviewer[bot]` | Claude Sonnet 4.6 | —                  | spec-PR, ADR-PR     | Automatic on PR open         | `--comment` only (v1)            | Document structure + within-document consistency + link mechanics  | `## Spec-quality review — <spec or ADR> — Claude Sonnet 4.6`        | `## Spec-quality review — <spec or ADR> (re-review of <SHA>) — Claude Sonnet 4.6` | `.claude/reviewer-prompts/spec-quality.md`                                   |
+```md
+| Role                | Kind          | Identity                | Model             | Secondary model   | Targets         | Trigger                      | Verdicts                         | Character                                                         | Header                                                       | Re-review header                                                                  | Prompt template                                                           |
+| ------------------- | ------------- | ----------------------- | ----------------- | ----------------- | --------------- | ---------------------------- | -------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Spec-compliance     | per-task      | `gcscode-reviewer[bot]` | Claude Sonnet 4.6 | —                 | feature-PR      | After each task commit       | `--comment`, `--request-changes` | Verify implementation matches the task's spec slice               | `## Spec-compliance review — task <N> — Claude Sonnet 4.6`   | `## Spec-compliance review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6`   | `superpowers:subagent-driven-development/spec-reviewer-prompt.md`         |
+| Code-quality        | per-task      | `gcscode-reviewer[bot]` | Claude Sonnet 4.6 | —                 | feature-PR      | After spec-compliance passes | `--comment`, `--request-changes` | Code quality, idioms, edge cases                                  | `## Code-quality review — task <N> — Claude Sonnet 4.6`      | `## Code-quality review — task <N> (re-review of <SHA>) — Claude Sonnet 4.6`      | `superpowers:subagent-driven-development/code-quality-reviewer-prompt.md` |
+| Final cross-cutting | cross-cutting | `gcscode-reviewer[bot]` | Claude Opus 4.7   | —                 | feature-PR      | End of iteration             | `--request-changes`, `--approve` | Cross-cutting concerns missed at per-task level                   | `## Final cross-cutting review — Claude Opus 4.7`            | `## Final cross-cutting review (re-review of <SHA>) — Claude Opus 4.7`            | `superpowers:requesting-code-review/code-reviewer.md`                     |
+| Red-team            | per-artifact  | `gcscode-reviewer[bot]` | Claude Opus 4.7   | Claude Sonnet 4.6 | spec-PR, ADR-PR | Automatic on PR open         | `--comment` only (v1)            | Premise challenger + consistency reviewer                         | `## Red-team review — <spec or ADR> — Claude Opus 4.7`       | `## Red-team review — <spec or ADR> (re-review of <SHA>) — Claude Opus 4.7`       | `.claude/reviewer-prompts/red-team.md`                                    |
+| Spec-quality        | per-artifact  | `gcscode-reviewer[bot]` | Claude Sonnet 4.6 | —                 | spec-PR, ADR-PR | Automatic on PR open         | `--comment` only (v1)            | Document structure + within-document consistency + link mechanics | `## Spec-quality review — <spec or ADR> — Claude Sonnet 4.6` | `## Spec-quality review — <spec or ADR> (re-review of <SHA>) — Claude Sonnet 4.6` | `.claude/reviewer-prompts/spec-quality.md`                                |
 
 The `Secondary model` field is OPTIONAL. When populated, the controller dispatches BOTH this model AND the `Model` field's value in parallel for this role. When empty (`—`), the controller dispatches only the `Model` field's value (single-model behavior, unchanged from prior iterations).
 
 The `Header` and `Re-review header` columns show the form for the PRIMARY model only. The secondary dispatch uses the same header structure with the secondary model name substituted (e.g., `## Red-team review — spec — Claude Sonnet 4.6` for red-team's Sonnet dispatch).
 
 `<SHA>` in re-review headers refers to the **followup commit that prompted the re-review** (the new commit added since the prior review), matching the empirical convention from PR #1's validation.
-````
+```
 
 ### Edit B: Header convention examples list gets Sonnet variants for red-team
 
 The existing example list currently has Opus-only red-team examples. Add Sonnet variants alongside:
 
-````md
+```md
 - `## Spec-compliance review — task 3 — Claude Sonnet 4.6`
 - `## Code-quality review — task 7 — Claude Sonnet 4.6`
 - `## Final cross-cutting review — Claude Opus 4.7`
@@ -182,24 +182,24 @@ The existing example list currently has Opus-only red-team examples. Add Sonnet 
 - `## Spec-quality review — spec — Claude Sonnet 4.6`
 - `## Spec-quality review — ADR — Claude Sonnet 4.6`
 - `## Spec-quality review — spec (re-review of def5678) — Claude Sonnet 4.6`
-````
+```
 
 ### Edit C: "Auto-dispatch on spec/ADR PRs" paragraph
 
 Replace the existing paragraph with text that mentions the triple-dispatch:
 
-````md
+```md
 **Auto-dispatch on spec/ADR PRs.** When a `spec/<topic>` or `adr/<slug>` PR is opened, the controller automatically dispatches THREE reviewer subagents in parallel: red-team Opus 4.7 (primary), red-team Sonnet 4.6 (secondary, from the registry's `Secondary model` field for red-team), and spec-quality Sonnet 4.6. The three subagents dispatch as independent calls; none blocks any other; each posts an independent review under the `gcscode-reviewer[bot]` identity. The two red-team dispatches use the same prompt template (`.claude/reviewer-prompts/red-team.md`) and the same context; only the `model` parameter differs. The pair is an independence-of-opinion experiment from `docs/specs/2026-05-16-multi-model-red-team-v1.md` and runs for N=5 spec/ADR PRs before an evaluation iteration decides whether to keep both, revert to single-model, or extend the experiment. Both red-team verdicts and spec-quality's verdict are `--comment` only in v1 (advisory). On a `Code-review-followup:` commit to the spec/ADR branch, the controller re-dispatches ALL THREE roles in parallel. Each re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit.
-````
+```
 
 ### Edit D: "Auto-dispatch controller obligations" checklist
 
 Replace the existing bullets with text reflecting three dispatches:
 
-````md
+```md
 - **Before opening a `spec/<topic>` or `adr/<slug>` PR:** plan to dispatch THREE subagents immediately after `gh pr create`: red-team Opus 4.7, red-team Sonnet 4.6 (the registry's `Secondary model` for red-team), and spec-quality Sonnet 4.6. They dispatch in parallel (independent subagents). Do not consider the PR-open step complete until all three have posted their reviews.
 - **After every `Code-review-followup:` commit on a spec/ADR branch:** re-dispatch ALL THREE (in parallel). Each role's re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). For the red-team multi-model pair, both Opus and Sonnet re-review independently. Note: a followup that does not touch content any reviewer commented on will still trigger all three re-dispatches. v1 accepts the duplicative-review cost; if the pattern produces material noise, a future iteration can condition the obligations on whether the followup touches reviewed content for each role.
-````
+```
 
 ## Post-merge implementation
 
@@ -222,7 +222,7 @@ Per the post-merge implementation convention, two direct-master commits:
 
 Two plans.
 
-### Plan 1: Mechanics smoke test (next test/* PR after merge)
+### Plan 1: Mechanics smoke test (next test/\* PR after merge)
 
 A throwaway test branch verifies triple-dispatch mechanics. Same shape as PR #1, #3, #6, #8. (Note: this spec PR is #9; the smoke-test PR will get a later number — the spec doesn't pre-commit to a specific PR number.)
 

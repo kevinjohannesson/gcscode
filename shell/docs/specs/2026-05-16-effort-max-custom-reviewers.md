@@ -39,7 +39,7 @@ Each has its own future trigger.
 - **Consolidating prompt templates into agent file bodies.** Agent files stay thin wrappers; prompt templates stay where they are. Trigger: a future cleanup pass.
 - **Tools restriction on reviewer subagents.** Agent files omit the `tools:` field; subagents inherit the harness's defaults. Trigger: observed unwanted behavior (reviewer modifying files when it shouldn't).
 - **Per-role configurable effort.** v1 is `max` for both red-team and spec-quality, hard-coded in the agent files. No registry column for effort. Trigger: a future iteration concludes per-role effort tuning matters.
-- **`effort` field on the reviewer-role registry table.** The existing registry table doesn't gain an `Effort` column; the effort setting lives in the agent file frontmatter, NOT the registry. Rationale: the registry is the source-of-truth for role *behavior* (what the reviewer does); the agent file is the dispatch *wrapper* (how the subagent is configured). These are different concerns at different layers. Trigger: enough roles with custom effort settings that a registry column adds clarity.
+- **`effort` field on the reviewer-role registry table.** The existing registry table doesn't gain an `Effort` column; the effort setting lives in the agent file frontmatter, NOT the registry. Rationale: the registry is the source-of-truth for role _behavior_ (what the reviewer does); the agent file is the dispatch _wrapper_ (how the subagent is configured). These are different concerns at different layers. Trigger: enough roles with custom effort settings that a registry column adds clarity.
 
 ## Effect on multi-model red-team v1 evaluation (N=5 counter reset)
 
@@ -59,7 +59,7 @@ The agent body includes a defensive backstop: if the dispatching controller forg
 
 **`.claude/agents/red-team-reviewer.md`:**
 
-````md
+```md
 ---
 name: red-team-reviewer
 description: Dispatch wrapper for the red-team reviewer role. Role behavior is defined in `.claude/reviewer-prompts/red-team.md`; see the registry in CLAUDE.md for context.
@@ -72,11 +72,11 @@ You are the red-team reviewer for gcscode. Your role and full instructions are i
 If the user message does NOT contain the template content (you cannot see the role's checklist, audit-trail format, or verdict instructions), STOP. Respond exactly: `ERROR: dispatching controller did not include the red-team prompt template content. Aborting.` Do nothing else — do not improvise the role, do not post a PR review.
 
 Otherwise: follow the template precisely.
-````
+```
 
 **`.claude/agents/spec-quality-reviewer.md`:**
 
-````md
+```md
 ---
 name: spec-quality-reviewer
 description: Dispatch wrapper for the spec-quality reviewer role. Role behavior is defined in `.claude/reviewer-prompts/spec-quality.md`; see the registry in CLAUDE.md for context.
@@ -89,7 +89,7 @@ You are the spec-quality reviewer for gcscode. Your role and full instructions a
 If the user message does NOT contain the template content (you cannot see the structure/link/consistency checklists or verdict instructions), STOP. Respond exactly: `ERROR: dispatching controller did not include the spec-quality prompt template content. Aborting.` Do nothing else — do not improvise the role, do not post a PR review.
 
 Otherwise: follow the template precisely.
-````
+```
 
 ### Dispatch identifier change
 
@@ -122,15 +122,15 @@ Per the post-merge implementation convention, four direct-master commits. All co
 
 ### Verbatim text — Edit A (Auto-dispatch on spec/ADR PRs paragraph)
 
-````md
+```md
 **Auto-dispatch on spec/ADR PRs.** When a `spec/<topic>` or `adr/<slug>` PR is opened, the controller automatically dispatches THREE reviewer subagents in parallel: red-team Opus 4.7 (primary), red-team Sonnet 4.6 (secondary, from the registry's `Secondary model` field for red-team), and spec-quality Sonnet 4.6. Dispatch identifiers: `subagent_type: red-team-reviewer` for the primary Opus dispatch, `subagent_type: red-team-reviewer, model: sonnet` for the secondary dispatch (model overridden at dispatch; `effort: max` still inherited from the agent file frontmatter), and `subagent_type: spec-quality-reviewer` for spec-quality. The three subagents dispatch as independent calls; none blocks any other; each posts an independent review under the `gcscode-reviewer[bot]` identity. The two red-team dispatches use the same prompt template (`.claude/reviewer-prompts/red-team.md`) and the same context; only the `model` parameter differs. All three subagents run with `effort: max` per the `effort` field in their agent files (`.claude/agents/red-team-reviewer.md` and `.claude/agents/spec-quality-reviewer.md`). The multi-model pair is an independence-of-opinion experiment from [`docs/specs/2026-05-16-multi-model-red-team-v1.md`](docs/specs/2026-05-16-multi-model-red-team-v1.md) and runs for N=5 spec/ADR PRs before an evaluation iteration decides whether to keep both, revert to single-model, or extend the experiment. All three verdicts are `--comment` only in v1 (advisory). On a `Code-review-followup:` commit to the spec/ADR branch, the controller re-dispatches ALL THREE roles in parallel. Each re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit.
-````
+```
 
 ### Verbatim text — Edit B (controller obligations bullet 1)
 
-````md
+```md
 - **Before opening a `spec/<topic>` or `adr/<slug>` PR:** plan to dispatch THREE subagents immediately after `gh pr create`: `subagent_type: red-team-reviewer` (Opus 4.7, effort: max from agent file), `subagent_type: red-team-reviewer` with `model: sonnet` override (Sonnet 4.6, effort: max from agent file), and `subagent_type: spec-quality-reviewer` (Sonnet 4.6, effort: max from agent file). They dispatch in parallel (independent subagents). Do not consider the PR-open step complete until all three have posted their reviews.
-````
+```
 
 (Bullet 2 — `Code-review-followup:` re-dispatch — stays exactly as it is; it doesn't mention `subagent_type` specifically.)
 
@@ -147,7 +147,7 @@ Per the post-merge implementation convention, four direct-master commits. All co
 
 Two plans, both light.
 
-### Plan 1: Mechanics smoke test (next test/* PR after merge)
+### Plan 1: Mechanics smoke test (next test/\* PR after merge)
 
 A throwaway test branch verifies the dispatch identifier change works, including the model-override path that multi-model v1 depends on.
 

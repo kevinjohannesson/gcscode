@@ -142,7 +142,7 @@ Per the post-merge implementation convention, five direct-master commits. All co
 
 Create the new file with the following content:
 
-````md
+```md
 ---
 name: respondent
 description: Dispatch wrapper for the respondent actor. Role behavior is defined in `.claude/reviewer-prompts/respondent.md`; see the agentic-actor registry in CLAUDE.md for context.
@@ -155,7 +155,7 @@ You are the respondent for gcscode. Your role and full instructions are in the p
 If the user message does NOT contain the template content (you cannot see the role's input format, response format, or posting instructions), STOP. Respond exactly: `ERROR: dispatching controller did not include the respondent prompt template content. Aborting.` Do nothing else — do not post to the PR.
 
 Otherwise: follow the template precisely.
-````
+```
 
 ### Verbatim — Commit 2 (`.claude/reviewer-prompts/respondent.md` end-to-end rewrite)
 
@@ -191,6 +191,7 @@ The controller pre-fetches and packs the following into the dispatch prompt:
   ```
 
   where `{{ROLE_LABEL}}` is `Red-team` or `Spec-quality` (literally) and `{{REVIEWER_MODEL}}` is `Claude Opus 4.7` or `Claude Sonnet 4.6` (literally). The regex covers both spec-PR and ADR-PR artifact kinds AND both initial-review and re-review header forms (re-review headers carry `(re-review of <SHA>) — ` between the artifact-kind word and the model name, so a plain `startswith` of a model-suffix-inclusive prefix would not match re-reviews). When multiple matches exist (re-reviews across rounds), sort by `.submittedAt` descending and take the first. The GitHub reviews API returns reviews in chronological order, but explicit `.submittedAt` sorting is the authoritative selector. Note: `.author.login` for GitHub Apps is the App name without the `[bot]` suffix; the suffix is a UI rendering only.
+
 - **Followup commit diff** — output of `git show {{FOLLOWUP_SHA}}` against the PR's branch.
 - **Spec/ADR content** — full markdown content of the spec or ADR file being reviewed. Controller fetches via Read.
 
@@ -337,9 +338,9 @@ GH_TOKEN=$(.claude/scripts/gh-app-token-respondent) gh pr review <PR> --comment 
 
 Replace the existing "After every `Code-review-followup:` commit on a spec/ADR branch:" bullet of the "Auto-dispatch controller obligations" checklist with:
 
-````md
+```md
 - **After every `Code-review-followup:` commit on a spec/ADR branch:** (a) push the commit, (b) pre-fetch the 3 most-recent reviewer reviews + the followup commit diff + the spec/ADR content (per the filter logic in `.claude/reviewer-prompts/respondent.md` "Structured inputs"), then dispatch 3 `subagent_type: respondent` subagents in parallel per the Respondent posting discipline subsection above — one subagent per reviewer's most-recent review (each subagent posts one comment under `gcscode-respondent[bot]` about THAT reviewer's review), then (c) re-dispatch ALL THREE reviewer roles in parallel. Each role's re-review header includes `(re-review of <SHA>)` where `<SHA>` is the followup commit (existing convention). For the red-team multi-model pair, both Opus and Sonnet re-review independently. Note: a followup that does not touch content any reviewer commented on will still trigger all three re-dispatches AND all three respondent dispatches. v2 accepts the duplicative-review-and-response cost; if the pattern produces material noise, a future iteration can condition the obligations on whether the followup touches reviewed content for each role.
-````
+```
 
 Bullets 1 and 3 of the same checklist stay unchanged.
 
@@ -371,21 +372,21 @@ Four sub-edits:
 
 **Before (in the Considering section, currently around line 81):**
 
-````md
+```md
 - [ ] **Respondent subagent v2** — addresses the cross-session controller-direct premise accepted as a Day 1 limitation in `specs/2026-05-16-review-discussion-loop-v1.md`. Introduces a dedicated respondent subagent role that reads the followup commit + prior reviews and writes the response with session-independent context. Trigger: first real cross-session PR after `review-discussion-loop-v1` merges that shows reconstruction-cost is material (per that spec's cross-session tripwire).
-````
+```
 
 DELETE the above entry from the Considering section, and ADD the following entry to the **Queued** section of the agentic-team architecture track, immediately after the existing "Agentic-team debt-clearing v1 (planning iteration)" `[x]`-marked entry (the entry lives in the "Queued (each needs its own brainstorm + spec cycle)" section despite the `[x]` checkbox; the Queued section's items become `[x]` once they ship). Approximate location: around line 73.
 
-````md
+```md
 - [x] **Respondent subagent v2** — swaps the controller-direct response writing introduced by `review-discussion-loop-v1` for a `subagent_type: respondent` dispatch (Sonnet 4.6 + effort:max). The controller pre-fetches each reviewer's review body + the followup diff + the spec/ADR content; 3 respondent subagents fire in parallel per followup commit. Closes the cross-session reconstruction-cost limitation accepted as Day 1 in v1. ADR-0009's "column-value stretch" annotation on the respondent row's `model` cell is removed. Spec: [`specs/2026-05-16-respondent-subagent-v2.md`](specs/2026-05-16-respondent-subagent-v2.md).
-````
+```
 
 **5b: review-discussion-loop-v1 breadcrumb.** Per the specs-as-historical-record convention (CLAUDE.md "Planning conventions and long-term alignment > Specs as historical record"), append a one-line breadcrumb to the end of the "Cross-session controller-direct response writing is a Day 1 limitation, not a future risk." bullet in the Known Unknowns section of `shell/docs/specs/2026-05-16-review-discussion-loop-v1.md` (currently line 406). Append the following blockquote immediately after that bullet's existing content:
 
-````md
+```md
 > **respondent-subagent-v2 breadcrumb (added 2026-05-16):** Respondent subagent v2 ([2026-05-16-respondent-subagent-v2.md](2026-05-16-respondent-subagent-v2.md)) ships per the agentic-team debt-clearing v1 commitment ([2026-05-16-agentic-team-debt-clearing-v1.md](2026-05-16-agentic-team-debt-clearing-v1.md))'s queued-item-2 entry. v2 supersedes this bullet's architectural premise: the controller-direct dispatch is replaced by a `subagent_type: respondent` parallel-3 dispatch with controller pre-fetches. The "first real cross-session PR" trigger this bullet anticipated was not the firing signal; the debt-clearing iteration's unconditional drain commitment overrode it.
-````
+```
 
 The breadcrumb does NOT modify v1's substantive content (the Day 1 limitation framing is intact; only the trigger anticipation is annotated as superseded). This is the second application of the specs-as-historical-record convention introduced in `2026-05-16-agentic-team-debt-clearing-v1.md` Commit 5 (the first was ADR-0009's number-reservation breadcrumb).
 
@@ -393,9 +394,9 @@ The breadcrumb does NOT modify v1's substantive content (the Day 1 limitation fr
 
 **5d: roadmap.md — add "v1 propagation gap audit" Considering entry.** Append to the agentic-team architecture Considering section. Verbatim text:
 
-````md
+```md
 - [ ] **v1 propagation gap audit (review-discussion-loop-v1)** — v2's brainstorm surfaced that v1's planned `docs/out-of-scope.md` entries ("Respondent subagent dispatch for cross-session consistency"; "Required re-reviewer engagement with respondent posts") never landed during v1's post-merge implementation; the planned roadmap.md updates may have similar gaps. This audit verifies what v1 planned vs what actually landed across out-of-scope.md and roadmap.md, and backfills where the gap is still load-bearing post-v2. Trigger: ready to address as a quick micro-iteration; no external prerequisite. Surfaced by [`specs/2026-05-16-respondent-subagent-v2.md`](specs/2026-05-16-respondent-subagent-v2.md) Known Unknowns.
-````
+```
 
 Pre-edit verification: `grep -n "v1 propagation gap" shell/docs/roadmap.md` should return no matches before the append; if it does, reconcile manually rather than appending a duplicate.
 
@@ -464,9 +465,9 @@ See Post-merge implementation > Commit 5a verbatim. The Considering "Respondent 
 
 **Additional roadmap.md addition — v1 propagation gap audit (Considering).** v2's brainstorm surfaced that v1's planned `docs/out-of-scope.md` propagation never landed (see Known Unknowns "v1's out-of-scope.md propagation gap"). The audit-the-gap task is in this spec's Future iterations #10, but Future iterations is spec-internal; cross-iteration tracking belongs on the roadmap. Commit 5 sub-edits gain a 5d: append to `docs/roadmap.md` Considering section under the agentic-team architecture track:
 
-````md
+```md
 - [ ] **v1 propagation gap audit (review-discussion-loop-v1)** — v2's brainstorm surfaced that v1's planned `docs/out-of-scope.md` entries ("Respondent subagent dispatch for cross-session consistency"; "Required re-reviewer engagement with respondent posts") never landed during v1's post-merge implementation; the planned roadmap.md updates may have similar gaps. This audit verifies what v1 planned vs what actually landed across out-of-scope.md and roadmap.md, and backfills where the gap is still load-bearing post-v2. Trigger: ready to address as a quick micro-iteration; no external prerequisite. Surfaced by [`specs/2026-05-16-respondent-subagent-v2.md`](specs/2026-05-16-respondent-subagent-v2.md) Known Unknowns.
-````
+```
 
 Net change: 1 Shipped/Queued flip + 1 new Considering entry.
 
