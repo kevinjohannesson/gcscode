@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { ConfigurationTarget } from '@gcscode/extension-api';
 
@@ -185,5 +185,58 @@ describe('ConfigurationStore.update (via WorkspaceConfiguration)', () => {
     await expect(cfg.update('foo', 'world')).rejects.toThrow(/Persistence failed/);
     // In-memory commit stays (per the documented ordering).
     expect(cfg.get<string>('foo')).toBe('world');
+  });
+});
+
+describe('ConfigurationStore boot + re-validation', () => {
+  it('a persisted value matching the schema is exposed via get() after registration', () => {
+    const storage = makeStorage();
+    writeConfigurationBlob(storage, { 'ext.a.foo': 'previously-set' });
+    const store = new ConfigurationStore(storage);
+    store.registerConfiguration(
+      { key: 'ext.a.foo', schema: { type: 'string' }, default: 'hello' },
+      'ext.a',
+    );
+    expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('previously-set');
+  });
+
+  it('a persisted value violating the schema is dropped + console.warn fires; get() returns default', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const storage = makeStorage();
+    writeConfigurationBlob(storage, { 'ext.a.foo': 42 });
+    const store = new ConfigurationStore(storage);
+    store.registerConfiguration(
+      { key: 'ext.a.foo', schema: { type: 'string' }, default: 'hello' },
+      'ext.a',
+    );
+    expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('hello');
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/ext\.a\.foo.*violates schema/);
+    // Bad value stays in localStorage (deliberate — re-validation succeeds if schema loosens).
+    expect(loadConfigurationBlob(storage)).toEqual({ 'ext.a.foo': 42 });
+    warn.mockRestore();
+  });
+
+  it('Disposable.dispose() removes the schema AND clears the in-memory value', () => {
+    const storage = makeStorage();
+    writeConfigurationBlob(storage, { 'ext.a.foo': 'preset' });
+    const store = new ConfigurationStore(storage);
+    const d = store.registerConfiguration(
+      { key: 'ext.a.foo', schema: { type: 'string' }, default: 'hello' },
+      'ext.a',
+    );
+    expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('preset');
+
+    d.dispose();
+    // After dispose: no schema → get() with no defaultValue arg returns undefined.
+    expect(store.getConfiguration('ext.a').get<string>('foo')).toBeUndefined();
+    // The persisted blob is unchanged — re-registration recovers it.
+    expect(loadConfigurationBlob(storage)).toEqual({ 'ext.a.foo': 'preset' });
+
+    store.registerConfiguration(
+      { key: 'ext.a.foo', schema: { type: 'string' }, default: 'hello' },
+      'ext.a',
+    );
+    expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('preset');
   });
 });

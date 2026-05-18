@@ -39,11 +39,11 @@ export class ConfigurationStore {
   private _values = new SvelteMap<string, unknown>();
   private _storage: Storage;
   private _listeners = new SvelteSet<(e: ConfigurationChangeEvent) => void>();
+  private _pendingPersisted: Record<string, unknown>;
 
   public constructor(storage: Storage = localStorage) {
     this._storage = storage;
-    // Boot-time blob load lands in Task 6. For now, start empty so this task's
-    // tests are isolated.
+    this._pendingPersisted = loadConfigurationBlob(storage);
   }
 
   public registerConfiguration(
@@ -73,6 +73,19 @@ export class ConfigurationStore {
 
     const entry: CompiledSchemaEntry = { contribution, validate };
     this._schemas.set(key, entry);
+
+    // Re-validate any persisted value for this key. Bad → warn + leave out of
+    // _values; the persisted blob is NOT touched (so schema loosening recovers it).
+    if (key in this._pendingPersisted) {
+      const persisted = this._pendingPersisted[key];
+      if (validate(persisted)) {
+        this._values.set(key, persisted);
+      } else {
+        console.warn(
+          `[configuration] persisted value for "${key}" violates schema; falling back to default (${summarizeAjvErrors(validate)})`,
+        );
+      }
+    }
 
     return {
       dispose: () => {
