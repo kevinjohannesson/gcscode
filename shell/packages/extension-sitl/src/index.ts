@@ -26,9 +26,28 @@ export interface SitlExports {
 }
 
 const FILTER = '^(HEARTBEAT|GLOBAL_POSITION_INT|ATTITUDE|VFR_HUD|SYS_STATUS)$';
-const WS_URL = `ws://localhost:8088/v1/ws/mavlink?filter=${encodeURIComponent(FILTER)}`;
+const DEFAULT_BASE_URL = 'ws://localhost:8088/v1/ws/mavlink';
+
+function composeUrl(baseUrl: string): string {
+  return `${baseUrl}?filter=${encodeURIComponent(FILTER)}`;
+}
 
 let client: MavlinkClient | null = null;
+
+function openClient(baseUrl: string): void {
+  client = createMavlinkClient({
+    url: composeUrl(baseUrl),
+    onMessage: applyMessage,
+    onConnectionStateChange: setConnectionState,
+  });
+}
+
+async function closeClient(): Promise<void> {
+  if (client) {
+    await client.close();
+    client = null;
+  }
+}
 
 export const sitlExtension: Extension = {
   manifest: {
@@ -39,11 +58,33 @@ export const sitlExtension: Extension = {
       'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export.',
   },
   activate(context): SitlExports {
-    client = createMavlinkClient({
-      url: WS_URL,
-      onMessage: applyMessage,
-      onConnectionStateChange: setConnectionState,
-    });
+    context.subscriptions.push(
+      context.host.configuration.registerConfiguration({
+        key: 'gcscode.sitl.connectionUrl',
+        schema: {
+          type: 'string',
+          format: 'uri',
+          description:
+            'WebSocket base URL of the mavlink2rest bridge. The extension appends a `?filter=…` query string from its compile-time message-type allowlist.',
+        },
+        default: DEFAULT_BASE_URL,
+      }),
+    );
+
+    const cfg = context.host.configuration.getConfiguration('gcscode.sitl');
+    openClient(cfg.get<string>('connectionUrl', DEFAULT_BASE_URL));
+
+    context.subscriptions.push(
+      context.host.configuration.onDidChangeConfiguration((e) => {
+        if (!e.affectsConfiguration('gcscode.sitl.connectionUrl')) return;
+        const newBase = context.host.configuration
+          .getConfiguration('gcscode.sitl')
+          .get<string>('connectionUrl', DEFAULT_BASE_URL);
+        // Fire-and-forget reconnect; errors propagate via the WebSocket's
+        // onerror/onclose pathway already handled by createMavlinkClient.
+        void closeClient().then(() => openClient(newBase));
+      }),
+    );
 
     context.subscriptions.push(
       context.host.window.registerView({
@@ -78,10 +119,7 @@ export const sitlExtension: Extension = {
     return { telemetry: telemetryState };
   },
   async deactivate() {
-    if (client) {
-      await client.close();
-      client = null;
-    }
+    await closeClient();
     reset();
   },
 };

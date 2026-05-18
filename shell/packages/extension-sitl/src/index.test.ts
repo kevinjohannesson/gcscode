@@ -61,6 +61,9 @@ function makeContext(): {
   registerView: ReturnType<typeof vi.fn>;
   registerCommand: ReturnType<typeof vi.fn>;
   registerKeybinding: ReturnType<typeof vi.fn>;
+  registerConfiguration: ReturnType<typeof vi.fn>;
+  getConfiguration: ReturnType<typeof vi.fn>;
+  onDidChangeConfiguration: ReturnType<typeof vi.fn>;
 } {
   const viewDisposable = { dispose: vi.fn() };
   const commandDisposable = { dispose: vi.fn() };
@@ -72,12 +75,24 @@ function makeContext(): {
   const executeCommand = vi.fn().mockResolvedValue(undefined);
   const subscriptions: ExtensionContext['subscriptions'] = [];
 
+  const registerConfiguration = vi.fn().mockReturnValue({ dispose: vi.fn() });
+  const onDidChangeConfiguration = vi.fn().mockReturnValue({ dispose: vi.fn() });
+  // Mock WorkspaceConfiguration that returns the schema default for connectionUrl.
+  const getConfiguration = vi.fn().mockReturnValue({
+    get: (key: string, defaultValue?: unknown) =>
+      key === 'connectionUrl' ? 'ws://localhost:8088/v1/ws/mavlink' : defaultValue,
+    has: vi.fn().mockReturnValue(false),
+    inspect: vi.fn().mockReturnValue(undefined),
+    update: vi.fn().mockResolvedValue(undefined),
+  });
+
   const context: ExtensionContext = {
     host: {
       window: { registerView, registerStatusBarItem, showQuickPick: vi.fn() },
       commands: { registerCommand, executeCommand },
       keybindings: { registerKeybinding },
       extensions: { getExtension: vi.fn(() => undefined) },
+      configuration: { registerConfiguration, getConfiguration, onDidChangeConfiguration },
     },
     subscriptions,
     extension: {
@@ -87,7 +102,15 @@ function makeContext(): {
     },
   };
 
-  return { context, registerView, registerCommand, registerKeybinding };
+  return {
+    context,
+    registerView,
+    registerCommand,
+    registerKeybinding,
+    registerConfiguration,
+    onDidChangeConfiguration,
+    getConfiguration,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -112,7 +135,7 @@ describe('sitlExtension', () => {
     expect(typeof sitlExtension.manifest.version).toBe('string');
   });
 
-  it('registers a view, a command, and a keybinding, pushing all three disposables', () => {
+  it('registers a view, a command, a keybinding, and a configuration + change-listener; pushes all five disposables', () => {
     const { context, registerView, registerCommand, registerKeybinding } = makeContext();
     const { subscriptions } = context;
 
@@ -133,7 +156,7 @@ describe('sitlExtension', () => {
       key: 'Alt+Shift+L',
       command: 'gcscode.sitl.getLocation',
     });
-    expect(subscriptions).toHaveLength(3);
+    expect(subscriptions).toHaveLength(5);
   });
 
   it('getLocation command returns current store location and logs it; returns null with no fix yet', () => {
@@ -229,6 +252,57 @@ describe('sitlExtension', () => {
     expect(telemetryState.heading).toBeNull();
   });
 
+  it('registers gcscode.sitl.connectionUrl with the expected schema + default', () => {
+    const { context, registerConfiguration } = makeContext();
+    sitlExtension.activate(context);
+
+    expect(registerConfiguration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'gcscode.sitl.connectionUrl',
+        default: 'ws://localhost:8088/v1/ws/mavlink',
+        schema: expect.objectContaining({ type: 'string', format: 'uri' }),
+      }),
+    );
+  });
+
+  it('composes the WebSocket URL from the configured base URL + compile-time FILTER', () => {
+    const { context } = makeContext();
+    sitlExtension.activate(context);
+
+    const mock = lastMock();
+    expect(mock.url).toMatch(/^ws:\/\/localhost:8088\/v1\/ws\/mavlink\?filter=/);
+  });
+
+  it('reconnects when gcscode.sitl.connectionUrl changes', async () => {
+    const { context, getConfiguration, onDidChangeConfiguration } = makeContext();
+    sitlExtension.activate(context);
+
+    // Grab the listener registered by activate().
+    const listener = onDidChangeConfiguration.mock.calls[0][0];
+
+    // Update the mock to return a new URL on the next read.
+    getConfiguration.mockReturnValue({
+      get: (key: string, defaultValue?: unknown) =>
+        key === 'connectionUrl' ? 'ws://192.168.1.42:8088/v1/ws/mavlink' : defaultValue,
+      has: vi.fn().mockReturnValue(true),
+      inspect: vi.fn().mockReturnValue(undefined),
+      update: vi.fn().mockResolvedValue(undefined),
+    });
+
+    // Fire the event.
+    listener({ affectsConfiguration: (s: string) => s === 'gcscode.sitl.connectionUrl' });
+
+    // Allow the reconnect microtask chain to settle:
+    // closeClient() is async (one tick) → .then(() => openClient()) is a second tick.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // A new mock WebSocket should have been constructed against the new URL.
+    expect(mockInstances.length).toBeGreaterThanOrEqual(2);
+    const latest = mockInstances[mockInstances.length - 1];
+    expect(latest.url).toMatch(/^ws:\/\/192\.168\.1\.42:8088\/v1\/ws\/mavlink/);
+  });
+
   it('activate returns SitlExports with the live telemetry store', () => {
     // Stub WebSocket so activate() doesn't open a real connection.
     vi.stubGlobal(
@@ -263,6 +337,16 @@ describe('sitlExtension', () => {
         },
         extensions: {
           getExtension: vi.fn(() => undefined),
+        },
+        configuration: {
+          registerConfiguration: vi.fn(() => ({ dispose: () => {} })),
+          getConfiguration: vi.fn(() => ({
+            get: (_key: string, defaultValue?: unknown) => defaultValue,
+            has: vi.fn(() => false),
+            inspect: vi.fn(() => undefined),
+            update: vi.fn(() => Promise.resolve()),
+          })),
+          onDidChangeConfiguration: vi.fn(() => ({ dispose: () => {} })),
         },
       } as unknown as ExtensionHost;
       const exports = sitlExtension.activate({
