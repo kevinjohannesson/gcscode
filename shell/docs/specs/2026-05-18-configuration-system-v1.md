@@ -31,7 +31,7 @@ The v1 cut also excludes a typed-helper DSL (`defineSetting<T>(...)`) on top of 
 3. **The substrate does not preclude a future editor.** JSON Schema is the registered shape; the schema's full expressive power (`type`, `enum`, `format`, `description`, etc.) is available for a future editor to render.
 4. **Reads inside Svelte `$derived` / template contexts auto-track** via the shell's `SvelteMap`-backed store, so framework consumers don't need to wire `onDidChangeConfiguration` for the common case.
 5. **VS Code call-site shape is preserved for the runtime API** (`getConfiguration`, `get/has/inspect/update`, `onDidChangeConfiguration`). Extension code reading or writing settings looks identical to VS Code's equivalent at the method-call layer; the namespace name differs (`host.configuration` vs `vscode.workspace`) and the schema-declaration shape differs (imperative vs declarative).
-6. **Behavior of every stub-by-throw path is explicit.** `update` with `Workspace`/`WorkspaceFolder` rejects the Promise (not synchronous throw); the documented feature-detection pattern is "only pass `Global` in v1; the enum's other values throw."
+6. **Behavior of every stub-by-throw path is explicit.** `update` with `Workspace`/`WorkspaceFolder` rejects the Promise (not synchronous throw); the documented feature-detection pattern is "only pass `Global` in v1; the enum's other values cause `update()` to reject the Promise."
 
 ## Non-goals (this iteration)
 
@@ -82,7 +82,7 @@ export type ConfigurationTarget =
 export interface ConfigurationContribution<T = unknown> {
   /** Full setting key. Must start with `<extension-id>.`. */
   key: string;
-  /** JSON Schema (Draft 2020-12) describing valid values. */
+  /** JSON Schema (Draft 07) describing valid values. */
   schema: JSONSchema7;
   /** Default value. Validated against schema at registration; throws if invalid. */
   default?: T;
@@ -349,6 +349,7 @@ location.reload(); // settings store reads blob at boot; no live-reload of local
 
 - **Silent validation failure on reload.** If an operator's devtools edit produces a value that violates the schema, the substrate logs `console.warn` at boot but otherwise behaves as if the edit didn't happen — `get(key)` returns the default. Operators not watching the console see "I changed it, it didn't take." There is no UI surface for this failure in v1. A status-bar boot banner is the candidate fix; routed to Future iterations.
 - **Devtools edit + reload sequence is required.** No `window.addEventListener('storage', ...)` listener; in-page changes only land on reload. Cross-tab edits also don't propagate.
+- **Persistence failure on `update()`.** When localStorage is unavailable (quota exceeded, storage disabled by policy, private-browsing restrictions, security context), `update()` rejects with `Error('Persistence failed: <reason>')`. In v1 there is no UI surface for this — operators discover the failure only through the rejected Promise (extension code that catches and logs) or via devtools. A status-bar / toast surface is the candidate fix; routed to Future iterations under "Visible boot-time signal" (the same fix-class as silent-schema-rejection).
 - **`update()` from extension code is the in-app path** and validates synchronously; only the devtools path bypasses validation until the next reload.
 
 Documented in the `@gcscode/extension-api` README and the extensions panel's settings section (the latter is the future editor's hook).
@@ -431,7 +432,7 @@ GCScode mirrors VS Code's extension architecture **in spirit, not by byte**. The
 | `onDidChangeConfiguration(e)` + `e.affectsConfiguration(section)`                                                                     | Same shape, returning `Disposable`. Fires one event per `update()` (no coalescing in v1).                                                   | Aligned.                                                                                                                                                                                                        |
 | Event signature `(listener) => Disposable`                                                                                            | Same                                                                                                                                        | Aligned in spirit. gcscode has no shared `Event<T>` substrate yet; the signature is the de-facto convention going forward.                                                                                      |
 | Schema declaration shape                                                                                                              | Imperative `host.configuration.registerConfiguration({ key, schema, default? })` inside `activate(context)`                                 | **Divergent — by design.** VS Code declares schemas in `package.json#contributes.configuration`. gcscode is imperative (ADR-0002); the `contributes` manifest stays deferred (ADR-0003).                        |
-| Schema language                                                                                                                       | JSON Schema Draft 2020-12, validated by `ajv`. Compile-time type: `JSONSchema7` from `@types/json-schema`.                                  | Aligned in spirit. VS Code's schema is JSON-Schema-ish with extensions; gcscode commits to a standard draft so the substrate doesn't ship a custom dialect.                                                     |
+| Schema language                                                                                                                       | JSON Schema Draft 07, validated by `ajv` (Draft-07 mode). Compile-time type: `JSONSchema7` from `@types/json-schema`.                       | Aligned in spirit. VS Code's schema is JSON-Schema-ish with extensions; gcscode commits to Draft 07 so the type and the validator agree on dialect. A future iteration could upgrade to Draft 2020-12 if a real consumer needs newer features (`unevaluatedProperties`, `if`/`then`/`else`, etc.).                                                                                                          |
 | User vs Workspace vs Folder scopes with cascading override                                                                            | Single Global scope (localStorage). Cascading is a no-op in v1                                                                              | Stubbed.                                                                                                                                                                                                        |
 | `settings.json` text-file editing                                                                                                     | None — localStorage blob only; flipped via devtools in v1                                                                                   | **Divergent — forced.** Browser app, no file backing. A future settings editor iteration provides a UX surface; raw-JSON-view is one candidate shape.                                                          |
 | Cross-extension reads of registered keys                                                                                              | Permitted                                                                                                                                   | Aligned.                                                                                                                                                                                                        |
@@ -507,7 +508,7 @@ This iteration's design emerged from a 2026-05-18 brainstorm session that conver
 
 1. **First-iteration scope** → "Substrate only" (no editor UI in v1).
 2. **Reactivity model** → "Both reactive read + event API" (Svelte-native auto-tracking AND `onDidChangeConfiguration` event).
-3. **Schema shape** → "Full JSON Schema" (Draft 2020-12 via ajv).
+3. **Schema shape** → "Full JSON Schema" (Draft 07 via ajv; the `JSONSchema7` type-and-validator agreement landed as a correction after the initial Sonnet red-team re-review on PR #25 flagged a draft-version inconsistency).
 4. **Read/write API shape** → "Mirror VS Code's `WorkspaceConfiguration`" (section-scoped reader with `get/has/inspect/update`).
 5. **Scope/target** → "Expose `ConfigurationTarget` enum, only `Global` supported in v1" (in-progress stub pattern; later expansion is additive).
 6. **First consumer** → "SITL connection URL" (`gcscode.sitl.connectionUrl`).
