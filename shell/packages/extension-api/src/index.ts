@@ -183,6 +183,140 @@ export interface ExtensionHost {
      */
     getExtension<T = unknown>(id: string): { id: string; exports: T } | undefined;
   };
+  readonly configuration: {
+    /**
+     * Register a setting's schema and default. Returns a Disposable; on dispose
+     * the schema is removed from the active registry AND the in-memory value
+     * map entry is cleared (the persisted localStorage value stays so the next
+     * `registerConfiguration` for the same key can recover it).
+     *
+     * Throws synchronously if:
+     *   - `key` does not start with `<extension-id>.`
+     *   - a contribution for `key` is already registered
+     *   - `default` (if provided) does not validate against `schema`
+     *
+     * Any persisted value for `key` that fails to validate against `schema`
+     * at registration time is logged (`console.warn`) and treated as absent
+     * for read purposes; `get(key)` falls back to the schema default.
+     */
+    registerConfiguration(contribution: ConfigurationContribution): Disposable;
+
+    /** Return a section-scoped reader/writer. */
+    getConfiguration(section?: string): WorkspaceConfiguration;
+
+    /**
+     * Subscribe to setting changes. The listener fires after each `update()`
+     * resolves (one listener invocation per `update()`; no coalescing in v1).
+     * Does NOT fire during the boot-time registration sweep or on
+     * `registerConfiguration`. Returns a Disposable.
+     *
+     * `(listener) => Disposable` is the gcscode event-shape convention; a
+     * future `Event<T>` substrate iteration may retrofit if richer semantics
+     * (filtering, replay, priority) become necessary.
+     */
+    onDidChangeConfiguration(
+      listener: (e: ConfigurationChangeEvent) => void,
+    ): Disposable;
+  };
+}
+
+// === Configuration ===
+
+/**
+ * JSON Schema Draft 07 type, re-exported from `@types/json-schema`. Extension
+ * authors get compile-time help on schema shape errors; ajv (in `@gcscode/shell`)
+ * validates the runtime shape and the value at write time.
+ */
+export type { JSONSchema7 } from 'json-schema';
+
+import type { JSONSchema7 } from 'json-schema';
+
+/**
+ * Numeric values are part of the API contract and stable across versions:
+ * `Global = 1`, `Workspace = 2`, `WorkspaceFolder = 3`. Only `Global` is
+ * functional in v1; `update()` with the other two rejects with
+ * `Error('Target not supported in v1')`. Numeric stability matches VS Code's
+ * `ConfigurationTarget`.
+ */
+export const ConfigurationTarget = {
+  Global: 1,
+  Workspace: 2,
+  WorkspaceFolder: 3,
+} as const;
+export type ConfigurationTarget =
+  (typeof ConfigurationTarget)[keyof typeof ConfigurationTarget];
+
+/**
+ * A configuration contribution registers a single setting key with its JSON
+ * Schema and (optional) default value. The full `key` must start with the
+ * registering extension's id (e.g. extension `gcscode.sitl` may register
+ * `gcscode.sitl.connectionUrl`). Registration is enforced exactly-once:
+ * a second `registerConfiguration` for the same key throws synchronously.
+ */
+export interface ConfigurationContribution<T = unknown> {
+  /** Full setting key. Must start with `<extension-id>.`. */
+  key: string;
+  /** JSON Schema (Draft 07) describing valid values. */
+  schema: JSONSchema7;
+  /** Default value. Validated against schema at registration; throws if invalid. */
+  default?: T;
+}
+
+/**
+ * Fired by `onDidChangeConfiguration` after a single `update()` commits.
+ * `affectsConfiguration(section)` returns true if the changed key starts
+ * with `<section>.` or equals `<section>` literally. v1 fires one event
+ * per `update()` call — no coalescing.
+ */
+export interface ConfigurationChangeEvent {
+  affectsConfiguration(section: string): boolean;
+}
+
+/**
+ * Section-scoped reader/writer. Returned by `host.configuration.getConfiguration(section?)`.
+ * With a section, keys are implicitly prefixed (e.g.
+ * `getConfiguration('gcscode.sitl').get('connectionUrl')` reads the full
+ * key `'gcscode.sitl.connectionUrl'`).
+ *
+ * Cross-section / cross-extension reads are permitted: any extension can
+ * read or write any registered key. Registration enforces the prefix; post-
+ * registration access is open. Mirrors VS Code; capability-gating is deferred.
+ */
+export interface WorkspaceConfiguration {
+  get<T>(key: string): T | undefined;
+  get<T>(key: string, defaultValue: T): T;
+  has(key: string): boolean;
+  /**
+   * Returns the inspection record if a schema is registered for `key`, or
+   * `undefined` if no schema is registered. `defaultValue` and `globalValue`
+   * are each optional independently. Workspace/folder fields land additively
+   * when scope expands.
+   */
+  inspect<T>(
+    key: string,
+  ):
+    | {
+        key: string;
+        defaultValue?: T;
+        globalValue?: T;
+      }
+    | undefined;
+  /**
+   * Persists `value` against `key`. Rejection paths:
+   * - No schema registered: `Error('No schema registered for "<key>"')`.
+   * - Value violates schema: `Error('Value for "<key>" does not match schema: <reason>')`.
+   * - `target === Workspace` or `WorkspaceFolder`: `Error('Target not supported in v1')`.
+   * - Persistence failure (quota / disabled / security context):
+   *   `Error('Persistence failed: <reason>')`. The in-memory commit and the
+   *   listener invocations HAVE fired before this rejection.
+   *
+   * Rejection is via the returned Promise — not synchronous throw.
+   */
+  update(
+    key: string,
+    value: unknown,
+    target?: ConfigurationTarget,
+  ): Promise<void>;
 }
 
 /**
