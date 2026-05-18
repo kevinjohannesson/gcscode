@@ -1,7 +1,17 @@
-import type { ConfigurationContribution, Disposable } from '@gcscode/extension-api';
+import type {
+  ConfigurationContribution,
+  ConfigurationTarget,
+  Disposable,
+  WorkspaceConfiguration,
+} from '@gcscode/extension-api';
 import Ajv, { type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 import { SvelteMap } from 'svelte/reactivity';
+
+import {
+  createWorkspaceConfiguration,
+  type ConfigurationStoreFacade,
+} from './workspace-configuration';
 
 // loadConfigurationBlob + ConfigurationBlob will be used in Task 6.
 
@@ -75,5 +85,25 @@ export class ConfigurationStore {
     };
   }
 
-  // get / has / inspect / update / onDidChangeConfiguration land in later tasks.
+  public getConfiguration(section?: string): WorkspaceConfiguration {
+    return createWorkspaceConfiguration(this.facade, section);
+  }
+
+  private get facade(): ConfigurationStoreFacade {
+    return {
+      hasSchema: (k) => this._schemas.has(k),
+      getDefault: (k) => this._schemas.get(k)?.contribution.default,
+      getValue: (k) => this._values.get(k),
+      hasValue: (k) => this._values.has(k),
+      update: (k, v, t) => this.update(k, v, t),
+    };
+  }
+
+  // Placeholder until Task 5 lands the real implementation. Reject everything
+  // so any accidental call surfaces clearly during this task's tests.
+  private update(_fullKey: string, _value: unknown, _target: ConfigurationTarget): Promise<void> {
+    return Promise.reject(new Error('update() not yet implemented'));
+  }
+
+  // onDidChangeConfiguration lands in Task 5.
 }
