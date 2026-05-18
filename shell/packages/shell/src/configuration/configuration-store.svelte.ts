@@ -1,19 +1,19 @@
-import type {
-  ConfigurationContribution,
+import {
   ConfigurationTarget,
-  Disposable,
-  WorkspaceConfiguration,
+  type ConfigurationChangeEvent,
+  type ConfigurationContribution,
+  type Disposable,
+  type WorkspaceConfiguration,
 } from '@gcscode/extension-api';
 import Ajv, { type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
-import { SvelteMap } from 'svelte/reactivity';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
+import { writeConfigurationBlob, loadConfigurationBlob } from './persistence';
 import {
   createWorkspaceConfiguration,
   type ConfigurationStoreFacade,
 } from './workspace-configuration';
-
-// loadConfigurationBlob + ConfigurationBlob will be used in Task 6.
 
 interface CompiledSchemaEntry {
   contribution: ConfigurationContribution;
@@ -38,6 +38,7 @@ export class ConfigurationStore {
   private _schemas = new SvelteMap<string, CompiledSchemaEntry>();
   private _values = new SvelteMap<string, unknown>();
   private _storage: Storage;
+  private _listeners = new SvelteSet<(e: ConfigurationChangeEvent) => void>();
 
   public constructor(storage: Storage = localStorage) {
     this._storage = storage;
@@ -99,11 +100,61 @@ export class ConfigurationStore {
     };
   }
 
-  // Placeholder until Task 5 lands the real implementation. Reject everything
-  // so any accidental call surfaces clearly during this task's tests.
-  private update(_fullKey: string, _value: unknown, _target: ConfigurationTarget): Promise<void> {
-    return Promise.reject(new Error('update() not yet implemented'));
+  public onDidChangeConfiguration(listener: (e: ConfigurationChangeEvent) => void): {
+    dispose(): void;
+  } {
+    this._listeners.add(listener);
+    return {
+      dispose: () => {
+        this._listeners.delete(listener);
+      },
+    };
   }
 
-  // onDidChangeConfiguration lands in Task 5.
+  private async update(
+    fullKey: string,
+    value: unknown,
+    target: ConfigurationTarget,
+  ): Promise<void> {
+    if (target !== ConfigurationTarget.Global) {
+      throw new Error('Target not supported in v1');
+    }
+    const entry = this._schemas.get(fullKey);
+    if (entry === undefined) {
+      throw new Error(`No schema registered for "${fullKey}"`);
+    }
+    if (!entry.validate(value)) {
+      throw new Error(
+        `Value for "${fullKey}" does not match schema: ${summarizeAjvErrors(entry.validate)}`,
+      );
+    }
+
+    // In-memory commit + listener fire BEFORE persistence (documented ordering;
+    // listeners observe new state; persist failure rejects the Promise but does
+    // not roll back in-memory state).
+    this._values.set(fullKey, value);
+    const event: ConfigurationChangeEvent = {
+      affectsConfiguration(section: string): boolean {
+        return fullKey === section || fullKey.startsWith(`${section}.`);
+      },
+    };
+    for (const listener of this._listeners) {
+      try {
+        listener(event);
+      } catch (err) {
+        console.error('[configuration] listener threw:', err);
+      }
+    }
+
+    // Read-modify-write the blob (preserves orphan keys and validation-failed
+    // persisted values for other keys).
+    try {
+      const blob = loadConfigurationBlob(this._storage);
+      blob[fullKey] = value;
+      writeConfigurationBlob(this._storage, blob);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new Error(`Persistence failed: ${reason}`, { cause: err });
+    }
+  }
 }
