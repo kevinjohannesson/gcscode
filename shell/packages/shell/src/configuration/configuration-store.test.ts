@@ -240,3 +240,74 @@ describe('ConfigurationStore boot + re-validation', () => {
     expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('preset');
   });
 });
+
+describe('ConfigurationStore.onDidChangeConfiguration', () => {
+  let store: ConfigurationStore;
+
+  beforeEach(() => {
+    store = new ConfigurationStore(makeStorage());
+    store.registerConfiguration(
+      { key: 'ext.a.foo', schema: { type: 'string' }, default: 'hello' },
+      'ext.a',
+    );
+    store.registerConfiguration(
+      { key: 'ext.b.bar', schema: { type: 'number' }, default: 0 },
+      'ext.b',
+    );
+  });
+
+  it('does not fire during registerConfiguration', () => {
+    const listener = vi.fn();
+    store.onDidChangeConfiguration(listener);
+    store.registerConfiguration(
+      { key: 'ext.a.baz', schema: { type: 'string' }, default: 'x' },
+      'ext.a',
+    );
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('fires once per update() call (no coalescing)', async () => {
+    const listener = vi.fn();
+    store.onDidChangeConfiguration(listener);
+    await store.getConfiguration('ext.a').update('foo', '1');
+    await store.getConfiguration('ext.a').update('foo', '2');
+    await store.getConfiguration('ext.a').update('foo', '3');
+    expect(listener).toHaveBeenCalledTimes(3);
+  });
+
+  it('affectsConfiguration returns true for exact key match', async () => {
+    const events: boolean[] = [];
+    store.onDidChangeConfiguration((e) => {
+      events.push(e.affectsConfiguration('ext.a.foo'));
+    });
+    await store.getConfiguration('ext.a').update('foo', 'x');
+    expect(events).toEqual([true]);
+  });
+
+  it('affectsConfiguration returns true for prefix-match', async () => {
+    const events: boolean[] = [];
+    store.onDidChangeConfiguration((e) => {
+      events.push(e.affectsConfiguration('ext.a'));
+    });
+    await store.getConfiguration('ext.a').update('foo', 'x');
+    expect(events).toEqual([true]);
+  });
+
+  it('affectsConfiguration returns false for unrelated section', async () => {
+    const events: boolean[] = [];
+    store.onDidChangeConfiguration((e) => {
+      events.push(e.affectsConfiguration('ext.b'));
+    });
+    await store.getConfiguration('ext.a').update('foo', 'x');
+    expect(events).toEqual([false]);
+  });
+
+  it('Disposable.dispose() unsubscribes the listener', async () => {
+    const listener = vi.fn();
+    const d = store.onDidChangeConfiguration(listener);
+    await store.getConfiguration('ext.a').update('foo', '1');
+    d.dispose();
+    await store.getConfiguration('ext.a').update('foo', '2');
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
