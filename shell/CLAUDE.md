@@ -6,11 +6,7 @@ A Svelte 5 SPA scaffolded as the shell for a VS Code–style ground control stat
 
 ## Layout
 
-pnpm workspace with three packages:
-
-- `@gcscode/shell` — the app. Owns bootstrapping and the extension registry.
-- `@gcscode/extension-api` — the **only** import path for extensions. Types and contracts.
-- `@gcscode/extension-example` — the first extension. Canonical worked example.
+pnpm workspace organized into three roles: `@gcscode/shell` (the app — owns bootstrapping and the extension registry), `@gcscode/extension-api` (the **only** import path for extensions — types and contracts), and a set of extension packages. The canonical worked-example extension is `@gcscode/extension-example` (the first extension ever written; new extension authors should read it first); the rest are first-party feature extensions (`extension-sitl`, `extension-map`, `extension-flight-overlay`, `extension-vehicle-status`, and others). See `packages/` for the current set.
 
 Package root is the repo root. Shared tooling at the root: ESLint flat config, Prettier, and `tsconfig.base.json`. Each package extends these. `svelte.config.js` and `vite.config.ts` live in `packages/shell/` (Vite looks for them at its config's directory).
 
@@ -22,7 +18,7 @@ Package root is the repo root. Shared tooling at the root: ESLint flat config, P
 
 ESLint enforces both rules (`@typescript-eslint/no-restricted-imports` with `allowTypeImports: true` for the sibling pattern). Don't work around either.
 
-Corollary: if an extension needs a capability the host doesn't yet expose, add it to `@gcscode/extension-api` first (as a new method under one of the existing `ExtensionHost` namespaces — `host.commands.*`, `host.window.*`, `host.keybindings.*`, `host.extensions.*` — or as a new namespace if the capability is cross-cutting; or a new field on `ExtensionContext`), land that, then use it. Never reach around the API.
+Corollary: if an extension needs a capability the host doesn't yet expose, add it to `@gcscode/extension-api` first (as a new method under one of the existing `ExtensionHost` namespaces — `host.commands.*`, `host.window.*`, `host.keybindings.*`, `host.extensions.*`, `host.configuration.*` — or as a new namespace if the capability is cross-cutting; or a new field on `ExtensionContext`), land that, then use it. Never reach around the API.
 
 ## Conventions
 
@@ -79,6 +75,8 @@ When executing a plan, use the `superpowers:subagent-driven-development` skill: 
 This pattern surfaces the same class of issues at three different points (implementer self-review, per-task spec/quality review, final cross-cutting review), and produces a legible `git log` where every followup is traced to the review note that prompted it. Don't squash followups into the originating commit — the review trail is part of the history.
 
 Specs and ADRs now ship via their own PRs (see "Spec-PR workflow" and "ADR-PR workflow" in the Branching and merging section above) and receive a red-team auto-dispatched review per the agentic-actor registry. Plans continue to land on master directly.
+
+For docs-only iterations whose edits are fully specified by the spec (the 2026-04-27-roadmap precedent, most agentic-team-architecture iterations), the plan step is optional — see "Post-merge implementation conventions" in "Branching and merging" above for the canonical rule.
 
 ### Subagent worktree discipline
 

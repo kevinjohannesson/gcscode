@@ -69,12 +69,13 @@ The manifest is the structured home for descriptive metadata. It grows per-field
 
 `activate(context)` receives an `ExtensionContext`:
 
-- **`context.host`** — the per-extension gate. Methods are organized into four topic namespaces:
+- **`context.host`** — the per-extension gate. Methods are organized into five topic namespaces:
   - **`host.commands`** — `registerCommand(command): Disposable` registers a command; `executeCommand<T>(id, ...args): Promise<T>` fires any registered command by id (cross-extension execute is intentional). The `run` callback on a command is variadic (`(...args: unknown[]) => unknown`); arguments threaded through `executeCommand(id, ...args)` arrive there. The shell's keyboard dispatcher fires keybindings by calling `executeCommand` from the host side directly (it isn't an extension), via the same shared implementation.
   - **`host.window`** — `registerView(view): Disposable` and `registerStatusBarItem(item): Disposable` register UI contributions.
   - **`host.keybindings`** — `registerKeybinding(keybinding): Disposable` maps a key combo to a command id.
   - **`host.extensions`** — `getExtension<T>(id): { id; exports: T } | undefined` looks up another extension's published exports.
-    Each `register*` call returns a `Disposable`. The host exposes no verbs at the top level — every method lives under one of the four namespaces. See ADR-0006.
+  - **`host.configuration`** — `registerConfiguration(contribution): Disposable` registers a setting's schema and default; `getConfiguration(section?): WorkspaceConfiguration` returns a section-scoped reader/writer; `onDidChangeConfiguration(listener): Disposable` subscribes to setting changes. See the "Configuration (`host.configuration`)" section below for the full usage.
+    Each `register*` call returns a `Disposable`. The host exposes no verbs at the top level — every method lives under one of the five namespaces. See ADR-0006.
 - **`context.subscriptions`** — push every `Disposable` here. The host disposes them when the extension is (eventually) deactivated. See ADR-0003.
 - **`context.extension`** — read-only identity (`id`, `displayName`, `version`) for the activating extension, in case you need it for log prefixes or error messages. Note this is the read-only `ExtensionIdentity` subset — `description` is on `extension.manifest`, not on `context.extension`.
 

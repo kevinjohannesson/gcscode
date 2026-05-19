@@ -6,8 +6,9 @@ Chrome profile lock was held by a previous session. The behaviors below are
 
 ## Setup
 
+From the repo root (or any subdirectory):
+
 ```sh
-cd /Users/kevinkroon/Projects/gcscode/.worktrees/dockview-svelte/shell
 pnpm --filter dockview-svelte demo
 ```
 
