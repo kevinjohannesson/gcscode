@@ -380,6 +380,8 @@ Propagation to `shell/docs/vs-code-alignment.md`: none.
 
 ## `docs/out-of-scope.md` propagation
 
+> **v1 propagation gap audit breadcrumb (added 2026-05-25):** Audit landed in [`2026-05-25-v1-propagation-gap-audit.md`](2026-05-25-v1-propagation-gap-audit.md); see there for the full disposition of v1's planned `out-of-scope.md` + `roadmap.md` propagation edits. Summary: one load-bearing entry was backfilled by the audit ("Required re-reviewer engagement with respondent posts"); the other planned `out-of-scope.md` entry was retroactively superseded by [`2026-05-16-respondent-subagent-v2.md`](2026-05-16-respondent-subagent-v2.md) and is intentionally NOT backfilled.
+
 Two new entries; both are cross-cutting architectural deferrals (not per-iteration scope cuts).
 
 1. **Add: "Respondent subagent dispatch for cross-session consistency."** v1 ships controller-direct response writing as a Day 1 accepted limitation. The deferral is architectural (subagent dispatch infrastructure vs controller-direct), not per-iteration. Trigger to revisit: the first real cross-session PR that requires meaningful reconstruction of prior-session reasoning (the cross-session tripwire in the Tripwires section below). Reference: this spec's Known Unknowns section.
