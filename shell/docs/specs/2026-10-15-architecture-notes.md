@@ -2,7 +2,7 @@
 
 **Slug:** architecture-notes
 **Type:** docs-convention iteration. Adds a `docs/architecture/` folder for dated, informative architecture notes, a README with the folder's conventions and index, three `CLAUDE.md` edits (two insertions and one replacement), two one-line additions to `shell/.claude/commands/housekeeping.md`, and one `docs/out-of-scope.md` entry. No code, no agent files, no CI or `.github/workflows/` changes, and no change to the Spec-PR, ADR-PR, or PR workflows. It does add one category to `CLAUDE.md`'s master-landing list under "Branching and merging" (Commit 1b).
-**No bootstrap exceptions.** Spec ships via the spec-PR workflow; implementation lands per the post-merge implementation convention. The first note is deliberately _not_ part of the mechanical implementation: it lands last, after the `CLAUDE.md` edit that authorizes notes to land on master, in its own commit — see Post-merge implementation.
+**No bootstrap exceptions.** Spec ships via the spec-PR workflow; implementation lands per the post-merge implementation convention. The first note is deliberately _not_ part of the mechanical implementation: it is its own commit, after the `CLAUDE.md` edit that authorizes notes to land on master — see Post-merge implementation.
 
 ## Context
 
@@ -61,7 +61,7 @@ This iteration ships: a folder, a README, three `CLAUDE.md` lines, two `housekee
 
 Once committed, a note is not rewritten. When understanding changes, a successor note is written and the predecessor gets a one-line pointer to it. This mirrors the breadcrumb convention for specs in `CLAUDE.md` ("Specs as historical record"), including its substantive-versus-factual test: changing what a note _said_ needs a successor note; fixing how it _refers_ to something that has moved (a path, a link) is edited in place.
 
-That test is two-way, and the successor pointer is neither branch — it is not changing what the note said, and it is not fixing a moved reference. So notes have **three** permitted edit classes, and the repo already has a prefix for each of the two edit acts: a factual fix in place commits as `fix(docs):`, mirroring the `fix(spec):` discipline `CLAUDE.md` attaches to the same exception; a successor pointer commits as `docs(architecture):`, mirroring the existing `docs(spec):` breadcrumb practice. Both carry a one-sentence rationale. Using the factual-fix prefix for the pointer would contradict this section's own argument that the pointer is a third class, distinct from the factual fix.
+That test is two-way, and the successor pointer is neither branch — it is not changing what the note said, and it is not fixing a moved reference. So notes have **three** permitted edit classes, and the repo already has a prefix for each of the two edit acts: a factual fix in place commits as `fix(architecture):` and a successor pointer as `docs(architecture):` — the same shape as the precedent pair, which shares one scope word and varies only the type: `fix(spec):` for the factual correction `CLAUDE.md` attaches to the same exception, `docs(spec):` for the breadcrumb. Both carry a one-sentence rationale. Using the factual-fix prefix for the pointer would contradict this section's own argument that the pointer is a third class, distinct from the factual fix.
 
 ### Status relative to other docs
 
@@ -70,6 +70,7 @@ That test is two-way, and the successor pointer is neither branch — it is not 
 | `docs/brainfarts.md` | not use it at all, unless the user says so | no                              |
 | Architecture notes   | use as vocabulary and background           | no                              |
 | Plans                | execute                                    | no (metadata about future work) |
+| `docs/roadmap.md`    | read as status and commitments             | yes (commitments, not design)   |
 | Specs, ADRs          | treat as requirements                      | yes                             |
 
 **Citing rule:** specs and ADRs may link a note for background, but must state any decision they take in their own text. A note is never the sole justification for a decision. This keeps the informative/normative boundary intact even when a spec builds on a note's vocabulary.
@@ -84,7 +85,7 @@ Notes, and README updates that add them to the index, land on master directly, l
 
 **Who may author a note.** The user, or an agent at the user's request. An agent does not land a note unprompted — that would make notes a self-feeding channel, where one agent writes background that a later agent reads as sanctioned vocabulary with no review anywhere in the loop.
 
-**Trigger to bring notes under a review gate:** a note's factual claim about the codebase is found wrong after an agent has already used it as vocabulary, OR a _Direction_ line is cited as justification for a code change. **Owner: the user.** The first disjunct has no detector by design (see Known unknowns — nothing checks a note's accuracy), so it fires on incidental discovery, most plausibly at code-review time when an agent's reasoning traces back to a note; the second is covered by the note-as-justification tripwire's owner, below. Naming the owner here is the round-1 lesson — a trigger assigned to no one is unowned — applied to the trigger as well as to the tripwire.
+**Trigger to bring notes under a review gate:** a note's factual claim about the codebase is found wrong after an agent has already used it as vocabulary, OR a _Direction_ line is cited as justification for a code change. **Owner: the user, for both disjuncts.** Neither has a detector by design (see Known unknowns — nothing checks a note's accuracy), so both fire on incidental discovery, most plausibly at code-review time when an agent's reasoning traces back to a note. The note-as-justification tripwire below is _not_ the detector for the second disjunct: that tripwire covers a spec or ADR citing a note as its sole justification, which is a different act from a _Direction_ line being used to justify a code change. Naming the owner here is the round-1 lesson — a trigger assigned to no one is unowned — applied to the trigger as well as to the tripwire.
 
 ### README
 
@@ -98,7 +99,7 @@ Three one-line edits: two insertions — the folder in the "Conventions" list (w
 
 - **Mechanical (post-merge).** `pnpm lint` passes; Prettier covers the new Markdown files. The README's relative links (`../specs/`, `../decisions/`, `../roadmap.md`, the first note) resolve. The note's own internal links are not validated here: Commit 3 places the note outside this spec's coverage, so asserting a mechanical property of its text would contradict that.
 - **First real use.** The next architecture note (expected: capability APIs and their prior art) lands on master directly without a spec-PR, and gets an index row in the same commit.
-- **Direction rule's first test is Commit 3.** The note landing in Commit 3 predates the Direction rule this spec adds, and carries dated _Direction_ lines naming concrete changes to shipped code. Whether those lines stay as directions or become `docs/roadmap.md` "Considering" entries is the user's call at Commit 3 time; the rule applies to notes written after it.
+- **Direction rule's first test is Commit 3.** The note landing in Commit 3 predates the Direction rule this spec adds, and carries dated _Direction_ lines naming concrete changes to shipped code. Whether those lines stay as directions or become `docs/roadmap.md` "Considering" entries is the user's call at Commit 3 time. The exemption is granted here, by this spec, and deliberately not written into the README: the README states the rule unconditionally because that is correct for every note written after this convention lands.
 - **Citing rule in practice.** The vehicle capability-model spec is the first spec likely to build on a note. It should link the note for vocabulary and restate every decision in its own text.
 - **Index-drift mitigation is real, and bounded.** After Commit 5, `shell/.claude/commands/housekeeping.md` Stage 1 item 11 reads `docs/architecture/README.md` and checks every note has a row — so the claim under Known unknowns names a step that actually exists. Stage 1 is the mechanism that catches the drift scenario (a note landing ad hoc between passes); the Stage 5 line (5b) only covers notes landed as part of a housekeeping cut, because Stage 5's preamble is "After the cut ships:". Detection latency is therefore one housekeeping pass — per `CLAUDE.md` "Periodic housekeeping", every 2–3 feature iterations.
 
@@ -149,9 +150,9 @@ Surfaced 2026-10-15 during a brainstorm on a vehicle capability model, held in a
 
 ## Post-merge implementation
 
-Per the post-merge implementation convention, **five direct-master commits**, in this order.
+Per the post-merge implementation convention, **five direct-master commits (1–5), preceded by a reconciliation step (Commit 0)**, in this order.
 
-The ordering is load-bearing, and the rule is that no commit may reference a file a later commit creates. The `CLAUDE.md` edit authorizing notes to land on master comes **first**, so no commit relies on a convention the repo does not yet carry. The note is its own commit — it is the only artifact here whose text this spec does not specify, and keeping it separate leaves "what this spec-PR's review actually covered" legible in `git log`, not only in this spec's prose. The note precedes the README so the index never links to a missing file, and the README precedes the `housekeeping.md` additions because Stage 1 item 11 points at the README.
+The ordering is load-bearing, and the rule is that no commit may _rely on_ a file a later commit creates. Commit 1 deliberately _describes_ `docs/architecture/` before Commits 3 and 4 create it — that is what authorizing a convention means, and the convention has to exist first — but no commit's mechanics depend on a file that is not yet there. The `CLAUDE.md` edit authorizing notes to land on master comes **first**, so no commit relies on a convention the repo does not yet carry. The note is its own commit — it is the only artifact here whose text this spec does not specify, and keeping it separate leaves "what this spec-PR's review actually covered" legible in `git log`, not only in this spec's prose. The note precedes the README so the index never links to a missing file, and the README precedes the `housekeeping.md` additions because Stage 1 item 11 points at the README.
 
 - **Commit 1:** three `CLAUDE.md` edits (verbatim below) — 1a, 1b, 1c.
 - **Commit 2:** one `docs/out-of-scope.md` entry (verbatim below).
@@ -161,7 +162,24 @@ The ordering is load-bearing, and the rule is that no commit may reference a fil
 
 **The verbatim blocks below, as merged, are authoritative.** Drafts of the `CLAUDE.md` edits, the README, and the first note already exist uncommitted in the author's working tree (disclosed under Origin). Where review on this PR changed any verbatim text, the merged spec wins and the working-tree draft is updated to match before the commit lands — the pre-drafted text does not land as-is by virtue of having been written first. The first note is the one exception, and only because this spec never specified its text: review feedback on the note is routed, not applied verbatim.
 
-**Commit 0 — reconcile the drafts (owns the above).** Reconciliation is real work, not a disclaimer, so it gets an explicit step before Commit 1. Review on this PR changed the README verbatim block in five ways the working-tree draft does not have: the `## Maintenance` section, the `Superseded by` index column, the split `fix(docs):` / `docs(architecture):` commit prefixes, the `**Shape**` conventions bullet, and the `an API shape` clause in the Citing bullet. The `CLAUDE.md` 1a/1b/1c text is unchanged from the draft and needs no reconciliation. Procedure: diff each working-tree draft against this spec's verbatim block, overwrite the draft with the block, and confirm `git diff` on the draft is empty against the block before Commit 1 proceeds.
+**Commit 0 — reconcile the drafts (owns the above).** Reconciliation is real work, not a disclaimer, so it gets an explicit step before Commit 1. Review on this PR changed the README verbatim block in **eight** ways the working-tree draft does not have — the list is enumerated rather than summarised because an incomplete list is how a reconciliation step silently drops review:
+
+1. The `## Maintenance` section in full (four bullets: new note, superseded note, periodic detection, stale mapping).
+2. The `Superseded by` column in the index table, and the `—` cell in its one row.
+3. A `**Shape**` conventions bullet.
+4. An `**Identifiers are illustrative.**` conventions bullet.
+5. The `**Snapshots:**` bullet's commit-prefix clause (`fix(architecture):` / `docs(architecture):`).
+6. The `**Citing:**` bullet's `an API shape` clause and its plans-and-implementer-subagents sentence.
+7. The `**Landing:**` bullet's main-checkout wording and its authorship sentence.
+8. The `**Open questions**` bullet's clause on a direction naming a concrete change to shipped code.
+
+The `CLAUDE.md` 1a/1b/1c text is unchanged from the draft and needs no reconciliation; the first note is out of scope here (its text was never specified by this spec).
+
+Procedure, stated as commands because `git diff` alone does not do this job — the draft README is untracked, so `git diff` reports nothing for it no matter how far it has diverged:
+
+1. Extract the Commit 4 fenced block from this spec to a temporary file.
+2. `diff <temp> shell/docs/architecture/README.md` and confirm the output is empty. Non-empty output means the draft is stale; overwrite the draft with the extracted block and re-run until `diff` is silent.
+3. Only then let Commit 1 proceed.
 
 ### Verbatim — Commit 1 (`CLAUDE.md` edits)
 
@@ -201,13 +219,13 @@ Dated notes on established software-architecture patterns and how they map onto 
 ## Conventions
 
 - **Filename:** `YYYY-MM-DD-<topic>.md`, the same as specs and plans.
-- **Snapshots:** each note captures understanding on its date. Once committed, a note isn't rewritten. A later note supersedes it, and the earlier note gets a one-line pointer to its successor, the same breadcrumb convention specs use. Factual fixes (a moved path, a broken link) are edited in place and commit as `fix(docs):`; successor pointers commit as `docs(architecture):`. Both carry a one-sentence rationale.
+- **Snapshots:** each note captures understanding on its date. Once committed, a note isn't rewritten. A later note supersedes it, and the earlier note gets a one-line pointer to its successor, the same breadcrumb convention specs use. Factual fixes (a moved path, a broken link) are edited in place and commit as `fix(architecture):`; successor pointers commit as `docs(architecture):`. Both carry a one-sentence rationale.
 - **Shape** (recommended, not mandatory): why the note exists, the patterns, how they relate, the mapping onto gcscode, open questions, references. A note may open with a short header block (date, status, origin). These conventions are canonical where a note's own shape disagrees with them.
 - **Sources:** name each established pattern with where it comes from (book, article, author), so it can be looked up.
 - **Open questions** may carry dated _Direction_ lines. A direction is a lean, not a commitment; commitments go to the roadmap. A direction naming a concrete change to shipped code belongs in the roadmap instead.
 - **Identifiers are illustrative.** Type, method, and package names sketched in a note carry no naming commitment. API surface arrives only via `@gcscode/extension-api`.
 - **Citing:** specs and ADRs may link a note for background, but state any decision they take in their own text. A note is never the sole justification for a decision. Plans and implementer subagents may take vocabulary from a note, never a requirement, an API shape, or an identifier.
-- **Landing:** notes land on master directly, like plans — including when written mid-iteration from a `feat/*` worktree. Authored by the user, or by an agent at the user's request; an agent does not land a note unprompted.
+- **Landing:** notes land on master directly, like plans, from the main checkout. An agent working inside a `feat/*` worktree does not land one — `CLAUDE.md`'s "Subagent worktree discipline" rule 2 stops a commit when the branch reads `master`, and this convention does not amend it. Authored by the user, or by an agent at the user's request; an agent does not land a note unprompted.
 
 ## Index
 
