@@ -189,18 +189,6 @@ In `shell/docs/out-of-scope.md`, append the following entry to the end of the "T
 - **Patterns ledger for architecture notes.** No cumulative `docs/patterns.md` ledger and no "Patterns" section in the spec template. Architecture notes (per [`specs/2026-10-15-architecture-notes.md`](specs/2026-10-15-architecture-notes.md)) name established patterns, but nothing tracks which ones gcscode actually applies. Trigger to revisit: the third architecture note that names a pattern applied in gcscode code, not only discussed.
 ```
 
-### Verbatim — Commit 5 (`shell/.claude/commands/housekeeping.md` additions)
-
-> **Note on the file class.** `CLAUDE.md` "Post-merge implementation conventions" names "`CLAUDE.md` or docs edits" for the direct-master path, and a slash-command file is neither. The direct-master path is appropriate here per the precedent in [`docs/specs/2026-05-17-robust-default-paths-in-token-helpers.md`](2026-05-17-robust-default-paths-in-token-helpers.md), which landed helper-script edits via direct master because the content was fully specified verbatim with no implementation judgment required. Both additions below are verbatim one-liners; the convention's spirit — fully specified content requiring no judgment — is satisfied.
-
-**5a.** In Stage 1 — Survey, append to the numbered reading list (after item 10, `docs/brainfarts.md`):
-
-> 11. `docs/architecture/README.md` — the architecture-note index. Check that every note in the folder has an index row.
-
-**5b.** In Stage 5 — Propagate to ledger and indices, append to the bullet list:
-
-> - New architecture note landed → confirm its row exists in `docs/architecture/README.md`'s index.
-
 ### Verbatim — Commit 4 (`shell/docs/architecture/README.md`)
 
 ```md
@@ -234,3 +222,15 @@ Dated notes on established software-architecture patterns and how they map onto 
 - **Detection is periodic, not immediate.** A missing row surfaces at the next `/housekeeping` pass (every 2–3 feature iterations), not when the note lands.
 - **Stale mapping** → a note's mapping onto gcscode going stale is expected and is not a defect. Write a successor note; leave the predecessor as the dated record.
 ```
+
+### Verbatim — Commit 5 (`shell/.claude/commands/housekeeping.md` additions)
+
+> **Note on the file class.** `CLAUDE.md` "Post-merge implementation conventions" names "`CLAUDE.md` or docs edits" for the direct-master path, and a slash-command file is neither. The direct-master path is appropriate here per the precedent in [`docs/specs/2026-05-17-robust-default-paths-in-token-helpers.md`](2026-05-17-robust-default-paths-in-token-helpers.md), which landed helper-script edits via direct master because the content was fully specified verbatim with no implementation judgment required. Both additions below are verbatim one-liners; the convention's spirit — fully specified content requiring no judgment — is satisfied.
+
+**5a.** In Stage 1 — Survey, append to the numbered reading list (after item 10, `docs/brainfarts.md`):
+
+> 11. `docs/architecture/README.md` — the architecture-note index. Check that every note in the folder has an index row.
+
+**5b.** In Stage 5 — Propagate to ledger and indices, append to the bullet list:
+
+> - New architecture note landed → confirm its row exists in `docs/architecture/README.md`'s index.
