@@ -1,8 +1,8 @@
 # Architecture notes
 
 **Slug:** architecture-notes
-**Type:** docs-convention iteration. Adds a `docs/architecture/` folder for dated, informative architecture notes, a README with the folder's conventions and index, three `CLAUDE.md` edits (two insertions and one replacement), two one-line additions to `.claude/commands/housekeeping.md`, and one `docs/out-of-scope.md` entry. No code, no agent files, no CI or `.github/workflows/` changes, and no change to the Spec-PR, ADR-PR, or PR workflows. It does add one category to `CLAUDE.md`'s master-landing list under "Branching and merging" (Commit 1b).
-**No bootstrap exceptions.** Spec ships via the spec-PR workflow; implementation lands per the post-merge implementation convention. The first note is deliberately *not* part of the mechanical implementation: it lands last, after the `CLAUDE.md` edit that authorizes notes to land on master, in its own commit — see Post-merge implementation.
+**Type:** docs-convention iteration. Adds a `docs/architecture/` folder for dated, informative architecture notes, a README with the folder's conventions and index, three `CLAUDE.md` edits (two insertions and one replacement), two one-line additions to `shell/.claude/commands/housekeeping.md`, and one `docs/out-of-scope.md` entry. No code, no agent files, no CI or `.github/workflows/` changes, and no change to the Spec-PR, ADR-PR, or PR workflows. It does add one category to `CLAUDE.md`'s master-landing list under "Branching and merging" (Commit 1b).
+**No bootstrap exceptions.** Spec ships via the spec-PR workflow; implementation lands per the post-merge implementation convention. The first note is deliberately _not_ part of the mechanical implementation: it lands last, after the `CLAUDE.md` edit that authorizes notes to land on master, in its own commit — see Post-merge implementation.
 
 ## Context
 
@@ -23,7 +23,7 @@ None of the existing doc types fits:
 
 There is also a staleness problem. Explanations of how a pattern maps onto the code go stale as the code changes.
 
-**Labeled decision — dated snapshots over a cumulative ledger.** `docs/vs-code-alignment.md` solves staleness the other way: one living document whose `## Maintenance` section prescribes flipping rows as reality changes. That shape is rejected here because a pattern's explanation is prose — source, mechanics, how three patterns relate — and prose does not survive being compressed into ledger rows. The cost accepted in exchange: a dated snapshot does not know it is stale, so the date plus the index's `Superseded by` column are the only staleness signals, and both depend on a reader noticing them. The patterns *ledger* deferred below is the cumulative-shape option, kept available for the claims that do fit rows.
+**Labeled decision — dated snapshots over a cumulative ledger.** `docs/vs-code-alignment.md` solves staleness the other way: one living document whose `## Maintenance` section prescribes flipping rows as reality changes. That shape is rejected here because a pattern's explanation is prose — source, mechanics, how three patterns relate — and prose does not survive being compressed into ledger rows. The cost accepted in exchange: a dated snapshot does not know it is stale, so the date plus the index's `Superseded by` column are the only staleness signals, and both depend on a reader noticing them. The patterns _ledger_ deferred below is the cumulative-shape option, kept available for the claims that do fit rows.
 
 ## Why not the bigger version
 
@@ -78,13 +78,13 @@ The rule binds **every** reader, not only spec and ADR authors: plans and implem
 
 ### Landing
 
-Notes, and README updates that add them to the index, land on master directly, like plans: no spec-PR, no review gate. No branch prefix is needed. Notes land on master even when written mid-iteration from a `feat/*` worktree — per `CLAUDE.md`'s "Subagent worktree discipline", that is the one doc class whose correct destination during feature work is *not* the feature branch.
+Notes, and README updates that add them to the index, land on master directly, like plans: no spec-PR, no review gate. No branch prefix is needed. A note is landed from the main checkout, on master. An agent working inside a `feat/*` worktree does not land one: `CLAUDE.md`'s "Subagent worktree discipline" rule 2 is a hard STOP when `git branch --show-current` reads `master`, and nothing here amends that rule. Combined with the authorship rule below, a note written during feature work waits for the user rather than creating an exception to the worktree discipline.
 
-**What the exemption rests on, precisely.** Notes carry no *binding* decisions, because the citing rule forbids a note being the sole justification for one. That is narrower than "notes contain no decisions," and it is worth stating narrowly, because notes are the first doc class in gcscode that is simultaneously unreviewed **and** explicitly agent-readable. The two existing unreviewed classes are each safe for a reason that does not transfer: a plan is derivative of a spec that *was* reviewed, and `docs/brainfarts.md` is walled off from agents entirely. Two risks therefore stay live and uncovered: a note's factual claims about the codebase are never checked by anyone (see Known unknowns), and a *Direction* line can read as a commitment. The "like plans" posture is itself an acknowledged deferral in `docs/out-of-scope.md` ("Plan-PR workflow"), which carries a revisit trigger; notes now get their own, below.
+**What the exemption rests on, precisely.** Notes carry no _binding_ decisions, because the citing rule forbids a note being the sole justification for one. That is narrower than "notes contain no decisions," and it is worth stating narrowly, because notes combine two properties that no existing doc class combines: unreviewed **and** offered to agents as explanatory vocabulary. Each comparable class is safe for a reason that does not transfer — a plan is derivative of a spec that _was_ reviewed; `docs/brainfarts.md` is walled off from agents entirely; and `docs/roadmap.md`, which also lands unreviewed and is read by agents, carries commitments and status rather than explanation, so there is nothing in it for an agent to mistake for reasoning. Two risks therefore stay live and uncovered: a note's factual claims about the codebase are never checked by anyone (see Known unknowns), and a _Direction_ line can read as a commitment. The "like plans" posture is itself an acknowledged deferral in `docs/out-of-scope.md` ("Plan-PR workflow"), which carries a revisit trigger; notes now get their own, below.
 
 **Who may author a note.** The user, or an agent at the user's request. An agent does not land a note unprompted — that would make notes a self-feeding channel, where one agent writes background that a later agent reads as sanctioned vocabulary with no review anywhere in the loop.
 
-**Trigger to bring notes under a review gate:** a note's factual claim about the codebase is found wrong after an agent has already used it as vocabulary, OR a *Direction* line is cited as justification for a code change.
+**Trigger to bring notes under a review gate:** a note's factual claim about the codebase is found wrong after an agent has already used it as vocabulary, OR a _Direction_ line is cited as justification for a code change.
 
 ### README
 
@@ -99,7 +99,7 @@ Three one-line edits: two insertions — the folder in the "Conventions" list (w
 - **Mechanical (post-merge).** `pnpm lint` passes; Prettier covers the new Markdown files. The README's relative links (`../specs/`, `../decisions/`, `../roadmap.md`, the first note) resolve, and so does the first note's link to `ADR-0005`.
 - **First real use.** The next architecture note (expected: capability APIs and their prior art) lands on master directly without a spec-PR, and gets an index row in the same commit.
 - **Citing rule in practice.** The vehicle capability-model spec is the first spec likely to build on a note. It should link the note for vocabulary and restate every decision in its own text.
-- **Index-drift mitigation is real.** After Commit 3, `.claude/commands/housekeeping.md` Stage 1 reads `docs/architecture/README.md` and Stage 5 propagates new notes into its index — so the claim under Known unknowns names a step that actually exists.
+- **Index-drift mitigation is real.** After Commit 3, `shell/.claude/commands/housekeeping.md` Stage 1 reads `docs/architecture/README.md` and Stage 5 propagates new notes into its index — so the claim under Known unknowns names a step that actually exists.
 
 ## VS Code alignment
 
@@ -126,13 +126,13 @@ The call is also a judgment about the **deferrals** this spec surfaces, not only
 - **Whether snapshot semantics hold up.** Notes describe code that will change. The first stale mapping will show whether successor notes are cheap enough, or whether the pull to edit in place wins.
 - **Whether agents keep notes informative.** Direction lines are the most likely place for a lean to be mistaken for a commitment.
 - **Index drift.** The README index is maintained by hand. A note added without an index row is caught by housekeeping — Commit 3 adds the Stage 1 reading target and the Stage 5 propagation line that make that true — not by tooling.
-- **Whether a note is accurate when written.** "Informative, not normative" answers the *commitment* risk; it says nothing about the *accuracy* risk. A note's characterization of the codebase can simply be wrong, and under this convention nothing ever checks it — not a spec-PR, not a reviewer, not tooling. This is accepted as the cost of an unreviewed doc class; the Landing section's revisit trigger is what converts a realized instance into a review gate.
+- **Whether a note is accurate when written.** "Informative, not normative" answers the _commitment_ risk; it says nothing about the _accuracy_ risk. A note's characterization of the codebase can simply be wrong, and under this convention nothing ever checks it — not a spec-PR, not a reviewer, not tooling. This is accepted as the cost of an unreviewed doc class; the Landing section's revisit trigger is what converts a realized instance into a review gate.
 
 ## Tripwires for known-quality concerns
 
-- **Note-as-justification tripwire.** A spec or ADR takes a decision whose only stated justification is an architecture note, without restating the decision in its own text. This is a judgment about the artifact's argument, not a grep-able rule, so it stays under the default "across N PRs" guard: **fires at N=2 spec/ADR PRs**. N=2 rather than the N=3/N=5 used elsewhere because the citing rule is binary per artifact — a decision either restates its own justification or it does not — so two instances are enough to show the rule is not holding. Response: tighten the `CLAUDE.md` wording, or add a citing-rule check to spec-quality's structure section (Future iterations > 2).
+- **Note-as-justification tripwire.** A spec or ADR takes a decision whose only stated justification is an architecture note, without restating the decision in its own text. This is a judgment about the artifact's argument, not a grep-able rule, so it stays under the default "across N PRs" guard: **fires at N=2 spec/ADR PRs**. N=2 follows existing precedent for judgment-dependent tripwires rather than being a new threshold: `docs/specs/2026-05-17-reviewer-routing-and-domain-expert.md` already sets N=2 for both the silent-disposition-pattern and architectural-intent-tagging tripwires. Response: tighten the `CLAUDE.md` wording, or add a citing-rule check to spec-quality's structure section (Future iterations > 2).
 
-**Owner: the user, reading the PR.** Not a reviewer. `CLAUDE.md`'s tripwire conditions live under "Reviewer-role design conventions" and are role-side — condition (i) ties a tripwire to a failure mode of *the role*, condition (ii) wants it observable in *the review's structured output*. This concern is author-side and satisfies neither, so it borrows the convention's vocabulary without claiming its framework. That matters because Non-goals rules out reviewer-prompt changes: no reviewer is instructed to perform this check, and naming one as the owner would make the tripwire unowned. Consistent with `CLAUDE.md` making the user the judge of the judgment half, and with "Tripwires are manual review items, not automated checks."
+**Owner: the user, reading the PR.** Not a reviewer. `CLAUDE.md`'s tripwire conditions live under "Reviewer-role design conventions" and are role-side — condition (i) ties a tripwire to a failure mode of _the role_, condition (ii) wants it observable in _the review's structured output_. This concern is author-side and satisfies neither, so it borrows the convention's vocabulary without claiming its framework. That matters because Non-goals rules out reviewer-prompt changes: no reviewer is instructed to perform this check, and naming one as the owner would make the tripwire unowned. Consistent with `CLAUDE.md` making the user the judge of the judgment half, and with "Tripwires are manual review items, not automated checks."
 
 ## Future iterations
 
@@ -154,7 +154,7 @@ The ordering is load-bearing. The `CLAUDE.md` edit that authorizes notes to land
 
 - **Commit 1:** three `CLAUDE.md` edits (verbatim below) — 1a, 1b, 1c.
 - **Commit 2:** one `docs/out-of-scope.md` entry (verbatim below).
-- **Commit 3:** two one-line additions to `.claude/commands/housekeeping.md` (verbatim below), making the index-drift mitigation real.
+- **Commit 3:** two one-line additions to `shell/.claude/commands/housekeeping.md` (verbatim below), making the index-drift mitigation real.
 - **Commit 4:** the first note, `shell/docs/architecture/2026-10-15-ports-and-adapters.md`. **Not reproduced in this spec, and not part of the mechanical implementation.** Under the convention Commit 1 establishes, notes land on master directly without spec coverage; this note is the convention's first exercise. It is listed here only to fix its position in the sequence.
 - **Commit 5:** add `shell/docs/architecture/README.md` (verbatim below), whose index row points at the note landed in Commit 4.
 
@@ -186,7 +186,9 @@ In `shell/docs/out-of-scope.md`, append the following entry to the end of the "T
 - **Patterns ledger for architecture notes.** No cumulative `docs/patterns.md` ledger and no "Patterns" section in the spec template. Architecture notes (per [`specs/2026-10-15-architecture-notes.md`](specs/2026-10-15-architecture-notes.md)) name established patterns, but nothing tracks which ones gcscode actually applies. Trigger to revisit: the third architecture note that names a pattern applied in gcscode code, not only discussed.
 ```
 
-### Verbatim — Commit 3 (`.claude/commands/housekeeping.md` additions)
+### Verbatim — Commit 3 (`shell/.claude/commands/housekeeping.md` additions)
+
+> **Note on the file class.** `CLAUDE.md` "Post-merge implementation conventions" names "`CLAUDE.md` or docs edits" for the direct-master path, and a slash-command file is neither. The direct-master path is appropriate here per the precedent in [`docs/specs/2026-05-17-robust-default-paths-in-token-helpers.md`](2026-05-17-robust-default-paths-in-token-helpers.md), which landed helper-script edits via direct master because the content was fully specified verbatim with no implementation judgment required. Both additions below are verbatim one-liners; the convention's spirit — fully specified content requiring no judgment — is satisfied.
 
 **3a.** In Stage 1 — Survey, append to the numbered reading list (after item 10, `docs/brainfarts.md`):
 
@@ -209,10 +211,11 @@ Dated notes on established software-architecture patterns and how they map onto 
 
 - **Filename:** `YYYY-MM-DD-<topic>.md`, the same as specs and plans.
 - **Snapshots:** each note captures understanding on its date. Once committed, a note isn't rewritten. A later note supersedes it, and the earlier note gets a one-line pointer to its successor, the same breadcrumb convention specs use. Factual fixes (a moved path, a broken link) are edited in place. In-place fixes and successor pointers commit with a `fix(docs):` prefix and a one-sentence rationale.
+- **Shape** (recommended, not mandatory): why the note exists, the patterns, how they relate, the mapping onto gcscode, open questions, references. A note may open with a short header block (date, status, origin). These conventions are canonical where a note's own shape disagrees with them.
 - **Sources:** name each established pattern with where it comes from (book, article, author), so it can be looked up.
 - **Open questions** may carry dated _Direction_ lines. A direction is a lean, not a commitment; commitments go to the roadmap. A direction naming a concrete change to shipped code belongs in the roadmap instead.
 - **Identifiers are illustrative.** Type, method, and package names sketched in a note carry no naming commitment. API surface arrives only via `@gcscode/extension-api`.
-- **Citing:** specs and ADRs may link a note for background, but state any decision they take in their own text. A note is never the sole justification for a decision. Plans and implementer subagents may take vocabulary from a note, never a requirement or an identifier.
+- **Citing:** specs and ADRs may link a note for background, but state any decision they take in their own text. A note is never the sole justification for a decision. Plans and implementer subagents may take vocabulary from a note, never a requirement, an API shape, or an identifier.
 - **Landing:** notes land on master directly, like plans — including when written mid-iteration from a `feat/*` worktree. Authored by the user, or by an agent at the user's request; an agent does not land a note unprompted.
 
 ## Index
