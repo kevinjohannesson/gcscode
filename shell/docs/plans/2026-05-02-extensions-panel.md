@@ -1330,36 +1330,36 @@ Use `superpowers:code-reviewer` (or equivalent) on the diff `git diff master...H
 
 - [ ] **Step 2: Switch to master in main checkout**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/shell && git checkout master`
+Run: `cd $(git rev-parse --show-toplevel)/shell && git checkout master`
 Expected: branch switches; HEAD is master's most recent commit.
 
 - [ ] **Step 3: Pull latest from master**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/shell && git pull --ff-only` (skip if no remote tracking).
+Run: `cd $(git rev-parse --show-toplevel)/shell && git pull --ff-only` (skip if no remote tracking).
 Expected: fast-forward only; no merge commits introduced.
 
 - [ ] **Step 4: Merge with `--no-ff`**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/shell && git merge --no-ff feat/extensions-panel -m "Merge branch 'feat/extensions-panel'"`
+Run: `cd $(git rev-parse --show-toplevel)/shell && git merge --no-ff feat/extensions-panel -m "Merge branch 'feat/extensions-panel'"`
 Expected: merge commit lands. `git log --oneline` shows the merge commit at HEAD followed by the four feat-branch commits and any pre-existing master history.
 
 - [ ] **Step 5: Verify post-merge green**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/shell && pnpm format && pnpm lint && pnpm check && pnpm test 2>&1 | grep -E "Tests.*passed"`
+Run: `cd $(git rev-parse --show-toplevel)/shell && pnpm format && pnpm lint && pnpm check && pnpm test 2>&1 | grep -E "Tests.*passed"`
 Expected: all clean. Test counts: shell 176, sitl 28, example 3, vehicle-status 3 = 210 total.
 
 - [ ] **Step 6: Optional cleanup — remove worktree + delete feat branch**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git worktree remove .worktrees/feat-extensions-panel
-cd /Users/kevinkroon/Projects/gcscode/shell && git branch -d feat/extensions-panel
+cd $(git rev-parse --show-toplevel) && git worktree remove .worktrees/feat-extensions-panel
+cd $(git rev-parse --show-toplevel)/shell && git branch -d feat/extensions-panel
 ```
 
 Expected: worktree removed; branch deleted (use `-d` not `-D` — the merge made it safely deletable).
 
 - [ ] **Step 7: Final state verification**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/shell && git log --oneline -7 && git branch && git status`
+Run: `cd $(git rev-parse --show-toplevel)/shell && git log --oneline -7 && git branch && git status`
 
 Expected:
 

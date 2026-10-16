@@ -41,19 +41,19 @@ No changes to `@gcscode/extension-api`, `@gcscode/extension-example`, registry, 
 
 - [ ] **Step 1: Verify clean working tree on the feature branch**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && git status && git branch --show-current`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && git status && git branch --show-current`
 Expected: `nothing to commit, working tree clean`. Branch is `feat/extension-sitl-listener`. If branch is `master`, STOP — report BLOCKED.
 
 (Per CLAUDE.md "Subagent worktree discipline" — every bash call begins with `cd <worktree>/shell &&`. The pattern is repeated in every task.)
 
 - [ ] **Step 2: Verify all tests pass before changes**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm test`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm test`
 Expected: 115 tests pass — 109 in `@gcscode/shell` (50 in `registry.test.ts`, 8 in `app.test.ts`, 27 in `keybinding-dispatcher.test.ts`, 14 in `extension-manager.test.ts`, 8 in `extension-persistence.test.ts`, 2 in `extension-manifest.test.ts`), 3 in `@gcscode/extension-example`, 3 in `@gcscode/extension-sitl`.
 
 - [ ] **Step 3: Verify check + lint clean**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm check && pnpm lint`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm check && pnpm lint`
 Expected: both exit 0 with no errors.
 
 ---
@@ -87,7 +87,7 @@ The 9 cases (full descriptions in the spec):
 
 - [ ] **Step 2: Run tests, expect failures**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm --filter @gcscode/extension-sitl test telemetry-store`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm --filter @gcscode/extension-sitl test telemetry-store`
 Expected: tests fail with import resolution errors — `telemetry-store.svelte.ts` does not yet exist.
 
 - [ ] **Step 3: Create `telemetry-store.svelte.ts` per spec**
@@ -105,25 +105,25 @@ The file extension MUST be `.svelte.ts` so the `$state` rune is processed. Vite'
 
 - [ ] **Step 4: Run tests, expect pass**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm --filter @gcscode/extension-sitl test telemetry-store`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm --filter @gcscode/extension-sitl test telemetry-store`
 Expected: 9 tests pass.
 
 - [ ] **Step 5: Run full workspace tests**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm test`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm test`
 Expected: 124 tests pass (115 prior + 9 new in telemetry-store).
 
 - [ ] **Step 6: Run check + lint**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm check && pnpm lint`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm check && pnpm lint`
 Expected: both clean. svelte-check picks up `.svelte.ts` files via its glob; tsc picks them up via the existing `src/**/*.ts` pattern in `tsconfig.json` (the `.svelte.ts` extension is still `.ts` for glob purposes). If svelte-check complains about runes-in-non-svelte-file, the file extension is wrong — confirm `.svelte.ts`, not `.ts`.
 
-If Prettier complains, run `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm format` then re-run `pnpm lint`.
+If Prettier complains, run `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm format` then re-run `pnpm lint`.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && git branch --show-current && git add packages/extension-sitl/src/telemetry-store.svelte.ts packages/extension-sitl/src/telemetry-store.svelte.test.ts && git commit -m "$(cat <<'EOF'
+cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && git branch --show-current && git add packages/extension-sitl/src/telemetry-store.svelte.ts packages/extension-sitl/src/telemetry-store.svelte.test.ts && git commit -m "$(cat <<'EOF'
 feat(sitl): add telemetry-store with pure reducer
 
 Module-level $state singleton in telemetry-store.svelte.ts holding
@@ -189,7 +189,7 @@ For `console.warn`/`console.error` spies: `vi.spyOn(console, 'warn').mockImpleme
 
 - [ ] **Step 2: Run tests, expect failures**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm --filter @gcscode/extension-sitl test mavlink-client`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm --filter @gcscode/extension-sitl test mavlink-client`
 Expected: tests fail with import resolution errors — `mavlink-client.ts` does not yet exist.
 
 - [ ] **Step 3: Create `mavlink-client.ts` per spec**
@@ -209,23 +209,23 @@ The `close()` idempotence is important — the `deactivate?()` hook in Task 4 ma
 
 - [ ] **Step 4: Run tests, expect pass**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm --filter @gcscode/extension-sitl test mavlink-client`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm --filter @gcscode/extension-sitl test mavlink-client`
 Expected: 8 tests pass.
 
 - [ ] **Step 5: Run full workspace tests**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm test`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm test`
 Expected: 132 tests pass (124 prior + 8 new in mavlink-client).
 
 - [ ] **Step 6: Run check + lint**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm check && pnpm lint`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm check && pnpm lint`
 Expected: both clean.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && git branch --show-current && git add packages/extension-sitl/src/mavlink-client.ts packages/extension-sitl/src/mavlink-client.test.ts && git commit -m "$(cat <<'EOF'
+cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && git branch --show-current && git add packages/extension-sitl/src/mavlink-client.ts packages/extension-sitl/src/mavlink-client.test.ts && git commit -m "$(cat <<'EOF'
 feat(sitl): add mavlink-client WebSocket wrapper
 
 createMavlinkClient(opts) factory wrapping the browser WebSocket
@@ -304,7 +304,7 @@ The reactive read works via field access in the template — Svelte 5 tracks rea
 
 - [ ] **Step 3: Delete `packages/extension-sitl/src/location.ts`**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && rm packages/extension-sitl/src/location.ts`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && rm packages/extension-sitl/src/location.ts`
 
 The constant has no remaining consumers — the view (Step 2) and the index (Step 4) both stop importing it.
 
@@ -325,25 +325,25 @@ The `deactivate` is `async` so its return type is `Promise<void>` — matching t
 
 - [ ] **Step 5: Run the index tests**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm --filter @gcscode/extension-sitl test index`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm --filter @gcscode/extension-sitl test index`
 Expected: 6 tests pass (was 3; net +3 from new deactivate-hook coverage and the split getLocation behavior).
 
 - [ ] **Step 6: Run full workspace tests**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm test`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm test`
 Expected: 135 tests pass (132 prior + 3 net new in index — was 3, now 6).
 
 The breakdown: 109 shell + 3 example + 23 SITL (6 index + 9 store + 8 client) = 135.
 
 - [ ] **Step 7: Run check + lint**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm check && pnpm lint`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm check && pnpm lint`
 Expected: both clean. The deletion of `location.ts` is automatically picked up by `git rm` semantics; no orphan references should remain in any source file.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && git branch --show-current && git add packages/extension-sitl/src/index.ts packages/extension-sitl/src/index.test.ts packages/extension-sitl/src/sitl-view.svelte && git rm packages/extension-sitl/src/location.ts && git commit -m "$(cat <<'EOF'
+cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && git branch --show-current && git add packages/extension-sitl/src/index.ts packages/extension-sitl/src/index.test.ts packages/extension-sitl/src/sitl-view.svelte && git rm packages/extension-sitl/src/location.ts && git commit -m "$(cat <<'EOF'
 feat(sitl): wire telemetry store + mavlink client; add deactivate hook
 
 The integration commit. index.ts now constructs the mavlink-client
@@ -473,13 +473,13 @@ The "SITL stub" line above it stays unchanged — both lines now show as `[x]`. 
 
 - [ ] **Step 2: Format and lint**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm format && pnpm lint`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm format && pnpm lint`
 Expected: both clean.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && git branch --show-current && git add docs/roadmap.md && git commit -m "$(cat <<'EOF'
+cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && git branch --show-current && git add docs/roadmap.md && git commit -m "$(cat <<'EOF'
 docs: roadmap entry for SITL listener
 
 Flip the Feature-extensions "SITL listener" line to checked with
@@ -503,12 +503,12 @@ Verify branch confirmation reads `feat/extension-sitl-listener`.
 
 - [ ] **Step 1: Run the full check + test + lint suite**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm check && pnpm test && pnpm lint`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm check && pnpm test && pnpm lint`
 Expected: all clean. Workspace test count: 135 (109 shell + 3 example + 23 sitl). The SITL breakdown is 6 index + 9 telemetry-store + 8 mavlink-client.
 
 - [ ] **Step 2: Production build smoke test**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && pnpm --filter @gcscode/shell build`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && pnpm --filter @gcscode/shell build`
 Expected: build succeeds. Bundle size delta is small — a few hundred bytes for the new modules + view changes.
 
 - [ ] **Step 3: Manual integration smoke test (optional)**
@@ -529,7 +529,7 @@ If the bridge stack is not running: the view shows `Disconnected` immediately on
 
 - [ ] **Step 4: Confirm clean tree and feature commits**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener/shell && git status && git log --oneline master..HEAD`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener/shell && git status && git log --oneline master..HEAD`
 Expected: `nothing to commit, working tree clean`. Branch contains 4 new commits beyond master (Tasks 2, 3, 4, 6 — Task 5 lands in a different repo). Plus any `Code-review-followup:` commits.
 
 The `Drone SITL` repo's `run_sitl.sh` commit (Task 5) is independent and lives there; it does not appear in the gcscode `git log master..HEAD`.

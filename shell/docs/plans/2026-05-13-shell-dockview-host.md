@@ -25,7 +25,7 @@ This overrides CLAUDE.md's general PR-workflow guidance for this iteration only.
 ## Branch and worktree
 
 - **Branch:** `feat/shell-dockview-host` (off master)
-- **Worktree path:** `.worktrees/feat-shell-dockview-host/` relative to repo root (`/Users/kevinkroon/Projects/gcscode/`)
+- **Worktree path:** `.worktrees/feat-shell-dockview-host/` relative to repo root (`<repo-root>/`)
 - **Package root inside worktree:** `<worktree>/shell/`
 
 Per CLAUDE.md's "Subagent worktree discipline": every bash command prepends `cd <worktree>/shell && ` because the bash tool resets cwd between calls. Before every `git commit`, chain `git branch --show-current` and verify the output is `feat/shell-dockview-host` (not `master`). The controller should create the worktree via `superpowers:using-git-worktrees` before dispatching Task 1.
@@ -972,9 +972,9 @@ Expected: all clean.
 From the main checkout (not the worktree):
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/shell && git checkout master
-cd /Users/kevinkroon/Projects/gcscode/shell && git pull origin master
-cd /Users/kevinkroon/Projects/gcscode/shell && git merge --no-ff feat/shell-dockview-host -m "$(cat <<'EOF'
+cd $(git rev-parse --show-toplevel)/shell && git checkout master
+cd $(git rev-parse --show-toplevel)/shell && git pull origin master
+cd $(git rev-parse --show-toplevel)/shell && git merge --no-ff feat/shell-dockview-host -m "$(cat <<'EOF'
 Merge branch 'feat/shell-dockview-host'
 
 UI iteration: replace app.svelte view-stack with DockviewSvelte content
@@ -997,7 +997,7 @@ EOF
 - [ ] **Step 4: Push to origin**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/shell && git push origin master
+cd $(git rev-parse --show-toplevel)/shell && git push origin master
 ```
 
 Expected: success.
@@ -1007,8 +1007,8 @@ Expected: success.
 The worktree can be removed once master has the merge:
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git worktree remove .worktrees/feat-shell-dockview-host
-cd /Users/kevinkroon/Projects/gcscode && git branch -d feat/shell-dockview-host
+cd $(git rev-parse --show-toplevel) && git worktree remove .worktrees/feat-shell-dockview-host
+cd $(git rev-parse --show-toplevel) && git branch -d feat/shell-dockview-host
 ```
 
 (`git worktree remove` requires the worktree to have a clean working tree.)

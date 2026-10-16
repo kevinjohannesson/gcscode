@@ -2627,13 +2627,13 @@ Expected: commit succeeds. `git log --oneline -3` shows three feat-branch commit
 
 ## Task 5: Update user-side memory files (outside repo)
 
-**Files:** `~/.claude/projects/-Users-kevinkroon-Projects-gcscode/memory/MEMORY.md` plus any individual memory file entries that contain "plugin."
+**Files:** `~/.claude/projects/<project-slug>/memory/MEMORY.md` plus any individual memory file entries that contain "plugin."
 
 **No git commit.** Memory lives outside the repository.
 
 - [ ] **Step 5.1: Inspect MEMORY.md**
 
-Read `~/.claude/projects/-Users-kevinkroon-Projects-gcscode/memory/MEMORY.md`. Identify entries whose title, link target, or one-line hook contains "plugin."
+Read `~/.claude/projects/<project-slug>/memory/MEMORY.md`. Identify entries whose title, link target, or one-line hook contains "plugin."
 
 The known entry to update:
 
@@ -2644,8 +2644,8 @@ The known entry to update:
 If `project_plugin_phases.md` exists, rename it to `project_extension_phases.md`:
 
 ```bash
-mv ~/.claude/projects/-Users-kevinkroon-Projects-gcscode/memory/project_plugin_phases.md \
-   ~/.claude/projects/-Users-kevinkroon-Projects-gcscode/memory/project_extension_phases.md
+mv ~/.claude/projects/<project-slug>/memory/project_plugin_phases.md \
+   ~/.claude/projects/<project-slug>/memory/project_extension_phases.md
 ```
 
 (Adjust the filename if MEMORY.md uses a different one.)
@@ -2672,7 +2672,7 @@ Edit `MEMORY.md`:
 Run:
 
 ```bash
-grep -l -i "plugin" ~/.claude/projects/-Users-kevinkroon-Projects-gcscode/memory/*.md
+grep -l -i "plugin" ~/.claude/projects/<project-slug>/memory/*.md
 ```
 
 For each file the grep prints, open it and decide whether the reference is intentional (e.g. mentions an external "plugin" system) or stale (refers to gcscode's own extensibility unit). Update stale references in place; rename files if the filename contains "plugin."

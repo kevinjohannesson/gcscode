@@ -14,18 +14,18 @@
 
 ## Pre-flight: worktree + branch setup
 
-This plan is executed via subagent-driven development in a git worktree. The repo root is `/Users/kevinkroon/Projects/gcscode/`, the package root is `<repo-root>/shell/`. Per CLAUDE.md "Subagent worktree discipline" — every bash command from a dispatched subagent must prepend `cd <worktree>/shell/ &&`, and every `git commit` must be preceded by `git branch --show-current` to verify the branch is `feat/flight-overlay-drone-icon` (not `master`).
+This plan is executed via subagent-driven development in a git worktree. The repo root is `<repo-root>/`, the package root is `<repo-root>/shell/`. Per CLAUDE.md "Subagent worktree discipline" — every bash command from a dispatched subagent must prepend `cd <worktree>/shell/ &&`, and every `git commit` must be preceded by `git branch --show-current` to verify the branch is `feat/flight-overlay-drone-icon` (not `master`).
 
 **Setup commands (run by the controller before dispatching task 1):**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd $(git rev-parse --show-toplevel)
 git worktree add .worktrees/feat-flight-overlay-drone-icon -b feat/flight-overlay-drone-icon master
 cd .worktrees/feat-flight-overlay-drone-icon/shell
 pnpm install --frozen-lockfile
 ```
 
-After setup, the worktree path is `/Users/kevinkroon/Projects/gcscode/.worktrees/feat-flight-overlay-drone-icon/`, and all subagent bash commands run with `cd <worktree>/shell &&` as a prefix.
+After setup, the worktree path is `<repo-root>/.worktrees/feat-flight-overlay-drone-icon/`, and all subagent bash commands run with `cd <worktree>/shell &&` as a prefix.
 
 The repo root `.gitignore` already excludes `.worktrees/`, so no untracked-file noise on master.
 
@@ -755,7 +755,7 @@ Expected: clean status, all checks PASS.
 - [ ] **Step 2: Switch to master in the main checkout (NOT the worktree)**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/shell && git checkout master && git pull --ff-only origin master 2>/dev/null || true
+cd $(git rev-parse --show-toplevel)/shell && git checkout master && git pull --ff-only origin master 2>/dev/null || true
 ```
 
 Note: this repo may not have a remote configured; the `git pull` is best-effort. The local `master` is the merge target.
@@ -763,7 +763,7 @@ Note: this repo may not have a remote configured; the `git pull` is best-effort.
 - [ ] **Step 3: Merge with `--no-ff`**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/shell && git merge --no-ff feat/flight-overlay-drone-icon -m "Merge branch 'feat/flight-overlay-drone-icon'"
+cd $(git rev-parse --show-toplevel)/shell && git merge --no-ff feat/flight-overlay-drone-icon -m "Merge branch 'feat/flight-overlay-drone-icon'"
 ```
 
 Expected: merge commit created. `git log --oneline -5` shows the merge commit at the top, with the feat-branch commits visible below.
@@ -771,7 +771,7 @@ Expected: merge commit created. `git log --oneline -5` shows the merge commit at
 - [ ] **Step 4: Clean up the worktree**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git worktree remove .worktrees/feat-flight-overlay-drone-icon
+cd $(git rev-parse --show-toplevel) && git worktree remove .worktrees/feat-flight-overlay-drone-icon
 ```
 
 Expected: worktree removed; `.worktrees/` directory becomes empty (or contains only other unrelated worktrees).
@@ -779,7 +779,7 @@ Expected: worktree removed; `.worktrees/` directory becomes empty (or contains o
 - [ ] **Step 5: Optionally delete the local feat branch**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/shell && git branch -d feat/flight-overlay-drone-icon
+cd $(git rev-parse --show-toplevel)/shell && git branch -d feat/flight-overlay-drone-icon
 ```
 
 Expected: branch deleted (it's been merged, so plain `-d` works without `-D`).
@@ -787,7 +787,7 @@ Expected: branch deleted (it's been merged, so plain `-d` works without `-D`).
 - [ ] **Step 6: Verify final state**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/shell && git log --oneline -8
+cd $(git rev-parse --show-toplevel)/shell && git log --oneline -8
 ```
 
 Expected:

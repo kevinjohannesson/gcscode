@@ -18,7 +18,7 @@
 This iteration runs on a feature branch off `master`:
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/shell
+cd $(git rev-parse --show-toplevel)/shell
 git fetch origin
 git switch -c feat/iteration-a-extension-exports master
 ```

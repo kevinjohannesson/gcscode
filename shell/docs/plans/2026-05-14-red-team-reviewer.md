@@ -122,7 +122,7 @@ The registry rows for the current four roles (Spec-compliance, Code-quality, Fin
 
 - [ ] **Step 2: Verify the file is on master and clean**
 
-Run from repo root: `cd /Users/kevinkroon/Projects/gcscode && git branch --show-current && git status`
+Run from repo root: `cd $(git rev-parse --show-toplevel) && git branch --show-current && git status`
 
 Expected: branch is `master`, working tree shows the new ADR as untracked.
 
@@ -131,7 +131,7 @@ Expected: branch is `master`, working tree shows the new ADR as untracked.
 Run from repo root:
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git add shell/docs/decisions/ADR-0008-reviewer-role-registry.md && git commit -m "$(cat <<'EOF'
+cd $(git rev-parse --show-toplevel) && git add shell/docs/decisions/ADR-0008-reviewer-role-registry.md && git commit -m "$(cat <<'EOF'
 docs(agentic-team): add ADR-0008 reviewer-role registry
 
 Captures the registry-pattern decision (registry over inline / project-
@@ -155,7 +155,7 @@ Expected: commit lands on master, push succeeds.
 
 - [ ] **Step 1: Create the feat branch off master**
 
-Run from repo root: `cd /Users/kevinkroon/Projects/gcscode && git checkout -b feat/red-team-reviewer && git branch --show-current`
+Run from repo root: `cd $(git rev-parse --show-toplevel) && git checkout -b feat/red-team-reviewer && git branch --show-current`
 
 Expected: branch is `feat/red-team-reviewer`.
 
@@ -179,7 +179,7 @@ This file is the source of truth for red-team's review behavior. The controller 
 
 - [ ] **Step 1: Verify the directory does not yet exist and create the file**
 
-Run from repo root: `cd /Users/kevinkroon/Projects/gcscode && ls -la .claude/reviewer-prompts/ 2>&1`
+Run from repo root: `cd $(git rev-parse --show-toplevel) && ls -la .claude/reviewer-prompts/ 2>&1`
 
 Expected: `ls: .claude/reviewer-prompts/: No such file or directory`. The Write tool will create the directory as part of writing the file.
 
@@ -352,7 +352,7 @@ Do not include the full review text in your return — it's already on the PR.
 
 - [ ] **Step 3: Verify file was created with expected content**
 
-Run from repo root: `cd /Users/kevinkroon/Projects/gcscode && ls -la .claude/reviewer-prompts/red-team.md && head -5 .claude/reviewer-prompts/red-team.md`
+Run from repo root: `cd $(git rev-parse --show-toplevel) && ls -la .claude/reviewer-prompts/red-team.md && head -5 .claude/reviewer-prompts/red-team.md`
 
 Expected: file exists, first line is `# Red-team reviewer prompt template`.
 
@@ -361,7 +361,7 @@ Expected: file exists, first line is `# Red-team reviewer prompt template`.
 Run from repo root:
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git branch --show-current && git add .claude/reviewer-prompts/red-team.md && git commit -m "feat(agentic-team): add red-team reviewer prompt template
+cd $(git rev-parse --show-toplevel) && git branch --show-current && git add .claude/reviewer-prompts/red-team.md && git commit -m "feat(agentic-team): add red-team reviewer prompt template
 
 Per docs/specs/2026-05-14-red-team-reviewer.md. Defines red-team's
 review behavior: two angles (premise challenger + consistency reviewer),
@@ -385,7 +385,7 @@ The new subsection introduces the registry and populates it with the four curren
 
 - [ ] **Step 1: Locate insertion point**
 
-Run from repo root: `cd /Users/kevinkroon/Projects/gcscode && grep -n "^\*\*Verdict table:" shell/CLAUDE.md`
+Run from repo root: `cd $(git rev-parse --show-toplevel) && grep -n "^\*\*Verdict table:" shell/CLAUDE.md`
 
 Expected: one match, around line 93. The new subsection inserts immediately ABOVE the `**Verdict table:**` line.
 
@@ -418,14 +418,14 @@ New:
 
 - [ ] **Step 3: Verify the registry inserted correctly**
 
-Run from repo root: `cd /Users/kevinkroon/Projects/gcscode && grep -n "^\*\*Reviewer-role registry" shell/CLAUDE.md && grep -n "^\*\*Verdict table:" shell/CLAUDE.md`
+Run from repo root: `cd $(git rev-parse --show-toplevel) && grep -n "^\*\*Reviewer-role registry" shell/CLAUDE.md && grep -n "^\*\*Verdict table:" shell/CLAUDE.md`
 
 Expected: registry line appears just above verdict table line.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git add shell/CLAUDE.md && git commit -m "feat(agentic-team): add reviewer-role registry to CLAUDE.md
+cd $(git rev-parse --show-toplevel) && git add shell/CLAUDE.md && git commit -m "feat(agentic-team): add reviewer-role registry to CLAUDE.md
 
 Per docs/specs/2026-05-14-red-team-reviewer.md and
 ADR-0008-reviewer-role-registry. The registry is the source of truth for
@@ -572,7 +572,7 @@ Red-team auto-dispatches on PR open per the reviewer-role registry. Future revie
 Run from repo root:
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && grep -n "Red-team\|Feature-PR template\|Spec/ADR-PR template" shell/CLAUDE.md | head -15
+cd $(git rev-parse --show-toplevel) && grep -n "Red-team\|Feature-PR template\|Spec/ADR-PR template" shell/CLAUDE.md | head -15
 ````
 
 Expected: matches for the verdict-table row, header examples, auto-dispatch paragraph, renamed Feature-PR template header, and new Spec/ADR-PR template heading.
@@ -580,7 +580,7 @@ Expected: matches for the verdict-table row, header examples, auto-dispatch para
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git add shell/CLAUDE.md && git commit -m "feat(agentic-team): wire red-team into verdict table, headers, dispatch, PR templates
+cd $(git rev-parse --show-toplevel) && git add shell/CLAUDE.md && git commit -m "feat(agentic-team): wire red-team into verdict table, headers, dispatch, PR templates
 
 Extends the existing reviewer-discipline section with red-team's row in
 the verdict-permissions quick reference, header convention examples
@@ -639,7 +639,7 @@ New (insert two new bullets immediately before this anchor):
 Run from repo root:
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && grep -n "^- \*\*Spec-PR workflow\|^- \*\*ADR-PR workflow\|^- \*\*Feature branches\|^- \*\*PR workflow" shell/CLAUDE.md
+cd $(git rev-parse --show-toplevel) && grep -n "^- \*\*Spec-PR workflow\|^- \*\*ADR-PR workflow\|^- \*\*Feature branches\|^- \*\*PR workflow" shell/CLAUDE.md
 ```
 
 Expected: four matches, in order: Feature branches, Spec-PR workflow, ADR-PR workflow, PR workflow.
@@ -647,7 +647,7 @@ Expected: four matches, in order: Feature branches, Spec-PR workflow, ADR-PR wor
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git add shell/CLAUDE.md && git commit -m "feat(agentic-team): add spec/ADR-PR workflows to Branching and merging
+cd $(git rev-parse --show-toplevel) && git add shell/CLAUDE.md && git commit -m "feat(agentic-team): add spec/ADR-PR workflows to Branching and merging
 
 Specs ship via spec/<topic> branches and ADRs via adr/<slug> branches.
 Red-team auto-dispatches on PR open per its registry entry. Bootstrap
@@ -710,7 +710,7 @@ New:
 Run from repo root:
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && grep -n "Specs and ADRs now ship\|red-team.md\|ADR-0008-reviewer-role-registry\|2026-05-14-red-team-reviewer" shell/CLAUDE.md
+cd $(git rev-parse --show-toplevel) && grep -n "Specs and ADRs now ship\|red-team.md\|ADR-0008-reviewer-role-registry\|2026-05-14-red-team-reviewer" shell/CLAUDE.md
 ```
 
 Expected: at least four matches (forward-ref sentence + three Further reading bullets).
@@ -718,7 +718,7 @@ Expected: at least four matches (forward-ref sentence + three Further reading bu
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git add shell/CLAUDE.md && git commit -m "docs(agentic-team): forward-reference spec/ADR-PR + extend Further reading
+cd $(git rev-parse --show-toplevel) && git add shell/CLAUDE.md && git commit -m "docs(agentic-team): forward-reference spec/ADR-PR + extend Further reading
 
 Adds a one-sentence forward reference inside Subagent-driven plan
 execution pointing readers at the new spec/ADR-PR workflows. Adds three
@@ -758,7 +758,7 @@ New (replace with three bullets — plan-only since spec/ADR are now no longer d
 
 - [ ] **Step 2: Verify out-of-scope.md edit**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode && grep -n "Plan-PR workflow\|Red-team blocking verdicts\|Reviewer routing layer" shell/docs/out-of-scope.md`
+Run: `cd $(git rev-parse --show-toplevel) && grep -n "Plan-PR workflow\|Red-team blocking verdicts\|Reviewer routing layer" shell/docs/out-of-scope.md`
 
 Expected: three matches.
 
@@ -768,7 +768,7 @@ The roadmap has two `### Considering` sections — one under `## Feature extensi
 
 Run from repo root first to confirm the section anchor:
 
-`cd /Users/kevinkroon/Projects/gcscode && grep -n "^##\|^### Considering" shell/docs/roadmap.md`
+`cd $(git rev-parse --show-toplevel) && grep -n "^##\|^### Considering" shell/docs/roadmap.md`
 
 Then insert the two new entries at the end of the `Considering (not yet committed)` list inside `## Agentic team architecture`. Use the Edit tool with enough surrounding context to anchor the edit unambiguously to that specific section (not the feature-extensions Considering section).
 
@@ -781,7 +781,7 @@ The two entries to add:
 
 - [ ] **Step 4: Verify roadmap.md edit**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode && grep -n "Reviewer routing layer\|Retroactive ADR for reviews-as-artifacts" shell/docs/roadmap.md`
+Run: `cd $(git rev-parse --show-toplevel) && grep -n "Reviewer routing layer\|Retroactive ADR for reviews-as-artifacts" shell/docs/roadmap.md`
 
 Expected: two matches.
 
@@ -792,7 +792,7 @@ The ledger in `shell/docs/vs-code-alignment.md` is structured per-CONCERN (colum
 - [ ] **Step 6: Commit the two propagation edits in one commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git add shell/docs/out-of-scope.md shell/docs/roadmap.md && git commit -m "docs(agentic-team): propagate red-team-reviewer deferrals + roadmap entries
+cd $(git rev-parse --show-toplevel) && git add shell/docs/out-of-scope.md shell/docs/roadmap.md && git commit -m "docs(agentic-team): propagate red-team-reviewer deferrals + roadmap entries
 
 - out-of-scope.md: replace generic 'Spec/plan/ADR PR workflow' deferral
   with three more-specific cross-cutting deferrals (plan-PR workflow,
@@ -817,7 +817,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - [ ] **Step 1: Run pnpm format to normalize markdown**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/shell && pnpm format
+cd $(git rev-parse --show-toplevel)/shell && pnpm format
 ```
 
 Expected: Prettier formats markdown files. If it produces changes, commit them as a separate `chore: prettier-format <files>` commit. If no changes, proceed.
@@ -825,7 +825,7 @@ Expected: Prettier formats markdown files. If it produces changes, commit them a
 - [ ] **Step 2: Run pnpm check (svelte-check + tsc) — verify no code regressions**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/shell && pnpm check
+cd $(git rev-parse --show-toplevel)/shell && pnpm check
 ```
 
 Expected: passes. This iteration touches no code; any failure indicates an unrelated pre-existing issue, in which case escalate.
@@ -833,7 +833,7 @@ Expected: passes. This iteration touches no code; any failure indicates an unrel
 - [ ] **Step 3: Run pnpm lint**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/shell && pnpm lint
+cd $(git rev-parse --show-toplevel)/shell && pnpm lint
 ```
 
 Expected: passes.
@@ -841,13 +841,13 @@ Expected: passes.
 - [ ] **Step 4: Push branch and open draft PR**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git push -u origin feat/red-team-reviewer
+cd $(git rev-parse --show-toplevel) && git push -u origin feat/red-team-reviewer
 ```
 
 Then open the draft PR using the standard template from CLAUDE.md "Subagent reviewer PR-posting discipline":
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && gh pr create --draft --base master --head feat/red-team-reviewer --title "feat(agentic-team): add red-team reviewer + reviewer-role registry + spec/ADR-PR workflow" --body "$(cat <<'EOF'
+cd $(git rev-parse --show-toplevel) && gh pr create --draft --base master --head feat/red-team-reviewer --title "feat(agentic-team): add red-team reviewer + reviewer-role registry + spec/ADR-PR workflow" --body "$(cat <<'EOF'
 ## Iteration
 
 Add red-team as an advisory reviewer role on spec/ADR PRs, introduce a reviewer-role registry as substrate for future expert reviewers, and establish the spec/ADR-PR workflow.
@@ -890,7 +890,7 @@ Same shape as PR #1 (reviews-as-artifacts validation). Becomes the second perman
 - [ ] **Step 1: Confirm master is up-to-date with the merged feat branch**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git checkout master && git pull && git log --oneline -5
+cd $(git rev-parse --show-toplevel) && git checkout master && git pull && git log --oneline -5
 ```
 
 Expected: master includes the merge commit for `feat/red-team-reviewer`.
@@ -898,7 +898,7 @@ Expected: master includes the merge commit for `feat/red-team-reviewer`.
 - [ ] **Step 2: Create the test branch**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git checkout -b test/red-team-iteration-validation
+cd $(git rev-parse --show-toplevel) && git checkout -b test/red-team-iteration-validation
 ```
 
 - [ ] **Step 3: Write the throwaway test spec**
@@ -916,7 +916,7 @@ Purpose: exercise the red-team auto-dispatch + header + Checked-against audit tr
 - [ ] **Step 4: Commit initial spec + push branch**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git add shell/docs/specs/test-red-team-validation.md && git commit -m "chore(test): add red-team mechanics validation artifact
+cd $(git rev-parse --show-toplevel) && git add shell/docs/specs/test-red-team-validation.md && git commit -m "chore(test): add red-team mechanics validation artifact
 
 Throwaway test spec for the red-team-reviewer iteration's mechanics
 smoke test (Plan 1 in docs/specs/2026-05-14-red-team-reviewer.md). Kept
@@ -928,7 +928,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>" && git pus
 - [ ] **Step 5: Open PR #2 using the spec-PR template**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && gh pr create --draft --base master --head test/red-team-iteration-validation --title "test: red-team iteration mechanics validation" --body "$(cat <<'EOF'
+cd $(git rev-parse --show-toplevel) && gh pr create --draft --base master --head test/red-team-iteration-validation --title "test: red-team iteration mechanics validation" --body "$(cat <<'EOF'
 ## Test artifact — red-team mechanics validation
 
 End-to-end mechanics validation of red-team auto-dispatch + header convention + Checked-against audit trail + re-review pattern from docs/specs/2026-05-14-red-team-reviewer.md. **Not a real spec.**
@@ -957,13 +957,13 @@ Dispatch prompt (substitute `<PR>` with the PR number from step 5):
 ```
 You are a reviewer subagent for the red-team iteration mechanics validation. This is a SCRIPTED test — do not exercise judgment about the artifact.
 
-Repo root: /Users/kevinkroon/Projects/gcscode
+Repo root: <repo-root>
 PR: #<PR>
 Verdict: --comment
 
 Post this exact body via `gh pr review` with a freshly-minted bot token:
 
-cd /Users/kevinkroon/Projects/gcscode && GH_TOKEN=$(.claude/scripts/gh-app-token) gh pr review <PR> --comment --body "$(cat <<'EOF'
+cd $(git rev-parse --show-toplevel) && GH_TOKEN=$(.claude/scripts/gh-app-token) gh pr review <PR> --comment --body "$(cat <<'EOF'
 ## Red-team review — spec — Claude Opus 4.7
 
 ### Premises challenged
@@ -987,7 +987,7 @@ EOF
 )"
 
 Then verify the post:
-cd /Users/kevinkroon/Projects/gcscode && gh pr view <PR> --json reviews | jq '.reviews[-1] | {author: .author.login, state, header: (.body | split("\n") | .[0])}'
+cd $(git rev-parse --show-toplevel) && gh pr view <PR> --json reviews | jq '.reviews[-1] | {author: .author.login, state, header: (.body | split("\n") | .[0])}'
 
 Return to controller: confirmation of post + author + state + header.
 ```
@@ -995,7 +995,7 @@ Return to controller: confirmation of post + author + state + header.
 - [ ] **Step 7: Followup commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git checkout test/red-team-iteration-validation && echo "
+cd $(git rev-parse --show-toplevel) && git checkout test/red-team-iteration-validation && echo "
 ## Followup note
 
 Added per the scripted re-review test in the iteration's smoke plan." >> shell/docs/specs/test-red-team-validation.md && git add shell/docs/specs/test-red-team-validation.md && git commit -m "Code-review-followup: scripted followup for re-review test
@@ -1017,14 +1017,14 @@ Dispatch prompt (substitute `<PR>` and `<SHA>`):
 ```
 You are a reviewer subagent for the red-team iteration mechanics validation re-review. SCRIPTED.
 
-Repo root: /Users/kevinkroon/Projects/gcscode
+Repo root: <repo-root>
 PR: #<PR>
 Followup SHA: <SHA>
 Verdict: --comment
 
 Post this exact body:
 
-cd /Users/kevinkroon/Projects/gcscode && GH_TOKEN=$(.claude/scripts/gh-app-token) gh pr review <PR> --comment --body "$(cat <<'EOF'
+cd $(git rev-parse --show-toplevel) && GH_TOKEN=$(.claude/scripts/gh-app-token) gh pr review <PR> --comment --body "$(cat <<'EOF'
 ## Red-team review — spec (re-review of <SHA>) — Claude Opus 4.7
 
 ### Premises challenged
@@ -1048,7 +1048,7 @@ EOF
 )"
 
 Then verify both reviews remain in timeline:
-cd /Users/kevinkroon/Projects/gcscode && gh pr view <PR> --json reviews,reviewDecision | jq '{reviewDecision, count: (.reviews | length), reviews: [.reviews[] | {state, header: (.body | split("\n") | .[0])}]}'
+cd $(git rev-parse --show-toplevel) && gh pr view <PR> --json reviews,reviewDecision | jq '{reviewDecision, count: (.reviews | length), reviews: [.reviews[] | {state, header: (.body | split("\n") | .[0])}]}'
 
 Substitute `<SHA>` with the actual followup SHA before running.
 ```
@@ -1058,7 +1058,7 @@ Substitute `<SHA>` with the actual followup SHA before running.
 After both dispatches, verify from controller side:
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && gh pr view <PR> --json reviews,reviewDecision | jq '{reviewDecision, count: (.reviews | length), reviews: [.reviews[] | {author: .author.login, state, header: (.body | split("\n") | .[0])}]}'
+cd $(git rev-parse --show-toplevel) && gh pr view <PR> --json reviews,reviewDecision | jq '{reviewDecision, count: (.reviews | length), reviews: [.reviews[] | {author: .author.login, state, header: (.body | split("\n") | .[0])}]}'
 ```
 
 Expected:
@@ -1073,7 +1073,7 @@ Expected:
 - [ ] **Step 10: Post the disposition comment under user identity**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && gh pr comment <PR> --body "$(cat <<'EOF'
+cd $(git rev-parse --show-toplevel) && gh pr comment <PR> --body "$(cat <<'EOF'
 ## Disposition — kept as permanent reference artifact
 
 Mechanics validation succeeded. Two scripted red-team reviews posted under `gcscode-reviewer[bot]`, both headers match the convention, both Drift sections include concrete `Checked against:` enumerations, re-review preserves the initial review in the timeline. `reviewDecision` stays empty (advisory).
@@ -1088,7 +1088,7 @@ EOF
 - [ ] **Step 11: Return to master**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode && git checkout master
+cd $(git rev-parse --show-toplevel) && git checkout master
 ```
 
 End of plan.

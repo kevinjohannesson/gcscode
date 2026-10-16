@@ -37,7 +37,7 @@ Read in this order, skim-not-deep-read, focused on what's changed since the last
 9. `git log --oneline -30` — recent commit history.
 10. `docs/brainfarts.md` — read but treat as inert (per CLAUDE.md, agents must not pull requirements from here).
 
-Optional: peek at the user's auto-memory at `~/.claude/projects/-Users-kevinkroon-Projects-gcscode-shell/memory/MEMORY.md` for current preferences and settled topics. Respect "settled" topics (e.g., Svelte coupling) — high bar to re-open.
+Optional: peek at the user's auto-memory at `~/.claude/projects/<project-slug>/memory/MEMORY.md` for current preferences and settled topics. Respect "settled" topics (e.g., Svelte coupling) — high bar to re-open.
 
 ### Stage 2 — Surface findings across three dimensions
 

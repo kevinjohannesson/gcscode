@@ -2,8 +2,8 @@
 
 Spec: [`../specs/2026-05-05-dockview-svelte.md`](../specs/2026-05-05-dockview-svelte.md)
 Branch: `feat/dockview-svelte`
-Worktree: `/Users/kevinkroon/Projects/gcscode/.worktrees/dockview-svelte/` (the git repo root is `/Users/kevinkroon/Projects/gcscode/`; the gcscode shell project — where the pnpm workspace lives — is at `<repo-root>/shell/`)
-Working directory inside the worktree: `/Users/kevinkroon/Projects/gcscode/.worktrees/dockview-svelte/shell/`
+Worktree: `<repo-root>/.worktrees/dockview-svelte/` (the git repo root is `<repo-root>/`; the gcscode shell project — where the pnpm workspace lives — is at `<repo-root>/shell/`)
+Working directory inside the worktree: `<repo-root>/.worktrees/dockview-svelte/shell/`
 
 ## Mode
 
@@ -20,7 +20,7 @@ The bash tool resets cwd between calls. A single `cd <path>` does NOT persist. T
 
 **Required discipline for every bash command:**
 
-1. Prepend `cd /Users/kevinkroon/Projects/gcscode/.worktrees/dockview-svelte/shell && ` to every bash command. The absolute path is required because cwd does NOT persist across calls.
+1. Prepend `cd $(git rev-parse --show-toplevel)/.worktrees/dockview-svelte/shell && ` to every bash command. The absolute path is required because cwd does NOT persist across calls.
 2. Before every `git commit`, chain `git branch --show-current` and verify it reads `feat/dockview-svelte`. If it reads `master`, STOP — your cwd is the main checkout, not the worktree.
 3. Run `pnpm format` / `pnpm test` / `pnpm check` / `pnpm lint` only with the worktree-cd prefix, otherwise they read/edit the main checkout.
 

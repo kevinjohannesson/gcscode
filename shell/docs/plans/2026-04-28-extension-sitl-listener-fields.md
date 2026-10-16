@@ -40,19 +40,19 @@ No files created. No files deleted. No changes to `mavlink-client.ts`, `index.te
 
 - [ ] **Step 1: Verify clean working tree on the feature branch**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener-fields/shell && git status && git branch --show-current`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener-fields/shell && git status && git branch --show-current`
 Expected: `nothing to commit, working tree clean`. Branch is `feat/extension-sitl-listener-fields`. If `master`, STOP — report BLOCKED.
 
 (Per CLAUDE.md "Subagent worktree discipline" — every bash call begins with `cd <worktree>/shell &&`. Repeated in every step.)
 
 - [ ] **Step 2: Verify all tests pass before changes**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener-fields/shell && pnpm test`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener-fields/shell && pnpm test`
 Expected: 135 tests pass — 109 in `@gcscode/shell` (50 registry, 8 app, 27 keybinding, 14 manager, 8 persistence, 2 manifest), 3 in `@gcscode/extension-example`, 23 in `@gcscode/extension-sitl` (9 store + 8 client + 6 index).
 
 - [ ] **Step 3: Verify check + lint clean**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener-fields/shell && pnpm check && pnpm lint`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener-fields/shell && pnpm check && pnpm lint`
 Expected: both exit 0 with no errors.
 
 ---
@@ -87,7 +87,7 @@ Use the existing `beforeEach(() => reset())` discipline.
 
 - [ ] **Step 2: Run tests, expect failures**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener-fields/shell && pnpm --filter @gcscode/extension-sitl test telemetry-store`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener-fields/shell && pnpm --filter @gcscode/extension-sitl test telemetry-store`
 Expected: the 4 new tests fail (the store doesn't have the new fields yet); the 2 modified tests fail (the new fields aren't in the initial state). Existing 7 tests still pass.
 
 - [ ] **Step 3: Extend `telemetry-store.svelte.ts` per spec**
@@ -134,28 +134,28 @@ That is the entire `index.ts` change. Do not modify any other line.
 
 - [ ] **Step 6: Run tests, expect pass**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener-fields/shell && pnpm --filter @gcscode/extension-sitl test telemetry-store`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener-fields/shell && pnpm --filter @gcscode/extension-sitl test telemetry-store`
 Expected: 13 tests pass (9 existing + 4 new).
 
 - [ ] **Step 7: Run the full SITL suite**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener-fields/shell && pnpm --filter @gcscode/extension-sitl test`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener-fields/shell && pnpm --filter @gcscode/extension-sitl test`
 Expected: 27 tests pass (13 store + 8 client + 6 index — only the store count grew).
 
 - [ ] **Step 8: Run the full workspace**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener-fields/shell && pnpm test`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener-fields/shell && pnpm test`
 Expected: 139 tests pass (135 prior + 4 new).
 
 - [ ] **Step 9: Run check + lint**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener-fields/shell && pnpm check && pnpm lint`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener-fields/shell && pnpm check && pnpm lint`
 Expected: both clean. The view component's new formatters and rows compile cleanly under svelte-check. ESLint and Prettier clean. If Prettier complains, run `pnpm format` then re-run `pnpm lint`.
 
 - [ ] **Step 10: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener-fields/shell && git branch --show-current && git add packages/extension-sitl/src/telemetry-store.svelte.ts packages/extension-sitl/src/telemetry-store.svelte.test.ts packages/extension-sitl/src/index.ts packages/extension-sitl/src/sitl-view.svelte && git commit -m "$(cat <<'EOF'
+cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener-fields/shell && git branch --show-current && git add packages/extension-sitl/src/telemetry-store.svelte.ts packages/extension-sitl/src/telemetry-store.svelte.test.ts packages/extension-sitl/src/index.ts packages/extension-sitl/src/sitl-view.svelte && git commit -m "$(cat <<'EOF'
 feat(sitl): add ATTITUDE/VFR_HUD/SYS_STATUS telemetry fields
 
 Purely additive extension of the SITL listener. The reducer gains
@@ -193,12 +193,12 @@ Verify branch confirmation chained before commit reads `feat/extension-sitl-list
 
 - [ ] **Step 1: Run the full check + test + lint suite**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener-fields/shell && pnpm check && pnpm test && pnpm lint`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener-fields/shell && pnpm check && pnpm test && pnpm lint`
 Expected: all clean. Workspace test count: 139 (109 shell + 3 example + 27 sitl).
 
 - [ ] **Step 2: Production build smoke test**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener-fields/shell && pnpm --filter @gcscode/shell build`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener-fields/shell && pnpm --filter @gcscode/shell build`
 Expected: build succeeds. Bundle delta is small (a few hundred bytes for the new view rows + formatters + reducer cases). If the bundle grew by more than ~1 kB, something unexpected pulled in a dependency — investigate.
 
 - [ ] **Step 3: Optional dev server smoke test**
@@ -215,7 +215,7 @@ If the bridge is not running, the view shows all rows as `'—'` with the `Disco
 
 - [ ] **Step 4: Confirm clean tree and feature commit**
 
-Run: `cd /Users/kevinkroon/Projects/gcscode/.worktrees/extension-sitl-listener-fields/shell && git status && git log --oneline master..HEAD`
+Run: `cd $(git rev-parse --show-toplevel)/.worktrees/extension-sitl-listener-fields/shell && git status && git log --oneline master..HEAD`
 Expected: `nothing to commit, working tree clean`. Branch contains exactly 1 new commit beyond master (Task 2). No `Code-review-followup` commits expected since this is small enough that per-task review is light or skipped.
 
 ---
