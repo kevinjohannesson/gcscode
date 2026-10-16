@@ -128,7 +128,7 @@ Expected: PASS, same count as before your change (219 at the time of writing; co
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/extension-host/activation-error.ts shell/packages/shell/src/extension-host/registry.ts shell/packages/shell/src/extension-host/registry.test.ts
 git commit -m "feat(host): add ExtensionActivationError and extract disposeAll"
 ```
@@ -289,7 +289,7 @@ Expected: PASS, same test count. If `tsc` complains that `revoke` is unused, lea
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/extension-host/registry.ts
 git commit -m "feat(host): give createHost a per-activation ledger and revoke function"
 ```
@@ -362,28 +362,25 @@ describe('activate containment', () => {
     expect(disposed).toBe(true);
   });
 
-  it('covers onDidChangeConfiguration, which is not a register* method', () => {
+  it('covers onDidChangeConfiguration, which is not a register* method', async () => {
     const registry = createRegistry();
-    let listenerDisposed = false;
+    let listenerCalls = 0;
     expect(() =>
       registry.activate({
         manifest: manifest('x.config'),
         activate(context) {
-          const d = context.host.configuration.onDidChangeConfiguration(() => undefined);
-          const wrapped = {
-            dispose: () => {
-              listenerDisposed = true;
-              d.dispose();
-            },
-          };
-          void wrapped;
+          context.host.configuration.onDidChangeConfiguration(() => {
+            listenerCalls++;
+          });
           throw new Error('after subscribing');
         },
       }),
     ).toThrow(ExtensionActivationError);
-    // The ledger holds the listener's own disposable; assert the registry is clean.
-    expect(() => registry.deactivate('x.config')).rejects.toThrow('is not active');
-    void listenerDisposed;
+    await expect(registry.deactivate('x.config')).rejects.toThrow('is not active');
+    // The real observable: containment disposed the host-minted listener, so a
+    // later configuration change must not reach it. Mirror the update() shape
+    // the configuration dispose tests in this file already use.
+    expect(listenerCalls).toBe(0);
   });
 
   it('leaves the registry with nothing for a failed extension', async () => {
@@ -588,7 +585,7 @@ Expected: PASS. **If the run reports an unhandled rejection, the `.then(undefine
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/extension-host/registry.ts shell/packages/shell/src/extension-host/registry.test.ts
 git commit -m "feat(host): contain activation failures in registry.activate"
 ```
@@ -797,7 +794,7 @@ Expected: PASS. Note `strict` is on without `exactOptionalPropertyTypes`, so the
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/extension-host/extension-manager.ts shell/packages/shell/src/extension-host/extension-manager.test.ts
 git commit -m "feat(host): record activation failures and persist operator intent"
 ```
@@ -977,7 +974,7 @@ Expected: PASS. `main.ts` has no test of its own; the `tsc` pass plus `bootstrap
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/extension-host/bootstrap.ts shell/packages/shell/src/extension-host/bootstrap.test.ts shell/packages/shell/src/main.ts
 git commit -m "feat(host): extract bootstrap so the boot path is testable"
 ```
@@ -1087,7 +1084,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/extensions-panel/extensions-panel.svelte shell/packages/shell/src/extensions-panel/extensions-panel.test.ts
 git commit -m "feat(shell): show failed extensions in the panel, built-ins without Disable"
 ```
@@ -1187,7 +1184,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/activation-failure-indicator.svelte shell/packages/shell/src/app.svelte shell/packages/shell/src/app.test.ts
 git commit -m "feat(shell): add a host-owned activation-failure indicator"
 ```
@@ -1249,7 +1246,7 @@ Expected: PASS. The shell suite matters here: `bundled-extensions.test.ts` asser
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/extension-flight-overlay/src/index.ts shell/packages/extension-flight-overlay/src/index.test.ts
 git commit -m "feat(flight-overlay): degrade when the map is inactive instead of throwing"
 ```
