@@ -62,8 +62,9 @@ The host records what it hands out instead:
 activate(extension) {
   const identity: ExtensionIdentity = { /* unchanged */ };
   const minted: Disposable[] = [];
+  const { host, revoke } = createHost(identity, minted); // revoke() closes the facade
   const context: ExtensionContext = {
-    host: createHost(identity, minted), // every Disposable-returning host method appends
+    host, // every Disposable-returning host method appends to `minted` until revoked
     subscriptions: [],
     extension: identity,
   };
@@ -71,12 +72,18 @@ activate(extension) {
   try {
     exportsValue = extension.activate(context);
   } catch (cause) {
+    revoke(); // close the host facade before cleanup
     disposeAll(minted, identity.id); // host-minted, LIFO, per-disposable try/catch
     disposeAll(context.subscriptions, identity.id); // whatever the extension did push
     throw new ExtensionActivationError(identity.id, cause);
   }
   if (isThenable(exportsValue)) {
+    void exportsValue.then(undefined, (reason: unknown) =>
+      console.error(`Extension "${identity.id}" activate() rejected after returning:`, reason),
+    ); // observe it; not awaiting is what orphans the rejection
+    revoke(); // any registration from the resumed continuation now throws
     disposeAll(minted, identity.id);
+    disposeAll(context.subscriptions, identity.id);
     throw new ExtensionActivationError(identity.id, new Error('activate must be synchronous'));
   }
   subscriptionsByExtension.set(identity.id, context.subscriptions);
@@ -90,9 +97,9 @@ activate(extension) {
 
 So: host-side containment bounds the damage a failing extension does to **host** surfaces, and leaves contributions it made into other extensions' registries in place. Cleaning those up needs something this iteration does not build — either a teardown contract on service APIs or a host-mediated registration path — and is recorded as a deferral with a trigger rather than hidden behind the word "cleanup".
 
-Four properties of what the ledger does guarantee:
+Five properties of what the ledger does guarantee:
 
-- **It is correct regardless of what the extension does with its disposables** — batching, late pushing, and never pushing are all covered, because it records the host's side of the exchange.
+- **It is correct regardless of what the extension does with its disposables** — batching, late pushing, and never pushing are all covered, because it records the host's side of the exchange. The claim holds for the registration _path_ only, and only because revocation closes the facade on failure; it says nothing about what the extension did with state that never passed through the host.
 - **`context.subscriptions` is disposed too, and for the opposite reason.** The ledger exists because extensions mostly _do not_ push before throwing; but an extension that pushed something of its own — a timer, a closure — leaves it in an array the registry never records on the failure path, orphaned. Failure cleanup therefore disposes both arrays. `context.subscriptions` remains `deactivate`'s source of truth on the success path.
 - **The registry drops its reference to the ledger once activation succeeds**, so the array cannot grow across the extension's lifetime as it registers more contributions later.
 - **A disposable may appear in both, and double disposal is safe** — `Disposable.dispose()` is required to be idempotent (`packages/extension-api/src/index.ts`).
@@ -156,7 +163,7 @@ The loop therefore moves into an exported `bootstrap({ registry, manager, persis
 
 The panel filters the workbench built-in out of its list (`extensions-panel.svelte`, `r.manifest.id !== 'workbench'`). That filter gains one exception with one qualification: **a record carrying a `failure` is always shown, built-ins included, and a failed built-in's row is informational — it offers no Disable.** The exception matters because otherwise the one failure that costs the operator the command palette would be the single case the UI hides. The qualification matters because disabling a failed workbench would clear its `failure`, which would remove the indicator, which is the only remaining way to open the panel once the workbench's own opener command and keybinding are gone — the operator's exit would destroy their way back in. Built-ins are not tracked in persistence and `main.ts` registers the workbench with `enabled: true` unconditionally, so "disable" was never a meaningful action for it anyway.
 
-**Status bar.** The footer renders only extension contributions (`registry.listStatusBarItems()`, split by `alignment` in `app.svelte`), so a host-owned indicator cannot be a contribution, and an extension-contributed one would be subject to the failure it reports. `app.svelte` renders it directly from `manager.listExtensions()`, visible only when at least one record carries a `failure`, with its count defined as **the number of records with a `failure`** — exactly the set the panel marks failed, so the two surfaces cannot disagree. Disabling a failed extension clears its `failure` and decrements the count; a failed built-in cannot be disabled, so its contribution to the count persists until the next load.
+**Status bar.** The footer renders only extension contributions (`registry.listStatusBarItems()`, split by `alignment` in `app.svelte`), so a host-owned indicator cannot be a contribution, and an extension-contributed one would be subject to the failure it reports. `app.svelte` renders it directly from `manager.listExtensions()`, visible only when at least one record carries a `failure`, with its count defined as **the number of records with a `failure`** — exactly the set the panel marks failed, so the two surfaces cannot disagree. Disabling a failed extension clears its `failure` and decrements the count; a failed built-in cannot be disabled, so its contribution to the count persists until the next load. **Disable is not a kill switch for whatever the extension already started.** It removes the record's failure and stops the next load from activating it, but module-level resources opened before the throw — `extension-sitl`'s WebSocket is the live example — are not disposables and nothing in the failure path closes them, so they survive until reload. That is the same limit as the non-`Disposable` state above, surfacing where an operator is most likely to assume otherwise.
 
 Clicking the indicator opens the panel, guarded: `extensionsPanelState.open()` throws when the panel is already open or another modal is active, so the indicator checks that state first.
 
@@ -229,6 +236,7 @@ Two residuals, one of them smaller than an earlier draft of this spec claimed.
 | Failure notification surface                    | notifications + output channels                                        | one host-owned status-bar indicator; no general message API                   | Deferral — a notification primitive is deferred with a trigger                                              |
 | Retry policy                                    | reload window / reinstall                                              | stays enabled, retried on reload; no in-place retry (module-singleton hazard) | Divergence — no auto-disable, no counters                                                                   |
 | Multiple simultaneous failures                  | each extension marked independently in the Extensions view             | one indicator carrying a count, with per-row detail in the panel              | Divergence — no per-failure notification, so N failures are one glance plus N rows                          |
+| Async activation                                | awaits activation and reports per-extension failures                   | a thenable return is an activation error: observe, revoke, dispose, record    | Deferral — awaited activation is its own iteration                                                          |
 | Surface for a gracefully-degraded contribution  | notifications + output channels                                        | none — only failures surface; a degraded contribution stays console-only      | Deferral — needs the extension-callable notification primitive                                              |
 
 ## `docs/out-of-scope.md` propagation
@@ -245,11 +253,15 @@ Also amend the existing **"Third-party sandboxing"** row with a status note: con
 
 ## `packages/extension-api/README.md` propagation
 
-The README's author-facing contract gained claims this iteration changes, so the post-merge docs commit updates three: that a failed `activate` disposes what the host minted for that extension but not what other extensions minted; that `activate` must be synchronous, with a thenable return treated as an activation error rather than quietly published as exports; and that `deactivate?()` is not called on the failure path, so module state set during a partial activation survives until the next load.
+The README's author-facing contract gained claims this iteration changes, so the post-merge docs commit updates three, as bullets to match the sibling propagation sections:
+
+- A failed `activate` disposes what the host minted for that extension, plus anything the extension pushed to `context.subscriptions` — but **not** what other extensions minted for it, and not module-level state it set.
+- `activate` must be synchronous. A thenable return is an activation error: the host observes the rejection, revokes the facade, disposes, and records the failure rather than publishing a `Promise` as the extension's exports.
+- `deactivate?()` is not called on the failure path, because a hook written for a completed activation cannot be trusted after a partial one. An extension whose activation sets module state must tolerate re-entry on the next load.
 
 ## `docs/roadmap.md` propagation
 
-Flip **Host activation-failure containment** to shipped with a link to this spec, and keep the asset abstraction v0 entry's dependency on it explicit.
+Flip **Host activation-failure containment** to shipped with a link to this spec, qualified by what actually shipped: containment of synchronous and thenable-returning activation failures for host-minted contributions, with cross-extension contributions, module-level state and awaited activation each carrying their own `docs/out-of-scope.md` row. The entry should not read as though extension failures are now fully contained. Keep the asset abstraction v0 entry's dependency on it explicit.
 
 ## `docs/vs-code-alignment.md` propagation
 
@@ -274,6 +286,7 @@ The ledger has three tables with different column shapes — Alignments carries 
 Per `CLAUDE.md` "Reviewer-role design conventions > Tripwires for known-quality concerns", tripwires exist for concerns that are otherwise vibes-checks — observable in output, detectable as a pattern, and **not** already enforced automatically. An earlier draft listed "any boot where an extension fails must still mount the app" as a binary tripwire, which was a category error: that is validation cases 20 and 21, enforced by the suite on every run. The real vibes-checks here are the two surfacing judgments:
 
 - **Indicator loudness, across N=2 occurrences.** If two separate extension failures occur and in both the operator's first awareness came from something other than the indicator — a contribution noticed missing in use, a console inspection, someone else's report — the indicator is too quiet and the banner option this spec rejected should be reconsidered. Observable from the failure's own account; not decidable from the test suite.
+- **Host-chrome accretion, across N=2 iterations.** If two consecutive iterations each add a host-owned indicator, status line, or badge for their own single condition, the notification-primitive deferral has fired in practice and should be built rather than extended a third time. This tripwire was dropped when this section was rewritten and is restored deliberately: the indicator this iteration adds is the first observation, so the next one closes it.
 - **Failure-message intelligibility, across N=2 occurrences.** If two failures produce a panel message the operator cannot act on without reading source, the operator-facing failure copy iteration has fired. Note that the obvious example — flight-overlay's "requires gcscode.map to be active before it activates" — stops being reachable once this iteration's own migration converts that extension to degrading, so the tripwire's evidence will come from whichever extension throws next.
 
 ## Future iterations
