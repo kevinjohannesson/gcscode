@@ -69,11 +69,21 @@ export function createRegistry(): Registry {
     return Promise.resolve().then(() => command.run(...args)) as Promise<T>;
   }
 
-  function createHost(
-    extension: ExtensionIdentity,
-    minted: Disposable[],
-  ): { host: ExtensionHost; revoke: () => void } {
+  /**
+   * The pair `createHost` hands back to `activate`: the facade the extension
+   * registers through, plus the two activation-window controls. `revoke` and
+   * `settle` are both terminal — whichever fires first, the ledger stops
+   * growing for the rest of this extension's lifetime.
+   */
+  interface ActivationHost {
+    readonly host: ExtensionHost;
+    readonly revoke: () => void;
+    readonly settle: () => void;
+  }
+
+  function createHost(extension: ExtensionIdentity, minted: Disposable[]): ActivationHost {
     let revoked = false;
+    let tracking = true;
 
     /** Refuse registration once the activation window has closed. */
     const guard = (): void => {
@@ -84,9 +94,9 @@ export function createRegistry(): Registry {
       }
     };
 
-    /** Record what the host handed out, so a failed activation can dispose it. */
+    /** Record what the host handed out, while the activation window is open. */
     const track = (disposable: Disposable): Disposable => {
-      minted.push(disposable);
+      if (tracking) minted.push(disposable);
       return disposable;
     };
 
@@ -203,8 +213,16 @@ export function createRegistry(): Registry {
 
     return {
       host,
+      /** Close the facade: further registration throws. Failure paths only. */
       revoke: () => {
         revoked = true;
+        tracking = false;
+      },
+      /** Activation succeeded: stop recording, so the ledger cannot grow for
+       *  the extension's lifetime. The host stays usable — an extension may
+       *  legitimately register later (a command handler adding a view). */
+      settle: () => {
+        tracking = false;
       },
     };
   }

@@ -1113,6 +1113,52 @@ describe('createRegistry', () => {
       );
       expect(readByB).toBe('hello');
     });
+
+    it('returns a disposable from registerConfiguration that removes the schema', () => {
+      const registry = createRegistry();
+      let host: ExtensionHost | undefined;
+      let disposable: Disposable | undefined;
+      registry.activate(
+        extension('ext.cfg2', (ctx) => {
+          host = ctx.host;
+          disposable = ctx.host.configuration.registerConfiguration({
+            key: 'ext.cfg2.foo',
+            schema: { type: 'string' },
+            default: 'hello',
+          });
+        }),
+      );
+      expect(host!.configuration.getConfiguration().get('ext.cfg2.foo', 'fallback')).toBe('hello');
+      disposable!.dispose();
+      expect(host!.configuration.getConfiguration().get('ext.cfg2.foo', 'fallback')).toBe(
+        'fallback',
+      );
+    });
+
+    it('returns a disposable from onDidChangeConfiguration that removes the listener', async () => {
+      const registry = createRegistry();
+      let host: ExtensionHost | undefined;
+      let disposable: Disposable | undefined;
+      const listener = vi.fn();
+      registry.activate(
+        extension('ext.cfg3', (ctx) => {
+          host = ctx.host;
+          ctx.host.configuration.registerConfiguration({
+            key: 'ext.cfg3.foo',
+            schema: { type: 'string' },
+            default: 'hello',
+          });
+          disposable = ctx.host.configuration.onDidChangeConfiguration(listener);
+        }),
+      );
+
+      await host!.configuration.getConfiguration().update('ext.cfg3.foo', 'world');
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      disposable!.dispose();
+      await host!.configuration.getConfiguration().update('ext.cfg3.foo', 'again');
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('host.window.showQuickPick', () => {
