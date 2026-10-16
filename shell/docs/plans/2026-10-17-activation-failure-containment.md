@@ -521,7 +521,7 @@ Replace `activate`'s body (keeping `identity` and the maps as they are):
         version: extension.manifest.version,
       };
       const minted: Disposable[] = [];
-      const { host, revoke } = createHost(identity, minted);
+      const { host, revoke, settle } = createHost(identity, minted);
       const context: ExtensionContext = { host, subscriptions: [], extension: identity };
 
       const cleanUpAfterFailure = (): void => {
@@ -556,11 +556,13 @@ Replace `activate`'s body (keeping `identity` and the maps as they are):
         deactivateHooksByExtension.set(identity.id, extension.deactivate.bind(extension));
       }
       exportsByExtension.set(identity.id, exportsValue);
-      // Drop the ledger: on success it must not keep growing for the extension's
-      // lifetime. Teardown is context.subscriptions' job from here.
-      minted.length = 0;
+      // Stop recording: the ledger must not grow for the extension's lifetime.
+      // The host stays usable — an extension may legitimately register later.
+      settle();
     },
 ```
+
+**Why `settle()` and not `minted.length = 0`.** An earlier draft of this plan truncated the array. That does not work: `track` closes over `minted` and keeps pushing, so emptying it once leaves the reference intact and every post-activation registration appends to the same array forever — with the disposables staying reachable after `dispose()`. Four extensions do hold `context.host` past `activate` (`extension-map`'s `host-store`, `extension-map-demo`, `extension-vehicle-status`, `extension-flight-overlay`'s `state.ts`), but today every one of them uses it for lazy reads only — `extensions.getExtension(...)` in three, `commands.executeCommand(...)` in map's control button — so nothing is leaking yet. The defect is latent: it arms the first time any extension registers a contribution after `activate` returns, which is a pattern the lazy-read architecture invites rather than forbids. Task 2's code-quality review caught it and Task 2's followup added the `tracking` flag plus `settle()`; destructure all three members (`host`, `revoke`, `settle`) at this call site.
 
 **On the spec's validation case 12 (the ledger is dropped on success).** `minted` is a local inside `activate` and the ledger is not exposed, so this is not observable through the public surface — there is no honest unit test for it short of exporting internals, which would be a worse trade. The line above is the implementation, the comment is its rationale, and the task report should say the case is covered by inspection rather than by assertion. Do not add a test that reaches into the closure to manufacture coverage.
 

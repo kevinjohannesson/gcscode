@@ -62,9 +62,9 @@ The host records what it hands out instead:
 activate(extension) {
   const identity: ExtensionIdentity = { /* unchanged */ };
   const minted: Disposable[] = [];
-  const { host, revoke } = createHost(identity, minted); // revoke() closes the facade
+  const { host, revoke, settle } = createHost(identity, minted); // revoke() closes the facade; settle() stops recording
   const context: ExtensionContext = {
-    host, // every Disposable-returning host method appends to `minted` until revoked
+    host, // every Disposable-returning host method appends to `minted` until settled or revoked
     subscriptions: [],
     extension: identity,
   };
@@ -101,7 +101,7 @@ Five properties of what the ledger does guarantee:
 
 - **It is correct regardless of what the extension does with its disposables** — batching, late pushing, and never pushing are all covered, because it records the host's side of the exchange. The claim holds for the registration _path_ only, and only because revocation closes the facade on failure; it says nothing about what the extension did with state that never passed through the host.
 - **`context.subscriptions` is disposed too, and for the opposite reason.** The ledger exists because extensions mostly _do not_ push before throwing; but an extension that pushed something of its own — a timer, a closure — leaves it in an array the registry never records on the failure path, orphaned. Failure cleanup therefore disposes both arrays. `context.subscriptions` remains `deactivate`'s source of truth on the success path.
-- **The registry drops its reference to the ledger once activation succeeds**, so the array cannot grow across the extension's lifetime as it registers more contributions later.
+- **Recording stops once activation succeeds**, so the ledger cannot grow across the extension's lifetime as the extension registers more contributions later. _Corrected during implementation (PR #34, task 2's code-quality review):_ this property originally read "the registry drops its reference to the ledger", which does not achieve it — the closure that records disposables holds its own reference, so dropping the registry's leaves recording running. The mechanism is a tracking flag the host sets on success, not a reference drop.
 - **A disposable may appear in both, and double disposal is safe** — `Disposable.dispose()` is required to be idempotent (`packages/extension-api/src/index.ts`).
 - **`disposeAll` is extracted from the existing `deactivate` loop**, so both paths share one implementation and one error-resilience guarantee.
 
@@ -149,7 +149,9 @@ Detecting the thenable is therefore necessary but not sufficient. Three things h
 
 Supporting async activation properly means awaiting it, which changes the registry's contract and the boot sequence; it is named in Future iterations and routed to `docs/out-of-scope.md`.
 
-**The ledger is dropped on success, and revocation is a failure-only mechanism.** Those are two different things and an earlier reviewer finding conflated them. On a successful activation the registry discards its reference to `minted` so the array cannot grow for the extension's lifetime — but the host is **not** revoked, because an extension may legitimately register later (a command handler that adds a view, say). Revocation happens only on the failure paths, where any further registration is by definition untracked.
+**Recording stops on success, and revocation is a failure-only mechanism.** Those are two different things and an earlier reviewer finding conflated them. On a successful activation the host stops recording into `minted`, so the array cannot grow for the extension's lifetime — but the host is **not** revoked, because an extension may legitimately register later (a command handler that adds a view, say). Revocation happens only on the failure paths, where any further registration is by definition untracked.
+
+_Corrected during implementation (PR #34, task 2's code-quality review):_ this paragraph and validation case 12 originally said the registry **discards its reference** to `minted` on success. That does not achieve the property — the host's recording closure holds its own reference to the array, so dropping the registry's leaves recording running and truncating the array empties it once without stopping the next append. The mechanism is a flag the host sets on success (`settle()`), not a reference drop. The property itself is unchanged; only the stated means of reaching it was wrong.
 
 ### Boot moves out of module scope so Goal 1 can be tested
 
@@ -200,7 +202,7 @@ Two residuals, one of them smaller than an earlier draft of this spec claimed.
 9. **The host is revoked on failure.** A continuation that resumes after the thenable check and calls a `Disposable`-returning host method throws and registers nothing — asserted by driving a macrotask between the failure and the assertion, which is how a reviewer demonstrated the leak this closes.
 10. **The returned thenable's rejection is observed**, so the test run reports no unhandled rejection.
 11. **The host is not revoked on success**, and a registration made after `activate` returns still works — revocation is failure-only.
-12. **The registry drops its ledger reference on success**, so later registrations do not accumulate in it.
+12. **Recording stops on success**, so a registration made after `activate` returns does not accumulate in the ledger. Assert the observable — the ledger's length is unchanged by a post-activation registration — rather than any particular reference being dropped (see the correction note under Cleanup above).
 13. **The ledger's limit is asserted rather than assumed:** a disposable minted by another extension's API (a stub standing in for `MapApi.registerLayer`) is _not_ disposed by containment. The test documents the boundary so a later change cannot silently move it.
 
 **Unit — `packages/shell/src/extension-host/extension-manager.test.ts`:**
