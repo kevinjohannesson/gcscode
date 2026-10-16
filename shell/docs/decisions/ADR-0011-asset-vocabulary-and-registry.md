@@ -37,7 +37,7 @@ export type Airframe =
 
 export interface AssetDescription {
   /** Unique within the registering source (see Decision 4). Opaque to consumers. */
-  id: string;
+  localId: string;
   /** Absent = not asserted. `{ kind: 'none' }` = asserted: does not fly. */
   airframe?: Airframe;
 }
@@ -46,7 +46,7 @@ export interface AssetDescription {
 Three properties are load-bearing:
 
 - **Objects with a `kind`, not bare strings.** `{ kind: 'multirotor' }` leaves room for parameters later (`{ kind: 'multirotor', rotorCount: 4 }`) without breaking any consumer's comparison.
-- **Non-flight is asserted positively.** `{ kind: 'none' }` means an adapter looked and this asset does not fly. A _missing_ `airframe` means nothing was asserted — which is also what you get from an adapter older than the field, a partially-populated description, or a serialization round-trip that drops `undefined`. Those two facts must not collapse: the webview wing on the roadmap crosses a `postMessage` boundary as structured-clone snapshots, and a consumer that reads absence as "does not fly" would render a ground-station treatment for a drone with no error surface anywhere. Consumers must not infer non-flight from absence.
+- **Non-flight is asserted positively.** `{ kind: 'none' }` means an adapter looked and this asset does not fly. A _missing_ `airframe` means nothing was asserted — which is also what you get from an adapter older than the field, a partially-populated description, or a JSON round trip, which drops `undefined`-valued keys. (Structured clone, which the roadmapped webview wing uses for snapshots, preserves them; version skew between a bundled adapter and a webview consumer does not.) Those two facts must not collapse: a consumer that reads absence as "does not fly" would render a ground-station treatment for a drone, with no error surface anywhere. Consumers must not infer non-flight from absence.
 - **`{ kind: 'unknown' }` means gcscode has no word for what the adapter saw** — either the protocol value is unrecognized, or it is recognized and gcscode has no kind for it yet (helicopter, airship). It is not a synonym for "nothing asserted".
 
 The kinds are driven by what consumers need (a label first, map icons later), not by any protocol's list.
@@ -65,6 +65,8 @@ The asymmetry this surfaces, as currently understood: MAVLink's `MAV_TYPE` names
 
 The boundary has a partial mechanical test: protocol _identifiers_ (`MAV_TYPE_*`, message names) should appear only inside adapter packages. That half is grep-able, with caveats — a bare grep today also hits legitimate non-adapter uses (a mavlink2rest URL in a shell test fixture, a doc comment in `extension-flight-overlay`, and every `@gcscode/extension-mavlink` import once the roadmapped rename lands), so any lint rule must be scoped to enum values and message names rather than the substring. The harder half is **values**: protocol vocabulary flowing through fields typed `string`, which is what already leaks today via mode names and which no identifier grep can see. The rule that covers it is a type rule, not a symbol rule: a field of an adapter-neutral contract must not be typed `string` where its values are protocol-derived — such values need a gcscode-side union, or they stay in the adapter. No check is in place for either half.
 
+**Identity is carved out of that rule, explicitly.** `localId`, `sourceId` and `key` (Decision 4) are protocol-derived strings and stay strings. They are exempt because they carry no vocabulary: they are opaque tokens for equality and keying, never terms a consumer interprets. The carve-out is what makes the rule coherent rather than self-contradicting, and it is also the rule's weakest seam — an opaque token is opaque only by convention, which is why Decision 4 states the no-parsing rule rather than relying on the type.
+
 ### 3. One registry for every kind of asset, and no `kind` field on the description
 
 There is deliberately no `kind: 'drone' | 'radar'` on `AssetDescription`. What kind of thing an asset is follows from what its description contains: an asset whose airframe is a flying kind flies; one with `{ kind: 'none' }` does not; one with a video stream has a camera.
@@ -73,7 +75,7 @@ There is deliberately no `kind: 'drone' | 'radar'` on `AssetDescription`. What k
 
 Both rejected shapes put entity classification back in front of consumers. A `kind` field invites `if (asset.kind === 'drone')`. Per-kind registries (vehicles, radars, docks) move the same branch to the lookup call, multiply the registration API per asset family, and make "show me everything connected" a join.
 
-**Membership.** A registry entry means **this asset is present now, as asserted by the source that registered it** — not "gcscode has heard of this asset". Entries appear when a source registers them and disappear when that source removes them or is disposed. The presence signal itself belongs to the adapter (for MAVLink, heartbeat liveness); the registry holds no liveness model of its own, and a consumer rendering "connected assets" is reading presence-as-asserted-by-adapters. What counts as an asset at all is the adapter's judgment: it registers what it can attribute to something the operator monitors or commands. On a shared MAVLink link that judgment is fallible — a connected ground station or a bridge's own GCS identity heartbeats like anything else — so an adapter that registers indiscriminately will put the operator's own tooling in the registry. v0 accepts that (with `{ kind: 'none' }` making it honest rather than silent) and the first adapter that registers something the operator does not consider an asset is the trigger to sharpen the rule.
+**Membership.** A registry entry means **this asset is present now, as asserted by the source that registered it** — not "gcscode has heard of this asset". Entries appear when a source registers them and disappear when that source removes them or is disposed. The presence signal itself belongs to the adapter (for MAVLink, heartbeat liveness); the registry holds no liveness model of its own, and a consumer rendering "connected assets" is reading presence-as-asserted-by-adapters. What counts as an asset at all is the adapter's judgment: it registers what it can attribute to something the operator monitors or commands. A ground station the operator monitors is such a thing, and registers with `{ kind: 'none' }` — that is the case the positive non-flight assertion exists for. The operator's own GCS client is not, and neither is a bridge's own identity; both heartbeat like anything else on a shared MAVLink link. v0 does not make that distinction: its adapter registers every system it sees, so the operator's own tooling appears in the registry today. The wart is live rather than hypothetical, which means the trigger to sharpen the rule is not "the first adapter that registers a non-asset" — that has already happened — but the first consumer that must show an operator only real assets, i.e. when operator-facing asset UI replaces the v0 scaffold.
 
 **Duplicate registration replaces.** Re-registering an id that a source already holds replaces the stored description in place, preserving position, and returns a fresh `Disposable`; the superseded `Disposable` becomes inert (implementations guard with a registration token, so disposing a stale handle cannot remove a live asset). This inverts the repo's existing convention — `MapApi.registerControl` and `registerConfiguration` both throw on duplicate ids — and the inversion is deliberate: those registries are populated from `activate()`, where a duplicate is a programmer error worth failing fast on. This one is populated from inbound protocol traffic, where a duplicate is a runtime condition (a reconnect, a re-asserted fact) and a synchronous throw would land inside a WebSocket message handler. Replace is also what makes "re-register to update" a workable substitute for an `update()` method.
 
@@ -89,8 +91,12 @@ Identity is the part other code keys on hardest, so it is a decision here rather
 
 ```ts
 export interface AssetsApi {
-  /** Claim a namespace for one source of assets — typically one adapter instance / one link. */
-  createSource(sourceId: string): AssetSource;
+  /**
+   * Claim a namespace for one source of assets — typically one adapter instance / one link.
+   * `sourceId` must be unique in the registry; a second claim on a live id throws.
+   * `label` is the source's operator-facing name ("SITL", "Radio 1").
+   */
+  createSource(sourceId: string, label: string): AssetSource;
   /** Every asset currently registered, across every source. */
   getAssets(): readonly RegisteredAsset[];
 }
@@ -103,17 +109,22 @@ export interface AssetSource extends Disposable {
 export interface RegisteredAsset extends AssetDescription {
   /** The source that asserted this asset. Set by the registry, not the adapter. */
   readonly sourceId: string;
-  /** Registry-minted, unique across sources, opaque. */
+  /** The source's operator-facing name. This is what UI renders. */
+  readonly sourceLabel: string;
+  /** Registry-minted, unique across sources, opaque. Key UI lists on this. */
   readonly key: string;
 }
 ```
 
-Four properties:
+Six properties:
 
-- **Uniqueness is per source, so collisions are structural impossibilities rather than conventions.** A MAVLink system id is configuration and defaults to 1; two SITL instances, or a SITL beside a real radio, both produce `1`. Scoping ids to the source means two links cannot collide, and the registry — not the adapter — mints the globally unique `key`.
-- **Ids are opaque to consumers.** Parsing, pattern-matching, or persisting an id or key is a boundary violation. Without this, `key.startsWith('mavlink')` reintroduces the vendor branch through the one field designed to cross the boundary — the same objection Decision 3 makes against a `kind` field, arriving through identity instead.
+- **Uniqueness is per source, so asset collisions are structural impossibilities rather than conventions.** A MAVLink system id is configuration and defaults to 1; two SITL instances, or a SITL beside a real radio, both produce `1`. Scoping `localId` to the source means two links cannot collide, and the registry — not the adapter — mints the globally unique `key`.
+- **Source ids are unique too, and a duplicate claim throws.** Per-source scoping only holds if sources themselves do not collide, so `createSource` on an id another live source holds throws synchronously. That is the opposite of the asset-level replace rule two paragraphs up, and deliberately so: claiming a namespace happens in an adapter's `activate()` or on connection setup, where a duplicate is a programmer error worth failing fast on, while asset registration happens inside a message handler, where it is a runtime condition.
+- **Ids are opaque to consumers; the label is what renders.** Parsing, pattern-matching, or persisting `localId`, `sourceId` or `key` is a boundary violation — without that rule, `key.startsWith('mavlink')` reintroduces the vendor branch through the one field designed to cross the boundary, which is Decision 3's objection to a `kind` field arriving through identity instead. `sourceId` is a comparison token for grouping and filtering by equality, not a display string; `sourceLabel` is what a consumer puts on screen, which is why the label is a required argument rather than an optional nicety. UI lists key on `key`.
 - **Ids are not stable across reconnect.** A system id is a reassignable wire address, not a durable identity: a vehicle that returns with a different id is a different asset, and anything a future live-state port associated with the old one is orphaned. Durable identity (a serial number, a tail number, an operator-assigned name) is a separate concept, deferred.
 - **The hierarchy question stays open, and this shape is why.** The id's composition inside a source is the adapter's choice, so an adapter that later needs to express components can extend its own local scheme (a gimbal as `1.154`, say) without changing the public shape, and a future `partOf` reference or nested components remain additive. What this ADR does _not_ do is decide whether a gimbal is an asset, a component of one, or both — see Known limitations.
+
+- **A handle does not outlive the registry, and nothing survives the service's teardown.** When the registry extension deactivates, every source is disposed and the registry is emptied; re-enabling it starts empty. A handle an adapter still holds across that transition is inert — `registerAsset` on it is a no-op returning an already-disposed `Disposable`, and `dispose()` is a no-op — rather than throwing, because an adapter would otherwise throw inside a message handler. An adapter therefore re-resolves the service and re-claims its source rather than trusting a cached handle; how it detects staleness is the v0 spec's concern. This is the service-specific answer ADR-0012's mechanics ask each service to give: for a registry of facts other extensions assert, surviving state would resurrect assets whose asserting adapter may be long gone, so this registry deliberately does not inherit `mapApi`'s survive-enable/disable posture.
 
 Removal follows from the same shape: the source that registered an asset removes it (via the registration's `Disposable`), or disposes itself and takes its whole namespace with it. No consumer can remove another source's asset.
 
@@ -124,7 +135,7 @@ Removal follows from the same shape: the source that registered an asset removes
 - **UI is keyed by description content.** A renderer asks "does this asset have a flying airframe?", so a new asset type (radar, ground station, dock) needs no new registry, no new lookup, and no new branch in consumer code.
 - **New vendors cost an adapter, not a refactor** — provided two-source expressibility is actually applied, since a vocabulary shaped around MAVLink is the failure this buys protection against.
 - **Collisions, ownership and removal are answered by one structural choice.** Per-source namespaces make duplicate keys impossible, make "who may remove this" unambiguous, and give a disconnecting link a single disposal point.
-- **The awkward cases are cheap to handle and cheap to audit.** Positive non-flight plus an exhaustive `Record` over `Airframe['kind']` means "what if it does not fly", "what if nothing was asserted" and "what if we do not recognize it" are three visible cases rather than one silent one.
+- **The awkward cases are cheap to handle and cheap to audit.** Positive non-flight plus an exhaustive `Record` over `Airframe['kind']` makes "what if it does not fly", "what if nothing was asserted" and "what if we do not recognize it" three visible cases rather than one silent one — for a consumer that uses the exhaustive pattern. Nothing compels one; see Decision 1 on what the compiler does and does not enforce.
 
 **Negative.**
 
@@ -132,7 +143,7 @@ Removal follows from the same shape: the source that registered an asset removes
 - **Every vocabulary addition is also a break for exhaustive consumers.** Adding `{ kind: 'helicopter' }` breaks every exhaustive `Record` — benign while everything is `workspace:*` and compile-time, which is exactly the posture ADR-0005 records as temporary. The alternative (consumers fall through to a default, producers supply a display fallback) trades that forcing function away; this ADR keeps the forcing function and names the cost.
 - **"Is this a drone?" is answered indirectly**, and in v0's single-field vocabulary it is barely answered at all: every non-flying asset this ADR cites as motivation — radar, ground station, dock — is mutually indistinguishable until a second capability lands. The content-over-classification claim is therefore _asserted_ in v0 and validated only when the first non-airframe capability ships. The first non-flying asset must land together with a capability that distinguishes it, or it will force a vocabulary decision mid-iteration.
 - **Filtering replaces querying.** With one registry and no `kind`, "list every drone" is a filter over description content. Cheap at today's scale, since descriptions change rarely and a `$derived` filter recomputes rarely.
-- **Source handles add one concept to the API** that a single-link deployment does not need, and a display rule for composite keys that consumers must not shortcut by parsing them.
+- **Source handles add one concept to the API** that a single-link deployment does not need, plus a label every adapter must supply and a keying rule (`key` for lists, `sourceLabel` for display) that consumers must not shortcut by parsing ids.
 - **The two-source rule has no automated check**, its STANAG half is documentary, and the value half of the anti-corruption boundary is not grep-able at all.
 
 ## Known limitations
@@ -141,7 +152,8 @@ Removal follows from the same shape: the source that registered an asset removes
 - **No provenance.** A description carries no record of which adapter asserted which _fact_. Source identity answers "which link registered this asset", not "where did this field come from", and merging one asset seen by two sources is undefined. _Trigger:_ a second source for the same fact, such as a model catalog.
 - **`unknown` carries two facts.** An unrecognized protocol value and a recognized-but-unexpressible one (helicopter) both land as `{ kind: 'unknown' }`, and those have different audiences: version skew between adapter and protocol versus a gap in gcscode's vocabulary. _Trigger:_ the first consumer that needs to tell them apart — a per-airframe map icon is the likely first, since it must choose between drawing a generic marker and drawing nothing — or the first adapter-side diagnostic surface.
 - **No durable identity.** Ids are per-session wire addresses (Decision 4). Nothing yet expresses "this is the same airframe we flew yesterday". _Trigger:_ the first feature that spans sessions — flight logs, per-vehicle settings, or an operator-assigned name.
-- **Live state is a separate contract.** What an asset _is_ and what it is _doing now_ are different questions linked by identity. This ADR covers descriptions only; Decision 2's rule binds the live-state port when it lands, and until then telemetry consumers keep reading the adapter. Whether `SitlExports` is then deprecated or kept indefinitely is the live-state iteration's call. _Trigger:_ that iteration, which the roadmap carries as committed.
+- **Live state is a separate contract.** What an asset _is_ and what it is _doing now_ are different questions linked by identity. This ADR covers descriptions only; Decision 2's rule binds the live-state port when it lands, and until then telemetry consumers keep reading the adapter. Whether `SitlExports` is then deprecated or kept indefinitely is the live-state iteration's call. _Trigger:_ that iteration. It is not on `docs/roadmap.md` today; ADR-0012's Follow-ups add the entry.
+- **No change event.** `getAssets()` is a reactive read and nothing more. `host.configuration` ships both reactive reads and `onDidChangeConfiguration`, and documents which consumers need the event — a webview consumer cannot observe Svelte reactivity across a `postMessage` boundary. The asset port will need the same pair. _Trigger:_ the first consumer that cannot observe reactive reads, which the webview wing makes concrete.
 - **No indexed queries.** Enumerate-and-filter is the only access pattern. _Trigger:_ the first multi-vehicle or swarm view, or the first consumer filtering over more than a handful of assets per frame.
 
 ## Alternatives considered
@@ -152,7 +164,7 @@ Removal follows from the same shape: the source that registered an asset removes
 - **Bare string unions** (`type Airframe = 'multirotor' | 'fixed-wing' | …`). Rejected: no room for parameters (rotor count, gimbal axis limits) without breaking every consumer comparison.
 - **A flat registry with adapter-minted global ids** (`registerAsset({ id: 'mavlink:1' })`, no source handles). Rejected in favour of Decision 4: it needs uniqueness, ownership and removal to be upheld by convention rather than structure, it collides the moment two links exist, and the protocol prefix inside the id is an invitation to branch on. It remains the smaller API, and if source handles prove to be ceremony, this is what to fall back to.
 - **Absence as the non-flight assertion** (`airframe?: Airframe` with no `none`). Rejected per Decision 1: absence is also what a dropped `undefined`, an older adapter, or a partial description produces, and the failure mode is a silent wrong icon rather than an error.
-- **Default-fallback consumers instead of exhaustive `Record`s** (consumers handle known kinds and fall through; producers supply a display fallback). Not chosen: it would make vocabulary growth non-breaking, at the cost of the compile-time forcing function that gets awkward cases handled at all. Revisit alongside versioned cross-extension contracts.
+- **Default-fallback consumers instead of exhaustive `Record`s** (consumers handle known kinds and fall through; producers supply a display fallback). Rejected for now: it would make vocabulary growth non-breaking, at the cost of the compile-time forcing function that gets awkward cases handled at all. Revisit alongside versioned cross-extension contracts.
 - **Defer the vocabulary; let each consumer read its adapter directly** (today's posture for telemetry). Rejected: that is the trap. Three consumers already read `SitlExports.telemetry`, and each new vendor would multiply that coupling.
 
 ## Follow-ups
