@@ -46,6 +46,7 @@ The first-party extensions planned for the app. Each is a future consumer of the
 - [ ] **Video feed** — live video stream display. Likely a Phase C streaming-source consumer alongside SITL.
 - [x] **Vehicle status** — first consumer of cross-extension exports. `@gcscode/extension-vehicle-status` registers a footer status bar item that reads SITL telemetry via `host.extensions.getExtension('gcscode.sitl').exports`. Spec: [`specs/2026-04-29-iteration-a-extension-exports.md`](specs/2026-04-29-iteration-a-extension-exports.md)
 - [ ] **Webview wing + Preact battery widget** — escape hatch validation per [ADR-0005](decisions/ADR-0005-extension-boundaries.md). Sandboxed iframes, postMessage protocol, JSON-RPC, structured-clone snapshots, vanilla + Preact adapters. Real consumer: `@gcscode/extension-battery-widget` in Preact, sandboxed, consuming SITL telemetry.
+- [ ] **Rename `extension-sitl` → `extension-mavlink`** — the package is named after the test setup (SITL), but its architectural role is a MAVLink adapter and it would serve a real vehicle unchanged. The name becomes actively misleading once a second protocol adapter exists alongside it, which STANAG 4586 support would make concrete. Deferred until after v0. Surfaced as a dated _Direction_ line in the 2026-10-15 ports-and-adapters architecture brainstorm; promoted here because the intent is committed.
 
 ### Considering (not yet committed)
 
