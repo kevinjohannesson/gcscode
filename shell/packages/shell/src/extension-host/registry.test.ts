@@ -1182,8 +1182,16 @@ describe('ExtensionActivationError', () => {
     const cause = new Error('boom');
     const error = new ExtensionActivationError('gcscode.example', cause);
     expect(error).toBeInstanceOf(Error);
+    expect(error).toBeInstanceOf(ExtensionActivationError);
+    expect(error.name).toBe('ExtensionActivationError');
     expect(error.extensionId).toBe('gcscode.example');
     expect(error.cause).toBe(cause);
     expect(error.message).toContain('gcscode.example');
+  });
+
+  it('passes a non-Error cause through unchanged', () => {
+    const cause = 'boom';
+    const error = new ExtensionActivationError('gcscode.example', cause);
+    expect(error.cause).toBe(cause);
   });
 });
