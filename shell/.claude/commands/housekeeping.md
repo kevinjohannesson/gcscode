@@ -36,6 +36,7 @@ Read in this order, skim-not-deep-read, focused on what's changed since the last
 8. Any package READMEs that have shipped iterations recently.
 9. `git log --oneline -30` — recent commit history.
 10. `docs/brainfarts.md` — read but treat as inert (per CLAUDE.md, agents must not pull requirements from here).
+11. `docs/architecture/README.md` — the architecture-note index. Check that every note in the folder has an index row.
 
 Optional: peek at the user's auto-memory at `~/.claude/projects/<project-slug>/memory/MEMORY.md` for current preferences and settled topics. Respect "settled" topics (e.g., Svelte coupling) — high bar to re-open.
 
@@ -83,6 +84,7 @@ After the cut ships:
 - New deferrals → also propagate to `docs/out-of-scope.md` per its existing entries.
 - Iteration ships → flip the roadmap checkbox per `docs/roadmap.md` Maintenance.
 - Cross-cutting deferrals from per-iteration specs → propagate to `docs/out-of-scope.md` (per CLAUDE.md "Non-goals propagate" rule).
+- New architecture note landed → confirm its row exists in `docs/architecture/README.md`'s index.
 
 The propagation pass is part of the housekeeping itself — don't end the iteration without it.
 
