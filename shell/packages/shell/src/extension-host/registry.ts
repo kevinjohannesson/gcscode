@@ -69,17 +69,38 @@ export function createRegistry(): Registry {
     return Promise.resolve().then(() => command.run(...args)) as Promise<T>;
   }
 
-  function createHost(extension: ExtensionIdentity): ExtensionHost {
-    return {
+  function createHost(
+    extension: ExtensionIdentity,
+    minted: Disposable[],
+  ): { host: ExtensionHost; revoke: () => void } {
+    let revoked = false;
+
+    /** Refuse registration once the activation window has closed. */
+    const guard = (): void => {
+      if (revoked) {
+        throw new Error(
+          `Extension "${extension.id}" attempted to register after its activation failed.`,
+        );
+      }
+    };
+
+    /** Record what the host handed out, so a failed activation can dispose it. */
+    const track = (disposable: Disposable): Disposable => {
+      minted.push(disposable);
+      return disposable;
+    };
+
+    const host: ExtensionHost = {
       commands: {
         registerCommand(command) {
+          guard();
           if (commands.has(command.id)) {
             throw new Error(
               `Command id "${command.id}" is already registered (attempted by extension "${extension.id}").`,
             );
           }
           commands.set(command.id, command);
-          return {
+          return track({
             dispose() {
               // Idempotent and safe under re-registration: only delete if the
               // entry currently in the map is the one this disposable owns.
@@ -87,7 +108,7 @@ export function createRegistry(): Registry {
                 commands.delete(command.id);
               }
             },
-          };
+          });
         },
         executeCommand<T>(id: string, ...args: unknown[]): Promise<T> {
           return execute<T>(id, args, `extension "${extension.id}"`);
@@ -95,13 +116,14 @@ export function createRegistry(): Registry {
       },
       window: {
         registerView(view) {
+          guard();
           if (views.has(view.id)) {
             throw new Error(
               `View id "${view.id}" is already registered (attempted by extension "${extension.id}").`,
             );
           }
           views.set(view.id, view);
-          return {
+          return track({
             dispose() {
               // Idempotent and safe under re-registration: only delete if the
               // entry currently in the map is the one this disposable owns.
@@ -109,16 +131,17 @@ export function createRegistry(): Registry {
                 views.delete(view.id);
               }
             },
-          };
+          });
         },
         registerStatusBarItem(item) {
+          guard();
           if (statusBarItems.has(item.id)) {
             throw new Error(
               `Status bar item id "${item.id}" is already registered (attempted by extension "${extension.id}").`,
             );
           }
           statusBarItems.set(item.id, item);
-          return {
+          return track({
             dispose() {
               // Idempotent and safe under re-registration: only delete if the
               // entry currently in the map is the one this disposable owns.
@@ -126,7 +149,7 @@ export function createRegistry(): Registry {
                 statusBarItems.delete(item.id);
               }
             },
-          };
+          });
         },
         showQuickPick<T extends QuickPickItem>(
           items: T[],
@@ -139,13 +162,14 @@ export function createRegistry(): Registry {
       },
       keybindings: {
         registerKeybinding(keybinding) {
+          guard();
           if (keybindings.has(keybinding.key)) {
             throw new Error(
               `Keybinding "${keybinding.key}" is already registered (attempted by extension "${extension.id}").`,
             );
           }
           keybindings.set(keybinding.key, keybinding);
-          return {
+          return track({
             dispose() {
               // Idempotent and safe under re-registration: only delete if the
               // entry currently in the map is the one this disposable owns.
@@ -153,7 +177,7 @@ export function createRegistry(): Registry {
                 keybindings.delete(keybinding.key);
               }
             },
-          };
+          });
         },
       },
       extensions: {
@@ -164,14 +188,23 @@ export function createRegistry(): Registry {
       },
       configuration: {
         registerConfiguration(contribution) {
-          return configurationStore.registerConfiguration(contribution, extension.id);
+          guard();
+          return track(configurationStore.registerConfiguration(contribution, extension.id));
         },
         getConfiguration(section) {
           return configurationStore.getConfiguration(section);
         },
         onDidChangeConfiguration(listener) {
-          return configurationStore.onDidChangeConfiguration(listener);
+          guard();
+          return track(configurationStore.onDidChangeConfiguration(listener));
         },
+      },
+    };
+
+    return {
+      host,
+      revoke: () => {
+        revoked = true;
       },
     };
   }
@@ -183,8 +216,10 @@ export function createRegistry(): Registry {
         displayName: extension.manifest.displayName,
         version: extension.manifest.version,
       };
+      const minted: Disposable[] = [];
+      const { host } = createHost(identity, minted);
       const context: ExtensionContext = {
-        host: createHost(identity),
+        host,
         subscriptions: [],
         extension: identity,
       };
