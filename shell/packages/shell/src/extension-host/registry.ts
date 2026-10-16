@@ -17,6 +17,7 @@ import { ConfigurationStore } from '../configuration/configuration-store.svelte'
 import { SvelteMap } from 'svelte/reactivity';
 
 import { quickPickState } from '../quick-pick/quick-pick-state.svelte';
+import { ExtensionActivationError } from './activation-error';
 
 export interface Registry {
   activate(extension: Extension): void;
@@ -42,6 +43,20 @@ function disposeAll(disposables: readonly Disposable[], extensionId: string): vo
       console.error(`Error disposing subscription for extension "${extensionId}":`, error);
     }
   }
+}
+
+/**
+ * Promise-like enough that `await` would adopt it: any object with a callable
+ * `then`, not just a native `Promise` — a custom thenable has to be contained
+ * the same way. A *callable* thenable (a function carrying `then`) is out of
+ * scope; no extension pattern produces one.
+ */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { then?: unknown }).then === 'function'
+  );
 }
 
 // Invariant: registry mutations propagate reactively to mounted consumers.
@@ -235,18 +250,48 @@ export function createRegistry(): Registry {
         version: extension.manifest.version,
       };
       const minted: Disposable[] = [];
-      const { host } = createHost(identity, minted);
+      const { host, revoke, settle } = createHost(identity, minted);
       const context: ExtensionContext = {
         host,
         subscriptions: [],
         extension: identity,
       };
-      const exportsValue = extension.activate(context);
+
+      const cleanUpAfterFailure = (): void => {
+        revoke();
+        disposeAll(minted, identity.id);
+        disposeAll(context.subscriptions, identity.id);
+      };
+
+      let exportsValue: unknown;
+      try {
+        exportsValue = extension.activate(context);
+      } catch (cause) {
+        cleanUpAfterFailure();
+        throw new ExtensionActivationError(identity.id, cause);
+      }
+
+      if (isThenable(exportsValue)) {
+        // Observe the rejection: not awaiting it is what orphans it. The body has
+        // already run to its first await, so revoke before it resumes.
+        void exportsValue.then(undefined, (reason: unknown) => {
+          console.error(`Extension "${identity.id}" activate() rejected after returning:`, reason);
+        });
+        cleanUpAfterFailure();
+        throw new ExtensionActivationError(
+          identity.id,
+          new Error('activate() must be synchronous; it returned a thenable.'),
+        );
+      }
+
       subscriptionsByExtension.set(identity.id, context.subscriptions);
       if (extension.deactivate) {
         deactivateHooksByExtension.set(identity.id, extension.deactivate.bind(extension));
       }
       exportsByExtension.set(identity.id, exportsValue);
+      // Stop recording: the ledger must not grow for the extension's lifetime.
+      // The host stays usable — an extension may legitimately register later.
+      settle();
     },
     async deactivate(extensionId) {
       const subscriptions = subscriptionsByExtension.get(extensionId);
