@@ -10,6 +10,8 @@
 
 **Spec:** [`docs/specs/2026-10-16-activation-failure-containment.md`](../specs/2026-10-16-activation-failure-containment.md). Read it before starting: it records _why_ three earlier designs of this mechanism were wrong, and two of those wrong designs look like the obvious implementation.
 
+**Run tests from inside the package, not from `shell/`.** `cd shell && npx vitest run packages/shell` finds no vitest config, silently selects a different environment (no jsdom, so component tests cannot run) and reports ~43 tests instead of the suite's 219. The shell package's config lives in `packages/shell/vite.config.ts`, which vitest only picks up when invoked from that directory. Every command in this plan is written accordingly; if you shorten one, check the test count.
+
 **Verify, don't quote.** The spec's own reviewers found repeated claims about the tree that did not survive checking. Before each task, read the file you are about to change. If the plan's quoted code does not match what is there, trust the file and say so in your task report.
 
 ---
@@ -63,7 +65,7 @@ describe('ExtensionActivationError', () => {
 
 - [ ] **Step 2: Run it and watch it fail**
 
-Run: `cd shell && npx vitest run packages/shell/src/extension-host/registry.test.ts -t 'ExtensionActivationError'`
+Run: `cd shell/packages/shell && npx vitest run src/extension-host/registry.test.ts -t 'ExtensionActivationError'`
 Expected: FAIL — cannot resolve `./activation-error`.
 
 - [ ] **Step 3: Create the error type**
@@ -91,7 +93,7 @@ export class ExtensionActivationError extends Error {
 
 - [ ] **Step 4: Run it and watch it pass**
 
-Run: `cd shell && npx vitest run packages/shell/src/extension-host/registry.test.ts -t 'ExtensionActivationError'`
+Run: `cd shell/packages/shell && npx vitest run src/extension-host/registry.test.ts -t 'ExtensionActivationError'`
 Expected: PASS.
 
 - [ ] **Step 5: Extract `disposeAll` from `deactivate`**
@@ -120,7 +122,7 @@ Then replace the loop inside `deactivate` with `disposeAll(subscriptions, extens
 
 - [ ] **Step 6: Run the whole shell suite — `deactivate`'s existing tests are the regression check**
 
-Run: `cd shell && npx vitest run packages/shell`
+Run: `cd shell/packages/shell && npx vitest run`
 Expected: PASS, same count as before your change (219 at the time of writing; confirm the number did not drop).
 
 - [ ] **Step 7: Commit**
@@ -281,7 +283,7 @@ const context: ExtensionContext = {
 
 - [ ] **Step 6: Run the suite — nothing should change behaviourally yet**
 
-Run: `cd shell && npx vitest run packages/shell && npx tsc --noEmit -p packages/shell/tsconfig.json`
+Run: `cd shell/packages/shell && npx vitest run && pnpm check`
 Expected: PASS, same test count. If `tsc` complains that `revoke` is unused, leave it — Task 3 uses it; if the lint rule rejects it, destructure only `host` as shown above.
 
 - [ ] **Step 7: Commit**
@@ -504,7 +506,7 @@ describe('activate containment', () => {
 
 - [ ] **Step 2: Run them and watch them fail**
 
-Run: `cd shell && npx vitest run packages/shell/src/extension-host/registry.test.ts -t 'activate containment'`
+Run: `cd shell/packages/shell && npx vitest run src/extension-host/registry.test.ts -t 'activate containment'`
 Expected: FAIL — the throwing cases currently propagate the raw error, not `ExtensionActivationError`, and `leaked.command` is present.
 
 - [ ] **Step 3: Implement containment**
@@ -578,7 +580,7 @@ Add `import { ExtensionActivationError } from './activation-error';` at the top.
 
 - [ ] **Step 4: Run them and watch them pass**
 
-Run: `cd shell && npx vitest run packages/shell && npx tsc --noEmit -p packages/shell/tsconfig.json`
+Run: `cd shell/packages/shell && npx vitest run && pnpm check`
 Expected: PASS. **If the run reports an unhandled rejection, the `.then(undefined, …)` handler is missing or misplaced** — that is the exact defect a reviewer proved by execution, so fix it rather than suppressing the warning.
 
 - [ ] **Step 5: Commit**
@@ -677,7 +679,7 @@ describe('activation failure recording', () => {
 
 - [ ] **Step 2: Run them and watch them fail**
 
-Run: `cd shell && npx vitest run packages/shell/src/extension-host/extension-manager.test.ts -t 'activation failure recording'`
+Run: `cd shell/packages/shell && npx vitest run src/extension-host/extension-manager.test.ts -t 'activation failure recording'`
 Expected: FAIL — `register` currently lets the error escape.
 
 - [ ] **Step 3: Implement**
@@ -787,7 +789,7 @@ function failureMessage(error: unknown): string {
 
 - [ ] **Step 4: Run them and watch them pass**
 
-Run: `cd shell && npx vitest run packages/shell && npx tsc --noEmit -p packages/shell/tsconfig.json`
+Run: `cd shell/packages/shell && npx vitest run && pnpm check`
 Expected: PASS. Note `strict` is on without `exactOptionalPropertyTypes`, so the conditional `toRecord` above is belt-and-braces rather than required — keep it, it documents intent.
 
 - [ ] **Step 5: Commit**
@@ -893,7 +895,7 @@ describe('bootstrap', () => {
 
 - [ ] **Step 2: Run it and watch it fail**
 
-Run: `cd shell && npx vitest run packages/shell/src/extension-host/bootstrap.test.ts`
+Run: `cd shell/packages/shell && npx vitest run src/extension-host/bootstrap.test.ts`
 Expected: FAIL — cannot resolve `./bootstrap`.
 
 - [ ] **Step 3: Create `bootstrap.ts`**
@@ -939,7 +941,7 @@ export function bootstrap(options: {
 
 - [ ] **Step 4: Run it and watch it pass**
 
-Run: `cd shell && npx vitest run packages/shell/src/extension-host/bootstrap.test.ts`
+Run: `cd shell/packages/shell && npx vitest run src/extension-host/bootstrap.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Rewire `main.ts`**
@@ -967,7 +969,7 @@ Add `import { bootstrap } from './extension-host/bootstrap';` and drop the now-u
 
 - [ ] **Step 6: Run everything**
 
-Run: `cd shell && npx vitest run packages/shell && npx tsc --noEmit -p packages/shell/tsconfig.json && npx eslint src --ext .ts,.svelte`
+Run: `cd shell/packages/shell && npx vitest run && pnpm check && pnpm lint`
 Expected: PASS. `main.ts` has no test of its own; the `tsc` pass plus `bootstrap.test.ts` are its coverage.
 
 - [ ] **Step 7: Commit**
@@ -1031,7 +1033,7 @@ Build `fakeManager` to match the file's existing test helpers — read `extensio
 
 - [ ] **Step 2: Run them and watch them fail**
 
-Run: `cd shell && npx vitest run packages/shell/src/extensions-panel/extensions-panel.test.ts`
+Run: `cd shell/packages/shell && npx vitest run src/extensions-panel/extensions-panel.test.ts`
 Expected: FAIL — the failed workbench row is filtered out entirely.
 
 - [ ] **Step 3: Implement the filter exception**
@@ -1077,7 +1079,7 @@ leaving the existing Disable and Enable branches untouched.
 
 - [ ] **Step 5: Run them and watch them pass**
 
-Run: `cd shell && npx vitest run packages/shell/src/extensions-panel && npx svelte-check --tsconfig packages/shell/tsconfig.json`
+Run: `cd shell/packages/shell && npx vitest run src/extensions-panel && npx svelte-check --tsconfig packages/shell/tsconfig.json`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -1127,7 +1129,7 @@ it('shows the indicator with a count matching the failed records', () => {
 
 - [ ] **Step 2: Run them and watch them fail**
 
-Run: `cd shell && npx vitest run packages/shell/src/app.test.ts -t 'indicator'`
+Run: `cd shell/packages/shell && npx vitest run src/app.test.ts -t 'indicator'`
 Expected: FAIL — no such test id.
 
 - [ ] **Step 3: Create the component**
@@ -1177,7 +1179,7 @@ In `app.svelte`, import it and place it as the first child of the right-hand sta
 
 - [ ] **Step 5: Run them and watch them pass**
 
-Run: `cd shell && npx vitest run packages/shell && npx svelte-check --tsconfig packages/shell/tsconfig.json`
+Run: `cd shell/packages/shell && npx vitest run && pnpm check`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -1219,7 +1221,7 @@ Follow the file's existing helper shape for building a context whose `getExtensi
 
 - [ ] **Step 2: Run it and watch it fail**
 
-Run: `cd shell && npx vitest run packages/extension-flight-overlay`
+Run: `cd shell/packages/extension-flight-overlay && npx vitest run`
 Expected: FAIL — activate still throws.
 
 - [ ] **Step 3: Implement the degrade**
@@ -1239,7 +1241,7 @@ if (!map) {
 
 - [ ] **Step 4: Run it and watch it pass**
 
-Run: `cd shell && npx vitest run packages/extension-flight-overlay && npx vitest run packages/shell`
+Run: `cd shell/packages/extension-flight-overlay && npx vitest run && cd ../shell && npx vitest run`
 Expected: PASS. The shell suite matters here: `bundled-extensions.test.ts` asserts ordering, and this change makes flight-overlay's map dependency non-fatal.
 
 - [ ] **Step 5: Commit**
