@@ -49,6 +49,7 @@ See `docs/decisions/ADR-0003-plugin-api-refinements.md` for the load-bearing rea
 - **Contributor-facing docs site.** No Storybook, no docs website. Per-package `README.md` is the contract.
 - **Changelog / release tooling.** Nothing is published.
 - **CI configuration.** Add when there is something to protect besides a local clean install + tests + lint.
+- **Patterns ledger for architecture notes.** No cumulative `docs/patterns.md` ledger and no "Patterns" section in the spec template. Architecture notes (per [`specs/2026-10-15-architecture-notes.md`](specs/2026-10-15-architecture-notes.md)) name established patterns, but nothing tracks which ones gcscode actually applies. Trigger to revisit: the third architecture note that names a pattern applied in gcscode code, not only discussed.
 
 ## Agentic team architecture deferrals
 
