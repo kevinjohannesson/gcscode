@@ -1282,3 +1282,7 @@ Named because the spec names them, and because a well-meaning implementer might 
 ## Docs propagation (post-merge, on master)
 
 Per the spec's propagation sections: five `docs/out-of-scope.md` rows, the `docs/roadmap.md` flip with its qualifications, `docs/vs-code-alignment.md` rows filed by table (Alignments carry `Source`; Divergences and Deferrals also carry `Trigger to revisit`), and three bullets in `packages/extension-api/README.md`.
+
+**Surfaced during implementation, to fold in at propagation time:**
+
+- **Callable thenables slip past `isThenable`.** The helper tests `typeof value === 'object'`, so a function carrying a `.then` property — a thenable `await` would adopt — is not detected, and such an `activate` return would be treated as a successful synchronous activation. Task 3's implementer found and documented the boundary in the helper's comment. The hole is narrow enough to leave open (nothing in the repo returns one, and widening the check invites its own questions about callable exports), but it belongs in the spec's Known unknowns rather than only in a code comment.
