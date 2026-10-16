@@ -10,6 +10,7 @@ import type {
 } from '@gcscode/extension-api';
 
 import { quickPickState } from '../quick-pick/quick-pick-state.svelte';
+import { ExtensionActivationError } from './activation-error';
 import { createRegistry } from './registry';
 
 const fakeComponent = {} as ViewContribution['component'];
@@ -1173,5 +1174,16 @@ describe('createRegistry', () => {
         'Quick pick already open',
       );
     });
+  });
+});
+
+describe('ExtensionActivationError', () => {
+  it('carries the extension id and the original error as cause', () => {
+    const cause = new Error('boom');
+    const error = new ExtensionActivationError('gcscode.example', cause);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.extensionId).toBe('gcscode.example');
+    expect(error.cause).toBe(cause);
+    expect(error.message).toContain('gcscode.example');
   });
 });

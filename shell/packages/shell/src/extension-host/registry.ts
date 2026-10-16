@@ -28,6 +28,22 @@ export interface Registry {
   executeCommand<T = unknown>(id: string, ...args: unknown[]): Promise<T>;
 }
 
+/**
+ * Dispose in reverse registration order, surviving a disposable that throws.
+ * LIFO because a higher-level disposable registered later may depend on a
+ * lower-level one registered earlier. Shared by the failed-activation cleanup
+ * and `deactivate` so both have the same resilience guarantee.
+ */
+function disposeAll(disposables: readonly Disposable[], extensionId: string): void {
+  for (let i = disposables.length - 1; i >= 0; i--) {
+    try {
+      disposables[i].dispose();
+    } catch (error) {
+      console.error(`Error disposing subscription for extension "${extensionId}":`, error);
+    }
+  }
+}
+
 // Invariant: registry mutations propagate reactively to mounted consumers.
 // The four contribution maps and the cross-extension exports map are SvelteMap
 // instances (from svelte/reactivity), so $derived(registry.list*()) and
@@ -194,16 +210,7 @@ export function createRegistry(): Registry {
         }
       }
 
-      // LIFO: dispose in reverse registration order. An extension that registers a
-      // higher-level disposable later may depend on lower-level ones registered
-      // earlier; reverse order tears down the higher-level layer first.
-      for (let i = subscriptions.length - 1; i >= 0; i--) {
-        try {
-          subscriptions[i].dispose();
-        } catch (error) {
-          console.error(`Error disposing subscription for extension "${extensionId}":`, error);
-        }
-      }
+      disposeAll(subscriptions, extensionId);
       subscriptionsByExtension.delete(extensionId);
       deactivateHooksByExtension.delete(extensionId);
       exportsByExtension.delete(extensionId);
