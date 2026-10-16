@@ -81,6 +81,13 @@ The manifest is the structured home for descriptive metadata. It grows per-field
 
 ## Cross-extension exports
 
+**When to reach for this instead of asking for a host namespace.** Ask whether the host would have to own the surface your capability mutates. If yes it is a _platform_ concern and belongs in `@gcscode/extension-api` (a method on an existing `host.*` namespace, a new namespace, or a field on `ExtensionContext` when it is per-extension-scoped). If no — it is about what gcscode controls or displays, like maps, assets, live state or video — it is a _domain_ concern and ships as a **service extension**: your own package, exporting its vocabulary types and its API, consumed through the mechanism below. See [ADR-0012](../../docs/decisions/ADR-0012-service-extensions-vs-host-namespaces.md).
+
+Two rules for a service extension's package entry point:
+
+- **Export types, not your live registry.** Keep the singleton module-internal and reachable only through `activate()`'s return value, so shell-side code cannot import a domain registry directly.
+- **Readers may resolve lazily; registrants cannot.** Reading exports per use lets a consumer skip gracefully when the service is inactive. A one-shot registration (`registerLayer`-shaped) has to resolve during your `activate()`, which makes it depend on bundle order — in that case skip the registration and log rather than throwing, unless the absence would be invisible to the operator.
+
 `activate(context)` may return a value that becomes the extension's published exports. Other extensions look it up via `context.host.extensions.getExtension<T>(id)?.exports`. Producers that don't expose an API may return nothing.
 
 ```ts
