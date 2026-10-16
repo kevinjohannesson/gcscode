@@ -261,7 +261,7 @@ Once all 5 Apps are created, installed, PEMs in place, env var set, and config p
 
 ```bash
 GH_REVIEWER_APP_PRIVATE_KEY_DIR=~/.config/gcscode \
-  /Users/kevinkroon/Projects/gcscode/.claude/scripts/gh-app-token-reviewer red-team
+  $(git rev-parse --show-toplevel)/.claude/scripts/gh-app-token-reviewer red-team
 ```
 
 (Substitute each role-slug.) Each should print a token. If any fails, the helper's error message identifies which config/PEM is missing or invalid.
