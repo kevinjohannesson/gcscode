@@ -1,6 +1,7 @@
 <script lang="ts">
   import Fuse from 'fuse.js';
 
+  import { WORKBENCH_EXTENSION_ID } from '../built-in/workbench';
   import type { ExtensionManager, ExtensionRecord } from '../extension-host/extension-manager';
   import { extensionsPanelState } from './extensions-panel-state.svelte';
 
@@ -13,7 +14,7 @@
   // record's manifest id is the only thing that identifies it as a built-in —
   // nothing on `ExtensionRecord` marks one.
   function isBuiltIn(record: ExtensionRecord): boolean {
-    return record.manifest.id === 'workbench';
+    return record.manifest.id === WORKBENCH_EXTENSION_ID;
   }
 
   // Filter out the workbench (system extension; cannot be sensibly disabled —
@@ -143,7 +144,10 @@
                   <div class="mt-0.5 text-xs text-neutral-300">{record.manifest.description}</div>
                 {/if}
                 {#if record.failure !== undefined}
-                  <div class="mt-1 text-xs text-red-300" data-testid="extension-failure">
+                  <div
+                    class="mt-1 text-xs wrap-break-word text-red-300"
+                    data-testid="extension-failure"
+                  >
                     Failed to activate: {record.failure.message}
                   </div>
                   <div class="mt-0.5 text-xs text-neutral-400">

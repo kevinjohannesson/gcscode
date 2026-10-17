@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Extension, ExtensionContext, ViewContribution } from '@gcscode/extension-api';
 
+import { WORKBENCH_EXTENSION_ID } from '../built-in/workbench';
 import { createExtensionManager } from '../extension-host/extension-manager';
 import { createRegistry } from '../extension-host/registry';
 import { extensionsPanelState } from './extensions-panel-state.svelte';
@@ -82,7 +83,7 @@ describe('extensions-panel.svelte', () => {
 
   it('renders one row per registered extension, EXCEPT workbench', () => {
     const { manager } = setup([
-      makeExtension({ id: 'workbench', displayName: 'Workbench' }),
+      makeExtension({ id: WORKBENCH_EXTENSION_ID, displayName: 'Workbench' }),
       makeExtension({ id: 'ext.a', displayName: 'Extension A' }),
       makeExtension({ id: 'ext.b', displayName: 'Extension B' }),
     ]);
@@ -196,7 +197,9 @@ describe('extensions-panel.svelte', () => {
   });
 
   it('renders "No extensions installed." when only workbench is registered', () => {
-    const { manager } = setup([makeExtension({ id: 'workbench', displayName: 'Workbench' })]);
+    const { manager } = setup([
+      makeExtension({ id: WORKBENCH_EXTENSION_ID, displayName: 'Workbench' }),
+    ]);
     render(ExtensionsPanel, { props: { manager } });
 
     expect(screen.getByText('No extensions installed.')).toBeInTheDocument();
@@ -257,7 +260,7 @@ describe('extensions-panel.svelte', () => {
     it('shows a failed workbench row with no Disable button', () => {
       const { manager } = setupWithFailures([
         makeFailingExtension({
-          id: 'workbench',
+          id: WORKBENCH_EXTENSION_ID,
           displayName: 'Workbench',
           message: 'palette gone',
         }),
@@ -282,7 +285,7 @@ describe('extensions-panel.svelte', () => {
     it('Enter on a failed built-in row does not toggle it', async () => {
       const { manager } = setupWithFailures([
         makeFailingExtension({
-          id: 'workbench',
+          id: WORKBENCH_EXTENSION_ID,
           displayName: 'Workbench',
           message: 'palette gone',
         }),
@@ -299,7 +302,9 @@ describe('extensions-panel.svelte', () => {
     // Pairs with the exception above: the guard that it stayed an exception for
     // FAILED built-ins rather than becoming "always list built-ins".
     it('still hides a healthy workbench', () => {
-      const { manager } = setup([makeExtension({ id: 'workbench', displayName: 'Workbench' })]);
+      const { manager } = setup([
+        makeExtension({ id: WORKBENCH_EXTENSION_ID, displayName: 'Workbench' }),
+      ]);
       render(ExtensionsPanel, { props: { manager } });
 
       expect(screen.queryByText('Workbench')).not.toBeInTheDocument();
