@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Disposable, ExtensionHost } from '@gcscode/extension-api';
 import type { MapApi } from '@gcscode/extension-map';
@@ -52,6 +52,16 @@ function makeFakeMapExports(): MapApi {
 }
 
 describe('flightOverlayExtension', () => {
+  // Unconditional teardown of the module singleton. Tests used to clear it in
+  // their own tails, which a thrown assertion skips — leaking the captured
+  // host into the next test, where it surfaces as a confusing failure far
+  // from its cause. `clearHost()` rather than `deactivate?.()`: it is the
+  // state module's own reset, so it cannot silently become a no-op if the
+  // optional hook is ever removed.
+  afterEach(() => {
+    flightOverlayState.clearHost();
+  });
+
   it('declares stable identity metadata', () => {
     expect(flightOverlayExtension.manifest.id).toBe('gcscode.flight-overlay');
     expect(flightOverlayExtension.manifest.displayName).toBe('Flight Overlay');
@@ -79,8 +89,6 @@ describe('flightOverlayExtension', () => {
 
     expect(fakeMap.registerLayer).toHaveBeenCalledTimes(4);
     expect(subscriptions).toHaveLength(6); // 4 layers + 1 command + 1 control
-
-    flightOverlayExtension.deactivate?.();
   });
 
   it('degrades when gcscode.map is not active: activates, registers nothing, logs once', () => {
@@ -192,8 +200,6 @@ describe('flightOverlayExtension', () => {
     expect(cmd.title).toBe('Recenter on Drone');
     expect(cmd.category).toBe('Flight Overlay');
     expect(typeof cmd.run).toBe('function');
-
-    flightOverlayExtension.deactivate?.();
   });
 
   it('activate registers a top-right recenter control whose commandId points at the recenter command', () => {
@@ -222,8 +228,6 @@ describe('flightOverlayExtension', () => {
     expect(reg.icon).toEqual({ kind: 'lucide', name: 'crosshair' });
     expect(typeof reg.tooltip).toBe('string');
     expect(reg.tooltip.length).toBeGreaterThan(0);
-
-    flightOverlayExtension.deactivate?.();
   });
 
   it('recenter command writes map.camera.center to the SITL position when telemetry has a fix', () => {
@@ -267,8 +271,6 @@ describe('flightOverlayExtension', () => {
     cmd.run();
 
     expect(fakeMap.camera.center).toEqual([149.2, -35.5]);
-
-    flightOverlayExtension.deactivate?.();
   });
 
   it('recenter command falls back to homeLocation when SITL telemetry has no fix', () => {
@@ -314,7 +316,5 @@ describe('flightOverlayExtension', () => {
     // homeLocation is the SITL ArduCopter default starting point (Canberra) —
     // see flight-overlay-config.ts. The exact tuple is `[149.165_25, -35.363_26]`.
     expect(fakeMap.camera.center).toEqual([149.16525, -35.36326]);
-
-    flightOverlayExtension.deactivate?.();
   });
 });
