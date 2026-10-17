@@ -30,6 +30,21 @@ function toRecord(state: ExtensionState): ExtensionRecord {
     : { manifest: state.extension.manifest, enabled: state.enabled, failure: state.failure };
 }
 
+// `String(value)` is not safe on an arbitrary thrown value: it throws for one
+// with no primitive conversion (`Object.create(null)`) and for one whose
+// `toString`/`Symbol.toPrimitive` throws, and nothing constrains what an
+// extension throws. Both callers below run inside a containment catch, where a
+// throw would escape the catch, escape `register`, and halt boot — Goal 1. So
+// conversion failure degrades to the caller's fallback instead of propagating.
+// The full value still reaches the console via `console.error`.
+function describeValue(value: unknown, fallback: string): string {
+  try {
+    return String(value) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 // The operator-facing half of an activation failure. `ExtensionActivationError`
 // is the host's wrapper, so its own message names the extension rather than the
 // problem; the wrapped `cause` is what the panel row needs to show.
@@ -38,12 +53,15 @@ function failureMessage(error: unknown): string {
     const cause = error.cause;
     if (cause instanceof Error) return cause.message || error.message;
     // A non-`Error` cause (`throw 'boom'`) is still the only detail the
-    // operator has, so stringify it. The wrapper's message is the fallback for
-    // an absent or empty cause, where stringifying says nothing.
+    // operator has, so describe it. The wrapper's message is the fallback for
+    // an absent, empty, or undescribable cause, where describing says nothing.
     if (cause === undefined || cause === null) return error.message;
-    return String(cause) || error.message;
+    return describeValue(cause, error.message);
   }
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) return error.message;
+  // Not an `ExtensionActivationError`: there is no wrapper message to fall back
+  // to, so the fallback has to be generic.
+  return describeValue(error, 'Activation failed; the thrown value has no description.');
 }
 
 // Invariant: extensions are registered exactly once and stay registered for

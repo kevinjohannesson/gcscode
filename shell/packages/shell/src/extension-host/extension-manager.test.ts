@@ -348,6 +348,60 @@ describe('activation failure recording', () => {
     expect(manager.listExtensions()[0].failure?.message).toContain('boom');
   });
 
+  // `failureMessage` runs INSIDE both containment catches, so a throw while
+  // deriving the message escapes the catch, escapes `register`, and halts the
+  // boot loop — the one outcome Goal 1 exists to prevent. Nothing constrains
+  // what an extension throws, and `String()` throws for both values below.
+  it('contains a cause that cannot be converted to a string', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const laterActivate = vi.fn(() => undefined);
+
+    expect(() =>
+      manager.register({
+        manifest: { id: 'x.nullproto', displayName: 'Null proto', version: '0.0.0' },
+        activate: () => {
+          throw Object.create(null);
+        },
+      }),
+    ).not.toThrow();
+    manager.register({
+      manifest: { id: 'x.after', displayName: 'After', version: '0.0.0' },
+      activate: laterActivate,
+    });
+
+    // Goal 1: the loop kept going. This is what ties the safe conversion to
+    // containment rather than to cosmetics.
+    expect(laterActivate).toHaveBeenCalledTimes(1);
+    expect(manager.listExtensions()[0].failure?.message).toContain('x.nullproto');
+  });
+
+  it('contains a cause whose toString throws', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const laterActivate = vi.fn(() => undefined);
+
+    expect(() =>
+      manager.register({
+        manifest: { id: 'x.hostile', displayName: 'Hostile', version: '0.0.0' },
+        activate: () => {
+          throw {
+            toString: () => {
+              throw new Error('toString is hostile');
+            },
+          };
+        },
+      }),
+    ).not.toThrow();
+    manager.register({
+      manifest: { id: 'x.after', displayName: 'After', version: '0.0.0' },
+      activate: laterActivate,
+    });
+
+    expect(laterActivate).toHaveBeenCalledTimes(1);
+    expect(manager.listExtensions()[0].failure?.message).toContain('x.hostile');
+  });
+
   it('records failure.message and leaves the record enabled', () => {
     const registry = createRegistry();
     const manager = createExtensionManager(registry);
