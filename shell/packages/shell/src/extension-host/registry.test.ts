@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import type {
   Disposable,
@@ -1472,20 +1473,23 @@ describe('activate containment', () => {
     const registry = createRegistry();
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const reason = new Error('rejected after returning');
-    expect(() =>
-      registry.activate({
-        manifest: manifest('x.rejects'),
-        activate: () => Promise.reject(reason),
-      }),
-    ).toThrow(ExtensionActivationError);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    // The handler attached at containment time is what keeps this rejection
-    // from being unhandled — without it, vitest fails the whole run.
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-    expect(consoleErrorSpy.mock.calls[0][0]).toContain('x.rejects');
-    expect(consoleErrorSpy.mock.calls[0][1]).toBe(reason);
 
-    consoleErrorSpy.mockRestore();
+    try {
+      expect(() =>
+        registry.activate({
+          manifest: manifest('x.rejects'),
+          activate: () => Promise.reject(reason),
+        }),
+      ).toThrow(ExtensionActivationError);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      // The handler attached at containment time is what keeps this rejection
+      // from being unhandled — without it, vitest fails the whole run.
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      expect(consoleErrorSpy.mock.calls[0][0]).toContain('x.rejects');
+      expect(consoleErrorSpy.mock.calls[0][1]).toBe(reason);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("leaves a disposable minted by another extension's API alone (the ledger's limit)", () => {
@@ -1519,6 +1523,118 @@ describe('activate containment', () => {
     // what the HOST minted. A change that silently widened it would flip this.
     expect(layerDisposed).toBe(false);
   });
+
+  /**
+   * Spec case 4 in full: *every* `Disposable`-returning host method is torn
+   * down on the failure path, not only the three the cases above happen to
+   * exercise. Each row asserts a real observable for its own method — the
+   * ledger is not reachable from a test, so "it was tracked" is not assertable.
+   */
+  interface MethodProbe {
+    readonly registry: ReturnType<typeof createRegistry>;
+    readonly listener: Mock<() => void>;
+  }
+
+  interface HostMethodCase {
+    readonly method: string;
+    readonly register: (host: ExtensionHost, probe: MethodProbe) => void;
+    readonly assertTornDown: (probe: MethodProbe) => void | Promise<void>;
+  }
+
+  const hostMethodCases: HostMethodCase[] = [
+    {
+      method: 'window.registerView',
+      register: (host) => {
+        host.window.registerView({ id: 'x.each.view', component: fakeComponent, title: 'V' });
+      },
+      assertTornDown: ({ registry }) => {
+        expect(registry.listViews()).toHaveLength(0);
+      },
+    },
+    {
+      method: 'window.registerStatusBarItem',
+      register: (host) => {
+        host.window.registerStatusBarItem({
+          id: 'x.each.item',
+          component: fakeComponent,
+          alignment: 'left',
+        });
+      },
+      assertTornDown: ({ registry }) => {
+        expect(registry.listStatusBarItems()).toHaveLength(0);
+      },
+    },
+    {
+      method: 'commands.registerCommand',
+      register: (host) => {
+        host.commands.registerCommand({ id: 'x.each.cmd', run: () => undefined });
+      },
+      assertTornDown: ({ registry }) => {
+        expect(registry.listCommands()).toHaveLength(0);
+      },
+    },
+    {
+      method: 'keybindings.registerKeybinding',
+      register: (host) => {
+        host.keybindings.registerKeybinding({ key: 'Ctrl+Shift+E', command: 'x.each.cmd' });
+      },
+      assertTornDown: ({ registry }) => {
+        expect(registry.listKeybindings()).toHaveLength(0);
+      },
+    },
+    {
+      method: 'configuration.registerConfiguration',
+      register: (host) => {
+        host.configuration.registerConfiguration({
+          key: 'x.each.foo',
+          schema: { type: 'string' },
+          default: 'from-schema',
+        });
+      },
+      assertTornDown: ({ registry }) => {
+        // The schema went with the failure, so the read falls back to the
+        // caller's value instead of the contributed default.
+        expect(
+          probeHost(registry).configuration.getConfiguration().get('x.each.foo', 'fallback'),
+        ).toBe('fallback');
+      },
+    },
+    {
+      method: 'configuration.onDidChangeConfiguration',
+      register: (host, { listener }) => {
+        host.configuration.onDidChangeConfiguration(listener);
+      },
+      assertTornDown: async ({ registry, listener }) => {
+        // Drive a real change through a healthy extension's own key: a listener
+        // still subscribed would fire on it.
+        const healthy = probeHost(registry);
+        healthy.configuration.registerConfiguration({
+          key: 'x.probe.foo',
+          schema: { type: 'string' },
+          default: 'hello',
+        });
+        await healthy.configuration.getConfiguration().update('x.probe.foo', 'world');
+        expect(listener).not.toHaveBeenCalled();
+      },
+    },
+  ];
+
+  it.each(hostMethodCases)(
+    'disposes what $method minted when activate throws',
+    async ({ register, assertTornDown }) => {
+      const probe: MethodProbe = { registry: createRegistry(), listener: vi.fn() };
+      expect(() =>
+        probe.registry.activate({
+          manifest: manifest('x.each'),
+          activate(context) {
+            register(context.host, probe);
+            throw new Error('after registering through the host');
+          },
+        }),
+      ).toThrow(ExtensionActivationError);
+      await assertTornDown(probe);
+    },
+  );
 
   it('does not revoke on success — later registration still works', () => {
     const registry = createRegistry();

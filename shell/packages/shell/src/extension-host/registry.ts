@@ -257,6 +257,13 @@ export function createRegistry(): Registry {
         extension: identity,
       };
 
+      // Ledger before `context.subscriptions`, which is not chronological: a
+      // disposable the extension pushed may have been minted before one it
+      // never pushed. Acceptable because `dispose()` is required to be
+      // idempotent and the batched-push case — nothing pushed at all — is the
+      // one this ledger exists for. The edge it concedes: an extension whose
+      // own pushed resource unwinds through a still-live host-minted
+      // contribution finds it already torn down.
       const cleanUpAfterFailure = (): void => {
         revoke();
         disposeAll(minted, identity.id);
