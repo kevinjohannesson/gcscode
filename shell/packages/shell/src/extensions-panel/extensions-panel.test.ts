@@ -239,8 +239,15 @@ describe('extensions-panel.svelte', () => {
       render(ExtensionsPanel, { props: { manager } });
 
       // Both halves of the spec's requirement: the failed STATE and the message.
-      expect(screen.getByText('Failed to activate: boom')).toBeInTheDocument();
-      expect(screen.getByText(/reload the app to retry/i)).toBeInTheDocument();
+      // "start", not "activate": the indicator's tooltip says the same, and
+      // activation is our vocabulary rather than a drone operator's.
+      expect(screen.getByText('Failed to start: boom')).toBeInTheDocument();
+      // Reload is the only recovery path, so the hint has to state its cost —
+      // an operator mid-flight is giving up live telemetry and video for it.
+      expect(screen.getByText(/reload the app to try again/i)).toBeInTheDocument();
+      expect(screen.getByText(/interrupts live telemetry and video/i)).toBeInTheDocument();
+      // Reversible, not a kill switch.
+      expect(screen.getByText(/until you turn it back on/i)).toBeInTheDocument();
     });
 
     it('marks only the failed row, leaving a healthy row unmarked', () => {
@@ -268,13 +275,16 @@ describe('extensions-panel.svelte', () => {
       render(ExtensionsPanel, { props: { manager } });
 
       expect(screen.getByText('Workbench')).toBeInTheDocument();
-      expect(screen.getByText('Failed to activate: palette gone')).toBeInTheDocument();
+      expect(screen.getByText('Failed to start: palette gone')).toBeInTheDocument();
       // The qualification on the filter exception: disabling a failed workbench
       // would clear the `failure` that keeps the indicator — the operator's only
       // remaining way back into this panel — alive.
       expect(screen.queryByRole('button', { name: 'Disable' })).not.toBeInTheDocument();
       // And the row must not advertise an action it deliberately does not offer.
-      expect(screen.getByText(/reload the app to retry/i)).toBeInTheDocument();
+      // The reload warning still applies here — this row's only recovery path
+      // is the expensive one — but the disabling clause must not appear.
+      expect(screen.getByText(/reload the app to try again/i)).toBeInTheDocument();
+      expect(screen.getByText(/interrupts live telemetry and video/i)).toBeInTheDocument();
       expect(screen.queryByText(/disabling/i)).not.toBeInTheDocument();
     });
 

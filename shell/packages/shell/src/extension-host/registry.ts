@@ -86,9 +86,12 @@ export function createRegistry(): Registry {
 
   /**
    * The pair `createHost` hands back to `activate`: the facade the extension
-   * registers through, plus the two activation-window controls. `revoke` and
-   * `settle` are both terminal — whichever fires first, the ledger stops
-   * growing for the rest of this extension's lifetime.
+   * registers through, plus the two activation-window controls. Both are
+   * terminal — whichever fires first, the ledger stops growing for the rest of
+   * this extension's lifetime — but they differ in what they buy. `revoke` is
+   * observable: it closes the facade, so a later registration throws. `settle`
+   * is not observable at all; see its own comment below before trusting it to
+   * guarantee anything.
    */
   interface ActivationHost {
     readonly host: ExtensionHost;
@@ -233,9 +236,24 @@ export function createRegistry(): Registry {
         revoked = true;
         tracking = false;
       },
-      /** Activation succeeded: stop recording, so the ledger cannot grow for
-       *  the extension's lifetime. The host stays usable — an extension may
-       *  legitimately register later (a command handler adding a view). */
+      /**
+       * Activation succeeded, so the ledger will never be read again: `minted`
+       * is consumed only by the containment catch, and this extension can no
+       * longer fail activation. Stop recording so that array does not go on
+       * retaining every disposable a long-lived extension mints afterwards — a
+       * command handler that adds and removes a view would otherwise push into
+       * a list nothing will ever drain.
+       *
+       * What this buys is memory hygiene, not a guarantee, and the distinction
+       * matters because the wording here used to imply the latter. Nothing
+       * observable changes when it runs: the host stays usable (an extension
+       * may legitimately register later), and `minted` is unreachable from
+       * outside this closure. Neutering this function to a no-op leaves the
+       * entire suite green — measured, not assumed. So no test pins it, and
+       * spec case 12 is inspection-only by decision: covering it would mean
+       * reaching into the closure to manufacture an observable that the public
+       * API deliberately does not expose.
+       */
       settle: () => {
         tracking = false;
       },
@@ -303,8 +321,8 @@ export function createRegistry(): Registry {
           deactivateHooksByExtension.set(identity.id, deactivateHook);
         }
         exportsByExtension.set(identity.id, exportsValue);
-        // Stop recording: the ledger must not grow for the extension's lifetime.
-        // The host stays usable — an extension may legitimately register later.
+        // Stop recording. Memory hygiene only, and unobservable from outside —
+        // see `settle` in `createHost` for what it does and does not buy.
         settle();
       } catch (cause) {
         // Remove whatever this attempt wrote. Guarded by the flag rather than

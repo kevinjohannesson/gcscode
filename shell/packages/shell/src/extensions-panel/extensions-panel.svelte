@@ -155,14 +155,22 @@
                     class="mt-1 text-xs wrap-break-word text-amber-300"
                     data-testid="extension-failure"
                   >
-                    Failed to activate: {record.failure.message}
+                    Failed to start: {record.failure.message}
                   </div>
                   <div class="mt-0.5 text-xs text-neutral-400">
-                    <!-- A built-in's row has no Disable, so its hint must not name one. -->
+                    <!-- Reload is the only recovery path, and it is not free: it
+                         restarts the whole app, so an operator mid-flight loses live
+                         telemetry and video while it happens. Both branches say so,
+                         because an operator who reloads without warning during a
+                         flight is the worst outcome this panel can cause. Only the
+                         non-built-in branch names disabling — that row is the only
+                         one that offers it — and it says the stop is reversible
+                         rather than reading as a permanent kill switch. -->
                     {#if isBuiltIn(record)}
-                      Reload the app to retry.
+                      Reload the app to try again — this interrupts live telemetry and video.
                     {:else}
-                      Reload the app to retry; disabling stops it from being retried.
+                      Reload the app to try again — this interrupts live telemetry and video.
+                      Disabling it stops the retries until you turn it back on.
                     {/if}
                   </div>
                 {/if}

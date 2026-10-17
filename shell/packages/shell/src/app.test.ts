@@ -259,14 +259,36 @@ describe('app.svelte — activation-failure indicator', () => {
     modalState.active = false;
   });
 
-  it('is host-owned: renders with no status-bar contribution registered', () => {
-    const { registry } = renderAppWith([makeFailingExtension('x.bad')]);
+  it('is host-owned: survives when every extension failed, one of them mid-contribution', () => {
+    // The falsifiable form of "host-owned". The old version of this test
+    // registered one extension that contributed nothing, so its
+    // `listStatusBarItems()` assertion held no matter what the implementation
+    // did — it described the fixture, not the code.
+    //
+    // This fixture is the actual counterfactual instead: `x.bad` contributes a
+    // status-bar item and THEN throws. An indicator sourced from
+    // `listStatusBarItems()` would be torn down by the containment that
+    // revokes that contribution — subject to the very failure it exists to
+    // report — and no extension survives here to contribute a replacement. So
+    // the contribution surface must be empty while the indicator still counts
+    // both failures.
+    const { registry } = renderAppWith([
+      makeNamedExtension('x.bad', (ctx) => {
+        ctx.host.window.registerStatusBarItem({
+          id: 'x.bad.item',
+          component: MockRight,
+          alignment: 'right',
+        });
+        throw new Error('boom');
+      }),
+      makeFailingExtension('y.bad'),
+    ]);
 
-    // The footer's `{#each}` blocks render only contributions. An
-    // extension-contributed indicator would be subject to the failure it
-    // reports, so this one must not be among them.
     expect(registry.listStatusBarItems()).toHaveLength(0);
-    expect(screen.getByTestId('activation-failure-indicator')).toBeInTheDocument();
+    const right = screen.getByTestId('statusbar-right');
+    expect(within(right).getByTestId('activation-failure-indicator')).toHaveTextContent(
+      '2 extensions failed',
+    );
   });
 
   it('is absent when no extension failed', () => {

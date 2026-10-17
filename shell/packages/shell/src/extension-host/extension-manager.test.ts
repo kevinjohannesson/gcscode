@@ -348,6 +348,44 @@ describe('activation failure recording', () => {
     expect(manager.listExtensions()[0].failure?.message).toContain('boom');
   });
 
+  // The two fallbacks inside the `ExtensionActivationError` branch, neither of
+  // which had a test: both produce the panel's whole message, and an empty one
+  // renders as a bare "Failed to start:" with nothing after the colon.
+  //
+  // `registry.activate` wraps every throw, so these are the only two reachable
+  // fallbacks in `failureMessage`. The remaining two (a bare `Error`, and a
+  // non-`Error` that is not an `ExtensionActivationError`) are defensive: the
+  // manager's catch only ever sees what `registry.activate` throws, and that is
+  // always an `ExtensionActivationError`.
+  it("falls back to the wrapper's message when the cause is an Error with no message", () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    manager.register({
+      manifest: { id: 'x.empty', displayName: 'Empty', version: '0.0.0' },
+      activate: () => {
+        throw new Error(''); // an Error carrying no detail at all
+      },
+    });
+    const message = manager.listExtensions()[0].failure?.message;
+    // Names the extension, which is the only detail left to give.
+    expect(message).toContain('x.empty');
+    expect(message).not.toBe('');
+  });
+
+  it("falls back to the wrapper's message when the cause is undefined", () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    manager.register({
+      manifest: { id: 'x.nothing', displayName: 'Nothing', version: '0.0.0' },
+      activate: () => {
+        throw undefined; // `describeValue` would say "undefined"; the wrapper says more
+      },
+    });
+    const message = manager.listExtensions()[0].failure?.message;
+    expect(message).toContain('x.nothing');
+    expect(message).not.toContain('undefined');
+  });
+
   // `failureMessage` runs INSIDE both containment catches, so a throw while
   // deriving the message escapes the catch, escapes `register`, and halts the
   // boot loop — the one outcome Goal 1 exists to prevent. Nothing constrains

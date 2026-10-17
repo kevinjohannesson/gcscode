@@ -1327,6 +1327,40 @@ describe('activate containment', () => {
     expect(disposed).toBe(true);
   });
 
+  // The positive control for the two containment tests that assert a torn-down
+  // listener does NOT fire — the one directly below, and the
+  // `configuration.onDidChangeConfiguration` row in the host-method table near
+  // the end of this file. Both drive their change through a DIFFERENT
+  // extension's key, so both would pass vacuously if a host-minted listener
+  // simply never heard about another extension's keys. Nothing else in this
+  // file covers that: the disposable test above subscribes and updates within
+  // one extension. Without this, "did not fire" is not evidence of teardown.
+  it("fires a live extension's listener for a change to another extension's key", async () => {
+    const registry = createRegistry();
+    const listener = vi.fn();
+    let ownerHost: ExtensionHost | undefined;
+    registry.activate(
+      extension('x.cfg.owner', (ctx) => {
+        ownerHost = ctx.host;
+        ctx.host.configuration.registerConfiguration({
+          key: 'x.cfg.owner.foo',
+          schema: { type: 'string' },
+          default: 'hello',
+        });
+      }),
+    );
+    // A second extension, still live, subscribing through the same host method
+    // the two negatives use.
+    registry.activate(
+      extension('x.cfg.listener', (ctx) => {
+        ctx.host.configuration.onDidChangeConfiguration(listener);
+      }),
+    );
+
+    await ownerHost!.configuration.getConfiguration().update('x.cfg.owner.foo', 'world');
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
   it('covers onDidChangeConfiguration, which is not a register* method', async () => {
     const registry = createRegistry();
     const listener = vi.fn();
@@ -1385,7 +1419,14 @@ describe('activate containment', () => {
     expect(() =>
       registry.activate({
         manifest: manifest('x.async'),
-        activate: () => Promise.resolve({ some: 'exports' }),
+        activate: (context) => {
+          // Contribute before returning the thenable. Without this the
+          // `listCommands()` assertion below described the FIXTURE rather than
+          // containment: an extension that registered nothing leaves an empty
+          // command list however broken the teardown is.
+          context.host.commands.registerCommand({ id: 'x.async.cmd', run: () => undefined });
+          return Promise.resolve({ some: 'exports' });
+        },
       }),
     ).toThrow(ExtensionActivationError);
     expect(registry.listCommands()).toHaveLength(0);
@@ -1591,6 +1632,12 @@ describe('activate containment', () => {
       registry.activate({
         manifest: manifest('x.consumer'),
         activate(context) {
+          // A host-minted contribution alongside the service's disposable. It
+          // is what makes the assertion below mean anything: on its own,
+          // `layerDisposed === false` is equally consistent with containment
+          // having stopped at the ledger's edge and with containment never
+          // having run at all.
+          context.host.commands.registerCommand({ id: 'x.consumer.cmd', run: () => undefined });
           const service = context.host.extensions.getExtension<{
             registerLayer: () => Disposable;
           }>('x.service');
@@ -1599,8 +1646,11 @@ describe('activate containment', () => {
         },
       }),
     ).toThrow(ExtensionActivationError);
-    // Documents the boundary rather than asserting a wish: containment disposes
-    // what the HOST minted. A change that silently widened it would flip this.
+    // Containment ran: what the host minted for this extension is gone.
+    expect(registry.listCommands().map((c) => c.id)).not.toContain('x.consumer.cmd');
+    // And it stopped there. Documents the boundary rather than asserting a
+    // wish: containment disposes what the HOST minted, so a change that
+    // silently widened it to the service's own disposable would flip this.
     expect(layerDisposed).toBe(false);
   });
 
