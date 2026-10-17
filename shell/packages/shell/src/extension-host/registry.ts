@@ -289,11 +289,18 @@ export function createRegistry(): Registry {
       };
 
       // One window over the whole activation, not just the `activate()` call.
-      // Everything in here can run extension-controlled code: the thenable
+      // Two of the steps in here run extension-controlled code: the thenable
       // probe reads a `then` the extension owns (a throwing getter is enough),
       // and so does the `deactivate` capture. A narrower window let those
       // escape unwrapped with the extension's contributions still live and the
       // host unrevoked — the hole a final cross-cutting review found.
+      //
+      // The map writes below cannot run extension code, so including them is a
+      // deliberate fail-closed trade: a host-side write failure is attributed
+      // to the extension and tears it down, rather than leaving the registry
+      // half-written. It also removes an asymmetry — every contribution map is
+      // already written inside this window during `activate()`, so host-side
+      // map failures were always attributed this way; these three now match.
       let registryStateWritten = false;
       try {
         const exportsValue: unknown = extension.activate(context);
