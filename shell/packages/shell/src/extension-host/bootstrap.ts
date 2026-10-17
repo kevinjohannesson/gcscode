@@ -2,7 +2,6 @@ import type { Extension } from '@gcscode/extension-api';
 
 import type { BundledExtensionEntry } from './bundled-extensions';
 import type { ExtensionManager } from './extension-manager';
-import type { Registry } from './registry';
 
 /** The slice of `ExtensionPersistence` bootstrap needs. */
 interface BootstrapPersistence {
@@ -19,9 +18,16 @@ interface BootstrapPersistence {
  * attaches the keybinding dispatcher and mounts), and activation order is the
  * only cross-extension guarantee there is (ADR-0005), which `bundled-extensions.ts`
  * depends on. Nothing here may be deferred or reordered.
+ *
+ * Deviation from the spec: its Architecture section sketches the signature as
+ * `bootstrap({ registry, manager, persistence, extensions })`. There is no
+ * `registry` field here, because nothing would read it — `manager` already
+ * closes over the same instance, and the one thing a direct handle would buy a
+ * caller is registering around the manager, which is the containment bypass
+ * this iteration exists to prevent. The sketch also omits `builtIns`, which is
+ * present; it is prose, not the contract.
  */
 export function bootstrap(options: {
-  registry: Registry;
   manager: ExtensionManager;
   persistence: BootstrapPersistence;
   extensions: readonly BundledExtensionEntry[];

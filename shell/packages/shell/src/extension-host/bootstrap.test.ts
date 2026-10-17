@@ -49,7 +49,6 @@ describe('bootstrap', () => {
     try {
       expect(() =>
         bootstrap({
-          registry,
           manager,
           persistence: alwaysEnabled,
           extensions: [
@@ -78,7 +77,6 @@ describe('bootstrap', () => {
     try {
       expect(() =>
         bootstrap({
-          registry,
           manager,
           persistence: alwaysEnabled,
           extensions: [{ id: 'x.good', extension: workingExtension('x.good') }],
@@ -103,7 +101,6 @@ describe('bootstrap', () => {
     const record = (id: string) => order.push(id);
 
     bootstrap({
-      registry,
       manager,
       persistence: alwaysEnabled,
       extensions: [
@@ -131,7 +128,6 @@ describe('bootstrap', () => {
     const persistence = { isInitiallyEnabled: (id: string) => id !== 'x.off' };
 
     bootstrap({
-      registry,
       manager,
       persistence,
       extensions: [{ id: 'x.off', extension: failingExtension('x.off', 'must not run') }],
@@ -155,7 +151,6 @@ describe('bootstrap', () => {
     };
 
     bootstrap({
-      registry,
       manager,
       persistence,
       extensions: [

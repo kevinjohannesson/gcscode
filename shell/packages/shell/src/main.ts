@@ -25,7 +25,6 @@ const manager = createExtensionManager(registry, {
 // reach it: a failing activation must not stop the extensions after it, and
 // at module scope that guarantee was untestable.
 bootstrap({
-  registry,
   manager,
   persistence,
   extensions: bundledExtensions,
