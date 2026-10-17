@@ -334,6 +334,20 @@ describe('activation failure recording', () => {
     expect(records[1].failure).toBeUndefined();
   });
 
+  // A non-`Error` cause is the only detail the operator gets: the wrapper's own
+  // message names the extension, not the problem.
+  it('records a non-Error cause in the failure message', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    manager.register({
+      manifest: { id: 'x.literal', displayName: 'Literal', version: '0.0.0' },
+      activate: () => {
+        throw 'boom'; // the thrown literal IS the case under test
+      },
+    });
+    expect(manager.listExtensions()[0].failure?.message).toContain('boom');
+  });
+
   it('records failure.message and leaves the record enabled', () => {
     const registry = createRegistry();
     const manager = createExtensionManager(registry);

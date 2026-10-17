@@ -36,8 +36,12 @@ function toRecord(state: ExtensionState): ExtensionRecord {
 function failureMessage(error: unknown): string {
   if (error instanceof ExtensionActivationError) {
     const cause = error.cause;
-    if (cause instanceof Error && cause.message) return cause.message;
-    return error.message;
+    if (cause instanceof Error) return cause.message || error.message;
+    // A non-`Error` cause (`throw 'boom'`) is still the only detail the
+    // operator has, so stringify it. The wrapper's message is the fallback for
+    // an absent or empty cause, where stringifying says nothing.
+    if (cause === undefined || cause === null) return error.message;
+    return String(cause) || error.message;
   }
   return error instanceof Error ? error.message : String(error);
 }
@@ -68,6 +72,14 @@ export function createExtensionManager(
       } catch (error) {
         // Contain it: boot continues, the failure is on the record, and
         // persistence is NOT touched — the operator asked for nothing.
+        //
+        // One of a MATCHED PAIR with the catch in `setEnabled`'s enable branch.
+        // Both are required and neither covers the other: this one keeps the
+        // boot loop going past a boot-time failure; its twin keeps an
+        // operator's toggle from crashing while still recording their intent.
+        // An earlier draft of this work deleted the twin while tidying, which
+        // reinstated the exact defect containment exists to fix. Do not factor
+        // them together — losing one is silent.
         console.error(error);
         extensions.set(extension.manifest.id, {
           extension,
@@ -81,9 +93,17 @@ export function createExtensionManager(
       if (state === undefined) {
         throw new Error(`Cannot set enabled state: extension id "${id}" is not registered.`);
       }
-      // Same-value calls stay a no-op even when the record carries a failure:
-      // re-entering `activate()` on a live module is unsafe, so reload is the
-      // retry mechanism and there is no in-place retry (spec Architecture).
+      // Same-value calls stay a no-op even when the record carries a failure.
+      //
+      // Deliberate deviation from the implementation plan, which guards on
+      // `state.enabled === enabled && state.failure === undefined`. That extra
+      // clause makes `setEnabled(id, true)` on a failed record re-enter
+      // `activate()` — the in-place retry the spec forbids (Architecture,
+      // "There is no in-place retry"; Non-goals). Extensions are module
+      // singletons: `extension-sitl` reassigns its module-level `client`
+      // without closing the previous socket, so a second `activate()` leaks a
+      // WebSocket. Reload, which gives fresh module state, is the retry
+      // mechanism.
       if (state.enabled === enabled) {
         return;
       }
@@ -93,6 +113,10 @@ export function createExtensionManager(
           registry.activate(state.extension);
           extensions.set(id, { extension: state.extension, enabled: true });
         } catch (error) {
+          // The twin of `register`'s catch (read the note there). Kept separate
+          // on purpose: this path must RESOLVE rather than reject, because the
+          // extensions panel invokes `setEnabled` as a floating promise, and it
+          // must still record the operator's intent below.
           console.error(error);
           extensions.set(id, {
             extension: state.extension,
