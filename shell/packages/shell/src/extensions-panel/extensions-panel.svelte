@@ -144,8 +144,15 @@
                   <div class="mt-0.5 text-xs text-neutral-300">{record.manifest.description}</div>
                 {/if}
                 {#if record.failure !== undefined}
+                  <!-- Amber, not red, and matching the status-bar indicator: the
+                       severity belongs to the CONDITION, not to the surface
+                       showing it, and an extension that didn't start is degraded
+                       rather than flight-critical. In a GCS red is the alarm
+                       color for flight-critical state, so spending it here would
+                       train the operator to discount red. Red also made the same
+                       fact look worse one click after the indicator reported it. -->
                   <div
-                    class="mt-1 text-xs wrap-break-word text-red-300"
+                    class="mt-1 text-xs wrap-break-word text-amber-300"
                     data-testid="extension-failure"
                   >
                     Failed to activate: {record.failure.message}

@@ -13,6 +13,7 @@ import MockRight from './__fixtures__/mock-right.svelte';
 import { quickPickState } from './quick-pick/quick-pick-state.svelte';
 import { modalState } from './modal-state.svelte';
 import { extensionsPanelState } from './extensions-panel/extensions-panel-state.svelte';
+import { WORKBENCH_EXTENSION_ID } from './built-in/workbench';
 
 function makeExtension(activate: Extension['activate']): Extension {
   return {
@@ -292,7 +293,7 @@ describe('app.svelte — activation-failure indicator', () => {
 
   it('counts exactly the records the panel marks failed, failed built-ins included', () => {
     renderAppWith([
-      makeFailingExtension('workbench'),
+      makeFailingExtension(WORKBENCH_EXTENSION_ID),
       makeFailingExtension('x.bad'),
       makeNamedExtension('ext.ok', () => {}),
     ]);
@@ -376,5 +377,10 @@ describe('app.svelte — activation-failure indicator', () => {
 
     expect(captured.errors).toHaveLength(0);
     expect(extensionsPanelState.isOpen).toBe(false);
+    // Symmetric with the sibling test above: the palette has no backdrop
+    // either, so the same click dismisses it. The indicator's guard only
+    // declines to open the panel; the dismissal is the click-outside listener
+    // in `quick-pick-host`.
+    expect(quickPickState.current).toBeNull();
   });
 });
