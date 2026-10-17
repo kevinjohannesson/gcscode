@@ -9,9 +9,25 @@
   let query = $state('');
   let highlightIndex = $state(0);
 
+  // The workbench is the sole entry in `main.ts`'s `builtIns` list, and a
+  // record's manifest id is the only thing that identifies it as a built-in —
+  // nothing on `ExtensionRecord` marks one.
+  function isBuiltIn(record: ExtensionRecord): boolean {
+    return record.manifest.id === 'workbench';
+  }
+
   // Filter out the workbench (system extension; cannot be sensibly disabled —
   // disabling would lock the operator out of Ctrl+Shift+P + Ctrl+Shift+X).
-  const records = $derived(manager.listExtensions().filter((r) => r.manifest.id !== 'workbench'));
+  // Exception: a FAILED extension is always listed, built-ins included — a
+  // failed workbench is the one failure that costs the operator the palette, so
+  // hiding it would hide the only thing they need to see. Its row then carries
+  // no Disable for the same reason the filter exists: disabling would clear the
+  // `failure`, which would remove the status-bar indicator, which is the only
+  // remaining way to open this panel once the workbench's own opener command
+  // and keybinding are gone. The operator's exit would destroy their way back.
+  const records = $derived(
+    manager.listExtensions().filter((r) => !isBuiltIn(r) || r.failure !== undefined),
+  );
 
   const fuse = $derived(
     new Fuse(records, {
@@ -42,6 +58,11 @@
   });
 
   function toggle(record: ExtensionRecord) {
+    // A failed built-in's row offers no Disable (see the `records` comment), but
+    // the row is also reachable by keyboard — Enter toggles whatever is
+    // highlighted. The guard therefore lives here, where the button path and the
+    // Enter path meet, rather than only on the button that isn't rendered.
+    if (record.failure !== undefined && isBuiltIn(record)) return;
     void manager.setEnabled(record.manifest.id, !record.enabled);
   }
 
@@ -121,8 +142,23 @@
                 {#if record.manifest.description}
                   <div class="mt-0.5 text-xs text-neutral-300">{record.manifest.description}</div>
                 {/if}
+                {#if record.failure !== undefined}
+                  <div class="mt-1 text-xs text-red-300" data-testid="extension-failure">
+                    Failed to activate: {record.failure.message}
+                  </div>
+                  <div class="mt-0.5 text-xs text-neutral-400">
+                    <!-- A built-in's row has no Disable, so its hint must not name one. -->
+                    {#if isBuiltIn(record)}
+                      Reload the app to retry.
+                    {:else}
+                      Reload the app to retry; disabling stops it from being retried.
+                    {/if}
+                  </div>
+                {/if}
               </div>
-              {#if record.enabled}
+              {#if record.failure !== undefined && isBuiltIn(record)}
+                <!-- Informational row only: no action. See the `records` filter comment. -->
+              {:else if record.enabled}
                 <button
                   type="button"
                   class="flex-shrink-0 rounded border border-neutral-500 bg-neutral-700 px-3 py-1 text-xs text-neutral-200"
