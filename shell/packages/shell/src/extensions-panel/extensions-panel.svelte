@@ -1,6 +1,7 @@
 <script lang="ts">
   import Fuse from 'fuse.js';
 
+  import { WORKBENCH_EXTENSION_ID } from '../built-in/workbench';
   import type { ExtensionManager, ExtensionRecord } from '../extension-host/extension-manager';
   import { extensionsPanelState } from './extensions-panel-state.svelte';
 
@@ -9,9 +10,25 @@
   let query = $state('');
   let highlightIndex = $state(0);
 
+  // The workbench is the sole entry in `main.ts`'s `builtIns` list, and a
+  // record's manifest id is the only thing that identifies it as a built-in —
+  // nothing on `ExtensionRecord` marks one.
+  function isBuiltIn(record: ExtensionRecord): boolean {
+    return record.manifest.id === WORKBENCH_EXTENSION_ID;
+  }
+
   // Filter out the workbench (system extension; cannot be sensibly disabled —
   // disabling would lock the operator out of Ctrl+Shift+P + Ctrl+Shift+X).
-  const records = $derived(manager.listExtensions().filter((r) => r.manifest.id !== 'workbench'));
+  // Exception: a FAILED extension is always listed, built-ins included — a
+  // failed workbench is the one failure that costs the operator the palette, so
+  // hiding it would hide the only thing they need to see. Its row then carries
+  // no Disable for the same reason the filter exists: disabling would clear the
+  // `failure`, which would remove the status-bar indicator, which is the only
+  // remaining way to open this panel once the workbench's own opener command
+  // and keybinding are gone. The operator's exit would destroy their way back.
+  const records = $derived(
+    manager.listExtensions().filter((r) => !isBuiltIn(r) || r.failure !== undefined),
+  );
 
   const fuse = $derived(
     new Fuse(records, {
@@ -42,6 +59,11 @@
   });
 
   function toggle(record: ExtensionRecord) {
+    // A failed built-in's row offers no Disable (see the `records` comment), but
+    // the row is also reachable by keyboard — Enter toggles whatever is
+    // highlighted. The guard therefore lives here, where the button path and the
+    // Enter path meet, rather than only on the button that isn't rendered.
+    if (record.failure !== undefined && isBuiltIn(record)) return;
     void manager.setEnabled(record.manifest.id, !record.enabled);
   }
 
@@ -121,8 +143,41 @@
                 {#if record.manifest.description}
                   <div class="mt-0.5 text-xs text-neutral-300">{record.manifest.description}</div>
                 {/if}
+                {#if record.failure !== undefined}
+                  <!-- Amber, not red, and matching the status-bar indicator: the
+                       severity belongs to the CONDITION, not to the surface
+                       showing it, and an extension that didn't start is degraded
+                       rather than flight-critical. In a GCS red is the alarm
+                       color for flight-critical state, so spending it here would
+                       train the operator to discount red. Red also made the same
+                       fact look worse one click after the indicator reported it. -->
+                  <div
+                    class="mt-1 text-xs wrap-break-word text-amber-300"
+                    data-testid="extension-failure"
+                  >
+                    Failed to start: {record.failure.message}
+                  </div>
+                  <div class="mt-0.5 text-xs text-neutral-400">
+                    <!-- Reload is the only recovery path, and it is not free: it
+                         restarts the whole app, so an operator mid-flight loses live
+                         telemetry and video while it happens. Both branches say so,
+                         because an operator who reloads without warning during a
+                         flight is the worst outcome this panel can cause. Only the
+                         non-built-in branch names disabling — that row is the only
+                         one that offers it — and it says the stop is reversible
+                         rather than reading as a permanent kill switch. -->
+                    {#if isBuiltIn(record)}
+                      Reload the app to try again — this interrupts live telemetry and video.
+                    {:else}
+                      Reload the app to try again — this interrupts live telemetry and video.
+                      Disabling it stops the retries until you turn it back on.
+                    {/if}
+                  </div>
+                {/if}
               </div>
-              {#if record.enabled}
+              {#if record.failure !== undefined && isBuiltIn(record)}
+                <!-- Informational row only: no action. See the `records` filter comment. -->
+              {:else if record.enabled}
                 <button
                   type="button"
                   class="flex-shrink-0 rounded border border-neutral-500 bg-neutral-700 px-3 py-1 text-xs text-neutral-200"

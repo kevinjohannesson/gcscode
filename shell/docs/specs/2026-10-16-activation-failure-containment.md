@@ -62,9 +62,9 @@ The host records what it hands out instead:
 activate(extension) {
   const identity: ExtensionIdentity = { /* unchanged */ };
   const minted: Disposable[] = [];
-  const { host, revoke } = createHost(identity, minted); // revoke() closes the facade
+  const { host, revoke, settle } = createHost(identity, minted); // revoke() closes the facade; settle() stops recording
   const context: ExtensionContext = {
-    host, // every Disposable-returning host method appends to `minted` until revoked
+    host, // every Disposable-returning host method appends to `minted` until settled or revoked
     subscriptions: [],
     extension: identity,
   };
@@ -101,7 +101,7 @@ Five properties of what the ledger does guarantee:
 
 - **It is correct regardless of what the extension does with its disposables** — batching, late pushing, and never pushing are all covered, because it records the host's side of the exchange. The claim holds for the registration _path_ only, and only because revocation closes the facade on failure; it says nothing about what the extension did with state that never passed through the host.
 - **`context.subscriptions` is disposed too, and for the opposite reason.** The ledger exists because extensions mostly _do not_ push before throwing; but an extension that pushed something of its own — a timer, a closure — leaves it in an array the registry never records on the failure path, orphaned. Failure cleanup therefore disposes both arrays. `context.subscriptions` remains `deactivate`'s source of truth on the success path.
-- **The registry drops its reference to the ledger once activation succeeds**, so the array cannot grow across the extension's lifetime as it registers more contributions later.
+- **Recording stops once activation succeeds**, so the ledger cannot grow across the extension's lifetime as the extension registers more contributions later. _Corrected during implementation (PR #34, task 2's code-quality review):_ this property originally read "the registry drops its reference to the ledger", which does not achieve it — the closure that records disposables holds its own reference, so dropping the registry's leaves recording running. The mechanism is a tracking flag the host sets on success, not a reference drop.
 - **A disposable may appear in both, and double disposal is safe** — `Disposable.dispose()` is required to be idempotent (`packages/extension-api/src/index.ts`).
 - **`disposeAll` is extracted from the existing `deactivate` loop**, so both paths share one implementation and one error-resilience guarantee.
 
@@ -149,13 +149,15 @@ Detecting the thenable is therefore necessary but not sufficient. Three things h
 
 Supporting async activation properly means awaiting it, which changes the registry's contract and the boot sequence; it is named in Future iterations and routed to `docs/out-of-scope.md`.
 
-**The ledger is dropped on success, and revocation is a failure-only mechanism.** Those are two different things and an earlier reviewer finding conflated them. On a successful activation the registry discards its reference to `minted` so the array cannot grow for the extension's lifetime — but the host is **not** revoked, because an extension may legitimately register later (a command handler that adds a view, say). Revocation happens only on the failure paths, where any further registration is by definition untracked.
+**Recording stops on success, and revocation is a failure-only mechanism.** Those are two different things and an earlier reviewer finding conflated them. On a successful activation the host stops recording into `minted`, so the array cannot grow for the extension's lifetime — but the host is **not** revoked, because an extension may legitimately register later (a command handler that adds a view, say). Revocation happens only on the failure paths, where any further registration is by definition untracked.
+
+_Corrected during implementation (PR #34, task 2's code-quality review):_ this paragraph and validation case 12 originally said the registry **discards its reference** to `minted` on success. That does not achieve the property — the host's recording closure holds its own reference to the array, so dropping the registry's leaves recording running and truncating the array empties it once without stopping the next append. The mechanism is a flag the host sets on success (`settle()`), not a reference drop. The property itself is unchanged; only the stated means of reaching it was wrong.
 
 ### Boot moves out of module scope so Goal 1 can be tested
 
 `main.ts` runs the `bundledExtensions` register loop at module top level, where no test can reach it. `app.test.ts` constructs its own registry and mounts `App` directly, so a test asserting "the app mounts when an extension throws" would pass without exercising the code path that actually halts — the one guarantee this iteration exists for would be untested.
 
-The loop therefore moves into an exported `bootstrap({ registry, manager, persistence, extensions })`, which `main.ts` calls and which tests call directly. `main.ts` keeps its ordering (`bootstrap`, then `attachKeybindingDispatcher`, then `mount`), and the test asserts that `bootstrap` returns normally with a throwing extension, that the remaining extensions activated, and that the failure is on the record.
+The loop therefore moves into an exported `bootstrap({ manager, persistence, extensions, builtIns })`, which `main.ts` calls and which tests call directly. _Corrected during implementation (PR #34, task 5):_ this sketch originally read `{ registry, manager, persistence, extensions }`. It omitted `builtIns`, which the implementation needs so a failing built-in gets the same containment, and it named a `registry` field that nothing reads — `manager` already closes over the same instance, and a direct registry handle would only enable registering around the manager, the containment bypass this spec exists to prevent. The sketch is prose rather than a behavioural commitment; cases 20–21 are the commitments. `main.ts` keeps its ordering (`bootstrap`, then `attachKeybindingDispatcher`, then `mount`), and the test asserts that `bootstrap` returns normally with a throwing extension, that the remaining extensions activated, and that the failure is on the record.
 
 ### Surfacing: panel row plus a host-owned indicator
 
@@ -200,7 +202,7 @@ Two residuals, one of them smaller than an earlier draft of this spec claimed.
 9. **The host is revoked on failure.** A continuation that resumes after the thenable check and calls a `Disposable`-returning host method throws and registers nothing — asserted by driving a macrotask between the failure and the assertion, which is how a reviewer demonstrated the leak this closes.
 10. **The returned thenable's rejection is observed**, so the test run reports no unhandled rejection.
 11. **The host is not revoked on success**, and a registration made after `activate` returns still works — revocation is failure-only.
-12. **The registry drops its ledger reference on success**, so later registrations do not accumulate in it.
+12. **Recording stops on success**, so a registration made after `activate` returns does not accumulate in the ledger. This one is **verified by inspection, not by assertion**: `minted` is a local inside the registry's activation path and is deliberately not exposed, so there is no honest test for it short of exporting internals — a worse trade than the coverage is worth. Do not reach into the closure to manufacture coverage. Case 11 above is the behavioural test in this area; this case is the structural property beside it.
 13. **The ledger's limit is asserted rather than assumed:** a disposable minted by another extension's API (a stub standing in for `MapApi.registerLayer`) is _not_ disposed by containment. The test documents the boundary so a later change cannot silently move it.
 
 **Unit — `packages/shell/src/extension-host/extension-manager.test.ts`:**
@@ -222,7 +224,7 @@ Two residuals, one of them smaller than an earlier draft of this spec claimed.
 22. A failed row renders the message and says retry happens on reload.
 23. **A failed workbench record is shown** despite the panel's `workbench` filter, **and its row offers no Disable** — so the operator cannot clear the `failure` that keeps their only remaining panel opener alive.
 24. The indicator's count equals the number of rows the panel marks failed, in the same state.
-25. The indicator is absent with no failures, present with one or more, and opening the panel from it is a no-op when the panel is already open or a modal is active.
+25. The indicator is absent with no failures, present with one or more, and clicking it while the panel is already open or a modal is active does not attempt to open the panel again. _Corrected during implementation (PR #34, task 7):_ this originally said such a click "is a no-op", which is false. Neither overlay has a backdrop element — `shell/packages/shell/src/extensions-panel/extensions-panel-host.svelte` and `shell/packages/shell/src/quick-pick/quick-pick-host.svelte` each attach a document-level click listener while open and close on any click outside their dialog. The indicator sits outside both, so the guard runs first and declines to re-open, and then the same click reaches that listener: clicking while the panel is open **closes** it, and clicking while the palette is open **dismisses the palette** without opening the panel. The guard is still required — without it the open call throws out of a click handler — but what it prevents is the throw, not a visible effect. A test asserts the panel is closed afterwards, so if a backdrop is ever added the changed behaviour surfaces there.
 
 **Manual (the operator path that motivated the iteration).** Before this iteration's flight-overlay migration lands: disable Map from the panel, reload, and confirm the app renders, flight-overlay's row shows failed with its message, the indicator is visible and opens the panel, Disable works and persists across a reload, and the console carries full errors. After the migration, flight-overlay degrades instead of failing, so the operator-visible check becomes: disable Map, reload, confirm the map renders without the overlay and **no** failure is reported — the degrade path's correct outcome — and use the extensions panel to confirm no row is marked failed. Then `pnpm test`, `pnpm check`, `pnpm lint`.
 

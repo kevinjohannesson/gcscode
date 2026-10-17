@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import type {
   Disposable,
@@ -10,12 +11,31 @@ import type {
 } from '@gcscode/extension-api';
 
 import { quickPickState } from '../quick-pick/quick-pick-state.svelte';
+import { ExtensionActivationError } from './activation-error';
 import { createRegistry } from './registry';
 
 const fakeComponent = {} as ViewContribution['component'];
 
 function extension(id: string, activate: (context: ExtensionContext) => void): Extension {
   return { manifest: { id, displayName: id, version: '0.0.0' }, activate };
+}
+
+/**
+ * Containment wraps whatever an extension's `activate()` throws in an
+ * `ExtensionActivationError`, so a test about a host-guard message asserts on
+ * the wrapped `cause` rather than on the thrown error's own message.
+ */
+function expectActivationFailure(act: () => void, causeMessage: RegExp): void {
+  let thrown: unknown;
+  try {
+    act();
+  } catch (error) {
+    thrown = error;
+  }
+  expect(thrown).toBeInstanceOf(ExtensionActivationError);
+  const cause = (thrown as ExtensionActivationError).cause;
+  expect(cause).toBeInstanceOf(Error);
+  expect((cause as Error).message).toMatch(causeMessage);
 }
 
 describe('createRegistry', () => {
@@ -108,17 +128,19 @@ describe('createRegistry', () => {
         });
       }),
     );
-    expect(() =>
-      registry.activate(
-        extension('ext.b', (ctx) => {
-          ctx.host.window.registerView({
-            id: 'shared',
-            component: fakeComponent,
-            title: 'Test View',
-          });
-        }),
-      ),
-    ).toThrow(/shared.*ext\.b/);
+    expectActivationFailure(
+      () =>
+        registry.activate(
+          extension('ext.b', (ctx) => {
+            ctx.host.window.registerView({
+              id: 'shared',
+              component: fakeComponent,
+              title: 'Test View',
+            });
+          }),
+        ),
+      /shared.*ext\.b/,
+    );
   });
 
   it('passes extension identity through context.extension', () => {
@@ -226,17 +248,19 @@ describe('createRegistry', () => {
         });
       }),
     );
-    expect(() =>
-      registry.activate(
-        extension('ext.b', (ctx) => {
-          ctx.host.window.registerStatusBarItem({
-            id: 'shared',
-            component: fakeComponent,
-            alignment: 'right',
-          });
-        }),
-      ),
-    ).toThrow(/shared.*ext\.b/);
+    expectActivationFailure(
+      () =>
+        registry.activate(
+          extension('ext.b', (ctx) => {
+            ctx.host.window.registerStatusBarItem({
+              id: 'shared',
+              component: fakeComponent,
+              alignment: 'right',
+            });
+          }),
+        ),
+      /shared.*ext\.b/,
+    );
   });
 
   it('preserves registration order in listStatusBarItems', () => {
@@ -313,13 +337,15 @@ describe('createRegistry', () => {
         ctx.host.commands.registerCommand({ id: 'shared', run: () => undefined });
       }),
     );
-    expect(() =>
-      registry.activate(
-        extension('ext.b', (ctx) => {
-          ctx.host.commands.registerCommand({ id: 'shared', run: () => undefined });
-        }),
-      ),
-    ).toThrow(/shared.*ext\.b/);
+    expectActivationFailure(
+      () =>
+        registry.activate(
+          extension('ext.b', (ctx) => {
+            ctx.host.commands.registerCommand({ id: 'shared', run: () => undefined });
+          }),
+        ),
+      /shared.*ext\.b/,
+    );
   });
 
   it('allows the same id across all three kinds (view, status bar, command)', () => {
@@ -511,13 +537,15 @@ describe('createRegistry', () => {
         ctx.host.keybindings.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'ext.a.cmd' });
       }),
     );
-    expect(() =>
-      registry.activate(
-        extension('ext.b', (ctx) => {
-          ctx.host.keybindings.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'ext.b.cmd' });
-        }),
-      ),
-    ).toThrow(/Ctrl\+Shift\+G.*ext\.b/);
+    expectActivationFailure(
+      () =>
+        registry.activate(
+          extension('ext.b', (ctx) => {
+            ctx.host.keybindings.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'ext.b.cmd' });
+          }),
+        ),
+      /Ctrl\+Shift\+G.*ext\.b/,
+    );
   });
 
   it('preserves registration order in listKeybindings', () => {
@@ -1079,17 +1107,19 @@ describe('createRegistry', () => {
 
     it('enforces the prefix using the activating extension id', () => {
       const registry = createRegistry();
-      expect(() =>
-        registry.activate(
-          extension('ext.cfg', (ctx) => {
-            ctx.host.configuration.registerConfiguration({
-              key: 'other.id.foo',
-              schema: { type: 'string' },
-              default: 'x',
-            });
-          }),
-        ),
-      ).toThrow(/must start with "ext\.cfg\."/);
+      expectActivationFailure(
+        () =>
+          registry.activate(
+            extension('ext.cfg', (ctx) => {
+              ctx.host.configuration.registerConfiguration({
+                key: 'other.id.foo',
+                schema: { type: 'string' },
+                default: 'x',
+              });
+            }),
+          ),
+        /must start with "ext\.cfg\."/,
+      );
     });
 
     it('two extensions share the same configuration store (cross-extension reads work)', async () => {
@@ -1111,6 +1141,52 @@ describe('createRegistry', () => {
         }),
       );
       expect(readByB).toBe('hello');
+    });
+
+    it('returns a disposable from registerConfiguration that removes the schema', () => {
+      const registry = createRegistry();
+      let host: ExtensionHost | undefined;
+      let disposable: Disposable | undefined;
+      registry.activate(
+        extension('ext.cfg2', (ctx) => {
+          host = ctx.host;
+          disposable = ctx.host.configuration.registerConfiguration({
+            key: 'ext.cfg2.foo',
+            schema: { type: 'string' },
+            default: 'hello',
+          });
+        }),
+      );
+      expect(host!.configuration.getConfiguration().get('ext.cfg2.foo', 'fallback')).toBe('hello');
+      disposable!.dispose();
+      expect(host!.configuration.getConfiguration().get('ext.cfg2.foo', 'fallback')).toBe(
+        'fallback',
+      );
+    });
+
+    it('returns a disposable from onDidChangeConfiguration that removes the listener', async () => {
+      const registry = createRegistry();
+      let host: ExtensionHost | undefined;
+      let disposable: Disposable | undefined;
+      const listener = vi.fn();
+      registry.activate(
+        extension('ext.cfg3', (ctx) => {
+          host = ctx.host;
+          ctx.host.configuration.registerConfiguration({
+            key: 'ext.cfg3.foo',
+            schema: { type: 'string' },
+            default: 'hello',
+          });
+          disposable = ctx.host.configuration.onDidChangeConfiguration(listener);
+        }),
+      );
+
+      await host!.configuration.getConfiguration().update('ext.cfg3.foo', 'world');
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      disposable!.dispose();
+      await host!.configuration.getConfiguration().update('ext.cfg3.foo', 'again');
+      expect(listener).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -1173,5 +1249,554 @@ describe('createRegistry', () => {
         'Quick pick already open',
       );
     });
+  });
+});
+
+describe('activate containment', () => {
+  const manifest = (id: string) => ({ id, displayName: id, version: '0.0.0' });
+
+  /**
+   * A healthy extension's host, for reading the registry as an extension sees
+   * it — `getExtension` is only reachable through a host.
+   */
+  const probeHost = (registry: ReturnType<typeof createRegistry>): ExtensionHost => {
+    let host: ExtensionHost | undefined;
+    registry.activate(
+      extension('x.probe', (ctx) => {
+        host = ctx.host;
+      }),
+    );
+    return host!;
+  };
+
+  it('throws ExtensionActivationError carrying id and cause', () => {
+    const registry = createRegistry();
+    const cause = new Error('boom');
+    let thrown: unknown;
+    try {
+      registry.activate({
+        manifest: manifest('x.throws'),
+        activate: () => {
+          throw cause;
+        },
+      });
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(ExtensionActivationError);
+    expect((thrown as ExtensionActivationError).extensionId).toBe('x.throws');
+    expect((thrown as ExtensionActivationError).cause).toBe(cause);
+  });
+
+  it('disposes host-minted disposables the extension never pushed (batched-push case)', () => {
+    const registry = createRegistry();
+    expect(() =>
+      registry.activate({
+        manifest: manifest('x.batched'),
+        activate(context) {
+          context.subscriptions.push(
+            context.host.commands.registerCommand({ id: 'x.a', run: () => undefined }),
+            context.host.commands.registerCommand({ id: 'x.b', run: () => undefined }),
+            (() => {
+              throw new Error('third registration failed');
+            })(),
+          );
+        },
+      }),
+    ).toThrow(ExtensionActivationError);
+    expect(registry.listCommands().map((c) => c.id)).not.toContain('x.a');
+    expect(registry.listCommands().map((c) => c.id)).not.toContain('x.b');
+  });
+
+  it('disposes what the extension did push before throwing', () => {
+    const registry = createRegistry();
+    let disposed = false;
+    expect(() =>
+      registry.activate({
+        manifest: manifest('x.pushed'),
+        activate(context) {
+          context.subscriptions.push({
+            dispose: () => {
+              disposed = true;
+            },
+          });
+          throw new Error('after pushing its own disposable');
+        },
+      }),
+    ).toThrow(ExtensionActivationError);
+    expect(disposed).toBe(true);
+  });
+
+  // The positive control for the two containment tests that assert a torn-down
+  // listener does NOT fire — the one directly below, and the
+  // `configuration.onDidChangeConfiguration` row in the host-method table near
+  // the end of this file. Both drive their change through a DIFFERENT
+  // extension's key, so both would pass vacuously if a host-minted listener
+  // simply never heard about another extension's keys. Nothing else in this
+  // file covers that: the disposable test above subscribes and updates within
+  // one extension. Without this, "did not fire" is not evidence of teardown.
+  it("fires a live extension's listener for a change to another extension's key", async () => {
+    const registry = createRegistry();
+    const listener = vi.fn();
+    let ownerHost: ExtensionHost | undefined;
+    registry.activate(
+      extension('x.cfg.owner', (ctx) => {
+        ownerHost = ctx.host;
+        ctx.host.configuration.registerConfiguration({
+          key: 'x.cfg.owner.foo',
+          schema: { type: 'string' },
+          default: 'hello',
+        });
+      }),
+    );
+    // A second extension, still live, subscribing through the same host method
+    // the two negatives use.
+    registry.activate(
+      extension('x.cfg.listener', (ctx) => {
+        ctx.host.configuration.onDidChangeConfiguration(listener);
+      }),
+    );
+
+    await ownerHost!.configuration.getConfiguration().update('x.cfg.owner.foo', 'world');
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('covers onDidChangeConfiguration, which is not a register* method', async () => {
+    const registry = createRegistry();
+    const listener = vi.fn();
+    // A healthy extension owns the key the change is driven through: the
+    // failing extension's own schema is torn down with the rest of its ledger,
+    // and update() rejects for a key with no schema.
+    let healthyHost: ExtensionHost | undefined;
+    registry.activate(
+      extension('x.config.healthy', (ctx) => {
+        healthyHost = ctx.host;
+        ctx.host.configuration.registerConfiguration({
+          key: 'x.config.healthy.foo',
+          schema: { type: 'string' },
+          default: 'hello',
+        });
+      }),
+    );
+
+    expect(() =>
+      registry.activate({
+        manifest: manifest('x.config'),
+        activate(context) {
+          context.host.configuration.onDidChangeConfiguration(listener);
+          throw new Error('after subscribing');
+        },
+      }),
+    ).toThrow(ExtensionActivationError);
+    await expect(registry.deactivate('x.config')).rejects.toThrow('is not active');
+
+    // The real observable: containment disposed the host-minted listener, so a
+    // later configuration change must not reach it. Mirrors the update() shape
+    // the configuration dispose tests in this file already use.
+    await healthyHost!.configuration.getConfiguration().update('x.config.healthy.foo', 'world');
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('leaves the registry with nothing for a failed extension', async () => {
+    const registry = createRegistry();
+    expect(() =>
+      registry.activate({
+        manifest: manifest('x.clean'),
+        activate(context) {
+          context.host.window.registerView({ id: 'x.v', component: fakeComponent, title: 'V' });
+          throw new Error('nope');
+        },
+      }),
+    ).toThrow(ExtensionActivationError);
+    expect(registry.listViews()).toHaveLength(0);
+    await expect(registry.deactivate('x.clean')).rejects.toThrow('is not active');
+    // Read the registry the way an extension does: nothing was published.
+    expect(probeHost(registry).extensions.getExtension('x.clean')).toBeUndefined();
+  });
+
+  it('treats a thenable return as an activation error and publishes no Promise', () => {
+    const registry = createRegistry();
+    expect(() =>
+      registry.activate({
+        manifest: manifest('x.async'),
+        activate: (context) => {
+          // Contribute before returning the thenable. Without this the
+          // `listCommands()` assertion below described the FIXTURE rather than
+          // containment: an extension that registered nothing leaves an empty
+          // command list however broken the teardown is.
+          context.host.commands.registerCommand({ id: 'x.async.cmd', run: () => undefined });
+          return Promise.resolve({ some: 'exports' });
+        },
+      }),
+    ).toThrow(ExtensionActivationError);
+    expect(registry.listCommands()).toHaveLength(0);
+    // The half of this test's name the map check does not cover: a consumer
+    // must not find a Promise masquerading as the extension's exports.
+    expect(probeHost(registry).extensions.getExtension('x.async')).toBeUndefined();
+  });
+
+  it('revokes the host so a resumed continuation registers nothing', async () => {
+    const registry = createRegistry();
+    let resumedError: unknown;
+    expect(() =>
+      registry.activate({
+        manifest: manifest('x.resume'),
+        activate(context) {
+          return (async () => {
+            await Promise.resolve();
+            try {
+              context.host.commands.registerCommand({ id: 'leaked.command', run: () => undefined });
+            } catch (error) {
+              resumedError = error;
+            }
+          })();
+        },
+      }),
+    ).toThrow(ExtensionActivationError);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(registry.listCommands().map((c) => c.id)).not.toContain('leaked.command');
+    expect(resumedError).toBeInstanceOf(Error);
+  });
+
+  it('disposes LIFO and survives a disposable that throws mid-cleanup', () => {
+    const registry = createRegistry();
+    const order: string[] = [];
+    expect(() =>
+      registry.activate({
+        manifest: manifest('x.lifo'),
+        activate(context) {
+          context.subscriptions.push(
+            { dispose: () => order.push('first') },
+            {
+              dispose: () => {
+                order.push('second');
+                throw new Error('dispose failed');
+              },
+            },
+            { dispose: () => order.push('third') },
+          );
+          throw new Error('after pushing three');
+        },
+      }),
+    ).toThrow(ExtensionActivationError);
+    // LIFO, and the thrower does not stop the one registered before it.
+    expect(order).toEqual(['third', 'second', 'first']);
+  });
+
+  it('is safe when a disposable is both host-minted and pushed', () => {
+    const registry = createRegistry();
+    let disposeCount = 0;
+    expect(() =>
+      registry.activate({
+        manifest: manifest('x.both'),
+        activate(context) {
+          const d = context.host.commands.registerCommand({
+            id: 'x.both.cmd',
+            run: () => undefined,
+          });
+          // Wrap so we can count: the same logical disposable is in both arrays.
+          context.subscriptions.push({
+            dispose: () => {
+              disposeCount++;
+              d.dispose();
+            },
+          });
+          throw new Error('after double-tracking');
+        },
+      }),
+    ).toThrow(ExtensionActivationError);
+    expect(registry.listCommands().map((c) => c.id)).not.toContain('x.both.cmd');
+    // Dispose is required to be idempotent, so a double path is not an error.
+    expect(disposeCount).toBe(1);
+  });
+
+  it("observes the returned thenable's rejection rather than orphaning it", async () => {
+    const registry = createRegistry();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const reason = new Error('rejected after returning');
+
+    try {
+      expect(() =>
+        registry.activate({
+          manifest: manifest('x.rejects'),
+          activate: () => Promise.reject(reason),
+        }),
+      ).toThrow(ExtensionActivationError);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      // The handler attached at containment time is what keeps this rejection
+      // from being unhandled — without it, vitest fails the whole run.
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      expect(consoleErrorSpy.mock.calls[0][0]).toContain('x.rejects');
+      expect(consoleErrorSpy.mock.calls[0][1]).toBe(reason);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('contains an activate whose return value has a throwing `then` getter', () => {
+    const registry = createRegistry();
+    let capturedHost: ExtensionHost | undefined;
+    let thrown: unknown;
+    try {
+      registry.activate({
+        manifest: manifest('x.hostile'),
+        activate(context) {
+          capturedHost = context.host;
+          context.host.commands.registerCommand({ id: 'x.hostile.cmd', run: () => undefined });
+          // Probing the return value is itself extension-controlled code: the
+          // thenable check reads `.then`, and this getter throws when it does.
+          return {
+            get then() {
+              throw new Error('hostile then getter');
+            },
+          };
+        },
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    // Soft assertions: the three symptoms of this hole are independent, and a
+    // regression should report all of them rather than only the first.
+    // 1. Reported as an activation failure, not as a raw error from the host.
+    expect.soft(thrown).toBeInstanceOf(ExtensionActivationError);
+    expect.soft((thrown as ExtensionActivationError).extensionId).toBe('x.hostile');
+    // 2. Nothing it registered survives.
+    expect.soft(registry.listCommands().map((c) => c.id)).not.toContain('x.hostile.cmd');
+    // 3. The host is revoked, so a later registration cannot slip through.
+    expect
+      .soft(() =>
+        capturedHost!.commands.registerCommand({ id: 'x.hostile.late', run: () => undefined }),
+      )
+      .toThrow(/after its activation failed/);
+  });
+
+  it('contains an activate whose extension has a throwing `deactivate` getter', async () => {
+    const registry = createRegistry();
+    let capturedHost: ExtensionHost | undefined;
+    let thrown: unknown;
+    try {
+      registry.activate({
+        manifest: manifest('x.hook'),
+        activate(context) {
+          capturedHost = context.host;
+          context.host.commands.registerCommand({ id: 'x.hook.cmd', run: () => undefined });
+        },
+        // Capturing the deactivate hook reads a property the extension owns, so
+        // it has to sit inside the same window as the activate() call.
+        get deactivate(): () => void {
+          throw new Error('hostile deactivate getter');
+        },
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ExtensionActivationError);
+    expect(registry.listCommands().map((c) => c.id)).not.toContain('x.hook.cmd');
+    await expect(registry.deactivate('x.hook')).rejects.toThrow('is not active');
+    expect(() =>
+      capturedHost!.commands.registerCommand({ id: 'x.hook.late', run: () => undefined }),
+    ).toThrow(/after its activation failed/);
+  });
+
+  it('activates normally when the exports value is a null-prototype object', () => {
+    const registry = createRegistry();
+    const exportsValue = Object.create(null) as { api?: string };
+    exportsValue.api = 'live';
+    registry.activate({
+      manifest: manifest('x.nullproto'),
+      activate: () => exportsValue,
+    });
+    // The widened window must not report a genuine success as a failure, and
+    // this shape is not exotic: `import * as ns` hands back exactly it.
+    expect(probeHost(registry).extensions.getExtension('x.nullproto')?.exports).toBe(exportsValue);
+  });
+
+  it("leaves a disposable minted by another extension's API alone (the ledger's limit)", () => {
+    const registry = createRegistry();
+    let layerDisposed = false;
+    // Stands in for a service extension's own API (MapApi.registerLayer): the
+    // host never minted this disposable, so the ledger cannot reach it.
+    registry.activate({
+      manifest: manifest('x.service'),
+      activate: () => ({
+        registerLayer: (): Disposable => ({
+          dispose: () => {
+            layerDisposed = true;
+          },
+        }),
+      }),
+    });
+    expect(() =>
+      registry.activate({
+        manifest: manifest('x.consumer'),
+        activate(context) {
+          // A host-minted contribution alongside the service's disposable. It
+          // is what makes the assertion below mean anything: on its own,
+          // `layerDisposed === false` is equally consistent with containment
+          // having stopped at the ledger's edge and with containment never
+          // having run at all.
+          context.host.commands.registerCommand({ id: 'x.consumer.cmd', run: () => undefined });
+          const service = context.host.extensions.getExtension<{
+            registerLayer: () => Disposable;
+          }>('x.service');
+          service!.exports.registerLayer();
+          throw new Error('after taking a layer from the service');
+        },
+      }),
+    ).toThrow(ExtensionActivationError);
+    // Containment ran: what the host minted for this extension is gone.
+    expect(registry.listCommands().map((c) => c.id)).not.toContain('x.consumer.cmd');
+    // And it stopped there. Documents the boundary rather than asserting a
+    // wish: containment disposes what the HOST minted, so a change that
+    // silently widened it to the service's own disposable would flip this.
+    expect(layerDisposed).toBe(false);
+  });
+
+  /**
+   * Spec case 4 in full: *every* `Disposable`-returning host method is torn
+   * down on the failure path, not only the three the cases above happen to
+   * exercise. Each row asserts a real observable for its own method — the
+   * ledger is not reachable from a test, so "it was tracked" is not assertable.
+   */
+  interface MethodProbe {
+    readonly registry: ReturnType<typeof createRegistry>;
+    readonly listener: Mock<() => void>;
+  }
+
+  interface HostMethodCase {
+    readonly method: string;
+    readonly register: (host: ExtensionHost, probe: MethodProbe) => void;
+    readonly assertTornDown: (probe: MethodProbe) => void | Promise<void>;
+  }
+
+  const hostMethodCases: HostMethodCase[] = [
+    {
+      method: 'window.registerView',
+      register: (host) => {
+        host.window.registerView({ id: 'x.each.view', component: fakeComponent, title: 'V' });
+      },
+      assertTornDown: ({ registry }) => {
+        expect(registry.listViews()).toHaveLength(0);
+      },
+    },
+    {
+      method: 'window.registerStatusBarItem',
+      register: (host) => {
+        host.window.registerStatusBarItem({
+          id: 'x.each.item',
+          component: fakeComponent,
+          alignment: 'left',
+        });
+      },
+      assertTornDown: ({ registry }) => {
+        expect(registry.listStatusBarItems()).toHaveLength(0);
+      },
+    },
+    {
+      method: 'commands.registerCommand',
+      register: (host) => {
+        host.commands.registerCommand({ id: 'x.each.cmd', run: () => undefined });
+      },
+      assertTornDown: ({ registry }) => {
+        expect(registry.listCommands()).toHaveLength(0);
+      },
+    },
+    {
+      method: 'keybindings.registerKeybinding',
+      register: (host) => {
+        host.keybindings.registerKeybinding({ key: 'Ctrl+Shift+E', command: 'x.each.cmd' });
+      },
+      assertTornDown: ({ registry }) => {
+        expect(registry.listKeybindings()).toHaveLength(0);
+      },
+    },
+    {
+      method: 'configuration.registerConfiguration',
+      register: (host) => {
+        host.configuration.registerConfiguration({
+          key: 'x.each.foo',
+          schema: { type: 'string' },
+          default: 'from-schema',
+        });
+      },
+      assertTornDown: ({ registry }) => {
+        // The schema went with the failure, so the read falls back to the
+        // caller's value instead of the contributed default.
+        expect(
+          probeHost(registry).configuration.getConfiguration().get('x.each.foo', 'fallback'),
+        ).toBe('fallback');
+      },
+    },
+    {
+      method: 'configuration.onDidChangeConfiguration',
+      register: (host, { listener }) => {
+        host.configuration.onDidChangeConfiguration(listener);
+      },
+      assertTornDown: async ({ registry, listener }) => {
+        // Drive a real change through a healthy extension's own key: a listener
+        // still subscribed would fire on it.
+        const healthy = probeHost(registry);
+        healthy.configuration.registerConfiguration({
+          key: 'x.probe.foo',
+          schema: { type: 'string' },
+          default: 'hello',
+        });
+        await healthy.configuration.getConfiguration().update('x.probe.foo', 'world');
+        expect(listener).not.toHaveBeenCalled();
+      },
+    },
+  ];
+
+  it.each(hostMethodCases)(
+    'disposes what $method minted when activate throws',
+    async ({ register, assertTornDown }) => {
+      const probe: MethodProbe = { registry: createRegistry(), listener: vi.fn() };
+      expect(() =>
+        probe.registry.activate({
+          manifest: manifest('x.each'),
+          activate(context) {
+            register(context.host, probe);
+            throw new Error('after registering through the host');
+          },
+        }),
+      ).toThrow(ExtensionActivationError);
+      await assertTornDown(probe);
+    },
+  );
+
+  it('does not revoke on success — later registration still works', () => {
+    const registry = createRegistry();
+    let laterHost: ExtensionHost | undefined;
+    registry.activate({
+      manifest: manifest('x.later'),
+      activate(context) {
+        laterHost = context.host;
+      },
+    });
+    expect(() =>
+      laterHost!.commands.registerCommand({ id: 'x.later.cmd', run: () => undefined }),
+    ).not.toThrow();
+    expect(registry.listCommands().map((c) => c.id)).toContain('x.later.cmd');
+  });
+});
+
+describe('ExtensionActivationError', () => {
+  it('carries the extension id and the original error as cause', () => {
+    const cause = new Error('boom');
+    const error = new ExtensionActivationError('gcscode.example', cause);
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toBeInstanceOf(ExtensionActivationError);
+    expect(error.name).toBe('ExtensionActivationError');
+    expect(error.extensionId).toBe('gcscode.example');
+    expect(error.cause).toBe(cause);
+    expect(error.message).toContain('gcscode.example');
+  });
+
+  it('passes a non-Error cause through unchanged', () => {
+    const cause = 'boom';
+    const error = new ExtensionActivationError('gcscode.example', cause);
+    expect(error.cause).toBe(cause);
   });
 });

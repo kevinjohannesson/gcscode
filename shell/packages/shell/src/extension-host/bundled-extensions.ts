@@ -30,7 +30,8 @@ export const bundledExtensions: readonly BundledExtensionEntry[] = [
   // activate before flight-overlay. No ordering requirement vs. sitl.
   { id: mapExtension.manifest.id, extension: mapExtension },
   // Must come after mapExtension — flight-overlay reads map exports during
-  // its activate(). Throws if map is not active. Same insertion-order
-  // pattern as vehicle-status and map-demo.
+  // its activate(). Degrades (registers no overlay, warns once) if map is not
+  // active, so the order is about the overlay appearing, not about avoiding a
+  // boot failure. Same insertion-order pattern as vehicle-status and map-demo.
   { id: flightOverlayExtension.manifest.id, extension: flightOverlayExtension },
 ];

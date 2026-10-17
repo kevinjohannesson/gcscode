@@ -304,3 +304,313 @@ describe('createExtensionManager', () => {
     ]);
   });
 });
+
+describe('activation failure recording', () => {
+  const throwing = {
+    manifest: { id: 'x.bad', displayName: 'Bad', version: '0.0.0' },
+    activate: () => {
+      throw new Error('bad activate');
+    },
+  };
+  it('register returns normally and the next register still activates', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const goodActivate = vi.fn(() => undefined);
+
+    expect(() => manager.register(throwing)).not.toThrow();
+    expect(() =>
+      manager.register({
+        manifest: { id: 'x.good', displayName: 'Good', version: '0.0.0' },
+        activate: goodActivate,
+      }),
+    ).not.toThrow();
+
+    // "Still activates", not merely "still listed": being listed is what
+    // `register` does before it activates, so only the call count distinguishes
+    // containment from a boot loop that stopped doing any work.
+    expect(goodActivate).toHaveBeenCalledTimes(1);
+    const records = manager.listExtensions();
+    expect(records.map((r) => r.manifest.id)).toEqual(['x.bad', 'x.good']);
+    expect(records[1].failure).toBeUndefined();
+  });
+
+  // A non-`Error` cause is the only detail the operator gets: the wrapper's own
+  // message names the extension, not the problem.
+  it('records a non-Error cause in the failure message', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    manager.register({
+      manifest: { id: 'x.literal', displayName: 'Literal', version: '0.0.0' },
+      activate: () => {
+        throw 'boom'; // the thrown literal IS the case under test
+      },
+    });
+    expect(manager.listExtensions()[0].failure?.message).toContain('boom');
+  });
+
+  // All four of `failureMessage`'s branches are reachable and none had a test.
+  // Each one produces the panel's whole message, and an empty one renders as a
+  // bare "Failed to start:" with nothing after the colon.
+  //
+  // Two branches read a cause the registry wrapped. The other two take a RAW
+  // throw — a shape an earlier revision of this comment wrongly called
+  // unreachable, on the claim that `registry.activate` wraps everything. It
+  // does not: `activate` builds its `identity` from `manifest.id`,
+  // `.displayName` and `.version` BEFORE the containment window opens (the
+  // window spans `activate()` through `settle()`), so a manifest getter that
+  // throws escapes `activate` unwrapped and reaches the manager's catch as
+  // whatever the getter threw. `register`'s duplicate check reads only `.id`,
+  // so registration gets that far. Measured, not reasoned: a `displayName`
+  // getter throwing a `TypeError` arrives as that TypeError, and one throwing a
+  // string arrives as the string.
+  // A manifest whose `displayName` getter throws. `Extension` types the field
+  // as a string, so the getter needs a cast to express at all — which is the
+  // point: nothing stops a real extension's manifest from being built by code
+  // that throws while the host reads it.
+  function throwingDisplayName(id: string, thrown: unknown): Extension {
+    return {
+      manifest: {
+        id,
+        get displayName(): string {
+          throw thrown;
+        },
+        version: '0.0.0',
+      },
+      activate: () => undefined,
+    } as unknown as Extension;
+  }
+
+  it('contains a raw Error thrown by a manifest getter and keeps registering', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      // Returns normally: the throw is contained even though it never passed
+      // through `ExtensionActivationError`.
+      expect(() =>
+        manager.register(throwingDisplayName('x.getter', new TypeError('getter blew up'))),
+      ).not.toThrow();
+      // The raw error's own message is all there is to show.
+      expect(manager.listExtensions()[0].failure?.message).toBe('getter blew up');
+
+      // Goal 1 for this path too: the boot loop continues past it.
+      const { extension, activate } = makeViewExtension('ext.after');
+      manager.register(extension);
+      expect(activate).toHaveBeenCalledTimes(1);
+      expect(registry.listViews().map((v) => v.id)).toContain('ext.after.view');
+      expect(manager.listExtensions()[1].failure).toBeUndefined();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('contains a raw non-Error thrown by a manifest getter', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect(() =>
+        manager.register(throwingDisplayName('x.getter.literal', 'a bare string')),
+      ).not.toThrow();
+      // No wrapper message exists on this path, so the generic fallback is the
+      // only alternative — describing the thrown value beats discarding it.
+      expect(manager.listExtensions()[0].failure?.message).toBe('a bare string');
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('contains a raw undescribable throw from a manifest getter', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      // The raw path's own `describeValue` fallback. `String()` throws on a
+      // value with no primitive conversion, and that throw would escape the
+      // manager's catch and halt boot — the one thing containment exists to
+      // prevent — so it has to degrade to the generic text instead.
+      expect(() =>
+        manager.register(throwingDisplayName('x.getter.nullproto', Object.create(null))),
+      ).not.toThrow();
+      expect(manager.listExtensions()[0].failure?.message).toBe(
+        'Activation failed; the thrown value has no description.',
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("falls back to the wrapper's message when the cause is an Error with no message", () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    manager.register({
+      manifest: { id: 'x.empty', displayName: 'Empty', version: '0.0.0' },
+      activate: () => {
+        throw new Error(''); // an Error carrying no detail at all
+      },
+    });
+    const message = manager.listExtensions()[0].failure?.message;
+    // Names the extension, which is the only detail left to give.
+    expect(message).toContain('x.empty');
+    expect(message).not.toBe('');
+  });
+
+  it("falls back to the wrapper's message when the cause is undefined", () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    manager.register({
+      manifest: { id: 'x.nothing', displayName: 'Nothing', version: '0.0.0' },
+      activate: () => {
+        throw undefined; // `describeValue` would say "undefined"; the wrapper says more
+      },
+    });
+    const message = manager.listExtensions()[0].failure?.message;
+    expect(message).toContain('x.nothing');
+    expect(message).not.toContain('undefined');
+  });
+
+  // `failureMessage` runs INSIDE both containment catches, so a throw while
+  // deriving the message escapes the catch, escapes `register`, and halts the
+  // boot loop — the one outcome Goal 1 exists to prevent. Nothing constrains
+  // what an extension throws, and `String()` throws for both values below.
+  it('contains a cause that cannot be converted to a string', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const laterActivate = vi.fn(() => undefined);
+
+    expect(() =>
+      manager.register({
+        manifest: { id: 'x.nullproto', displayName: 'Null proto', version: '0.0.0' },
+        activate: () => {
+          throw Object.create(null);
+        },
+      }),
+    ).not.toThrow();
+    manager.register({
+      manifest: { id: 'x.after', displayName: 'After', version: '0.0.0' },
+      activate: laterActivate,
+    });
+
+    // Goal 1: the loop kept going. This is what ties the safe conversion to
+    // containment rather than to cosmetics.
+    expect(laterActivate).toHaveBeenCalledTimes(1);
+    expect(manager.listExtensions()[0].failure?.message).toContain('x.nullproto');
+  });
+
+  it('contains a cause whose toString throws', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const laterActivate = vi.fn(() => undefined);
+
+    expect(() =>
+      manager.register({
+        manifest: { id: 'x.hostile', displayName: 'Hostile', version: '0.0.0' },
+        activate: () => {
+          throw {
+            toString: () => {
+              throw new Error('toString is hostile');
+            },
+          };
+        },
+      }),
+    ).not.toThrow();
+    manager.register({
+      manifest: { id: 'x.after', displayName: 'After', version: '0.0.0' },
+      activate: laterActivate,
+    });
+
+    expect(laterActivate).toHaveBeenCalledTimes(1);
+    expect(manager.listExtensions()[0].failure?.message).toContain('x.hostile');
+  });
+
+  it('records failure.message and leaves the record enabled', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    manager.register(throwing);
+    const record = manager.listExtensions()[0];
+    expect(record.enabled).toBe(true);
+    expect(record.failure?.message).toContain('bad activate');
+  });
+
+  it('does not call onEnabledChanged for a boot-time failure', () => {
+    const registry = createRegistry();
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    manager.register(throwing);
+    expect(onEnabledChanged).not.toHaveBeenCalled();
+  });
+
+  it('setEnabled(true) on a throwing extension resolves and records operator intent', async () => {
+    const registry = createRegistry();
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    manager.register(throwing, { enabled: false });
+    await expect(manager.setEnabled('x.bad', true)).resolves.toBeUndefined();
+    const record = manager.listExtensions()[0];
+    expect(record.enabled).toBe(true);
+    expect(record.failure?.message).toContain('bad activate');
+    expect(onEnabledChanged).toHaveBeenCalledWith('x.bad', true);
+  });
+
+  it('setEnabled(false) on a failed record skips deactivate and clears failure', async () => {
+    const registry = createRegistry();
+    const deactivate = vi.spyOn(registry, 'deactivate');
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    manager.register(throwing);
+    await expect(manager.setEnabled('x.bad', false)).resolves.toBeUndefined();
+    expect(deactivate).not.toHaveBeenCalled();
+    const record = manager.listExtensions()[0];
+    expect(record.enabled).toBe(false);
+    expect(record.failure).toBeUndefined();
+    expect(onEnabledChanged).toHaveBeenCalledWith('x.bad', false);
+  });
+
+  // Regression guard for spec case 19. Asserting only `enabled === true` after
+  // a same-value call cannot fail — `enabled` is true whether the early return
+  // fires or activation re-runs — so the call count and the callback are what
+  // actually pin "unchanged", including the early return.
+  it('leaves records without a failure exactly as before', async () => {
+    const registry = createRegistry();
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    const activate = vi.fn(() => undefined);
+    manager.register({
+      manifest: { id: 'x.good', displayName: 'Good', version: '0.0.0' },
+      activate,
+    });
+
+    await manager.setEnabled('x.good', true); // same value: early return
+
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(onEnabledChanged).not.toHaveBeenCalled();
+    const record = manager.listExtensions()[0];
+    expect(record.enabled).toBe(true);
+    expect(record.failure).toBeUndefined();
+  });
+
+  // There is no in-place retry (spec Architecture, "There is no in-place
+  // retry"; Non-goals, "In-place retry from the UI"): re-entering activate()
+  // on a live module is unsafe, so asking for the state a failed record
+  // already reports stays the same-value no-op it is for any other record.
+  // Reload is the retry mechanism.
+  it('same-value setEnabled(true) on a failed record does not re-enter activate', async () => {
+    const registry = createRegistry();
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    const activate = vi.fn(() => {
+      throw new Error('bad activate');
+    });
+    manager.register({
+      manifest: { id: 'x.bad', displayName: 'Bad', version: '0.0.0' },
+      activate,
+    });
+    expect(activate).toHaveBeenCalledTimes(1);
+
+    await expect(manager.setEnabled('x.bad', true)).resolves.toBeUndefined();
+
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(manager.listExtensions()[0].failure?.message).toContain('bad activate');
+    expect(onEnabledChanged).not.toHaveBeenCalled();
+  });
+});
