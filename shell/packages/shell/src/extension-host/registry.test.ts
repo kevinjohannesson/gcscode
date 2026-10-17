@@ -1492,6 +1492,86 @@ describe('activate containment', () => {
     }
   });
 
+  it('contains an activate whose return value has a throwing `then` getter', () => {
+    const registry = createRegistry();
+    let capturedHost: ExtensionHost | undefined;
+    let thrown: unknown;
+    try {
+      registry.activate({
+        manifest: manifest('x.hostile'),
+        activate(context) {
+          capturedHost = context.host;
+          context.host.commands.registerCommand({ id: 'x.hostile.cmd', run: () => undefined });
+          // Probing the return value is itself extension-controlled code: the
+          // thenable check reads `.then`, and this getter throws when it does.
+          return {
+            get then() {
+              throw new Error('hostile then getter');
+            },
+          };
+        },
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    // Soft assertions: the three symptoms of this hole are independent, and a
+    // regression should report all of them rather than only the first.
+    // 1. Reported as an activation failure, not as a raw error from the host.
+    expect.soft(thrown).toBeInstanceOf(ExtensionActivationError);
+    expect.soft((thrown as ExtensionActivationError).extensionId).toBe('x.hostile');
+    // 2. Nothing it registered survives.
+    expect.soft(registry.listCommands().map((c) => c.id)).not.toContain('x.hostile.cmd');
+    // 3. The host is revoked, so a later registration cannot slip through.
+    expect
+      .soft(() =>
+        capturedHost!.commands.registerCommand({ id: 'x.hostile.late', run: () => undefined }),
+      )
+      .toThrow(/after its activation failed/);
+  });
+
+  it('contains an activate whose extension has a throwing `deactivate` getter', async () => {
+    const registry = createRegistry();
+    let capturedHost: ExtensionHost | undefined;
+    let thrown: unknown;
+    try {
+      registry.activate({
+        manifest: manifest('x.hook'),
+        activate(context) {
+          capturedHost = context.host;
+          context.host.commands.registerCommand({ id: 'x.hook.cmd', run: () => undefined });
+        },
+        // Capturing the deactivate hook reads a property the extension owns, so
+        // it has to sit inside the same window as the activate() call.
+        get deactivate(): () => void {
+          throw new Error('hostile deactivate getter');
+        },
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ExtensionActivationError);
+    expect(registry.listCommands().map((c) => c.id)).not.toContain('x.hook.cmd');
+    await expect(registry.deactivate('x.hook')).rejects.toThrow('is not active');
+    expect(() =>
+      capturedHost!.commands.registerCommand({ id: 'x.hook.late', run: () => undefined }),
+    ).toThrow(/after its activation failed/);
+  });
+
+  it('activates normally when the exports value is a null-prototype object', () => {
+    const registry = createRegistry();
+    const exportsValue = Object.create(null) as { api?: string };
+    exportsValue.api = 'live';
+    registry.activate({
+      manifest: manifest('x.nullproto'),
+      activate: () => exportsValue,
+    });
+    // The widened window must not report a genuine success as a failure, and
+    // this shape is not exotic: `import * as ns` hands back exactly it.
+    expect(probeHost(registry).extensions.getExtension('x.nullproto')?.exports).toBe(exportsValue);
+  });
+
   it("leaves a disposable minted by another extension's API alone (the ledger's limit)", () => {
     const registry = createRegistry();
     let layerDisposed = false;

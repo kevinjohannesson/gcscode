@@ -270,35 +270,55 @@ export function createRegistry(): Registry {
         disposeAll(context.subscriptions, identity.id);
       };
 
-      let exportsValue: unknown;
+      // One window over the whole activation, not just the `activate()` call.
+      // Everything in here can run extension-controlled code: the thenable
+      // probe reads a `then` the extension owns (a throwing getter is enough),
+      // and so does the `deactivate` capture. A narrower window let those
+      // escape unwrapped with the extension's contributions still live and the
+      // host unrevoked — the hole a final cross-cutting review found.
+      let registryStateWritten = false;
       try {
-        exportsValue = extension.activate(context);
+        const exportsValue: unknown = extension.activate(context);
+
+        if (isThenable(exportsValue)) {
+          // Observe the rejection: not awaiting it is what orphans it. The body
+          // has already run to its first await, so the revoke in the catch
+          // below lands before it resumes.
+          void exportsValue.then(undefined, (reason: unknown) => {
+            console.error(
+              `Extension "${identity.id}" activate() rejected after returning:`,
+              reason,
+            );
+          });
+          throw new Error('activate() must be synchronous; it returned a thenable.');
+        }
+
+        // Capture the hook before any map write, so the last extension-owned
+        // read happens while the maps are still untouched.
+        const deactivateHook = extension.deactivate?.bind(extension);
+
+        registryStateWritten = true;
+        subscriptionsByExtension.set(identity.id, context.subscriptions);
+        if (deactivateHook !== undefined) {
+          deactivateHooksByExtension.set(identity.id, deactivateHook);
+        }
+        exportsByExtension.set(identity.id, exportsValue);
+        // Stop recording: the ledger must not grow for the extension's lifetime.
+        // The host stays usable — an extension may legitimately register later.
+        settle();
       } catch (cause) {
+        // Remove whatever this attempt wrote. Guarded by the flag rather than
+        // deleted unconditionally: a failure that happened before the write
+        // phase must not evict an earlier live activation's entries under the
+        // same id.
+        if (registryStateWritten) {
+          subscriptionsByExtension.delete(identity.id);
+          deactivateHooksByExtension.delete(identity.id);
+          exportsByExtension.delete(identity.id);
+        }
         cleanUpAfterFailure();
         throw new ExtensionActivationError(identity.id, cause);
       }
-
-      if (isThenable(exportsValue)) {
-        // Observe the rejection: not awaiting it is what orphans it. The body has
-        // already run to its first await, so revoke before it resumes.
-        void exportsValue.then(undefined, (reason: unknown) => {
-          console.error(`Extension "${identity.id}" activate() rejected after returning:`, reason);
-        });
-        cleanUpAfterFailure();
-        throw new ExtensionActivationError(
-          identity.id,
-          new Error('activate() must be synchronous; it returned a thenable.'),
-        );
-      }
-
-      subscriptionsByExtension.set(identity.id, context.subscriptions);
-      if (extension.deactivate) {
-        deactivateHooksByExtension.set(identity.id, extension.deactivate.bind(extension));
-      }
-      exportsByExtension.set(identity.id, exportsValue);
-      // Stop recording: the ledger must not grow for the extension's lifetime.
-      // The host stays usable — an extension may legitimately register later.
-      settle();
     },
     async deactivate(extensionId) {
       const subscriptions = subscriptionsByExtension.get(extensionId);

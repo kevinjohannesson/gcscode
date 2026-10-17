@@ -147,9 +147,13 @@ export function createExtensionManager(
         return;
       }
 
-      // Disabling. A failed record has nothing active to tear down: no path
-      // writes the registry's maps without a completed synchronous activation,
-      // so `failure !== undefined` implies not-active.
+      // Disabling. A failed record has nothing active to tear down, and the
+      // reason is structural rather than incidental: `registry.activate` runs
+      // the whole activation inside one try/catch — the extension's own call,
+      // the thenable probe, the `deactivate` capture and the registry-map
+      // writes — and its catch removes any map state the attempt had written
+      // before failing. A failed activation therefore cannot leave registry
+      // state behind, so `failure !== undefined` implies not-active.
       if (state.failure === undefined) {
         await registry.deactivate(id);
       }
