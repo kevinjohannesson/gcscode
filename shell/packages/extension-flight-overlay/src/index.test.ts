@@ -83,22 +83,44 @@ describe('flightOverlayExtension', () => {
     flightOverlayExtension.deactivate?.();
   });
 
-  it('activate throws when gcscode.map is not active', () => {
+  it('degrades when gcscode.map is not active: activates, registers nothing, logs once', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // SITL resolves, map does not. Resolving SITL is what makes the host
+    // capture observable below: had `setHost` run, `sitlExports` would reach
+    // this sentinel through the captured host.
+    const sitlSentinel = {} as SitlExports;
     const host = makeFakeHost({
-      getExtension: vi.fn(() => undefined),
+      getExtension: vi.fn((id: string) =>
+        id === 'gcscode.sitl' ? { id, exports: sitlSentinel as unknown } : undefined,
+      ) as ExtensionHost['extensions']['getExtension'],
     });
+    const subscriptions: Disposable[] = [];
 
     expect(() =>
       flightOverlayExtension.activate({
         host,
-        subscriptions: [],
+        subscriptions,
         extension: {
           id: flightOverlayExtension.manifest.id,
           displayName: flightOverlayExtension.manifest.displayName,
           version: flightOverlayExtension.manifest.version,
         },
       }),
-    ).toThrow(/gcscode\.map/);
+    ).not.toThrow();
+
+    // "registers nothing" is a claim about the surfaces still reachable. The
+    // map's `registerLayer` / `registerControl` are unreachable once the
+    // lookup returns undefined, so asserting on them would prove nothing; the
+    // host's command registry stays reachable and is what a half-done degrade
+    // would still write to.
+    expect(host.commands.registerCommand).not.toHaveBeenCalled();
+    expect(subscriptions).toHaveLength(0);
+    // The module singleton stays clean: the early return precedes `setHost`,
+    // so a layer mounted later cannot read through a host captured here.
+    expect(flightOverlayState.sitlExports).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    warn.mockRestore();
   });
 
   it('flightOverlayState exposes mapExports and sitlExports through the captured host', () => {

@@ -17,15 +17,20 @@ export const flightOverlayExtension: Extension = {
       'Drone icon, heading line, home location, and max-distance circle rendered on the map.',
   },
   activate(context) {
-    // Validate before capturing host — if activate throws, we want no leftover
-    // state in the singleton. Layers' $effect reads route through state, so
-    // host capture must happen before any layer mounts (which can't happen
-    // before registerLayer is called below).
+    // Resolve before capturing the host — returning from here leaves the
+    // module singleton untouched, so a degraded activation strands no host in
+    // it. Layers' $effect reads route through that singleton, so the capture
+    // must still precede any layer mount, and no layer can mount before the
+    // registerLayer calls below.
     const map = context.host.extensions.getExtension<MapApi>('gcscode.map')?.exports;
     if (!map) {
-      throw new Error(
-        'gcscode.flight-overlay requires gcscode.map to be active before it activates',
+      // Degrade rather than throw: the absence is observable (the map renders
+      // without the overlay), so failing activation would cost more than it
+      // tells the operator. Per ADR-0012's discriminator.
+      console.warn(
+        'gcscode.flight-overlay: gcscode.map is not active; skipping overlay registration.',
       );
+      return;
     }
 
     flightOverlayState.setHost(context.host);
