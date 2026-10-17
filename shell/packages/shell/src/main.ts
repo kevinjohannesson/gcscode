@@ -4,6 +4,7 @@ import 'dockview-core/dist/styles/dockview.css';
 import './app.css';
 import App from './app.svelte';
 import { attachKeybindingDispatcher } from './keybinding-dispatcher';
+import { bootstrap } from './extension-host/bootstrap';
 import { createExtensionManager } from './extension-host/extension-manager';
 import { bundledExtensions } from './extension-host/bundled-extensions';
 import { createExtensionPersistence } from './extension-host/extension-persistence';
@@ -19,13 +20,17 @@ const manager = createExtensionManager(registry, {
 // Workbench is the shell's built-in extension. It registers the command
 // palette + Ctrl+Shift+P. Always enabled; not tracked in persistence
 // (the palette must always be available).
-manager.register(createWorkbenchExtension(registry), { enabled: true });
-
-for (const { id, extension, initialEnabled = true } of bundledExtensions) {
-  manager.register(extension, {
-    enabled: persistence.isInitiallyEnabled(id, initialEnabled),
-  });
-}
+//
+// Registration lives in `bootstrap` rather than inline here so a test can
+// reach it: a failing activation must not stop the extensions after it, and
+// at module scope that guarantee was untestable.
+bootstrap({
+  registry,
+  manager,
+  persistence,
+  extensions: bundledExtensions,
+  builtIns: [createWorkbenchExtension(registry)],
+});
 
 attachKeybindingDispatcher(registry, document);
 
