@@ -304,3 +304,124 @@ describe('createExtensionManager', () => {
     ]);
   });
 });
+
+describe('activation failure recording', () => {
+  const throwing = {
+    manifest: { id: 'x.bad', displayName: 'Bad', version: '0.0.0' },
+    activate: () => {
+      throw new Error('bad activate');
+    },
+  };
+  it('register returns normally and the next register still activates', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const goodActivate = vi.fn(() => undefined);
+
+    expect(() => manager.register(throwing)).not.toThrow();
+    expect(() =>
+      manager.register({
+        manifest: { id: 'x.good', displayName: 'Good', version: '0.0.0' },
+        activate: goodActivate,
+      }),
+    ).not.toThrow();
+
+    // "Still activates", not merely "still listed": being listed is what
+    // `register` does before it activates, so only the call count distinguishes
+    // containment from a boot loop that stopped doing any work.
+    expect(goodActivate).toHaveBeenCalledTimes(1);
+    const records = manager.listExtensions();
+    expect(records.map((r) => r.manifest.id)).toEqual(['x.bad', 'x.good']);
+    expect(records[1].failure).toBeUndefined();
+  });
+
+  it('records failure.message and leaves the record enabled', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    manager.register(throwing);
+    const record = manager.listExtensions()[0];
+    expect(record.enabled).toBe(true);
+    expect(record.failure?.message).toContain('bad activate');
+  });
+
+  it('does not call onEnabledChanged for a boot-time failure', () => {
+    const registry = createRegistry();
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    manager.register(throwing);
+    expect(onEnabledChanged).not.toHaveBeenCalled();
+  });
+
+  it('setEnabled(true) on a throwing extension resolves and records operator intent', async () => {
+    const registry = createRegistry();
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    manager.register(throwing, { enabled: false });
+    await expect(manager.setEnabled('x.bad', true)).resolves.toBeUndefined();
+    const record = manager.listExtensions()[0];
+    expect(record.enabled).toBe(true);
+    expect(record.failure?.message).toContain('bad activate');
+    expect(onEnabledChanged).toHaveBeenCalledWith('x.bad', true);
+  });
+
+  it('setEnabled(false) on a failed record skips deactivate and clears failure', async () => {
+    const registry = createRegistry();
+    const deactivate = vi.spyOn(registry, 'deactivate');
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    manager.register(throwing);
+    await expect(manager.setEnabled('x.bad', false)).resolves.toBeUndefined();
+    expect(deactivate).not.toHaveBeenCalled();
+    const record = manager.listExtensions()[0];
+    expect(record.enabled).toBe(false);
+    expect(record.failure).toBeUndefined();
+    expect(onEnabledChanged).toHaveBeenCalledWith('x.bad', false);
+  });
+
+  // Regression guard for spec case 19. Asserting only `enabled === true` after
+  // a same-value call cannot fail — `enabled` is true whether the early return
+  // fires or activation re-runs — so the call count and the callback are what
+  // actually pin "unchanged", including the early return.
+  it('leaves records without a failure exactly as before', async () => {
+    const registry = createRegistry();
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    const activate = vi.fn(() => undefined);
+    manager.register({
+      manifest: { id: 'x.good', displayName: 'Good', version: '0.0.0' },
+      activate,
+    });
+
+    await manager.setEnabled('x.good', true); // same value: early return
+
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(onEnabledChanged).not.toHaveBeenCalled();
+    const record = manager.listExtensions()[0];
+    expect(record.enabled).toBe(true);
+    expect(record.failure).toBeUndefined();
+  });
+
+  // There is no in-place retry (spec Architecture, "There is no in-place
+  // retry"; Non-goals, "In-place retry from the UI"): re-entering activate()
+  // on a live module is unsafe, so asking for the state a failed record
+  // already reports stays the same-value no-op it is for any other record.
+  // Reload is the retry mechanism.
+  it('same-value setEnabled(true) on a failed record does not re-enter activate', async () => {
+    const registry = createRegistry();
+    const onEnabledChanged = vi.fn();
+    const manager = createExtensionManager(registry, { onEnabledChanged });
+    const activate = vi.fn(() => {
+      throw new Error('bad activate');
+    });
+    manager.register({
+      manifest: { id: 'x.bad', displayName: 'Bad', version: '0.0.0' },
+      activate,
+    });
+    expect(activate).toHaveBeenCalledTimes(1);
+
+    await expect(manager.setEnabled('x.bad', true)).resolves.toBeUndefined();
+
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(manager.listExtensions()[0].failure?.message).toContain('bad activate');
+    expect(onEnabledChanged).not.toHaveBeenCalled();
+  });
+});
