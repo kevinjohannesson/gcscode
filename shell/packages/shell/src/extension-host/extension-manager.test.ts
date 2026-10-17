@@ -348,15 +348,98 @@ describe('activation failure recording', () => {
     expect(manager.listExtensions()[0].failure?.message).toContain('boom');
   });
 
-  // The two fallbacks inside the `ExtensionActivationError` branch, neither of
-  // which had a test: both produce the panel's whole message, and an empty one
-  // renders as a bare "Failed to start:" with nothing after the colon.
+  // All four of `failureMessage`'s branches are reachable and none had a test.
+  // Each one produces the panel's whole message, and an empty one renders as a
+  // bare "Failed to start:" with nothing after the colon.
   //
-  // `registry.activate` wraps every throw, so these are the only two reachable
-  // fallbacks in `failureMessage`. The remaining two (a bare `Error`, and a
-  // non-`Error` that is not an `ExtensionActivationError`) are defensive: the
-  // manager's catch only ever sees what `registry.activate` throws, and that is
-  // always an `ExtensionActivationError`.
+  // Two branches read a cause the registry wrapped. The other two take a RAW
+  // throw — a shape an earlier revision of this comment wrongly called
+  // unreachable, on the claim that `registry.activate` wraps everything. It
+  // does not: `activate` builds its `identity` from `manifest.id`,
+  // `.displayName` and `.version` BEFORE the containment window opens (the
+  // window spans `activate()` through `settle()`), so a manifest getter that
+  // throws escapes `activate` unwrapped and reaches the manager's catch as
+  // whatever the getter threw. `register`'s duplicate check reads only `.id`,
+  // so registration gets that far. Measured, not reasoned: a `displayName`
+  // getter throwing a `TypeError` arrives as that TypeError, and one throwing a
+  // string arrives as the string.
+  // A manifest whose `displayName` getter throws. `Extension` types the field
+  // as a string, so the getter needs a cast to express at all — which is the
+  // point: nothing stops a real extension's manifest from being built by code
+  // that throws while the host reads it.
+  function throwingDisplayName(id: string, thrown: unknown): Extension {
+    return {
+      manifest: {
+        id,
+        get displayName(): string {
+          throw thrown;
+        },
+        version: '0.0.0',
+      },
+      activate: () => undefined,
+    } as unknown as Extension;
+  }
+
+  it('contains a raw Error thrown by a manifest getter and keeps registering', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      // Returns normally: the throw is contained even though it never passed
+      // through `ExtensionActivationError`.
+      expect(() =>
+        manager.register(throwingDisplayName('x.getter', new TypeError('getter blew up'))),
+      ).not.toThrow();
+      // The raw error's own message is all there is to show.
+      expect(manager.listExtensions()[0].failure?.message).toBe('getter blew up');
+
+      // Goal 1 for this path too: the boot loop continues past it.
+      const { extension, activate } = makeViewExtension('ext.after');
+      manager.register(extension);
+      expect(activate).toHaveBeenCalledTimes(1);
+      expect(registry.listViews().map((v) => v.id)).toContain('ext.after.view');
+      expect(manager.listExtensions()[1].failure).toBeUndefined();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('contains a raw non-Error thrown by a manifest getter', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect(() =>
+        manager.register(throwingDisplayName('x.getter.literal', 'a bare string')),
+      ).not.toThrow();
+      // No wrapper message exists on this path, so the generic fallback is the
+      // only alternative — describing the thrown value beats discarding it.
+      expect(manager.listExtensions()[0].failure?.message).toBe('a bare string');
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('contains a raw undescribable throw from a manifest getter', () => {
+    const registry = createRegistry();
+    const manager = createExtensionManager(registry);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      // The raw path's own `describeValue` fallback. `String()` throws on a
+      // value with no primitive conversion, and that throw would escape the
+      // manager's catch and halt boot — the one thing containment exists to
+      // prevent — so it has to degrade to the generic text instead.
+      expect(() =>
+        manager.register(throwingDisplayName('x.getter.nullproto', Object.create(null))),
+      ).not.toThrow();
+      expect(manager.listExtensions()[0].failure?.message).toBe(
+        'Activation failed; the thrown value has no description.',
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   it("falls back to the wrapper's message when the cause is an Error with no message", () => {
     const registry = createRegistry();
     const manager = createExtensionManager(registry);
