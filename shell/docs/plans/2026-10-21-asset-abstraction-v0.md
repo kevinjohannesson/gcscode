@@ -656,7 +656,35 @@ git commit -m "feat(assets): bundle the assets service and correct ordering comm
 - Create: `packages/extension-sitl/src/asset-adapter.ts`
 - Test: `packages/extension-sitl/src/asset-adapter.test.ts`
 
-- [ ] **Step 1: confirm both field names — do not guess**
+- [ ] **Step 1: the field names are now confirmed — read this instead of re-deriving them**
+
+**Measured against a live stream on 2026-10-21** (ArduPilot SITL → MAVProxy → `mavlink2rest --connect udpin:127.0.0.1:14551 --server 127.0.0.1:8088`, captured over `ws://localhost:8088/v1/ws/mavlink?filter=^HEARTBEAT$`). The serving process was verified to be the `mavlink2rest` binary itself, not a script, so these shapes are its serialisation:
+
+```json
+{
+  "header": { "system_id": 1, "component_id": 1, "sequence": 158 },
+  "message": {
+    "type": "HEARTBEAT",
+    "mavtype": { "type": "MAV_TYPE_QUADROTOR" },
+    "autopilot": { "type": "MAV_AUTOPILOT_ARDUPILOTMEGA" },
+    "base_mode": "MAV_MODE_FLAG_MANUAL_INPUT_ENABLED | MAV_MODE_FLAG_STABILIZE_ENABLED | MAV_MODE_FLAG_CUSTOM_MODE_ENABLED",
+    "custom_mode": 0,
+    "system_status": { "type": "MAV_STATE_STANDBY" },
+    "mavlink_version": 3
+  }
+}
+```
+
+Three facts that matter, and one correction to the spec:
+
+- The sender id is **`header.system_id`**, as the spec expected.
+- The vehicle-type field is **`message.mavtype`**.
+- **Its value is a nested object `{ type: "MAV_TYPE_QUADROTOR" }`, not a bare enum-name string.** The spec generalised from `base_mode` — which _is_ a pipe-separated string because it is a bitfield — to all enums. Plain enums are wrapped. A parser accepting only a string or number returns `undefined` for every real heartbeat, which is exactly the silent "every vehicle has no airframe" failure the spec warns about. `fix(spec)` corrects the spec's claim; the code below is already right.
+- Only one sender appeared over ten seconds (`sys=1 comp=1`, ~1.16 Hz). MAVProxy's own GCS heartbeat does not reach mavlink2rest on this setup, so the registry will hold exactly one asset and the non-asset wart the spec names does not fire here.
+
+If you re-verify and see something different, trust what you see and say so.
+
+- [ ] **Step 1b: if the stream is gone**
 
 Nothing in `packages/` has ever read a MAVLink envelope header, and no fixture contains one. You need two facts:
 
@@ -669,7 +697,7 @@ Confirm both by **either** observing a live stream (`ws://localhost:8088/v1/ws/m
 
 - [ ] **Step 2: write the failing mapping tests**
 
-Use the field names you confirmed. The enum arrives as a name string, and the existing code accepts numbers too (`isSafetyArmed` documents this for `base_mode`), so the parser accepts both.
+The enum arrives **wrapped** as `{ type: 'MAV_TYPE_*' }`; the parser also accepts the bare string and the number, per step 1.
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -695,6 +723,10 @@ describe('airframeFromMavType', () => {
     ['MAV_TYPE_SOMETHING_NEW', { kind: 'unknown' }],
   ])('maps %s', (input, expected) => {
     expect(airframeFromMavType(input)).toEqual(expected);
+  });
+
+  it('accepts the wrapped form mavlink2rest actually sends', () => {
+    expect(airframeFromMavType({ type: 'MAV_TYPE_QUADROTOR' })).toEqual({ kind: 'multirotor' });
   });
 
   it('accepts the numeric form and agrees with the string form', () => {
@@ -763,8 +795,21 @@ const BY_NUMBER: Record<number, string> = {
  * the vocabulary is built on.
  */
 export function airframeFromMavType(value: unknown): Airframe | undefined {
+  // mavlink2rest wraps plain enums as `{ type: "MAV_TYPE_*" }` — measured, see
+  // task 4 step 1. The bare-string and numeric forms are accepted too: the
+  // former because bitfield enums arrive that way and tests are clearer with
+  // it, the latter because the existing telemetry parser already tolerates
+  // numbers for `base_mode`.
   const name =
-    typeof value === 'string' ? value : typeof value === 'number' ? BY_NUMBER[value] : undefined;
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { type?: unknown }).type === 'string'
+      ? (value as { type: string }).type
+      : typeof value === 'string'
+        ? value
+        : typeof value === 'number'
+          ? BY_NUMBER[value]
+          : undefined;
   if (name === undefined) return undefined;
 
   if (MULTIROTOR.test(name)) return { kind: 'multirotor' };
@@ -825,7 +870,7 @@ import { createAssetRegistry } from '@gcscode/extension-assets/src/asset-registr
 
 const heartbeat = (systemId: number, mavType: string, componentId = 1) => ({
   header: { system_id: systemId, component_id: componentId },
-  message: { type: 'HEARTBEAT', <MAV_TYPE_FIELD>: mavType },
+  message: { type: 'HEARTBEAT', mavtype: { type: mavType } },
 });
 
 describe('asset adapter', () => {
@@ -970,7 +1015,7 @@ export function createAssetAdapter(resolve: () => AssetsApi | undefined) {
 
       const description: AssetDescription = { localId };
       const airframe = airframeFromMavType(
-        (json as { message?: Record<string, unknown> }).message?.['<MAV_TYPE_FIELD>'],
+        (json as { message?: Record<string, unknown> }).message?.['mavtype'],
       );
       if (airframe !== undefined) description.airframe = airframe;
 
