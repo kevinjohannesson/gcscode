@@ -23,7 +23,7 @@ The scope was cut after the question was raised of whether source handles, `{ ki
 
 An earlier draft answered that the API cannot shrink because reopening [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) would need a successor ADR. Two reviewers independently called that reasoning weak, and they are right: **staging a decided API is not reopening it**, so the procedural answer addresses a question nobody asked. Worse, it ducks the empirical question [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) itself posed — its Alternatives section pre-authorises the flat-registry fallback _if source handles prove to be ceremony_, and v0 is precisely the single-link deployment where that could be observed.
 
-The honest answer is therefore narrower. v0 ships the full handle-based shape **because this iteration is the evidence-gathering run for that pre-authorised fallback**, and validation case 28 exists to gather it: the implementer records what the handle actually bought in a single-source deployment. If the answer is "nothing", the fallback is already authorised and the next iteration can take it without a successor ADR. What shrinks here is behaviour, not shape: no asset liveness, no multi-source merge, no `component_id`, no live state.
+The honest answer is therefore narrower. v0 ships the full handle-based shape **because this iteration is the evidence-gathering run for that pre-authorised fallback**, and validation case 30 exists to gather it: the implementer records what the handle actually bought in a single-source deployment. If the answer is "nothing", the fallback is already authorised and the next iteration can take it without a successor ADR. What shrinks here is behaviour, not shape: no asset liveness, no multi-source merge, no `component_id`, no live state.
 
 `{ kind: 'none' }` and `{ kind: 'unknown' }` are not API surface to cut — they are adapter outputs, produced by the mapping table below, so they cost nothing and are exercised for free.
 
@@ -32,7 +32,7 @@ The honest answer is therefore narrower. v0 ships the full handle-based shape **
 1. **`@gcscode/extension-assets`** — a service extension owning the asset registry, exposing the API [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) decided plus the one member this spec adds (`isLive`, below). The registry is constructed inside `activate()` and returned as the extension's exports; it is not a module singleton.
 2. **`extension-sitl` becomes the first adapter.** On `HEARTBEAT` it registers one asset per MAVLink `system_id`, with `airframe` derived from that heartbeat's `MAV_TYPE`. It claims its source lazily, on first use, not during `activate()`.
 3. **`@gcscode/extension-assets-demo`** — a throwaway consumer registering a **status-bar item** whose component renders `sourceLabel · airframe`, matching the shape [`docs/roadmap.md`](../roadmap.md) already commits to. Its only job is to prove the contract carries a domain fact to a consumer that knows nothing about MAVLink.
-4. **Stop `packages/extension-map/src/index.ts` exporting `mapApi`**, the half of [ADR-0012](../decisions/ADR-0012-service-extensions-vs-host-namespaces.md)'s enforcement follow-up that is genuinely two edits and genuinely about service-extension hygiene.
+4. **Stop `packages/extension-map/src/index.ts` exporting `mapApi`**, the half of [ADR-0012](../decisions/ADR-0012-service-extensions-vs-host-namespaces.md)'s enforcement follow-up that is genuinely about service-extension hygiene. Stated precisely, because an earlier draft understated it: line 16 is `export { MAPLIBRE_CONTEXT_KEY, mapApi };`, so the edit **modifies a shared export line** rather than deleting one, and `MAPLIBRE_CONTEXT_KEY` stays exported — defensible under [ADR-0012](../decisions/ADR-0012-service-extensions-vs-host-namespaces.md), since it is not the live registry. `index.test.ts` takes `mapApi` from `./map-api.svelte` instead; `map-view.svelte` already does. **What v0 does not fix, and does not pretend to:** four files under `packages/extension-flight-overlay/src/layers/` re-declare that context key as a local string literal, so the value crosses the package boundary by duplication rather than by import — a hole of exactly the shape this enforcement is meant to close. Routed to the ESLint micro-iteration, where a rule can see it.
 5. **Add the assets-before-adapter note to `bundled-extensions.ts` and correct the two comments that overstate constraints**, which [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) assigns to this iteration.
 6. **Propagate the eight deferrals and the lint-rule item [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) assigns to this spec**, listed in the propagation section.
 
@@ -40,16 +40,18 @@ The honest answer is therefore narrower. v0 ships the full handle-based shape **
 
 ## Non-goals
 
-Each carries a trigger. The cross-cutting ones propagate to [`docs/out-of-scope.md`](../out-of-scope.md) per the propagation section.
+Each carries a trigger, and each is tagged **[propagate]** when it is a cross-cutting deferral landing in [`docs/out-of-scope.md`](../out-of-scope.md) or **[local]** when it is a scope cut staying in this spec — so a reader need not cross-reference the propagation section to learn which is which.
 
-- **Asset liveness — heartbeat timeouts, removal of a vehicle that stopped transmitting.** A registry entry means "present now, as asserted by its source" ([ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md), Membership). In v0 an entry disappears only when the adapter disposes it, its source is disposed, or the registry is torn down. A vehicle that goes quiet stays listed. _Trigger:_ the first operator-visible stale entry, which one SITL instance on a local link cannot produce.
-- **Multi-source merge and conflict arbitration.** One source exists. Per-source namespacing is implemented because the API requires it, and case 5 asserts it, but nothing in production exercises two sources. _Trigger:_ the second adapter.
-- **`component_id` as a distinct asset.** [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) decided one asset per MAVLink system. _Trigger:_ the first capability granted or commanded per component rather than per vehicle — a gimbal an operator takes control of separately being the known case.
-- **Live state** — position, mode, battery. A separate port, and the next iteration.
-- **A change event on the registry.** Consumers observe through reactive reads (see Architecture); there is no `onDidChangeAssets`. This is one of [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md)'s named deferrals.
-- **Per-property provenance**, **durable identity across reconnect**, **hierarchy**, **indexed queries**, and **widening the vocabulary beyond first-party need** — all [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) deferrals, carried with their triggers in the propagation section rather than restated here.
-- **Any STANAG 4586 adapter.** Two-source expressibility is satisfied by analysis. [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) records the asymmetry: STANAG's vehicle type names a product model, so a STANAG adapter needs a mapping table where MAVLink reads `MAV_TYPE` directly. Those claims stand "as currently understood" until the STANAG architecture note lands.
-- **Operator-facing surfacing of a degraded adapter.** The adapter degrades to the console, following `extension-flight-overlay` after the containment iteration. The absent notification primitive is an [`out-of-scope.md`](../out-of-scope.md) row whose trigger has already fired.
+- **[propagate] Asset liveness — heartbeat timeouts, removal of a vehicle that stopped transmitting.** A registry entry means "present now, as asserted by its source" ([ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md), Membership). In v0 an entry disappears only when the adapter disposes it, its source is disposed, or the registry is torn down. A vehicle that goes quiet stays listed. _Trigger:_ the first operator-visible stale entry, which one SITL instance on a local link cannot produce.
+- **[local] Multi-source merge and conflict arbitration.** Per-source namespacing — each source's `localId`s being unique only within that source, with the registry minting the globally unique `key`, as the API section below shows — means two links cannot collide. One source exists in v0. Per-source namespacing is implemented because the API requires it, and case 5 asserts it, but nothing in production exercises two sources. _Trigger:_ the second adapter.
+- **[local] `component_id` as a distinct asset.** [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) decided one asset per MAVLink system. _Trigger:_ the first capability granted or commanded per component rather than per vehicle — a gimbal an operator takes control of separately being the known case.
+- **[propagate] Live state** — position, mode, battery. A separate port, and the next iteration.
+- **[propagate] Distinguishing assets from non-assets.** The adapter registers every system it sees, so the operator's own tooling — a GCS, a bridge, an antenna tracker — appears in the registry, and the mapping table hands it a tidy `{ kind: 'none' }` that makes it look deliberate. [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md)'s Membership paragraph calls this wart live rather than hypothetical, and **v0 is the first iteration that puts it on screen**, because `assets-demo` renders whatever is registered. v0 accepts it rather than inventing a filter, since any filter would encode a judgment about what counts as an asset that [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) deliberately left open. _Trigger:_ the first capability that distinguishes non-flying assets from each other, which [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md)'s Follow-ups already name as what the first non-flying asset should land with.
+- **[local] Cross-surface consistency between the registry and the telemetry panel.** `applyMessage` folds every sender's telemetry into one store, a pre-existing single-vehicle assumption. v0 does not change it — but v0 is what makes it _observable_: before this iteration there was one implicit vehicle and no surface could disagree with another, whereas now the registry can list two assets while the telemetry panel silently shows a blend of both, with nothing flagging the inconsistency. Naming it is this spec's only contribution to it; fixing it belongs to the live-state iteration, which owns per-asset state.
+- **[propagate] A change event on the registry.** Consumers observe through reactive reads (see Architecture); there is no `onDidChangeAssets`. This is one of [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md)'s named deferrals.
+- **[propagate] Per-property provenance**, **durable identity across reconnect**, **hierarchy**, **indexed queries**, and **widening the vocabulary beyond first-party need** — all [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) deferrals, carried with their triggers in the propagation section rather than restated here.
+- **[local] Any STANAG 4586 adapter.** Two-source expressibility is satisfied by analysis. [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) records the asymmetry: STANAG's vehicle type names a product model, so a STANAG adapter needs a mapping table where MAVLink reads `MAV_TYPE` directly. Those claims stand "as currently understood" until the STANAG architecture note lands.
+- **[propagate] Operator-facing surfacing of a degraded adapter.** The adapter degrades to the console, following `extension-flight-overlay` after the containment iteration. The absent notification primitive is an [`out-of-scope.md`](../out-of-scope.md) row whose trigger has already fired — recorded as fired by the containment iteration's propagation, so this spec inherits that state rather than owing a further edit. The propagation section says so explicitly, because every other non-goal here pairs a trigger with an action and this one would otherwise read as an omission.
 
 ## Architecture
 
@@ -110,13 +112,17 @@ The behaviours [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md
 
 This is the question [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) delegated. Its framing: `Disposable` is `{ dispose(): void }`, so an inert handle is indistinguishable from a live one by inspection, and detecting invalidity needs a signal the ADR does not define — naming re-resolution per message as the obvious candidate.
 
-**Decision: `AssetSource` carries `readonly isLive`, and an adapter checks it before writing.** Per message: if `source` is undefined or `!source.isLive`, re-resolve the service and re-claim; then register. Defining the signal as an API member is exercising the authority [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) delegated, not overriding its API decision — the ADR left the signal undesigned precisely so this spec could design it.
+**Decision: `AssetSource` carries `readonly isLive`, and an adapter checks it before writing.** Per message: if `source` is undefined or `!source.isLive`, re-resolve the service and re-claim; then register this system's asset **only if its derived description differs from what the adapter last registered for that system**.
+
+That last clause is not an optimisation, it protects a decided consequence. [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md)'s "filtering replaces querying" rests on descriptions changing rarely, so a consumer's `$derived` filter recomputes rarely. Re-registering on every heartbeat would write at 1 Hz per system — minting a fresh `Disposable` and inerting the prior one each second — and every consumer's derived state would churn continuously, in an application whose whole purpose is watching live telemetry. So the adapter keeps, per system, the last description it registered alongside that system's `Disposable`, and compares before writing. On a genuine change it registers again, replacing in place, and **replaces its stored `Disposable` with the fresh one** — the superseded handle is inert and must not be kept or disposed later. Defining the signal as an API member is exercising the authority [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) delegated, not overriding its API decision — the ADR left the signal undesigned precisely so this spec could design it.
 
 An earlier draft instead compared the resolved exports' object identity across messages. It was rejected for three reasons, each of which `isLive` removes:
 
 - **It does not cover disposal by the host.** The containment iteration's `activate` failure path disposes `context.subscriptions`, which is where the adapter's source handle lives. That disposes the source while the registry's exports object is **unchanged**, so an identity comparison sees nothing wrong and the adapter writes into a dead source forever, receiving a `Disposable` back each time. The claim in that draft that "the only disposer is the adapter itself or the registry's teardown" was simply false; containment is a third disposer.
 - **It is one misreading away from never working.** `host.extensions.getExtension(id)` returns a **freshly constructed `{ id, exports }` record on every call** — only `.exports` is stable. An implementer comparing the returned record rather than `.exports` would re-claim on every single heartbeat, and no validation case in that draft would have caught it.
 - **It put lifecycle correctness on every writer's hot path** to avoid adding one property to one service. `isLive` moves it to the service that knows the answer, and makes inert state _inspectable_ — the exact property [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) observed `Disposable` lacks.
+
+**Recovery latency equals the adapter's message period, and that is what a third adapter inherits most directly.** Nothing re-claims until the next message the adapter acts on, so a registry cycle during a link outage leaves the registry empty while the adapter believes otherwise, for an unbounded window. At SITL's 1 Hz that is invisible. An adapter whose source is event-driven rather than periodic — a radar reporting on detection, a STANAG link with a slower descriptive cadence — inherits "my assets reappear whenever something next happens", which can be never. Naming the constraint is v0's answer; a heartbeat-independent re-resolve (an interval, or a re-resolve on the consumer's read path) is the fix once an adapter whose cadence makes it bite actually arrives. This belongs in the recipe that goes to `packages/extension-api/README.md`, not only here.
 
 **What this deliberately does not do** is require the service to _announce_ its teardown to writers. A push signal would invert the dependency direction for a pull-shaped adapter inside a single realm, and nothing yet needs it. The absent change event is already a carried deferral.
 
@@ -137,7 +143,7 @@ Two fields the adapter needs have **never been read anywhere in `packages/`**, a
 - **`header.system_id`** — the asset's `localId`. `applyMessage` reads `obj['message']` and nothing else; no code reads a MAVLink envelope header, and no test fixture includes one.
 - **`HEARTBEAT`'s `MAV_TYPE`** — the airframe. `msg['type']` is already taken as mavlink2rest's message-name discriminator (`'HEARTBEAT'`), so the vehicle type arrives under a different key.
 
-**Both are unverified, and confirming both against a live stream is the first implementation step.** The repo does establish the shape to expect: mavlink2rest serialises enums as name strings — `isSafetyArmed` documents `base_mode` arriving as `"MAV_MODE_FLAG_SAFETY_ARMED | …"` — and existing code accepts both the string and a plain number, with tests using numbers. The parser mirrors that tolerance: accept the enum-name string, accept a number, treat anything else as unasserted. An implementer who cannot reach a live mavlink2rest must say so rather than guess, because a wrong field name produces an adapter that registers every vehicle as `unknown` — a failure that looks like a working feature.
+**Both are unverified, and confirming both against a live stream is the first implementation step.** The repo does establish the shape to expect: mavlink2rest serialises enums as name strings — `isSafetyArmed` documents `base_mode` arriving as `"MAV_MODE_FLAG_SAFETY_ARMED | …"` — and existing code accepts both the string and a plain number, with tests using numbers. The parser mirrors that tolerance: accept the enum-name string, accept a number, treat anything else as unasserted. An implementer who cannot reach a live mavlink2rest must say so rather than guess, because a wrong field name produces an adapter that registers every vehicle with **no `airframe` property at all**: by this spec's own parse rule an unreadable value is absent, not `unknown`. An earlier draft claimed the signature was "every vehicle as `unknown`", contradicting that rule. The true signature is quieter and so worse — a registry of assets with no airframe is indistinguishable from a fleet whose airframes nobody asserted.
 
 | `MAV_TYPE`                                                                 | `Airframe`               | Why                                                                                                                                                                           |
 | -------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -167,7 +173,7 @@ Three things can invalidate an adapter's handle, and all three are covered by `i
 2. **The host disposes it** — containment's failure path disposes `context.subscriptions`.
 3. **The registry is torn down** — every source is disposed and the registry emptied.
 
-Because the handle is in `context.subscriptions`, disabling the adapter removes its assets, and no phantom aircraft survive. Cases 29–31 assert each path.
+Because the handle is in `context.subscriptions`, disabling the adapter removes its assets, and no phantom aircraft survive. Cases 31–33 assert each path.
 
 ## Validation
 
@@ -184,7 +190,7 @@ Numbered so later specs and reviews can cite them.
 7. Disposing an asset's `Disposable` removes exactly that asset.
 8. Disposing a source removes every asset it registered.
 9. `key` is opaque: uniqueness and stability for the asset's lifetime are asserted; its format deliberately is not.
-10. `getAssets()` returns a snapshot a consumer cannot use to mutate the registry.
+10. `getAssets()` returns a snapshot a consumer cannot use to mutate the registry — and the **types say so**, which in a single-realm host with no isolation is the only enforcement available. `localId` and `airframe` are `readonly` on the registered form too, not just the three fields the ADR marked, because `readonly RegisteredAsset[]` protects the array and not its elements: without it, `getAssets()[0].airframe = { kind: 'none' }` type-checks. The snapshot is **shallow over elements the types freeze**, not a deep copy, and `extension-sitl`'s `telemetry: Readonly<TelemetryState>` is the in-repo precedent for saying that plainly. The test asserts the compile-time claim alongside the runtime one.
 
 ### Handle validity
 
@@ -198,30 +204,36 @@ Numbered so later specs and reviews can cite them.
 15. A `HEARTBEAT` from `system_id` 1 registers exactly one asset with `localId` `'1'`.
 16. Repeated heartbeats from the same system do not accumulate assets.
 17. A heartbeat whose `MAV_TYPE` changes updates the airframe in place without changing the `key`.
-18. Heartbeats from two different `system_id`s register two assets.
-19. Two heartbeats differing only in `component_id` register **one** asset.
-20. The mapping table is covered per row, including `HELICOPTER` → `unknown` and `GROUND_ROVER` → `none`, with an unmapped value → `unknown`.
-21. `MAV_TYPE` as an enum-name string and as the equivalent number produce the same airframe.
-22. A heartbeat with no readable `MAV_TYPE` registers the asset with **no** `airframe` property — not `unknown`. Absent means not asserted; `unknown` means asserted-and-unnameable.
-23. The adapter claims its source **lazily**: activating the adapter alone registers no source, and the first heartbeat claims one. Asserted so the removed activation-order constraint cannot creep back.
-24. With the registry absent at activation, the adapter activates, warns once, registers nothing, and its telemetry handling still works.
-25. The registry is deactivated and re-activated while the adapter runs; the next heartbeat observes `isLive === false`, re-claims, and the asset reappears — without throwing.
+18. **The skip rule:** a second heartbeat carrying an unchanged description performs **no** registration — asserted by spying on `registerAsset`, not by observing the asset list, since an unconditional re-register would leave the list identical and the test would pass vacuously. The adapter's stored `Disposable` is also unchanged.
+19. After a change that does re-register, the adapter holds the **fresh** `Disposable`: disposing what it holds removes the asset, and the superseded handle is inert.
+20. Heartbeats from two different `system_id`s register two assets.
+21. Two heartbeats differing only in `component_id` register **one** asset.
+22. The mapping table is covered per row, including `HELICOPTER` → `unknown` and `GROUND_ROVER` → `none`, with an unmapped value → `unknown`.
+23. `MAV_TYPE` as an enum-name string and as the equivalent number produce the same airframe.
+24. A heartbeat with no readable `MAV_TYPE` registers the asset with **no** `airframe` property — not `unknown`. Absent means not asserted; `unknown` means asserted-and-unnameable.
+25. The adapter claims its source **lazily**: activating the adapter alone registers no source, and the first heartbeat claims one. Asserted so the removed activation-order constraint cannot creep back.
+26. With the registry absent at activation, the adapter activates, warns once, registers nothing, and its telemetry handling still works.
+27. The registry is deactivated and re-activated while the adapter runs; the next heartbeat observes `isLive === false`, re-claims, and the asset reappears — without throwing.
 
 ### The consumer
 
-26. The status-bar component renders `sourceLabel · airframe` for a registered asset, and an asset with no `airframe` renders without inventing one, distinguishably from `unknown`.
-27. **Reactivity:** with the component mounted and the registry initially empty, registering an asset updates the rendered label with no event and no remount. This is the case that pins the contract term in Architecture; a consumer that cached at `activate()` would fail it.
-28. **Evidence for the pre-authorised fallback:** the implementer records, in the task report, what the source handle bought in this single-source deployment — which validation cases would change if `registerAsset` hung directly off `AssetsApi` with a source id argument. Not a pass/fail assertion; a deliberate evidence-gathering step for the flat-registry fallback [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md)'s Alternatives pre-authorises.
+28. The status-bar component renders `sourceLabel · airframe` for a registered asset, and an asset with no `airframe` renders without inventing one, distinguishably from `unknown`.
+29. **Reactivity:** with the component mounted and the registry initially empty, registering an asset updates the rendered label with no event and no remount. This is the case that pins the contract term in Architecture; a consumer that cached at `activate()` would fail it.
+30. **Evidence for the pre-authorised fallback:** the implementer records, in the task report, what the source handle bought in this single-source deployment — which validation cases would change if `registerAsset` hung directly off `AssetsApi` with a source id argument. Not a pass/fail assertion; a deliberate evidence-gathering step for the flat-registry fallback [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md)'s Alternatives pre-authorises.
 
 ### Teardown
 
-29. Disabling the adapter removes its assets from the registry.
-30. An adapter whose `activate` throws after claiming its source leaves no assets behind — containment disposes the handle via `context.subscriptions`.
-31. Re-enabling the adapter re-claims and re-registers on the next heartbeat.
+31. Disabling the adapter removes its assets from the registry.
+32. An adapter whose `activate` throws after claiming its source leaves no assets behind — containment disposes the handle via `context.subscriptions`.
+33. Re-enabling the adapter re-claims and re-registers on the next heartbeat.
+
+### The ordering comments
+
+34. `bundled-extensions.ts` carries a comment for the assets entry stating that ordering is **not** required here, and the `vehicle-status` and `map-demo` comments no longer cite activation order for what are lazy reads. Checked by reading the file in the task report rather than by a unit test, since comments are not executable — but called out as a validation item so Goal 5 is not shipped unverified.
 
 ### Enforcement
 
-32. `mapApi` is no longer importable from `extension-map`'s entry point, while `activate()` still returns it as exports.
+35. `mapApi` is no longer importable from `extension-map`'s entry point, while `activate()` still returns it as exports.
 
 ## VS Code alignment
 
@@ -251,6 +263,11 @@ Note that "a registry organised by what assets have" is **not** an alignment wit
 - **A change event on the registry** — consumers observe through reactive reads; there is no `onDidChangeAssets`. _Trigger:_ the first consumer outside a reactive context, or the first cross-realm consumer, since reactivity does not cross a worker or iframe boundary.
 - **Indexed queries** — `getAssets()` returns everything and consumers filter. _Trigger:_ an asset count where linear scans in a render path cost measurably.
 - **A lint rule for the anti-corruption boundary** — enum values and message names only, excluding package names, URLs and prose, with the value half acknowledged as out of its reach. _Trigger:_ the second adapter, where protocol identifiers could leak inward from two directions.
+
+- **Asset liveness** — nothing times out a vehicle that stopped transmitting; an entry means present-as-asserted. _Trigger:_ the first operator-visible stale entry, which one link cannot produce.
+- **Distinguishing assets from non-assets** — the adapter registers every system it sees, so the operator's own tooling is listed as an asset, and v0 is the first iteration that renders it. _Trigger:_ the first capability that distinguishes non-flying assets from each other.
+
+No edit is owed for the **notification-primitive** row: the containment iteration already recorded its trigger as fired, and this spec inherits that state. It is called out here so the non-goal that mentions it does not read as a missing action.
 
 Also amend the existing **"Extension activation ordering / dependency declaration"** row: v0 adds no activation-time edge, so the row's stated trigger has **not** fired, and the degrade-when-absent pattern plus lazy claiming is now the established alternative to declaring dependencies.
 
