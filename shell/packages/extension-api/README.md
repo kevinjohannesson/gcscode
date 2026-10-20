@@ -208,6 +208,16 @@ For the full design rationale see [`docs/specs/2026-05-18-configuration-system-v
 
 Use `subscriptions` for everything that fits the `Disposable` shape; reach for `deactivate?()` only when teardown does not. See [`docs/specs/2026-04-27-extension-deactivate-hook.md`](../../docs/specs/2026-04-27-extension-deactivate-hook.md).
 
+## Activation failure
+
+The host contains a failed `activate`, so one extension cannot cost the operator the app. Three consequences bind you as an author:
+
+- **A failed `activate` disposes what the host minted for that extension, plus anything the extension pushed to `context.subscriptions`** — but **not** what other extensions minted for it, and not module-level state it set. If your `activate` registers into another extension's API (`MapApi.registerLayer`, say), those registrations stay live after your activation fails; if it assigns module-level state, that state survives.
+- **`activate` must be synchronous.** A thenable return is an activation error: the host observes the rejection so nothing is orphaned, revokes the facade so a resumed continuation registers nothing, disposes, and records the failure — rather than publishing a `Promise` as your extension's exports, which no consumer could use.
+- **`deactivate?()` is not called on the failure path**, because a hook written for a completed activation cannot be trusted after a partial one. An extension whose activation sets module state must therefore tolerate re-entry on the next load.
+
+A failed extension stays enabled and is retried on the next reload; the operator sees the failure as a row in the extensions panel and a status-bar indicator. See [`docs/specs/2026-10-16-activation-failure-containment.md`](../../docs/specs/2026-10-16-activation-failure-containment.md).
+
 ## Conventions for extension authors
 
 - Your package's main export must be a named `const` matching your extension's slug (e.g. `exampleExtension`, not `extension` or `default`).
