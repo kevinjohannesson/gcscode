@@ -91,6 +91,15 @@ importers:
         specifier: ^5.0.0
         version: 5.55.5(@typescript-eslint/types@8.59.0)
 
+  packages/extension-assets:
+    dependencies:
+      '@gcscode/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
+      svelte:
+        specifier: ^5.0.0
+        version: 5.55.5(@typescript-eslint/types@8.59.0)
+
   packages/extension-example:
     dependencies:
       '@gcscode/extension-api':
