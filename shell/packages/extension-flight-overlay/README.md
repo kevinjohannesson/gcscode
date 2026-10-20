@@ -11,7 +11,7 @@ Layers render no visible DOM themselves; each is a Svelte component that calls m
 
 ## Cross-extension dependencies
 
-- **`@gcscode/extension-map`** — type-only. Imports `MapApi` via `import type`. Runtime lookup is via `host.extensions.getExtension<MapApi>('gcscode.map')`. Activation throws if map is not active.
+- **`@gcscode/extension-map`** — type-only. Imports `MapApi` via `import type`. Runtime lookup is via `host.extensions.getExtension<MapApi>('gcscode.map')`. Map absence is handled gracefully: activation logs once and registers nothing, so the map renders without the overlay (ADR-0012's observability discriminator).
 - **`@gcscode/extension-sitl`** — type-only. Imports `SitlExports` via `import type`. Runtime lookup is via `host.extensions.getExtension<SitlExports>('gcscode.sitl')`. SITL absence is handled gracefully (drone icon and heading line not rendered).
 
 ## Configuration

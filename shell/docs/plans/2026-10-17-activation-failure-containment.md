@@ -10,6 +10,8 @@
 
 **Spec:** [`docs/specs/2026-10-16-activation-failure-containment.md`](../specs/2026-10-16-activation-failure-containment.md). Read it before starting: it records _why_ three earlier designs of this mechanism were wrong, and two of those wrong designs look like the obvious implementation.
 
+**Run tests from inside the package, not from `shell/`.** `cd shell && npx vitest run packages/shell` finds no vitest config, silently selects a different environment (no jsdom, so component tests cannot run) and reports ~43 tests instead of the suite's 219. The shell package's config lives in `packages/shell/vite.config.ts`, which vitest only picks up when invoked from that directory. Every command in this plan is written accordingly; if you shorten one, check the test count.
+
 **Verify, don't quote.** The spec's own reviewers found repeated claims about the tree that did not survive checking. Before each task, read the file you are about to change. If the plan's quoted code does not match what is there, trust the file and say so in your task report.
 
 ---
@@ -63,7 +65,7 @@ describe('ExtensionActivationError', () => {
 
 - [ ] **Step 2: Run it and watch it fail**
 
-Run: `cd shell && npx vitest run packages/shell/src/extension-host/registry.test.ts -t 'ExtensionActivationError'`
+Run: `cd shell/packages/shell && npx vitest run src/extension-host/registry.test.ts -t 'ExtensionActivationError'`
 Expected: FAIL — cannot resolve `./activation-error`.
 
 - [ ] **Step 3: Create the error type**
@@ -91,7 +93,7 @@ export class ExtensionActivationError extends Error {
 
 - [ ] **Step 4: Run it and watch it pass**
 
-Run: `cd shell && npx vitest run packages/shell/src/extension-host/registry.test.ts -t 'ExtensionActivationError'`
+Run: `cd shell/packages/shell && npx vitest run src/extension-host/registry.test.ts -t 'ExtensionActivationError'`
 Expected: PASS.
 
 - [ ] **Step 5: Extract `disposeAll` from `deactivate`**
@@ -120,13 +122,13 @@ Then replace the loop inside `deactivate` with `disposeAll(subscriptions, extens
 
 - [ ] **Step 6: Run the whole shell suite — `deactivate`'s existing tests are the regression check**
 
-Run: `cd shell && npx vitest run packages/shell`
+Run: `cd shell/packages/shell && npx vitest run`
 Expected: PASS, same count as before your change (219 at the time of writing; confirm the number did not drop).
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/extension-host/activation-error.ts shell/packages/shell/src/extension-host/registry.ts shell/packages/shell/src/extension-host/registry.test.ts
 git commit -m "feat(host): add ExtensionActivationError and extract disposeAll"
 ```
@@ -281,13 +283,13 @@ const context: ExtensionContext = {
 
 - [ ] **Step 6: Run the suite — nothing should change behaviourally yet**
 
-Run: `cd shell && npx vitest run packages/shell && npx tsc --noEmit -p packages/shell/tsconfig.json`
+Run: `cd shell/packages/shell && npx vitest run && pnpm check`
 Expected: PASS, same test count. If `tsc` complains that `revoke` is unused, leave it — Task 3 uses it; if the lint rule rejects it, destructure only `host` as shown above.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/extension-host/registry.ts
 git commit -m "feat(host): give createHost a per-activation ledger and revoke function"
 ```
@@ -360,28 +362,25 @@ describe('activate containment', () => {
     expect(disposed).toBe(true);
   });
 
-  it('covers onDidChangeConfiguration, which is not a register* method', () => {
+  it('covers onDidChangeConfiguration, which is not a register* method', async () => {
     const registry = createRegistry();
-    let listenerDisposed = false;
+    let listenerCalls = 0;
     expect(() =>
       registry.activate({
         manifest: manifest('x.config'),
         activate(context) {
-          const d = context.host.configuration.onDidChangeConfiguration(() => undefined);
-          const wrapped = {
-            dispose: () => {
-              listenerDisposed = true;
-              d.dispose();
-            },
-          };
-          void wrapped;
+          context.host.configuration.onDidChangeConfiguration(() => {
+            listenerCalls++;
+          });
           throw new Error('after subscribing');
         },
       }),
     ).toThrow(ExtensionActivationError);
-    // The ledger holds the listener's own disposable; assert the registry is clean.
-    expect(() => registry.deactivate('x.config')).rejects.toThrow('is not active');
-    void listenerDisposed;
+    await expect(registry.deactivate('x.config')).rejects.toThrow('is not active');
+    // The real observable: containment disposed the host-minted listener, so a
+    // later configuration change must not reach it. Mirror the update() shape
+    // the configuration dispose tests in this file already use.
+    expect(listenerCalls).toBe(0);
   });
 
   it('leaves the registry with nothing for a failed extension', async () => {
@@ -504,7 +503,7 @@ describe('activate containment', () => {
 
 - [ ] **Step 2: Run them and watch them fail**
 
-Run: `cd shell && npx vitest run packages/shell/src/extension-host/registry.test.ts -t 'activate containment'`
+Run: `cd shell/packages/shell && npx vitest run src/extension-host/registry.test.ts -t 'activate containment'`
 Expected: FAIL — the throwing cases currently propagate the raw error, not `ExtensionActivationError`, and `leaked.command` is present.
 
 - [ ] **Step 3: Implement containment**
@@ -519,7 +518,7 @@ Replace `activate`'s body (keeping `identity` and the maps as they are):
         version: extension.manifest.version,
       };
       const minted: Disposable[] = [];
-      const { host, revoke } = createHost(identity, minted);
+      const { host, revoke, settle } = createHost(identity, minted);
       const context: ExtensionContext = { host, subscriptions: [], extension: identity };
 
       const cleanUpAfterFailure = (): void => {
@@ -554,13 +553,15 @@ Replace `activate`'s body (keeping `identity` and the maps as they are):
         deactivateHooksByExtension.set(identity.id, extension.deactivate.bind(extension));
       }
       exportsByExtension.set(identity.id, exportsValue);
-      // Drop the ledger: on success it must not keep growing for the extension's
-      // lifetime. Teardown is context.subscriptions' job from here.
-      minted.length = 0;
+      // Stop recording: the ledger must not grow for the extension's lifetime.
+      // The host stays usable — an extension may legitimately register later.
+      settle();
     },
 ```
 
-**On the spec's validation case 12 (the ledger is dropped on success).** `minted` is a local inside `activate` and the ledger is not exposed, so this is not observable through the public surface — there is no honest unit test for it short of exporting internals, which would be a worse trade. The line above is the implementation, the comment is its rationale, and the task report should say the case is covered by inspection rather than by assertion. Do not add a test that reaches into the closure to manufacture coverage.
+**Why `settle()` and not `minted.length = 0`.** An earlier draft of this plan truncated the array. That does not work: `track` closes over `minted` and keeps pushing, so emptying it once leaves the reference intact and every post-activation registration appends to the same array forever — with the disposables staying reachable after `dispose()`. Four extensions do hold `context.host` past `activate` (`extension-map`'s `host-store`, `extension-map-demo`, `extension-vehicle-status`, `extension-flight-overlay`'s `state.ts`), but today every one of them uses it for lazy reads only — `extensions.getExtension(...)` in three, `commands.executeCommand(...)` in map's control button — so nothing is leaking yet. The defect is latent: it arms the first time any extension registers a contribution after `activate` returns, which is a pattern the lazy-read architecture invites rather than forbids. Task 2's code-quality review caught it and Task 2's followup added the `tracking` flag plus `settle()`; destructure all three members (`host`, `revoke`, `settle`) at this call site.
+
+**On the spec's validation case 12 (recording stops on success).** `minted` is a local inside `activate` and the ledger is not exposed, so this is not observable through the public surface — there is no honest unit test for it short of exporting internals, which would be a worse trade. The line above is the implementation, the comment is its rationale, and the task report should say the case is covered by inspection rather than by assertion. Do not add a test that reaches into the closure to manufacture coverage.
 
 Add this module-level helper beside `disposeAll`:
 
@@ -578,13 +579,13 @@ Add `import { ExtensionActivationError } from './activation-error';` at the top.
 
 - [ ] **Step 4: Run them and watch them pass**
 
-Run: `cd shell && npx vitest run packages/shell && npx tsc --noEmit -p packages/shell/tsconfig.json`
+Run: `cd shell/packages/shell && npx vitest run && pnpm check`
 Expected: PASS. **If the run reports an unhandled rejection, the `.then(undefined, …)` handler is missing or misplaced** — that is the exact defect a reviewer proved by execution, so fix it rather than suppressing the warning.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/extension-host/registry.ts shell/packages/shell/src/extension-host/registry.test.ts
 git commit -m "feat(host): contain activation failures in registry.activate"
 ```
@@ -677,7 +678,7 @@ describe('activation failure recording', () => {
 
 - [ ] **Step 2: Run them and watch them fail**
 
-Run: `cd shell && npx vitest run packages/shell/src/extension-host/extension-manager.test.ts -t 'activation failure recording'`
+Run: `cd shell/packages/shell && npx vitest run src/extension-host/extension-manager.test.ts -t 'activation failure recording'`
 Expected: FAIL — `register` currently lets the error escape.
 
 - [ ] **Step 3: Implement**
@@ -787,13 +788,13 @@ function failureMessage(error: unknown): string {
 
 - [ ] **Step 4: Run them and watch them pass**
 
-Run: `cd shell && npx vitest run packages/shell && npx tsc --noEmit -p packages/shell/tsconfig.json`
+Run: `cd shell/packages/shell && npx vitest run && pnpm check`
 Expected: PASS. Note `strict` is on without `exactOptionalPropertyTypes`, so the conditional `toRecord` above is belt-and-braces rather than required — keep it, it documents intent.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/extension-host/extension-manager.ts shell/packages/shell/src/extension-host/extension-manager.test.ts
 git commit -m "feat(host): record activation failures and persist operator intent"
 ```
@@ -893,7 +894,7 @@ describe('bootstrap', () => {
 
 - [ ] **Step 2: Run it and watch it fail**
 
-Run: `cd shell && npx vitest run packages/shell/src/extension-host/bootstrap.test.ts`
+Run: `cd shell/packages/shell && npx vitest run src/extension-host/bootstrap.test.ts`
 Expected: FAIL — cannot resolve `./bootstrap`.
 
 - [ ] **Step 3: Create `bootstrap.ts`**
@@ -939,7 +940,7 @@ export function bootstrap(options: {
 
 - [ ] **Step 4: Run it and watch it pass**
 
-Run: `cd shell && npx vitest run packages/shell/src/extension-host/bootstrap.test.ts`
+Run: `cd shell/packages/shell && npx vitest run src/extension-host/bootstrap.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Rewire `main.ts`**
@@ -967,13 +968,13 @@ Add `import { bootstrap } from './extension-host/bootstrap';` and drop the now-u
 
 - [ ] **Step 6: Run everything**
 
-Run: `cd shell && npx vitest run packages/shell && npx tsc --noEmit -p packages/shell/tsconfig.json && npx eslint src --ext .ts,.svelte`
+Run: `cd shell/packages/shell && npx vitest run && pnpm check && pnpm lint`
 Expected: PASS. `main.ts` has no test of its own; the `tsc` pass plus `bootstrap.test.ts` are its coverage.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/extension-host/bootstrap.ts shell/packages/shell/src/extension-host/bootstrap.test.ts shell/packages/shell/src/main.ts
 git commit -m "feat(host): extract bootstrap so the boot path is testable"
 ```
@@ -1031,7 +1032,7 @@ Build `fakeManager` to match the file's existing test helpers — read `extensio
 
 - [ ] **Step 2: Run them and watch them fail**
 
-Run: `cd shell && npx vitest run packages/shell/src/extensions-panel/extensions-panel.test.ts`
+Run: `cd shell/packages/shell && npx vitest run src/extensions-panel/extensions-panel.test.ts`
 Expected: FAIL — the failed workbench row is filtered out entirely.
 
 - [ ] **Step 3: Implement the filter exception**
@@ -1077,13 +1078,13 @@ leaving the existing Disable and Enable branches untouched.
 
 - [ ] **Step 5: Run them and watch them pass**
 
-Run: `cd shell && npx vitest run packages/shell/src/extensions-panel && npx svelte-check --tsconfig packages/shell/tsconfig.json`
+Run: `cd shell/packages/shell && npx vitest run src/extensions-panel && npx svelte-check --tsconfig packages/shell/tsconfig.json`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/extensions-panel/extensions-panel.svelte shell/packages/shell/src/extensions-panel/extensions-panel.test.ts
 git commit -m "feat(shell): show failed extensions in the panel, built-ins without Disable"
 ```
@@ -1127,7 +1128,7 @@ it('shows the indicator with a count matching the failed records', () => {
 
 - [ ] **Step 2: Run them and watch them fail**
 
-Run: `cd shell && npx vitest run packages/shell/src/app.test.ts -t 'indicator'`
+Run: `cd shell/packages/shell && npx vitest run src/app.test.ts -t 'indicator'`
 Expected: FAIL — no such test id.
 
 - [ ] **Step 3: Create the component**
@@ -1177,13 +1178,13 @@ In `app.svelte`, import it and place it as the first child of the right-hand sta
 
 - [ ] **Step 5: Run them and watch them pass**
 
-Run: `cd shell && npx vitest run packages/shell && npx svelte-check --tsconfig packages/shell/tsconfig.json`
+Run: `cd shell/packages/shell && npx vitest run && pnpm check`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/shell/src/activation-failure-indicator.svelte shell/packages/shell/src/app.svelte shell/packages/shell/src/app.test.ts
 git commit -m "feat(shell): add a host-owned activation-failure indicator"
 ```
@@ -1219,7 +1220,7 @@ Follow the file's existing helper shape for building a context whose `getExtensi
 
 - [ ] **Step 2: Run it and watch it fail**
 
-Run: `cd shell && npx vitest run packages/extension-flight-overlay`
+Run: `cd shell/packages/extension-flight-overlay && npx vitest run`
 Expected: FAIL — activate still throws.
 
 - [ ] **Step 3: Implement the degrade**
@@ -1239,13 +1240,13 @@ if (!map) {
 
 - [ ] **Step 4: Run it and watch it pass**
 
-Run: `cd shell && npx vitest run packages/extension-flight-overlay && npx vitest run packages/shell`
+Run: `cd shell/packages/extension-flight-overlay && npx vitest run && cd ../shell && npx vitest run`
 Expected: PASS. The shell suite matters here: `bundled-extensions.test.ts` asserts ordering, and this change makes flight-overlay's map dependency non-fatal.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/kevinkroon/Projects/gcscode
+cd "$(git rev-parse --show-toplevel)"
 git add shell/packages/extension-flight-overlay/src/index.ts shell/packages/extension-flight-overlay/src/index.test.ts
 git commit -m "feat(flight-overlay): degrade when the map is inactive instead of throwing"
 ```
@@ -1281,3 +1282,20 @@ Named because the spec names them, and because a well-meaning implementer might 
 ## Docs propagation (post-merge, on master)
 
 Per the spec's propagation sections: five `docs/out-of-scope.md` rows, the `docs/roadmap.md` flip with its qualifications, `docs/vs-code-alignment.md` rows filed by table (Alignments carry `Source`; Divergences and Deferrals also carry `Trigger to revisit`), and three bullets in `packages/extension-api/README.md`.
+
+**Surfaced during implementation, to fold in at propagation time:**
+
+- **Callable thenables slip past `isThenable`.** The helper tests `typeof value === 'object'`, so a function carrying a `.then` property — a thenable `await` would adopt — is not detected, and such an `activate` return would be treated as a successful synchronous activation. Task 3's implementer found and documented the boundary in the helper's comment. The hole is narrow enough to leave open (nothing in the repo returns one, and widening the check invites its own questions about callable exports), but it belongs in the spec's Known unknowns rather than only in a code comment.
+- ~~**A throwing `then` getter escapes unwrapped.**~~ **Resolved in code (`4fea632`), not deferred.** `isThenable` read `exportsValue.then` outside the `try`/`catch`. Task 3's code-quality review graded this Minor as an error-_type_ concern; I accepted that framing and routed it here — wrongly. The final cross-cutting review traced what else the `catch` protected and found the read, **both registry-map writes**, and the `deactivate` capture all sat outside it: a throwing `then` getter left the extension's contributions live and the host unrevoked, falsifying spec case 6 and Goal 1. The fix widens the window to span through `settle()`. The lesson worth carrying: when a reviewer grades a finding by the symptom it names, check what else the guard it bypasses was protecting. The callable-thenable boundary above stays open and still belongs in Known unknowns.
+- **The degrade-surface deferral's trigger has already fired — file it as triggered, not pending.** ADR-0012 defers an operator-facing message primitive, leaving a degrade visible only in the browser console, with the trigger to revisit being the first extension that degrades in the field. Flight-overlay now degrades on _any_ Map disable, so that condition is met the moment an operator turns Map off: they get a map with no drone overlay and no explanation anywhere in the UI. Flagged by the final cross-cutting review. Record it in `docs/out-of-scope.md` as triggered, so the next planning pass sees a fired trigger rather than a hypothetical one.
+- **A hostile manifest survives containment and breaks the panel instead of the boot — deferred, with the trigger named.** `registry.activate` builds `identity` from `manifest.id`, `.displayName` and `.version` outside the containment window, so a throwing `displayName` getter is recorded as a failure correctly (measured: three distinct `failureMessage` branches reach it). But the record keeps the extension's own manifest object, and the panel renders `record.manifest.displayName` — so the operator loses the recovery UI at the moment they open it, which is the outcome containment exists to prevent. Found by the task-6 implementer while covering those branches. **Not fixed here, deliberately.** It is unreachable for every extension that can exist in this repo today: all extensions are first-party and in-tree, their manifests are plain object literals, and TypeScript makes a throwing accessor awkward to even write. The fix is also not a followup-sized change — it means the record holding a snapshot of the manifest's primitive fields rather than a reference to an extension-owned object, which alters `ExtensionRecord`'s contract and deserves a spec rather than a commit at a review gate. **Trigger: the first manifest whose fields are data rather than in-repo literals.** The final cross-cutting review widened this from my original "first iteration that loads an extension the host did not build", and was right to: the hazard needs no hostile accessor at all. The panel's empty-query sort calls `displayName.localeCompare(...)`, which TypeErrors on `undefined` or a non-string, and TypeScript only guarantees the literals written in this repo. `docs/out-of-scope.md` already carries manifest-driven enable persistence, which could land a JSON-sourced manifest with no third-party loading anywhere in the picture — so the trigger can fire well before the iteration I first tied it to. The same review also corrected the blast radius: Fuse indexes every record inside a `$derived`, so an unreadable field takes out the **whole panel**, not the offending row — which strengthens the case that the fix belongs at the record layer rather than in the panel. Treat it as a prerequisite of whichever iteration fires it, not a nice-to-have: a broken extensions panel is how the operator loses their only way to disable the offender. Record it in the spec's Known unknowns with that trigger.
+
+**Process finding (not part of the iteration's scope, but discovered by it): the auto-merge workflow cannot fire for `feat/*` PRs.** Gate (d) for feature branches requires the PR's `reviewDecision` to be `APPROVED`, but `master` is not branch-protected, so GitHub never computes `reviewDecision` and it stays empty however many approving reviews exist. PR #34 is the first `feat/*` PR to reach that gate — the label had only ever been used on `spec/*` and `adr/*` PRs, which gate on bot review _counts_ instead and therefore work. Two candidate fixes, for a future iteration to choose between: enable branch protection on `master` with a review requirement so `reviewDecision` is populated, or change the feature-branch gate to the same shape the spec/ADR gate uses — `gcscode-final-review` has posted a review whose latest state is `APPROVED`. The second needs no repository-settings change and matches the existing convention that reviews are artifacts rather than enforcement. This belongs in `docs/roadmap.md` beside the already-recorded auto-merge base-branch race.
+
+- **Disable-then-enable on a failed row is in-place retry in two clicks — decide this in Task 6.** The spec forbids in-place retry because re-entering `activate()` on a module singleton is unsafe (`extension-sitl` reassigns its module-level `client` without closing the previous socket, so each re-activation leaks a WebSocket) and says the panel "reports the failure and points at reload". But containment leaves a failed extension `enabled: true`, and the panel derives its action from `record.enabled`, so the row offers **Disable**; disabling a failed record skips `registry.deactivate` and clears the failure, after which the row offers **Enable**, and that calls `registry.activate` on the same partially-initialised module. The hazard is worse here than on the healthy disable→enable path, because the failure path deliberately does not call `deactivate?()`, so nothing cleaned up after the first partial run. This path does not exist before this iteration — a failing extension halted boot — so the iteration creates it. Task 6 must decide what a failed row offers: pointing at reload (what the spec's text implies) rather than a toggle that silently performs the forbidden retry. **Decision (controller): document it, do not build around it.** Task 6 ships the panel rows as planned; no manager change, no third record state.
+
+Two earlier drafts of this decision were wrong, and the reasoning that settled it is worth keeping. The first said the manager should refuse to re-activate any id whose `activate()` had been **attempted** — task 4's implementer showed that also blocks the healthy disable→re-enable cycle, which `shell/packages/shell/src/extension-host/extension-manager.test.ts:97` asserts works (activate twice, fresh context, view re-registered). The second narrowed the key to ids whose most recent attempt **failed**, which is technically sound but solves less than it costs. Tracing what the operator actually sees on the two-click path: the second activation throws again, the failure is recorded again, and the panel re-shows `Failed to activate: <message>`. The UI is already honest. Blocking the re-activation would replace that concrete message with a vaguer "enabled, takes effect on reload", and would need a third record state threaded through the manager, the record type and the panel — more surface, less information.
+
+What remains is a real but bounded cost: each disable→enable cycle on an extension that leaks during partial activation leaks again (`extension-sitl` reassigns its module-level `client` without closing the previous socket), until the next reload. The spec's prohibition is on a **retry affordance** — "the panel reports the failure and points at reload" — and disable→enable is a pre-existing general toggle rather than a retry button, so shipping it unchanged does not contradict the spec. Record it in the spec's Known unknowns with an explicit trigger to revisit: the first extension whose partial activation leaks something an operator would notice, or the first request for a Retry affordance, whichever comes first.
+
+- **`bootstrap`'s activation order is convention plus one test, not an enforced invariant.** Task 5's code-quality review confirmed nothing in the code can defer or reorder today — the whole chain (`ExtensionManager.register(): void` wrapping `Registry.activate(): void`) is synchronous, so the doc comment's "nothing here may be deferred" holds. But no lint rule backs it: `shell/eslint.config.ts` places no restriction on `async`/`Promise` in that file. The backstops are the synchronous type signatures, which make an async refactor a visible repo-wide signature change, and `bootstrap.test.ts`'s insertion-order test. Worth stating in Known unknowns so a future reader does not mistake the comment for a guarantee — the extensions that depend on it (`vehicle-status` and `map-demo` on SITL, `flight-overlay` on map) fail in confusing ways if the order ever slips.

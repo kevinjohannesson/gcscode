@@ -1,17 +1,19 @@
-import { render, screen, within } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Extension } from '@gcscode/extension-api';
 
 import { createRegistry } from './extension-host/registry';
-import { createExtensionManager } from './extension-host/extension-manager';
+import { createExtensionManager, type ExtensionManager } from './extension-host/extension-manager';
 import App from './app.svelte';
 import MockContent from './__fixtures__/mock-content.svelte';
 import MockLeft from './__fixtures__/mock-left.svelte';
 import MockRight from './__fixtures__/mock-right.svelte';
 import { quickPickState } from './quick-pick/quick-pick-state.svelte';
 import { modalState } from './modal-state.svelte';
+import { extensionsPanelState } from './extensions-panel/extensions-panel-state.svelte';
+import { WORKBENCH_EXTENSION_ID } from './built-in/workbench';
 
 function makeExtension(activate: Extension['activate']): Extension {
   return {
@@ -198,5 +200,209 @@ describe('app.svelte — quick pick integration', () => {
     });
     flushSync();
     expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
+  });
+});
+
+function makeNamedExtension(id: string, activate: Extension['activate']): Extension {
+  return { manifest: { id, displayName: id, version: '0.0.0' }, activate };
+}
+
+function makeFailingExtension(id: string, message = 'boom'): Extension {
+  return makeNamedExtension(id, () => {
+    throw new Error(message);
+  });
+}
+
+// `manager.register` reports a contained failure through `console.error`, so
+// silence it around registration (same convention as `extensions-panel.test.ts`
+// and `bootstrap.test.ts`) — a deliberate failure should not read as a broken
+// test run.
+function registerQuietly(manager: ExtensionManager, extensions: Extension[]): void {
+  const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    for (const extension of extensions) manager.register(extension);
+  } finally {
+    consoleErrorSpy.mockRestore();
+  }
+}
+
+function renderAppWith(extensions: Extension[]) {
+  const registry = createRegistry();
+  const manager = createExtensionManager(registry);
+  registerQuietly(manager, extensions);
+  render(App, { props: { registry, manager } });
+  return { registry, manager };
+}
+
+// jsdom does not let an exception thrown inside an event listener escape
+// `dispatchEvent`; it reports it by firing an `error` event on `window`. So a
+// regression in the indicator's open guard — which exists only to stop
+// `extensionsPanelState.open()` from throwing — would be invisible to a plain
+// `fireEvent.click` assertion. Collect those reports instead, and
+// `preventDefault` so an expected-absent report would not also noise up the
+// run's output. Verified to discriminate: removing the guard fails the two
+// tests below.
+function captureWindowErrors(): { readonly errors: ErrorEvent[]; stop: () => void } {
+  const errors: ErrorEvent[] = [];
+  function onError(event: ErrorEvent): void {
+    event.preventDefault();
+    errors.push(event);
+  }
+  window.addEventListener('error', onError);
+  return { errors, stop: () => window.removeEventListener('error', onError) };
+}
+
+describe('app.svelte — activation-failure indicator', () => {
+  afterEach(() => {
+    extensionsPanelState.close();
+    quickPickState.dismiss();
+    modalState.active = false;
+  });
+
+  it('is host-owned: survives when every extension failed, one of them mid-contribution', () => {
+    // The falsifiable form of "host-owned". The old version of this test
+    // registered one extension that contributed nothing, so its
+    // `listStatusBarItems()` assertion held no matter what the implementation
+    // did — it described the fixture, not the code.
+    //
+    // This fixture is the actual counterfactual instead: `x.bad` contributes a
+    // status-bar item and THEN throws. An indicator sourced from
+    // `listStatusBarItems()` would be torn down by the containment that
+    // revokes that contribution — subject to the very failure it exists to
+    // report — and no extension survives here to contribute a replacement. So
+    // the contribution surface must be empty while the indicator still counts
+    // both failures.
+    const { registry } = renderAppWith([
+      makeNamedExtension('x.bad', (ctx) => {
+        ctx.host.window.registerStatusBarItem({
+          id: 'x.bad.item',
+          component: MockRight,
+          alignment: 'right',
+        });
+        throw new Error('boom');
+      }),
+      makeFailingExtension('y.bad'),
+    ]);
+
+    expect(registry.listStatusBarItems()).toHaveLength(0);
+    const right = screen.getByTestId('statusbar-right');
+    expect(within(right).getByTestId('activation-failure-indicator')).toHaveTextContent(
+      '2 extensions failed',
+    );
+  });
+
+  it('is absent when no extension failed', () => {
+    renderAppWith([makeNamedExtension('ext.ok', () => {})]);
+
+    expect(screen.queryByTestId('activation-failure-indicator')).not.toBeInTheDocument();
+  });
+
+  it('shows a singular count on the right-hand status side when one failed', () => {
+    renderAppWith([makeFailingExtension('x.bad')]);
+
+    const right = screen.getByTestId('statusbar-right');
+    const indicator = within(right).getByTestId('activation-failure-indicator');
+    expect(indicator).toHaveTextContent('1 extension failed');
+  });
+
+  it('pluralizes the count when more than one failed', () => {
+    renderAppWith([makeFailingExtension('x.bad'), makeFailingExtension('y.bad')]);
+
+    expect(screen.getByTestId('activation-failure-indicator')).toHaveTextContent(
+      '2 extensions failed',
+    );
+  });
+
+  it('counts exactly the records the panel marks failed, failed built-ins included', () => {
+    renderAppWith([
+      makeFailingExtension(WORKBENCH_EXTENSION_ID),
+      makeFailingExtension('x.bad'),
+      makeNamedExtension('ext.ok', () => {}),
+    ]);
+
+    // Both numbers are asserted against the same literal rather than against
+    // each other on purpose: comparing the two surfaces to one another would
+    // pass if both were wrong in the same direction.
+    expect(screen.getByTestId('activation-failure-indicator')).toHaveTextContent(
+      '2 extensions failed',
+    );
+
+    extensionsPanelState.open();
+    flushSync();
+
+    expect(screen.getAllByTestId('extension-failure')).toHaveLength(2);
+  });
+
+  it('decrements as failed extensions are disabled, then disappears', async () => {
+    const { manager } = renderAppWith([
+      makeFailingExtension('x.bad'),
+      makeFailingExtension('y.bad'),
+    ]);
+    expect(screen.getByTestId('activation-failure-indicator')).toHaveTextContent(
+      '2 extensions failed',
+    );
+
+    await manager.setEnabled('x.bad', false);
+    flushSync();
+    expect(screen.getByTestId('activation-failure-indicator')).toHaveTextContent(
+      '1 extension failed',
+    );
+
+    await manager.setEnabled('y.bad', false);
+    flushSync();
+    expect(screen.queryByTestId('activation-failure-indicator')).not.toBeInTheDocument();
+  });
+
+  it('opens the extensions panel when clicked', async () => {
+    renderAppWith([makeFailingExtension('x.bad')]);
+    expect(extensionsPanelState.isOpen).toBe(false);
+
+    await fireEvent.click(screen.getByTestId('activation-failure-indicator'));
+    flushSync();
+
+    expect(extensionsPanelState.isOpen).toBe(true);
+    expect(screen.getByRole('dialog', { name: 'Extensions' })).toBeInTheDocument();
+  });
+
+  it('raises no error when clicked while the panel is already open', async () => {
+    renderAppWith([makeFailingExtension('x.bad')]);
+    extensionsPanelState.open();
+    flushSync();
+
+    const captured = captureWindowErrors();
+    try {
+      await fireEvent.click(screen.getByTestId('activation-failure-indicator'));
+    } finally {
+      captured.stop();
+    }
+
+    expect(captured.errors).toHaveLength(0);
+    // Not re-opened, and in fact closed: the panel has no backdrop, so this
+    // same click reaches the click-outside listener in `extensions-panel-host`.
+    // Asserted so a future backdrop surfaces here rather than silently
+    // changing what the indicator does. The guard's job is only the line above.
+    expect(extensionsPanelState.isOpen).toBe(false);
+  });
+
+  it('raises no error and does not open the panel when clicked while a modal is open', async () => {
+    renderAppWith([makeFailingExtension('x.bad')]);
+    quickPickState.open({ items: [{ label: 'Apple' }], options: undefined, resolve: () => {} });
+    flushSync();
+    expect(modalState.active).toBe(true);
+
+    const captured = captureWindowErrors();
+    try {
+      await fireEvent.click(screen.getByTestId('activation-failure-indicator'));
+    } finally {
+      captured.stop();
+    }
+
+    expect(captured.errors).toHaveLength(0);
+    expect(extensionsPanelState.isOpen).toBe(false);
+    // Symmetric with the sibling test above: the palette has no backdrop
+    // either, so the same click dismisses it. The indicator's guard only
+    // declines to open the panel; the dismissal is the click-outside listener
+    // in `quick-pick-host`.
+    expect(quickPickState.current).toBeNull();
   });
 });

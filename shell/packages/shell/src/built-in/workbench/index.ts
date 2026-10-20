@@ -8,6 +8,16 @@ interface CommandPickItem extends QuickPickItem {
 }
 
 /**
+ * The workbench's extension id. Exported because the extensions panel has to
+ * recognize the built-in to treat it differently (hidden from the list unless
+ * it has failed; no Disable on a failed row). Compared against a bare string
+ * literal over there, a rename here would silently stop matching rather than
+ * fail to compile, and the panel would quietly start offering Disable on a
+ * failed workbench — the one action that destroys the operator's way back.
+ */
+export const WORKBENCH_EXTENSION_ID = 'workbench';
+
+/**
  * The shell's built-in extension. Registers the command palette (Ctrl+Shift+P)
  * and the extensions panel (Ctrl+Shift+X) via the same public APIs any
  * third-party extension uses — the palette appears in itself ("Workbench: Show
@@ -22,7 +32,7 @@ interface CommandPickItem extends QuickPickItem {
 export function createWorkbenchExtension(registry: Registry): Extension {
   return {
     manifest: {
-      id: 'workbench',
+      id: WORKBENCH_EXTENSION_ID,
       displayName: 'Workbench',
       version: '0.0.0',
       description:

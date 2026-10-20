@@ -7,6 +7,7 @@
   import ViewHost from './dockview-host/view-host.svelte';
   import GcscodeTab from './dockview-host/gcscode-tab.svelte';
   import EmptyStateWatermark from './dockview-host/empty-state-watermark.svelte';
+  import ActivationFailureIndicator from './activation-failure-indicator.svelte';
 
   let { registry, manager }: { registry: Registry; manager: ExtensionManager } = $props();
 
@@ -75,6 +76,10 @@
       class="shell__statusbar-side shell__statusbar-side--right flex items-center gap-3"
       data-testid="statusbar-right"
     >
+      <!-- Host-owned, rendered ahead of the contributions rather than among
+           them: an extension-contributed indicator would be subject to the
+           activation failure it reports. See the component for the rest. -->
+      <ActivationFailureIndicator {manager} />
       {#each rightStatus as { id, component: Component } (id)}
         <Component />
       {/each}
