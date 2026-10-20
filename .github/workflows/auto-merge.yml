@@ -111,7 +111,10 @@ jobs:
             # `gh pr view --json reviews` omits the suffix. Normalise so the match is
             # spelling-agnostic — getting this wrong fails closed and silently, which
             # is how the first version of this block broke.
-            FINAL_REVIEWS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews" --jq '.[] | {login: (.user.login | sub("\\[bot\\]$"; "")), state, submittedAt: .submitted_at}' | jq -s '{reviews: .}')
+            # `.user.login // ""` guards a null author: `sub` on null raises, which
+            # would abort the gate, so a single review by a deleted account would
+            # otherwise brick auto-merge even alongside a valid final APPROVED.
+            FINAL_REVIEWS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews" --jq '.[] | {login: ((.user.login // "") | sub("\\[bot\\]$"; "")), state, submittedAt: .submitted_at}' | jq -s '{reviews: .}')
             FINAL_REVIEW_STATE=$(echo "$FINAL_REVIEWS" | jq -r '
               [ .reviews[]
                 | select(.login == "gcscode-final-review")
