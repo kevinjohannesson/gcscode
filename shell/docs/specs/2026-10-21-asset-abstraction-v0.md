@@ -82,7 +82,9 @@ export interface AssetDescription {
   airframe?: Airframe;
 }
 
-export interface RegisteredAsset extends AssetDescription {
+export interface RegisteredAsset {
+  readonly localId: string;
+  readonly airframe?: Airframe;
   readonly sourceId: string;
   readonly sourceLabel: string;
   readonly key: string;
@@ -93,6 +95,8 @@ export interface AssetsApi {
   getAssets(): readonly RegisteredAsset[];
 }
 ```
+
+_Corrected during implementation (task 1):_ this block originally read `RegisteredAsset extends AssetDescription`, inheriting `localId` and `airframe` as **mutable** — which contradicted validation case 10 in this same document, since `readonly RegisteredAsset[]` protects the array and not its elements. The fields are spelled out and all `readonly` instead. ADR-0011's `extends` form is still the right shape for an ADR describing vocabulary; it is the wrong one for a registry whose immutability is enforced only by its types. A further limit, found by the same implementer and left alone: `getAssets()[0].airframe!.kind = 'none'` still type-checks, because `Airframe`'s `kind` is not `readonly` in ADR-0011's vocabulary. Making it so is a vocabulary change, not a v0 one — recorded in Known unknowns.
 
 With one member this spec adds, for the reason in the next section:
 
@@ -285,6 +289,7 @@ One section, because the rule generalises beyond assets: a writer into another e
 
 ## Known unknowns
 
+- **How deep the immutability claim should go.** Case 10's "the types are the only enforcement" holds one level: a consumer cannot replace an asset's `airframe`, but can still write `getAssets()[0].airframe!.kind`, because `Airframe`'s `kind` is mutable in ADR-0011's vocabulary. Deepening it means `readonly` on the vocabulary types themselves, which is an ADR-0011 change with no consumer yet asking for it.
 - **Whether `rotary-wing` belongs in the vocabulary.** `HELICOPTER` → `unknown` is honest but unhelpful to an operator looking at a helicopter. One unmapped type is not enough evidence.
 - **Whether `isLive` is the right primitive or a symptom.** It is inspectable and cheap, but it is still a pull signal a writer must remember to check. A service that announced teardown would be more direct, at the cost of inverting the dependency.
 - **Whether the airframe property earns its place in v0.** It exists to prove the abstraction can carry a domain fact. `label` alone would prove nearly the same thing with less vocabulary.

@@ -99,6 +99,8 @@ Vocabulary types live in `extension-assets`'s entry point and are consumed with 
 
 `vitest.config.ts` — copy `packages/extension-map-demo/vitest.config.ts` verbatim.
 
+**One deviation, decided after task 1 reported it:** this package has no Svelte components, so the `check` script is `tsc --noEmit` only and `tsconfig.json`'s `include` drops `src/**/*.svelte` — otherwise `svelte-check` prints a warning for a glob that matches nothing. `packages/extension-api` is the in-repo precedent for a Svelte-less package. `extension-assets-demo` in task 6 **does** have a component and keeps both.
+
 Then `pnpm install` from `shell/` so the workspace links it.
 
 - [ ] **Step 2: write the failing registry tests**
@@ -394,7 +396,7 @@ Then `cd "$(git rev-parse --show-toplevel)"/shell && pnpm check` — the `@ts-ex
 
 - [ ] **Step 7: prove the tests can fail**
 
-For at least cases 6, 9 and 10, mutate the implementation, watch the specific test fail, restore, and report the mutation. Make `_register` always mint a fresh key (case 9 and case 6 should fail), and drop the `readonly` from `RegisteredAsset.airframe` (the `@ts-expect-error` becomes unused and `pnpm check` fails).
+For at least cases 6, 9 and 10, mutate the implementation, watch the specific test fail, restore, and report the mutation. Make `_register` always mint a fresh key, and drop the `readonly` from `RegisteredAsset.airframe` (the `@ts-expect-error` becomes unused and `pnpm check` fails). **Note on case 9, corrected during task 1:** an earlier draft of this step claimed the fresh-key mutation would fail case 9, and it did not — the test read `getAssets()[0].key` positionally, so the original entry still sat at index 0 and the stability assertion held. Case 9 must find its asset by `localId` and assert exactly one entry exists for it. The step that exists to catch vacuous assertions contained one.
 
 - [ ] **Step 8: commit**
 
