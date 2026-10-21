@@ -48,47 +48,56 @@ describe('airframeFromMavType', () => {
   // out of the mavlink submodule of the ArduPilot checkout driving the SITL
   // this task measured against.
   it.each([
-    [1, 'MAV_TYPE_FIXED_WING'],
-    [2, 'MAV_TYPE_QUADROTOR'],
-    [4, 'MAV_TYPE_HELICOPTER'],
-    [5, 'MAV_TYPE_ANTENNA_TRACKER'],
-    [6, 'MAV_TYPE_GCS'],
-    [10, 'MAV_TYPE_GROUND_ROVER'],
-    [11, 'MAV_TYPE_SURFACE_BOAT'],
-    [12, 'MAV_TYPE_SUBMARINE'],
-    [13, 'MAV_TYPE_HEXAROTOR'],
-    [14, 'MAV_TYPE_OCTOROTOR'],
-    [15, 'MAV_TYPE_TRICOPTER'],
-    [18, 'MAV_TYPE_ONBOARD_CONTROLLER'],
-    [19, 'MAV_TYPE_VTOL_DUOROTOR'],
-    [20, 'MAV_TYPE_VTOL_QUADROTOR'],
-    [21, 'MAV_TYPE_VTOL_TILTROTOR'],
-    [22, 'MAV_TYPE_VTOL_RESERVED2'],
-    [23, 'MAV_TYPE_VTOL_RESERVED3'],
-    [24, 'MAV_TYPE_VTOL_RESERVED4'],
-    [25, 'MAV_TYPE_VTOL_RESERVED5'],
-    [26, 'MAV_TYPE_GIMBAL'],
-    [27, 'MAV_TYPE_ADSB'],
-    [29, 'MAV_TYPE_DODECAROTOR'],
-    [30, 'MAV_TYPE_CAMERA'],
-    [31, 'MAV_TYPE_CHARGING_STATION'],
-    [32, 'MAV_TYPE_FLARM'],
-    [33, 'MAV_TYPE_SERVO'],
-    [34, 'MAV_TYPE_ODID'],
-    [35, 'MAV_TYPE_DECAROTOR'],
-    [36, 'MAV_TYPE_BATTERY'],
-    [38, 'MAV_TYPE_LOG'],
-    [39, 'MAV_TYPE_OSD'],
-    [40, 'MAV_TYPE_IMU'],
-    [41, 'MAV_TYPE_GPS'],
-    [42, 'MAV_TYPE_WINCH'],
-    [43, 'MAV_TYPE_GENERIC_MULTIROTOR'],
-    [44, 'MAV_TYPE_ILLUMINATOR'],
-    [46, 'MAV_TYPE_GROUND_QUADRUPED'],
-    [47, 'MAV_TYPE_VTOL_GYRODYNE'],
-    [48, 'MAV_TYPE_GRIPPER'],
-  ])('reads %i the same as %s', (ordinal, name) => {
-    expect(airframeFromMavType(ordinal)).toEqual(airframeFromMavType(name));
+    [1, 'MAV_TYPE_FIXED_WING', { kind: 'fixed-wing' }],
+    [2, 'MAV_TYPE_QUADROTOR', { kind: 'multirotor' }],
+    [4, 'MAV_TYPE_HELICOPTER', { kind: 'unknown' }],
+    [5, 'MAV_TYPE_ANTENNA_TRACKER', { kind: 'none' }],
+    [6, 'MAV_TYPE_GCS', { kind: 'none' }],
+    [10, 'MAV_TYPE_GROUND_ROVER', { kind: 'none' }],
+    [11, 'MAV_TYPE_SURFACE_BOAT', { kind: 'none' }],
+    [12, 'MAV_TYPE_SUBMARINE', { kind: 'none' }],
+    [13, 'MAV_TYPE_HEXAROTOR', { kind: 'multirotor' }],
+    [14, 'MAV_TYPE_OCTOROTOR', { kind: 'multirotor' }],
+    [15, 'MAV_TYPE_TRICOPTER', { kind: 'multirotor' }],
+    [18, 'MAV_TYPE_ONBOARD_CONTROLLER', { kind: 'none' }],
+    [19, 'MAV_TYPE_VTOL_DUOROTOR', { kind: 'vtol' }],
+    [20, 'MAV_TYPE_VTOL_QUADROTOR', { kind: 'vtol' }],
+    [21, 'MAV_TYPE_VTOL_TILTROTOR', { kind: 'vtol' }],
+    [22, 'MAV_TYPE_VTOL_RESERVED2', { kind: 'vtol' }],
+    [23, 'MAV_TYPE_VTOL_RESERVED3', { kind: 'vtol' }],
+    [24, 'MAV_TYPE_VTOL_RESERVED4', { kind: 'vtol' }],
+    [25, 'MAV_TYPE_VTOL_RESERVED5', { kind: 'vtol' }],
+    [26, 'MAV_TYPE_GIMBAL', { kind: 'none' }],
+    [27, 'MAV_TYPE_ADSB', { kind: 'none' }],
+    [29, 'MAV_TYPE_DODECAROTOR', { kind: 'multirotor' }],
+    [30, 'MAV_TYPE_CAMERA', { kind: 'none' }],
+    [31, 'MAV_TYPE_CHARGING_STATION', { kind: 'none' }],
+    [32, 'MAV_TYPE_FLARM', { kind: 'none' }],
+    [33, 'MAV_TYPE_SERVO', { kind: 'none' }],
+    [34, 'MAV_TYPE_ODID', { kind: 'none' }],
+    [35, 'MAV_TYPE_DECAROTOR', { kind: 'multirotor' }],
+    [36, 'MAV_TYPE_BATTERY', { kind: 'none' }],
+    [38, 'MAV_TYPE_LOG', { kind: 'none' }],
+    [39, 'MAV_TYPE_OSD', { kind: 'none' }],
+    [40, 'MAV_TYPE_IMU', { kind: 'none' }],
+    [41, 'MAV_TYPE_GPS', { kind: 'none' }],
+    [42, 'MAV_TYPE_WINCH', { kind: 'none' }],
+    [43, 'MAV_TYPE_GENERIC_MULTIROTOR', { kind: 'multirotor' }],
+    [44, 'MAV_TYPE_ILLUMINATOR', { kind: 'none' }],
+    [46, 'MAV_TYPE_GROUND_QUADRUPED', { kind: 'none' }],
+    [47, 'MAV_TYPE_VTOL_GYRODYNE', { kind: 'vtol' }],
+    [48, 'MAV_TYPE_GRIPPER', { kind: 'none' }],
+  ])('maps ordinal %i and %s to %o, in both forms', (ordinal, name, expected) => {
+    // Both forms are asserted against the literal rather than against each
+    // other. An equivalence check alone cannot catch a wrong *shared* answer:
+    // the numeric path resolves the ordinal to a name and then runs the same
+    // rules, so both sides agree on the same mistake. A value covered only by
+    // equivalence is therefore untested for correctness — dropping CAMERA from
+    // the non-flying rule once left the whole suite green. Anyone adding a
+    // family member should add its expected answer here, not just a pair.
+    // Case 23's equivalence claim follows from the two absolute assertions.
+    expect(airframeFromMavType(name)).toEqual(expected);
+    expect(airframeFromMavType(ordinal)).toEqual(expected);
   });
 
   // A number the vehicle sent IS an assertion, even when this module has no
@@ -186,6 +195,17 @@ describe('systemIdOf', () => {
 
   it('returns undefined when there is no readable header', () => {
     expect(systemIdOf({ message: { type: 'HEARTBEAT' } })).toBeUndefined();
+  });
+
+  // Mirrors the ordinal path's guard. Unreachable against real mavlink2rest,
+  // whose system_id is a genuine uint8 — but task 5 turns this value into an
+  // asset's localId, and an asset keyed "NaN" would be a quiet, permanent
+  // registry entry.
+  it('returns undefined for a system_id that is not a whole, non-negative number', () => {
+    expect(systemIdOf({ header: { system_id: Number.NaN } })).toBeUndefined();
+    expect(systemIdOf({ header: { system_id: 1.5 } })).toBeUndefined();
+    expect(systemIdOf({ header: { system_id: -1 } })).toBeUndefined();
+    expect(systemIdOf({ header: { system_id: Number.POSITIVE_INFINITY } })).toBeUndefined();
   });
 
   it('returns undefined for a header without a numeric system_id', () => {

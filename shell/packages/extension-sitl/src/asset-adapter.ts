@@ -6,14 +6,51 @@
 
 import type { Airframe } from '@gcscode/extension-assets';
 
-const MULTIROTOR =
-  /^MAV_TYPE_(TRICOPTER|QUADROTOR|HEXAROTOR|OCTOROTOR|DECAROTOR|DODECAROTOR|GENERIC_MULTIROTOR)$/;
+/** Every rotor count the dialect spells, plus the generic. Closed sets of
+ *  whole tokens rather than regexes: there is no pattern to match, membership
+ *  is what is meant, and a member added later cannot bring a metacharacter
+ *  with it. (`VTOL_` stays a prefix test — that one genuinely needs pattern
+ *  behaviour, and it is why an upstream rename does not break the rule.) */
+const MULTIROTOR: ReadonlySet<string> = new Set([
+  'MAV_TYPE_TRICOPTER',
+  'MAV_TYPE_QUADROTOR',
+  'MAV_TYPE_HEXAROTOR',
+  'MAV_TYPE_OCTOROTOR',
+  'MAV_TYPE_DECAROTOR',
+  'MAV_TYPE_DODECAROTOR',
+  'MAV_TYPE_GENERIC_MULTIROTOR',
+]);
+
 /** Anything the vocabulary can assert does not fly, in the spec's three
- *  sub-families: ground and surface craft, ground stations and trackers, and
- *  peripherals or payloads carried by something else. A family rule, not an
- *  enumeration — `none` is a claim about flight, not about importance. */
-const NON_FLYING =
-  /^MAV_TYPE_(GROUND_ROVER|GROUND_QUADRUPED|SURFACE_BOAT|SUBMARINE|GCS|ANTENNA_TRACKER|GIMBAL|CAMERA|SERVO|WINCH|ONBOARD_CONTROLLER|ADSB|ODID|BATTERY|ILLUMINATOR|GRIPPER|FLARM|LOG|OSD|IMU|GPS|CHARGING_STATION)$/;
+ *  sub-families. A family rule, not an enumeration — `none` is a claim about
+ *  flight, not about importance. */
+const NON_FLYING: ReadonlySet<string> = new Set([
+  // ground and surface craft
+  'MAV_TYPE_GROUND_ROVER',
+  'MAV_TYPE_GROUND_QUADRUPED',
+  'MAV_TYPE_SURFACE_BOAT',
+  'MAV_TYPE_SUBMARINE',
+  // ground stations and trackers
+  'MAV_TYPE_GCS',
+  'MAV_TYPE_ANTENNA_TRACKER',
+  // peripherals and payloads, carried by something else
+  'MAV_TYPE_GIMBAL',
+  'MAV_TYPE_CAMERA',
+  'MAV_TYPE_SERVO',
+  'MAV_TYPE_WINCH',
+  'MAV_TYPE_ONBOARD_CONTROLLER',
+  'MAV_TYPE_ADSB',
+  'MAV_TYPE_ODID',
+  'MAV_TYPE_BATTERY',
+  'MAV_TYPE_ILLUMINATOR',
+  'MAV_TYPE_GRIPPER',
+  'MAV_TYPE_FLARM',
+  'MAV_TYPE_LOG',
+  'MAV_TYPE_OSD',
+  'MAV_TYPE_IMU',
+  'MAV_TYPE_GPS',
+  'MAV_TYPE_CHARGING_STATION',
+]);
 
 /**
  * Every `MAV_TYPE` ordinal whose name the rules below give a word to — so that
@@ -24,9 +61,11 @@ const NON_FLYING =
  * silently missed by the numeric one.
  *
  * Read out of MAVLink's `minimal.xml` — where `MAV_TYPE` is defined, not
- * `common.xml` — in the mavlink submodule of the ArduPilot checkout driving
- * the SITL this module was measured against. Any ordinal absent here is
- * reported `unknown` rather than named incorrectly.
+ * `common.xml` — in a separate ArduPilot checkout driving the SITL this module
+ * was measured against. That dialect is **not** vendored in gcscode: there is
+ * no submodule and no copy of the definitions, so neither CI nor a fresh clone
+ * can re-derive this table. The tests are the durable guard. Any ordinal
+ * absent here is reported `unknown` rather than named incorrectly.
  */
 const NAME_BY_ORDINAL: Record<number, string> = {
   1: 'MAV_TYPE_FIXED_WING',
@@ -80,13 +119,13 @@ function airframeFromName(name: string): Airframe | undefined {
   // the vocabulary can name something it must, so a ten-rotor aircraft is named
   // rather than sent to `unknown`. COAXIAL and HELICOPTER stay out — rotary-wing
   // but not multirotor, which is the genuine gap.
-  if (MULTIROTOR.test(name)) return { kind: 'multirotor' };
+  if (MULTIROTOR.has(name)) return { kind: 'multirotor' };
   if (name === 'MAV_TYPE_FIXED_WING') return { kind: 'fixed-wing' };
   // Prefix rather than enumeration: the VTOL family has been renamed upstream
   // (the dialect behind this SITL still spells 23 `VTOL_RESERVED3`, where
   // newer MAVLink spells it `VTOL_TAILSITTER`) and a prefix survives that.
   if (name.startsWith('MAV_TYPE_VTOL_')) return { kind: 'vtol' };
-  if (NON_FLYING.test(name)) return { kind: 'none' };
+  if (NON_FLYING.has(name)) return { kind: 'none' };
   // Includes MAV_TYPE_HELICOPTER: rotary-wing but not multirotor, and gcscode
   // has no word for it. Calling it `multirotor` would be a lie a consumer
   // cannot detect. See the spec's Known unknowns.
@@ -132,5 +171,13 @@ export function systemIdOf(json: unknown): string | undefined {
   const header = (json as { header?: unknown }).header;
   if (typeof header !== 'object' || header === null) return undefined;
   const id = (header as { system_id?: unknown }).system_id;
-  return typeof id === 'number' ? String(id) : undefined;
+  // Same readability guard as the ordinal path: a whole, non-negative number
+  // or nothing. `system_id` is a uint8 on the wire, so this is unreachable
+  // against real mavlink2rest — but this value becomes an asset's `localId`,
+  // and `{ system_id: NaN }` would otherwise key a permanent `"NaN"` entry.
+  // Deliberately no upper bound: an out-of-range but whole id still yields a
+  // stable, opaque `localId`, and rejecting it would drop a real asset from a
+  // nonstandard source rather than merely mis-name it.
+  if (typeof id !== 'number' || !Number.isInteger(id) || id < 0) return undefined;
+  return String(id);
 }
