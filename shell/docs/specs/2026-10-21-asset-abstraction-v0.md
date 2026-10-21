@@ -214,7 +214,7 @@ Numbered so later specs and reviews can cite them.
 20. Heartbeats from two different `system_id`s register two assets.
 21. Two heartbeats differing only in `component_id` register **one** asset.
 22. The mapping table is covered per row, including `HELICOPTER` → `unknown` and `GROUND_ROVER` → `none`, with an unmapped value → `unknown`.
-23. `MAV_TYPE` as an enum-name string and as the equivalent number produce the same airframe.
+23. `MAV_TYPE` as an enum-name string and as the equivalent number produce the same airframe — **and every value carries an absolute expected answer as well**, taken from this spec's family rules rather than from the implementation. _Sharpened during task 4:_ agreement alone is not coverage, because both forms delegate to the same name lookup and so agree on the same mistake. Measured, nineteen values were covered only by agreement, and deleting an entire family member from the mapping rule left all 121 tests green. Case 22 and this case together must make equivalence-only coverage inexpressible.
 24. A heartbeat with no readable `MAV_TYPE` registers the asset with **no** `airframe` property — not `unknown`. Absent means not asserted; `unknown` means asserted-and-unnameable.
 25. The adapter claims its source **lazily**: activating the adapter alone registers no source, and the first heartbeat claims one. Asserted so the removed activation-order constraint cannot creep back.
 26. With the registry absent at activation, the adapter activates, warns once, registers nothing, and its telemetry handling still works.
