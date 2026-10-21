@@ -895,7 +895,12 @@ The adapter needs a seam that does not require a WebSocket. Model it as a factor
 import { describe, expect, it, vi } from 'vitest';
 
 import { createAssetAdapter } from './asset-adapter';
-import { createAssetRegistry } from '@gcscode/extension-assets/src/asset-registry.svelte';
+// NOT this — measured during task 5 and wrong twice over: it is a runtime import
+// from a sibling extension package, which the boundary rule forbids and ESLint
+// catches, and it does not resolve at all because that package's `exports` map
+// has no `./src/*` subpath. Use a contract double for the source instead, and
+// rely on extension-assets' own cases 1-14 plus task 7's real wiring for the
+// behaviour of the registry itself.
 
 const heartbeat = (systemId: number, mavType: string, componentId = 1) => ({
   header: { system_id: systemId, component_id: componentId },
@@ -1025,6 +1030,13 @@ export function createAssetAdapter(resolve: () => AssetsApi | undefined) {
 
   return {
     onMessage(json: unknown): void {
+      // HEARTBEAT only. The client's filter also admits GLOBAL_POSITION_INT,
+      // ATTITUDE, VFR_HUD and SYS_STATUS — every one carries header.system_id
+      // and none carries mavtype, so acting on them re-registers the asset with
+      // no airframe and overwrites the good value. Measured live before this
+      // guard existed: 102 frames produced 13 registrations in six seconds and
+      // the asset ended with no airframe at all. With the guard: 1 registration.
+      if (!isHeartbeat(json)) return;
       const localId = systemIdOf(json);
       if (localId === undefined) return;
 
@@ -1070,6 +1082,8 @@ function sameDescription(a: AssetDescription, b: AssetDescription): boolean {
   return a.localId === b.localId && a.airframe?.kind === b.airframe?.kind;
 }
 ```
+
+**One failure the sketch does not handle.** `createSource` throws on a duplicate claim of a live source id, and the adapter calls it from inside a WebSocket message handler where throwing is the wrong failure mode. Guard the claim, warn once, and retry on the next message rather than letting it escape.
 
 - [ ] **Step 4: wire it into `index.ts`**
 
