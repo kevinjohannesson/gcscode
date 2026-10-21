@@ -233,7 +233,7 @@ Numbered so later specs and reviews can cite them.
 ### Teardown
 
 31. Disabling the adapter removes its assets from the registry.
-32. An adapter whose `activate` throws after claiming its source leaves no assets behind — containment disposes the handle via `context.subscriptions`.
+32. An adapter whose `activate` throws after claiming its source leaves no assets behind — containment disposes the handle via `context.subscriptions`. _Measured during task 7:_ **this** adapter cannot reach that state. It claims on an inbound frame, and no frame arrives synchronously inside `activate`, so a failed activation of `extension-sitl` has claimed nothing yet — the literal case is reachable only for an adapter that claims eagerly, which is the shape a future one claiming from configuration would have. So the case is asserted as two halves, and they need different adapters: an eagerly-claiming contributor proves containment removes what was already registered, and the real extension proves that the heartbeats still arriving on the socket containment did **not** close register nothing. The second half is the one that protects the terminal disposal decided in Architecture's "Teardown, stated completely".
 33. Re-enabling the adapter re-claims and re-registers on the next heartbeat.
 
 ### The ordering comments
