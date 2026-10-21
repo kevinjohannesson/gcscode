@@ -8,7 +8,11 @@ describe('airframeFromMavType', () => {
     ['MAV_TYPE_HEXAROTOR', { kind: 'multirotor' }],
     ['MAV_TYPE_OCTOROTOR', { kind: 'multirotor' }],
     ['MAV_TYPE_TRICOPTER', { kind: 'multirotor' }],
+    ['MAV_TYPE_DECAROTOR', { kind: 'multirotor' }],
+    ['MAV_TYPE_GENERIC_MULTIROTOR', { kind: 'multirotor' }],
     ['MAV_TYPE_FIXED_WING', { kind: 'fixed-wing' }],
+    // Aspirational: this dialect still spells 23 `VTOL_RESERVED3`. The rule is
+    // a prefix test, so it names the value under either spelling.
     ['MAV_TYPE_VTOL_TAILSITTER', { kind: 'vtol' }],
     ['MAV_TYPE_VTOL_TILTROTOR', { kind: 'vtol' }],
     ['MAV_TYPE_HELICOPTER', { kind: 'unknown' }],
@@ -65,11 +69,13 @@ describe('airframeFromMavType', () => {
     [31, 'MAV_TYPE_CHARGING_STATION'],
     [32, 'MAV_TYPE_FLARM'],
     [33, 'MAV_TYPE_SERVO'],
+    [35, 'MAV_TYPE_DECAROTOR'],
     [38, 'MAV_TYPE_LOG'],
     [39, 'MAV_TYPE_OSD'],
     [40, 'MAV_TYPE_IMU'],
     [41, 'MAV_TYPE_GPS'],
     [42, 'MAV_TYPE_WINCH'],
+    [43, 'MAV_TYPE_GENERIC_MULTIROTOR'],
     [47, 'MAV_TYPE_VTOL_GYRODYNE'],
   ])('reads %i the same as %s', (ordinal, name) => {
     expect(airframeFromMavType(ordinal)).toEqual(airframeFromMavType(name));
@@ -78,7 +84,8 @@ describe('airframeFromMavType', () => {
   // A number the vehicle sent IS an assertion, even when this module has no
   // word for it. `undefined` would claim nobody asserted an airframe — the
   // quiet failure the spec's parse rule exists to prevent. 3 is
-  // MAV_TYPE_COAXIAL; 48 is MAV_TYPE_GRIPPER; 200 is not assigned.
+  // MAV_TYPE_COAXIAL; 48 is MAV_TYPE_GRIPPER; 200 is not assigned. None of
+  // the three is a value the mapping's stated rules give a word to.
   it.each([3, 48, 200])('reports a readable but unnamed ordinal %i as unknown', (ordinal) => {
     expect(airframeFromMavType(ordinal)).toEqual({ kind: 'unknown' });
   });

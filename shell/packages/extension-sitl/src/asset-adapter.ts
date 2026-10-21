@@ -6,7 +6,8 @@
 
 import type { Airframe } from '@gcscode/extension-assets';
 
-const MULTIROTOR = /^MAV_TYPE_(QUADROTOR|HEXAROTOR|OCTOROTOR|TRICOPTER|DODECAROTOR)$/;
+const MULTIROTOR =
+  /^MAV_TYPE_(TRICOPTER|QUADROTOR|HEXAROTOR|OCTOROTOR|DECAROTOR|DODECAROTOR|GENERIC_MULTIROTOR)$/;
 const NON_FLYING =
   /^MAV_TYPE_(GCS|ANTENNA_TRACKER|GIMBAL|CAMERA|ONBOARD_CONTROLLER|ADSB|GROUND_ROVER|SURFACE_BOAT|SUBMARINE|CHARGING_STATION|FLARM|SERVO|LOG|OSD|IMU|GPS|WINCH)$/;
 
@@ -50,11 +51,13 @@ const NAME_BY_ORDINAL: Record<number, string> = {
   31: 'MAV_TYPE_CHARGING_STATION',
   32: 'MAV_TYPE_FLARM',
   33: 'MAV_TYPE_SERVO',
+  35: 'MAV_TYPE_DECAROTOR',
   38: 'MAV_TYPE_LOG',
   39: 'MAV_TYPE_OSD',
   40: 'MAV_TYPE_IMU',
   41: 'MAV_TYPE_GPS',
   42: 'MAV_TYPE_WINCH',
+  43: 'MAV_TYPE_GENERIC_MULTIROTOR',
   47: 'MAV_TYPE_VTOL_GYRODYNE',
 };
 
@@ -64,6 +67,10 @@ function airframeFromName(name: string): Airframe | undefined {
   // A string is only an assertion if it is shaped like a `MAV_TYPE` name.
   // Anything else is an unreadable value, not an unnameable one.
   if (!name.startsWith('MAV_TYPE_')) return undefined;
+  // A family rule, not an enumeration: every rotor count and the generic. Where
+  // the vocabulary can name something it must, so a ten-rotor aircraft is named
+  // rather than sent to `unknown`. COAXIAL and HELICOPTER stay out — rotary-wing
+  // but not multirotor, which is the genuine gap.
   if (MULTIROTOR.test(name)) return { kind: 'multirotor' };
   if (name === 'MAV_TYPE_FIXED_WING') return { kind: 'fixed-wing' };
   // Prefix rather than enumeration: the VTOL family has been renamed upstream
