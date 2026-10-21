@@ -101,7 +101,7 @@ Vocabulary types live in `extension-assets`'s entry point and are consumed with 
 
 **One deviation, decided after task 1 reported it:** this package has no Svelte components, so the `check` script is `tsc --noEmit` only and `tsconfig.json`'s `include` drops `src/**/*.svelte` — otherwise `svelte-check` prints a warning for a glob that matches nothing. `packages/extension-api` is the in-repo precedent for a Svelte-less package. `extension-assets-demo` in task 6 **does** have a component and keeps both.
 
-Then `pnpm install` from `shell/` so the workspace links it.
+Then `pnpm install` from `shell/` so the workspace links it. **Task 3 will also need `@gcscode/extension-assets` added to `packages/shell/package.json`** — the plan originally omitted it and the shell's import does not resolve without it. Commit the lockfile change with whichever task adds it.
 
 - [ ] **Step 2: write the failing registry tests**
 
@@ -608,7 +608,7 @@ import { createAssetRegistry, type AssetRegistryHandle } from './asset-registry.
 /** The live registry for the current activation. Module-level because
  *  `deactivate` needs it, but never exported: the only way to reach it is
  *  `activate()`'s return value, per ADR-0012. A fresh one per activation is
- *  what makes `isLive` a correct staleness signal — see the spec. */
+ *  what makes `isLive` a correct handle-validity signal — see the spec. */
 let registry: AssetRegistryHandle | null = null;
 
 export const assetsExtension: Extension = {
@@ -631,7 +631,7 @@ export const assetsExtension: Extension = {
 
 - [ ] **Step 4: bundle it, and fix the comments**
 
-In `packages/shell/src/extension-host/bundled-extensions.ts`, import `assetsExtension` and `assetsDemoExtension` (the latter arrives in task 6 — add its entry then, not now), and add the assets entry **with a comment that says ordering is not required**:
+In `packages/shell/src/extension-host/bundled-extensions.ts`, import `assetsExtension` and `assetsDemoExtension` (the latter arrives in task 6 — add its entry then, not now), and add the assets entry **with a comment that says ordering is not required**. Note the count: after this pass demotes `vehicle-status` and `map-demo`, only the **map → flight-overlay** pair states a real requirement — an earlier draft of this step said "three real constraints", which was already wrong and becomes more wrong as this pass lands.
 
 ```ts
   // Assets is a service other extensions write into. Deliberately NOT an
@@ -650,11 +650,17 @@ Then correct the two comments that overstate constraints. `vehicle-status` and `
   { id: vehicleStatusExtension.manifest.id, extension: vehicleStatusExtension },
 ```
 
-Apply the equivalent to `map-demo`. Leave `flight-overlay`'s comment alone — the containment iteration already corrected it.
+Apply the equivalent to `map-demo`. **`flight-overlay`'s comment needs one sentence deleted, contrary to an earlier draft of this step.** The containment iteration corrected its throw/degrade claim, but its trailing "Same insertion-order pattern as vehicle-status and map-demo" becomes false the moment this pass demotes those two — correcting two comments invalidates a third that referenced them, which is the position-dependent-documentation trap this project has hit before. Delete that sentence and nothing else.
 
 - [ ] **Step 5: run everything**
 
 Run: vitest from inside `extension-assets`, then from inside `packages/shell` (expect **279**, unchanged — nothing in the shell's behaviour changed), then `pnpm check` and `pnpm lint` from `shell/`.
+
+- [ ] **Step 5b: fix the shell test that asserts the rationale these comments deny**
+
+`bundled-extensions.test.ts`'s third case is named "bundles vehicle-status after sitl **so the consumer activates after the producer**" — asserting exactly the requirement the corrected comments say does not exist, since vehicle-status reads lazily. Meanwhile the one real constraint, **map before flight-overlay**, has no test at all.
+
+Replace it: assert `map` precedes `flight-overlay`, naming the reason (flight-overlay resolves map's exports during its own `activate`, so the overlay does not appear if map is absent — it degrades rather than throwing since the containment iteration). Drop the vehicle-status assertion: nothing depends on that order, which is the point the comments now make, and a test asserting a false rationale is worse than no test. Prove the new assertion can fail by temporarily swapping the two entries.
 
 - [ ] **Step 6: report case 34 by inspection, and commit**
 
