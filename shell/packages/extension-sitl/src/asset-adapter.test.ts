@@ -646,6 +646,83 @@ describe('createAssetAdapter', () => {
     expect(assets.getAssets()).toHaveLength(1);
   });
 
+  // Once per episode, not once per adapter lifetime: a service that is
+  // disabled, re-enabled and disabled again is two outages, and with no
+  // notification primitive in v0 the console warning is the only signal there
+  // is.
+  it('warns again when the service goes away a second time', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const assets = createFakeAssets();
+    let resolved: FakeAssets | undefined = undefined;
+    const adapter = createAssetAdapter(() => resolved);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    // Recovered.
+    resolved = assets;
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    expect(assets.getAssets()).toHaveLength(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    // Gone again — a second episode, a second warning.
+    resolved = undefined;
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it('warns again when a later claim fails after one succeeded', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const assets = createFakeAssets();
+    const createSource = vi.spyOn(assets, 'createSource');
+    const adapter = createAssetAdapter(() => assets);
+
+    // Episode one: the id is held by someone else.
+    const firstSquatter = assets.createSource('gcscode.sitl', 'Someone else');
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    // Recovered: the adapter claims on the next heartbeat.
+    firstSquatter.dispose();
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    expect(assets.getAssets()).toHaveLength(1);
+
+    // The adapter's own handle dies, and the id is taken before it can
+    // re-claim — a second episode, which must warn again.
+    const claimed = createSource.mock.results.at(-1)?.value as AssetSource;
+    claimed.dispose();
+    const secondSquatter = assets.createSource('gcscode.sitl', 'Someone else again');
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+
+    expect(warn).toHaveBeenCalledTimes(2);
+    secondSquatter.dispose();
+  });
+
+  // `heartbeatMessageOf`'s rejection path, which is the fix for the severest
+  // defect this task found — so it is asserted rather than read.
+  it.each([
+    ['no message at all', { header: { system_id: 1 } }],
+    ['a null message', { header: { system_id: 1 }, message: null }],
+    ['a string message', { header: { system_id: 1 }, message: 'HEARTBEAT' }],
+    ['a message with no type', { header: { system_id: 1 }, message: { mavtype: 'x' } }],
+    ['a numeric type', { header: { system_id: 1 }, message: { type: 42 } }],
+    ['a type that is HEARTBEAT-ish', { header: { system_id: 1 }, message: { type: 'HEARTBEAT2' } }],
+    ['an undefined envelope', undefined],
+    ['a null envelope', null],
+    ['a string envelope', 'HEARTBEAT'],
+  ])('ignores a frame with %s', (_label, frame) => {
+    const assets = createFakeAssets();
+    const createSource = vi.spyOn(assets, 'createSource');
+    const adapter = createAssetAdapter(() => assets);
+
+    expect(() => adapter.onMessage(frame)).not.toThrow();
+
+    expect(createSource).not.toHaveBeenCalled();
+    expect(assets.registrations).toHaveLength(0);
+    expect(assets.getAssets()).toHaveLength(0);
+  });
+
   // Case 27. `isLive` is the signal; an identity comparison on what
   // `getExtension()` returns could not see this, since the host builds a fresh
   // record per call and only `.exports` is stable.

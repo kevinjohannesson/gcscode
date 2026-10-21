@@ -252,14 +252,20 @@ export function createAssetAdapter(resolve: () => AssetsApi | undefined): Mavlin
     // the registration the new source still needs.
     tracked.clear();
     try {
-      return api.createSource(SOURCE_ID, SOURCE_LABEL);
+      const claimed = api.createSource(SOURCE_ID, SOURCE_LABEL);
+      // The condition the warning describes has cleared: a later claim that
+      // fails is a new episode and says so.
+      warnedAboutClaim = false;
+      return claimed;
     } catch (error) {
       // `createSource` throws on a duplicate live id — the one throwing path
       // in the service's contract. Unreachable while this extension is the
       // only claimant of its own id, and caught anyway: the alternative is an
       // exception escaping a WebSocket handler once per second. The next
       // heartbeat retries, so the adapter recovers on its own once whatever
-      // held the id lets go.
+      // held the id lets go. Warned once per *episode*, not once per adapter:
+      // a 1 Hz handler must not spam, but an operator must not be left blind
+      // to a second failure either.
       if (!warnedAboutClaim) {
         warnedAboutClaim = true;
         console.warn(
@@ -299,13 +305,19 @@ export function createAssetAdapter(resolve: () => AssetsApi | undefined): Mavlin
       if (api === undefined) {
         // Degrade, do not throw: the absence is observable (ADR-0012), and the
         // containment iteration left no throwing dependency resolution in the
-        // tree. Once per adapter, not once per heartbeat.
+        // tree. Once per outage rather than once per heartbeat — and once per
+        // outage rather than once per adapter, because a service that is
+        // disabled, re-enabled and disabled again is two outages, and an
+        // operator with no notification primitive to fall back on would
+        // otherwise see nothing the second time.
         if (!warnedAboutAbsence) {
           warnedAboutAbsence = true;
           console.warn('gcscode.sitl: the assets service is not active; not registering assets.');
         }
         return;
       }
+      // Resolved: this outage, if there was one, is over.
+      warnedAboutAbsence = false;
 
       if (source === undefined || !source.isLive) {
         source = claim(api);
@@ -358,9 +370,36 @@ function heartbeatMessageOf(json: unknown): Record<string, unknown> | undefined 
   return msg['type'] === 'HEARTBEAT' ? msg : undefined;
 }
 
-/** `kind` is the whole of `Airframe` today, so comparing it compares the whole
- *  description. A variant that grows a field of its own must extend this —
- *  otherwise the skip would swallow a real change. */
+/**
+ * The skip rule's comparison, and the one place that has to see *every* field
+ * of a description. `localId` and `airframe` are the whole of
+ * `AssetDescription` today, and `kind` the whole of `Airframe` — but a comment
+ * saying so is unenforced, and the failure of outgrowing it is invisible: the
+ * skip would quietly compare a stale subset, suppress real updates, and the
+ * asset would go silent with nothing failing.
+ *
+ * So the rest of each destructure is required to be empty. A field added to
+ * either type lands in a `…Rest` and stops satisfying `Record<string, never>`,
+ * which fails `pnpm check` here, by name, with this comparison as the thing
+ * the compiler points at. `satisfies` rather than an assignment: it is a
+ * type-level claim that costs no allocation in a per-heartbeat path.
+ */
 function sameDescription(a: AssetDescription, b: AssetDescription): boolean {
-  return a.localId === b.localId && a.airframe?.kind === b.airframe?.kind;
+  const { localId: aLocalId, airframe: aAirframe, ...aRest } = a;
+  const { localId: bLocalId, airframe: bAirframe, ...bRest } = b;
+  aRest satisfies Record<string, never>;
+  bRest satisfies Record<string, never>;
+  return aLocalId === bLocalId && sameAirframe(aAirframe, bAirframe);
+}
+
+/** Absent is not a kind: "not asserted" compares equal only to itself, never
+ *  to an asserted value. Same exhaustive-rest guard as `sameDescription` — a
+ *  variant that grows a field of its own breaks the build here. */
+function sameAirframe(a: Airframe | undefined, b: Airframe | undefined): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  const { kind: aKind, ...aRest } = a;
+  const { kind: bKind, ...bRest } = b;
+  aRest satisfies Record<string, never>;
+  bRest satisfies Record<string, never>;
+  return aKind === bKind;
 }
