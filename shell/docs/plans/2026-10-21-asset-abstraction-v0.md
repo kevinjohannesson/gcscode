@@ -1150,6 +1150,10 @@ An asset with no `airframe` renders `—`, distinguishable from `unknown`, per c
 
 - [ ] **Step 4: case 30 is a report, not an assertion.** In your task report, record what the source handle bought in this single-source deployment: which of the registry tests would change if `registerAsset` hung directly off `AssetsApi` with a source-id argument. This is deliberate evidence-gathering for the flat-registry fallback ADR-0011's Alternatives pre-authorises — not a judgment you have to make.
 
+- [ ] **Step 4b: re-check the assets-entry comment you are now invalidating**
+
+Task 3's code-quality review flagged that the assets entry's comment makes a **global** claim — "only the map/flight-overlay pair states a requirement" — which goes stale silently if a later entry adds a real ordering constraint. This task adds that later entry. The demo consumer reads the registry lazily per render, so it introduces no constraint and the claim still holds; confirm that in your report rather than assuming it, and if the comment needs narrowing from a global claim to a local one, narrow it. This is the same trap that made `flight-overlay`'s comment false in task 3: a claim about other entries decays when the set of entries changes.
+
 - [ ] **Step 5: run everything and commit**
 
 ```bash
