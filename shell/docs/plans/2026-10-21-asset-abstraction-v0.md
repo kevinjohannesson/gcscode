@@ -1120,7 +1120,9 @@ git commit -m "feat(sitl): register assets from HEARTBEAT, claiming lazily"
 - Create: `src/index.ts`, `src/assets-status-item.svelte`, `src/index.test.ts`
 - Modify: `packages/shell/src/extension-host/bundled-extensions.ts` (add the entry)
 
-- [ ] **Step 1: scaffold** — same shape as task 1's package, depending on `@gcscode/extension-api` and `@gcscode/extension-assets` (type-only).
+- [ ] **Step 1: scaffold** — same shape as task 1's package, depending on `@gcscode/extension-api` and `@gcscode/extension-assets` (type-only). Unlike `extension-assets`, this package has a Svelte component, so keep `svelte-check` in `check` and `src/**/*.svelte` in the tsconfig `include`.
+
+**Do not copy `extension-map-demo`'s `vitest.config.ts` verbatim — measured during task 6, it makes every rune test fail.** That config uses `environment: 'node'` with no testing plugin, and a component reading runes then throws `rune_outside_svelte`. The fix is `svelteTesting()` from `@testing-library/svelte/vite`, which puts `browser` ahead of `node` in `resolve.conditions`; its auto-cleanup half is a no-op under `globals: true`, so the `resolve.conditions` effect is the whole reason it is needed. This defect is worse than an inconvenience: an implementer who hit it could reasonably conclude the per-render reading idiom does not work under test and cache at `activate()` instead — which is precisely the thing case 29 exists to forbid. A tooling failure that pushes you toward the wrong architecture is the dangerous kind.
 
 - [ ] **Step 2: write the failing tests**, including the reactivity case, which is the one that pins the contract term:
 
@@ -1130,8 +1132,8 @@ it('renders sourceLabel · airframe for each asset', async () => {
 });
 
 it('updates when an asset is registered after mount, with no event and no remount', async () => {
-  // Mount with an empty registry, register an asset, await a tick, assert the
-  // label changed. A component that cached getAssets() at setup fails this.
+  // Mount with an empty registry, register an asset, `flushSync()`, assert the
+  // label changed. `await`ing a tick is not the idiom for runes. A component that cached getAssets() at setup fails this.
 });
 
 it('renders empty when the service is absent', async () => {
@@ -1144,7 +1146,9 @@ it('renders empty when the service is absent', async () => {
 ```svelte
 <script lang="ts">
   import type { AssetsApi } from '@gcscode/extension-assets';
-  import { getHost } from './host-store';
+  // Export the resolver from the package's own `index.ts` — both in-repo precedents
+  // do that, and it is where the spec points. There is no `host-store` module here.
+  import { getHost } from './index';
 
   // Read per render, not cached at setup: the host's exports map and the
   // registry's asset map are both SvelteMaps, which is what makes this
