@@ -17,8 +17,12 @@ describe('bundledExtensions', () => {
     // flight-overlay resolves map's exports during its own activate(), so the
     // wrong way round means no overlay at all — it degrades rather than
     // throwing. Every other position in the list is documentation: the lazy
-    // readers (vehicle-status, map-demo) pick their producer up on the next
-    // read, and the assets service is resolved per inbound message.
+    // readers (vehicle-status, map-demo, assets-demo) pick their producer up
+    // on the next read, and the assets service is resolved per inbound
+    // message. That inventory is prose, not an assertion: this test pins map
+    // before flight-overlay and nothing else, so a future entry carrying a
+    // real ordering requirement would make the sentence false without failing
+    // anything here.
     const ids = bundledExtensions.map((entry) => entry.id);
     const mapIndex = ids.indexOf('gcscode.map');
     const flightOverlayIndex = ids.indexOf('gcscode.flight-overlay');

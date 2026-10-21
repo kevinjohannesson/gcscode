@@ -5,6 +5,7 @@
 import type { Extension } from '@gcscode/extension-api';
 
 import { assetsExtension } from '@gcscode/extension-assets';
+import { assetsDemoExtension } from '@gcscode/extension-assets-demo';
 import { exampleExtension } from '@gcscode/extension-example';
 import { flightOverlayExtension } from '@gcscode/extension-flight-overlay';
 import { mapExtension } from '@gcscode/extension-map';
@@ -22,12 +23,19 @@ export const bundledExtensions: readonly BundledExtensionEntry[] = [
   { id: exampleExtension.manifest.id, extension: exampleExtension },
   // A service other extensions write into. Its position here is documentation,
   // NOT an ordering constraint: the MAVLink adapter resolves this service
-  // lazily per inbound message and claims its source on first use, so there is
-  // no activation-time edge for this list to order. Read the comments below
-  // the same way — only the map / flight-overlay pair states a requirement.
-  // See ADR-0012's Mechanics.
+  // lazily per inbound message and claims its source on first use, and the
+  // assets-demo consumer resolves it per render, so there is no
+  // activation-time edge for this list to order. See ADR-0012's Mechanics.
+  // Scope of that claim: this entry. A summary here of which *other* entries
+  // do state a requirement would go stale silently every time one is added,
+  // so each entry's own comment answers that for itself.
   { id: assetsExtension.manifest.id, extension: assetsExtension },
   { id: sitlExtension.manifest.id, extension: sitlExtension },
+  // The throwaway consumer that makes the registry observable. Its position
+  // is documentation too: it resolves the assets service and reads its assets
+  // inside a `$derived` per render, so it picks up the service activating and
+  // every later registration with no activation-time edge and no change event.
+  { id: assetsDemoExtension.manifest.id, extension: assetsDemoExtension },
   // Positioned after sitlExtension as documentation, not as a constraint:
   // vehicle-status reads SITL exports lazily per use (getSitlExports() inside
   // a $derived), so a later activation is picked up on the next read and
