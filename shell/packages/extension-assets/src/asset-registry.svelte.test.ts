@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Disposable } from '@gcscode/extension-api';
 
 import { createAssetRegistry } from './asset-registry.svelte';
-import type { AssetDescription, RegisteredAsset } from './index';
+import type { Airframe, AssetDescription, RegisteredAsset } from './index';
 
 describe('asset registry', () => {
   it('claims a source and starts empty', () => {
@@ -123,6 +123,9 @@ describe('asset registry', () => {
     const assets = registry.getAssets();
     // @ts-expect-error — elements are readonly; this is the compile-time half of case 10
     assets[0].airframe = { kind: 'none' };
+    // @ts-expect-error — and `Airframe.kind` is readonly too, so a reader cannot
+    // reach one level further in and mutate a live entry's airframe in place
+    assets[0].airframe!.kind = 'none';
     // The runtime half: pushing to the snapshot does not reach the registry.
     (assets as RegisteredAsset[]).push({
       localId: 'x',
@@ -142,7 +145,11 @@ describe('asset registry', () => {
     const description: AssetDescription = { localId: '1', airframe: { kind: 'multirotor' } };
     source.registerAsset(description);
 
-    description.airframe!.kind = 'none';
+    // `readonly kind` now stops a *typed* writer from doing this, so the cast
+    // is the point rather than a wart: it simulates the caller the types cannot
+    // reach — a JS adapter, or one compiled against an older `.d.ts`. At
+    // runtime the type is erased and the copy below is the only protection.
+    (description.airframe! as { kind: Airframe['kind'] }).kind = 'none';
 
     // Stored by reference, this corruption would be invisible twice over: the
     // value is wrong, and no `set()` ran, so no reactive signal fires and no

@@ -2,12 +2,18 @@ import type { Disposable, Extension } from '@gcscode/extension-api';
 
 import { createAssetRegistry, type AssetRegistryHandle } from './asset-registry.svelte';
 
+/** `kind` is `readonly` on every member for the same reason every field of
+ *  `RegisteredAsset` is: the types are the only enforcement in a single-realm
+ *  host, and a `readonly airframe` protects the property and not the object
+ *  behind it — without this, `getAssets()[0].airframe!.kind = 'none'` still
+ *  type-checks and a reader can corrupt a live entry. The registry already
+ *  pays a defensive copy to stop a *writer* doing exactly that. */
 export type Airframe =
-  | { kind: 'multirotor' }
-  | { kind: 'fixed-wing' }
-  | { kind: 'vtol' }
-  | { kind: 'none' } // asserted: this asset does not fly
-  | { kind: 'unknown' }; // gcscode has no word for what the adapter saw
+  | { readonly kind: 'multirotor' }
+  | { readonly kind: 'fixed-wing' }
+  | { readonly kind: 'vtol' }
+  | { readonly kind: 'none' } // asserted: this asset does not fly
+  | { readonly kind: 'unknown' }; // gcscode has no word for what the adapter saw
 
 export interface AssetDescription {
   /** Unique within the registering source. Opaque to consumers — never parsed,
