@@ -457,7 +457,7 @@ describe('handle validity', () => {
 - [ ] **Step 2: run them and watch them fail**
 
 Run: `cd "$(git rev-parse --show-toplevel)"/shell/packages/extension-assets && npx vitest run`
-Expected: FAIL — `teardown` does not exist.
+Expected: FAIL — `teardown` does not exist. Note only the third of the three tests fails for that reason; cases 11 and 12 already pass on task 1's code, since `isLive` and the inert-write guard shipped there. A step that claims three failing tests and delivers one is the kind of thing to report, not work around.
 
 - [ ] **Step 3: implement teardown**
 
@@ -493,17 +493,29 @@ export function createAssetRegistry(): AssetRegistryHandle {
 - [ ] **Step 4: run them and watch them pass**
 
 Run: vitest from inside the package, then `pnpm check` from `shell/`.
-Expected: PASS, 14 tests.
+Expected: PASS. The count is task 1's 11 plus the three above, plus one each for step 4b's copy test and case 14 — report what you measure rather than matching a number here.
 
 - [ ] **Step 4b: copy the caller's `airframe` on register**
 
 Task 1's code-quality review found the writer-side sibling of the documented one-level-deep immutability gap: the registry stores the caller's `airframe` **object by reference**, so a writer that mutates one in place after registering would silently corrupt a live entry — and because no `set()` runs, **no reactive signal fires at all**, so no consumer would even re-render to show the corrupted value. That is the invisible-failure class, and the fix is one spread in `_register`:
 
 ```ts
-      ...(description.airframe === undefined ? {} : { airframe: { ...description.airframe } }),
+      ...(airframe === undefined ? {} : { airframe: { ...airframe } }),
+```
+
+Use whatever local task 1 already destructured rather than re-reading `description.airframe` — task 1 destructures once deliberately.
+
+```ts
+
 ```
 
 No writer mutates today — task 5's adapter builds a fresh description per message — so this is defence against a future one, bought for a shallow copy of a single-property object. Add a test: register with an `airframe`, mutate the object you passed in, and assert `getAssets()` still reports the original value.
+
+- [ ] **Step 4c: an inert source from a torn-down registry**
+
+Found by task 2's implementer: `createSource` on a torn-down registry returns a source reporting `isLive === true` whose writes land in an instance no consumer can reach — falsifying the spec's "`isLive` is true exactly when a write will land" for a writer that cached `AssetsApi` at `activate()`, the idiom the spec warns about. Set a `_tornDown` flag in `teardown()` and consult it in **`createSource`**, returning an inert source rather than throwing; ADR-0011's message-handler reasoning covers claiming as well as registering.
+
+**Consult the flag in `createSource`, not inside `isLive`.** If `isLive` read it directly, deleting the source-disposal loop from `teardown()` would still leave handles reporting `false` and step 5's mutation would stop discriminating. Re-run that mutation afterwards to confirm it still fails on the liveness assertion.
 
 - [ ] **Step 5: prove case 13 can fail**
 
