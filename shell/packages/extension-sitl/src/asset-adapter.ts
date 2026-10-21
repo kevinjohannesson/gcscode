@@ -8,8 +8,12 @@ import type { Airframe } from '@gcscode/extension-assets';
 
 const MULTIROTOR =
   /^MAV_TYPE_(TRICOPTER|QUADROTOR|HEXAROTOR|OCTOROTOR|DECAROTOR|DODECAROTOR|GENERIC_MULTIROTOR)$/;
+/** Anything the vocabulary can assert does not fly, in the spec's three
+ *  sub-families: ground and surface craft, ground stations and trackers, and
+ *  peripherals or payloads carried by something else. A family rule, not an
+ *  enumeration — `none` is a claim about flight, not about importance. */
 const NON_FLYING =
-  /^MAV_TYPE_(GCS|ANTENNA_TRACKER|GIMBAL|CAMERA|ONBOARD_CONTROLLER|ADSB|GROUND_ROVER|SURFACE_BOAT|SUBMARINE|CHARGING_STATION|FLARM|SERVO|LOG|OSD|IMU|GPS|WINCH)$/;
+  /^MAV_TYPE_(GROUND_ROVER|GROUND_QUADRUPED|SURFACE_BOAT|SUBMARINE|GCS|ANTENNA_TRACKER|GIMBAL|CAMERA|SERVO|WINCH|ONBOARD_CONTROLLER|ADSB|ODID|BATTERY|ILLUMINATOR|GRIPPER|FLARM|LOG|OSD|IMU|GPS|CHARGING_STATION)$/;
 
 /**
  * Every `MAV_TYPE` ordinal whose name the rules below give a word to — so that
@@ -51,14 +55,19 @@ const NAME_BY_ORDINAL: Record<number, string> = {
   31: 'MAV_TYPE_CHARGING_STATION',
   32: 'MAV_TYPE_FLARM',
   33: 'MAV_TYPE_SERVO',
+  34: 'MAV_TYPE_ODID',
   35: 'MAV_TYPE_DECAROTOR',
+  36: 'MAV_TYPE_BATTERY',
   38: 'MAV_TYPE_LOG',
   39: 'MAV_TYPE_OSD',
   40: 'MAV_TYPE_IMU',
   41: 'MAV_TYPE_GPS',
   42: 'MAV_TYPE_WINCH',
   43: 'MAV_TYPE_GENERIC_MULTIROTOR',
+  44: 'MAV_TYPE_ILLUMINATOR',
+  46: 'MAV_TYPE_GROUND_QUADRUPED',
   47: 'MAV_TYPE_VTOL_GYRODYNE',
+  48: 'MAV_TYPE_GRIPPER',
 };
 
 /** The mapping table itself. Every branch is an assertion about the asset, so

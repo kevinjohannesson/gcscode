@@ -22,6 +22,11 @@ describe('airframeFromMavType', () => {
     ['MAV_TYPE_GROUND_ROVER', { kind: 'none' }],
     ['MAV_TYPE_SURFACE_BOAT', { kind: 'none' }],
     ['MAV_TYPE_SUBMARINE', { kind: 'none' }],
+    ['MAV_TYPE_GROUND_QUADRUPED', { kind: 'none' }],
+    ['MAV_TYPE_ODID', { kind: 'none' }],
+    ['MAV_TYPE_BATTERY', { kind: 'none' }],
+    ['MAV_TYPE_ILLUMINATOR', { kind: 'none' }],
+    ['MAV_TYPE_GRIPPER', { kind: 'none' }],
     ['MAV_TYPE_SOMETHING_NEW', { kind: 'unknown' }],
   ])('maps %s', (input, expected) => {
     expect(airframeFromMavType(input)).toEqual(expected);
@@ -69,14 +74,19 @@ describe('airframeFromMavType', () => {
     [31, 'MAV_TYPE_CHARGING_STATION'],
     [32, 'MAV_TYPE_FLARM'],
     [33, 'MAV_TYPE_SERVO'],
+    [34, 'MAV_TYPE_ODID'],
     [35, 'MAV_TYPE_DECAROTOR'],
+    [36, 'MAV_TYPE_BATTERY'],
     [38, 'MAV_TYPE_LOG'],
     [39, 'MAV_TYPE_OSD'],
     [40, 'MAV_TYPE_IMU'],
     [41, 'MAV_TYPE_GPS'],
     [42, 'MAV_TYPE_WINCH'],
     [43, 'MAV_TYPE_GENERIC_MULTIROTOR'],
+    [44, 'MAV_TYPE_ILLUMINATOR'],
+    [46, 'MAV_TYPE_GROUND_QUADRUPED'],
     [47, 'MAV_TYPE_VTOL_GYRODYNE'],
+    [48, 'MAV_TYPE_GRIPPER'],
   ])('reads %i the same as %s', (ordinal, name) => {
     expect(airframeFromMavType(ordinal)).toEqual(airframeFromMavType(name));
   });
@@ -84,10 +94,36 @@ describe('airframeFromMavType', () => {
   // A number the vehicle sent IS an assertion, even when this module has no
   // word for it. `undefined` would claim nobody asserted an airframe — the
   // quiet failure the spec's parse rule exists to prevent. 3 is
-  // MAV_TYPE_COAXIAL; 48 is MAV_TYPE_GRIPPER; 200 is not assigned. None of
-  // the three is a value the mapping's stated rules give a word to.
-  it.each([3, 48, 200])('reports a readable but unnamed ordinal %i as unknown', (ordinal) => {
+  // MAV_TYPE_COAXIAL; 45 is MAV_TYPE_SPACECRAFT_ORBITER; 200 is not assigned.
+  // None of the three is a value the mapping's stated rules give a word to.
+  // (48 stood here until the non-flying family rule grew to name GRIPPER.)
+  it.each([3, 45, 200])('reports a readable but unnamed ordinal %i as unknown', (ordinal) => {
     expect(airframeFromMavType(ordinal)).toEqual({ kind: 'unknown' });
+  });
+
+  // The residue, and the spec's evidence that the two family rules are
+  // *complete* rather than merely wider: after both, exactly these eleven
+  // values remain, and `unknown` is honest for every one — airborne craft
+  // gcscode has no word for, the deliberately unspecific GENERIC, and the
+  // rotary-wing pair. This pins the over-widening direction, which nothing
+  // else tests: a family rule that grew to swallow an AIRSHIP would fail here.
+  // It cannot detect the dialect gaining a value — this list is as static as
+  // the module's — so it pins the partition as of the pinned dialect, not for
+  // all time.
+  it.each([
+    'MAV_TYPE_GENERIC',
+    'MAV_TYPE_COAXIAL',
+    'MAV_TYPE_HELICOPTER',
+    'MAV_TYPE_AIRSHIP',
+    'MAV_TYPE_FREE_BALLOON',
+    'MAV_TYPE_ROCKET',
+    'MAV_TYPE_FLAPPING_WING',
+    'MAV_TYPE_KITE',
+    'MAV_TYPE_PARAFOIL',
+    'MAV_TYPE_PARACHUTE',
+    'MAV_TYPE_SPACECRAFT_ORBITER',
+  ])('leaves %s in the residue, where unknown is the honest answer', (name) => {
+    expect(airframeFromMavType(name)).toEqual({ kind: 'unknown' });
   });
 
   it('never reports a readable ordinal as unasserted', () => {
