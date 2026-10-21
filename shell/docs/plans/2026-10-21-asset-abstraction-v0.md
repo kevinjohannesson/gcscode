@@ -471,7 +471,6 @@ Add to the class, and widen the factory's return type so `index.ts` can call it 
     for (const dispose of [...this._sourceDisposers]) dispose();
     this._assets.clear();
     this._liveSourceIds.clear();
-    this._labels.clear();
   }
 ```
 
@@ -495,6 +494,16 @@ export function createAssetRegistry(): AssetRegistryHandle {
 
 Run: vitest from inside the package, then `pnpm check` from `shell/`.
 Expected: PASS, 14 tests.
+
+- [ ] **Step 4b: copy the caller's `airframe` on register**
+
+Task 1's code-quality review found the writer-side sibling of the documented one-level-deep immutability gap: the registry stores the caller's `airframe` **object by reference**, so a writer that mutates one in place after registering would silently corrupt a live entry — and because no `set()` runs, **no reactive signal fires at all**, so no consumer would even re-render to show the corrupted value. That is the invisible-failure class, and the fix is one spread in `_register`:
+
+```ts
+      ...(description.airframe === undefined ? {} : { airframe: { ...description.airframe } }),
+```
+
+No writer mutates today — task 5's adapter builds a fresh description per message — so this is defence against a future one, bought for a shallow copy of a single-property object. Add a test: register with an `airframe`, mutate the object you passed in, and assert `getAssets()` still reports the original value.
 
 - [ ] **Step 5: prove case 13 can fail**
 
