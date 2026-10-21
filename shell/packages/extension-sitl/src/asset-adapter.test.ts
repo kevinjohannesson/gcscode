@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { airframeFromMavType, systemIdOf } from './asset-adapter';
+import type { Disposable } from '@gcscode/extension-api';
+import type {
+  AssetDescription,
+  AssetSource,
+  AssetsApi,
+  RegisteredAsset,
+} from '@gcscode/extension-assets';
+
+import { airframeFromMavType, createAssetAdapter, systemIdOf } from './asset-adapter';
 
 describe('airframeFromMavType', () => {
   it.each([
@@ -218,5 +226,512 @@ describe('systemIdOf', () => {
     expect(systemIdOf(undefined)).toBeUndefined();
     expect(systemIdOf(null)).toBeUndefined();
     expect(systemIdOf('HEARTBEAT')).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A contract double for the assets service.
+//
+// The boundary rule (CLAUDE.md; ADR-0005) permits only `import type` from a
+// sibling extension package, so these tests cannot construct the real
+// registry — `createAssetRegistry` is runtime code. (The plan's sketch
+// imported it from `@gcscode/extension-assets/src/asset-registry.svelte`,
+// which is both a runtime sibling import and unresolvable: that package's
+// `exports` map has no `./src/*` subpath.)
+//
+// So this double implements the contract the spec states for the registry:
+// per-source `localId` namespacing, replace-in-place under a stable key, a
+// fresh `Disposable` per registration with the superseded one inert, inert
+// writes through a disposed handle, and an inert source from a torn-down
+// registry. Two things cover the risk a double always carries — that it
+// drifts from the thing it stands in for: `extension-assets`' own suite
+// asserts that contract against the real class (cases 1-14), and task 7 wires
+// the real registry to the real adapter inside `packages/shell`, where a
+// runtime import of an extension package is allowed.
+//
+// What the double adds beyond the real registry is the observable case 18
+// demands: every `registerAsset` call, in order, with the handle it returned
+// and a count of how often the adapter disposed that handle. An unconditional
+// re-register leaves `getAssets()` identical, so the asset list cannot see the
+// skip. The call log can.
+// ---------------------------------------------------------------------------
+
+interface Registration {
+  /** A copy, so a later mutation of the adapter's own description object
+   *  cannot rewrite what this call is recorded as having passed. */
+  description: AssetDescription;
+  /** False when the call went through a handle that was already inert — which
+   *  is how "the adapter wrote into a dead source" becomes visible. */
+  accepted: boolean;
+  /** The key the registry minted; undefined for an inert call. */
+  key: string | undefined;
+  /** The handle handed back, and how often the adapter disposed it. */
+  handle: Disposable;
+  disposeCount: number;
+}
+
+interface FakeAssets extends AssetsApi {
+  /** `AssetRegistryHandle`'s lifecycle control, which the real service keeps
+   *  off the type consumers write against. */
+  teardown(): void;
+  /** Every `registerAsset` call in order, inert ones included. */
+  readonly registrations: Registration[];
+}
+
+function createFakeAssets(): FakeAssets {
+  const entries = new Map<string, RegisteredAsset>();
+  const liveSourceIds = new Set<string>();
+  const disposers = new Set<() => void>();
+  const registrations: Registration[] = [];
+  let nextKey = 1;
+  let tornDown = false;
+
+  function makeSource(sourceId: string, sourceLabel: string): AssetSource {
+    const keysByLocalId = new Map<string, string>();
+    let disposed = false;
+
+    const dispose = (): void => {
+      if (disposed) return;
+      disposed = true;
+      for (const key of keysByLocalId.values()) entries.delete(key);
+      keysByLocalId.clear();
+      liveSourceIds.delete(sourceId);
+      disposers.delete(dispose);
+    };
+
+    const registerAsset = (description: AssetDescription): Disposable => {
+      const registration: Registration = {
+        description: { ...description },
+        accepted: !disposed,
+        key: undefined,
+        handle: { dispose: () => undefined },
+        disposeCount: 0,
+      };
+      registrations.push(registration);
+      // An inert handle does nothing and hands back a no-op rather than
+      // throwing: the caller is inside a message handler.
+      if (disposed) return registration.handle;
+
+      const { localId, airframe } = description;
+      const key = keysByLocalId.get(localId) ?? `fake-asset-${nextKey++}`;
+      keysByLocalId.set(localId, key);
+      const entry: RegisteredAsset = {
+        localId,
+        // Absent stays absent — an `airframe: undefined` key would make
+        // "not asserted" indistinguishable from an asserted value.
+        ...(airframe === undefined ? {} : { airframe: { ...airframe } }),
+        sourceId,
+        sourceLabel,
+        key,
+      };
+      entries.set(key, entry);
+      registration.key = key;
+      registration.handle = {
+        dispose: () => {
+          registration.disposeCount++;
+          // Entry identity carries both rules: a superseded handle is inert,
+          // and disposing twice is a no-op.
+          if (entries.get(key) !== entry) return;
+          entries.delete(key);
+          keysByLocalId.delete(localId);
+        },
+      };
+      return registration.handle;
+    };
+
+    const source: AssetSource = {
+      sourceId,
+      get isLive() {
+        return !disposed;
+      },
+      registerAsset,
+      dispose,
+    };
+    disposers.add(dispose);
+    return source;
+  }
+
+  return {
+    createSource(sourceId, label) {
+      if (tornDown) {
+        // Built by disposing a real source, exactly as the registry does, so
+        // "inert" has one definition rather than two.
+        const inert = makeSource(sourceId, label);
+        inert.dispose();
+        return inert;
+      }
+      if (liveSourceIds.has(sourceId)) {
+        throw new Error(`Asset source id "${sourceId}" is already claimed by a live source.`);
+      }
+      liveSourceIds.add(sourceId);
+      return makeSource(sourceId, label);
+    },
+    getAssets() {
+      return [...entries.values()];
+    },
+    teardown() {
+      tornDown = true;
+      for (const dispose of [...disposers]) dispose();
+    },
+    registrations,
+  };
+}
+
+/** The measured live frame, trimmed to what the adapter reads plus enough of
+ *  the rest to stay recognisable. `mavtype` is the wrapped form mavlink2rest
+ *  actually sends. */
+const heartbeat = (systemId: number, mavType: string, componentId = 1): unknown => ({
+  header: { system_id: systemId, component_id: componentId, sequence: 0 },
+  message: {
+    type: 'HEARTBEAT',
+    mavtype: { type: mavType },
+    base_mode: 'MAV_MODE_FLAG_CUSTOM_MODE_ENABLED',
+    custom_mode: 0,
+  },
+});
+
+/** A message the adapter must ignore. The extension's filter admits four of
+ *  these alongside HEARTBEAT, every one carrying a `header.system_id` and no
+ *  `mavtype` — measured, 2026-10-21. */
+const attitude = (systemId: number): unknown => ({
+  header: { system_id: systemId, component_id: 1, sequence: 1 },
+  message: { type: 'ATTITUDE', roll: 0.01, pitch: -0.02, yaw: 1.5 },
+});
+
+describe('createAssetAdapter', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Case 15.
+  it('registers one asset per system on the first heartbeat, stamped by the registry', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+
+    const registered = assets.getAssets();
+    expect(registered).toHaveLength(1);
+    expect(registered[0].localId).toBe('1');
+    expect(registered[0].airframe).toEqual({ kind: 'multirotor' });
+    expect(registered[0].sourceId).toBe('gcscode.sitl');
+    // What `assets-demo` renders, per the spec's consumer goal.
+    expect(registered[0].sourceLabel).toBe('SITL');
+  });
+
+  // Case 25, at the adapter's own seam. The extension-level half — that
+  // `activate()` claims nothing either — lives in `index.test.ts`.
+  it('claims nothing until the first heartbeat', () => {
+    const assets = createFakeAssets();
+    const createSource = vi.spyOn(assets, 'createSource');
+
+    const adapter = createAssetAdapter(() => assets);
+    expect(createSource).not.toHaveBeenCalled();
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    expect(createSource).toHaveBeenCalledTimes(1);
+    expect(createSource).toHaveBeenCalledWith('gcscode.sitl', 'SITL');
+  });
+
+  // Case 16.
+  it('does not accumulate assets on repeated heartbeats', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+
+    expect(assets.getAssets()).toHaveLength(1);
+  });
+
+  // Case 18. The assertion is the call count, not the asset list: an
+  // unconditional re-register would leave the list identical and this test
+  // would pass against broken code.
+  it('skips registration entirely when the description is unchanged', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+
+    expect(assets.registrations).toHaveLength(1);
+    // And the adapter still holds the one handle it was given — unchanged,
+    // not re-minted and not disposed.
+    expect(assets.registrations[0].disposeCount).toBe(0);
+    adapter.dispose();
+    expect(assets.registrations[0].disposeCount).toBe(1);
+  });
+
+  // Case 17.
+  it('updates the airframe in place when MAV_TYPE changes, keeping the key', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    const key = assets.getAssets()[0].key;
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_FIXED_WING'));
+
+    expect(assets.getAssets()).toHaveLength(1);
+    expect(assets.getAssets()[0].key).toBe(key);
+    expect(assets.getAssets()[0].airframe).toEqual({ kind: 'fixed-wing' });
+    expect(assets.registrations).toHaveLength(2);
+  });
+
+  // Case 19. The adapter must hold the fresh handle and neither keep nor
+  // dispose the superseded one, so `dispose()` must reach exactly the second.
+  it('holds the fresh Disposable after a change and never the superseded one', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_FIXED_WING'));
+    expect(assets.registrations).toHaveLength(2);
+
+    adapter.dispose();
+
+    expect(assets.registrations[0].disposeCount).toBe(0);
+    expect(assets.registrations[1].disposeCount).toBe(1);
+    expect(assets.getAssets()).toHaveLength(0);
+  });
+
+  // Case 19, the other half: the superseded handle is inert, so a consumer
+  // holding it cannot remove the replacement. The registry owns that rule
+  // (case 6); asserted here because the adapter's swap is only safe if it holds.
+  it('leaves the replacement in place when the superseded handle is disposed', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_FIXED_WING'));
+
+    assets.registrations[0].handle.dispose();
+
+    expect(assets.getAssets()).toHaveLength(1);
+    expect(assets.getAssets()[0].airframe).toEqual({ kind: 'fixed-wing' });
+  });
+
+  // Case 20.
+  it('registers two assets for two systems', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    adapter.onMessage(heartbeat(2, 'MAV_TYPE_FIXED_WING'));
+
+    const registered = assets.getAssets();
+    expect(registered.map((a) => a.localId)).toEqual(['1', '2']);
+    expect(new Set(registered.map((a) => a.key)).size).toBe(2);
+  });
+
+  // Case 21, worded as the spec words it: differing *only* in component_id.
+  // One asset — and the skip rule means not even a second registration.
+  it('registers one asset for two component ids on one system', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR', 1));
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR', 154));
+
+    expect(assets.getAssets()).toHaveLength(1);
+    expect(assets.registrations).toHaveLength(1);
+  });
+
+  // The consequence of "one asset per system, airframe from that heartbeat's
+  // MAV_TYPE" when two components of one system announce different types — a
+  // companion computer (ONBOARD_CONTROLLER) or gimbal alongside the autopilot.
+  // One asset, whose airframe is whichever heartbeat arrived last, re-registered
+  // each time the two disagree. v0 accepts it: filtering by component_id would
+  // decide the `component_id` question the spec defers. Pinned so the behaviour
+  // is a recorded consequence rather than a surprise.
+  it('lets the last heartbeat win when two components of one system disagree', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR', 1));
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_ONBOARD_CONTROLLER', 191));
+
+    expect(assets.getAssets()).toHaveLength(1);
+    expect(assets.getAssets()[0].airframe).toEqual({ kind: 'none' });
+    expect(assets.registrations).toHaveLength(2);
+  });
+
+  // The extension's filter admits four non-HEARTBEAT types, all carrying a
+  // header and no `mavtype`. Acting on them would register an airframe-less
+  // asset for an unseen system, and would flap a known system's airframe
+  // between asserted and absent at the full message rate — the exact churn the
+  // skip rule exists to prevent.
+  it('ignores non-HEARTBEAT messages from a system it already knows', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    adapter.onMessage(attitude(1));
+    adapter.onMessage(attitude(1));
+
+    expect(assets.registrations).toHaveLength(1);
+    expect(assets.getAssets()[0].airframe).toEqual({ kind: 'multirotor' });
+  });
+
+  it('claims nothing for a non-HEARTBEAT message from an unknown system', () => {
+    const assets = createFakeAssets();
+    const createSource = vi.spyOn(assets, 'createSource');
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(attitude(7));
+
+    expect(createSource).not.toHaveBeenCalled();
+    expect(assets.getAssets()).toHaveLength(0);
+  });
+
+  // Case 24's adapter half: an unreadable MAV_TYPE registers the asset with no
+  // `airframe` property at all — the adapter must not pass `airframe: undefined`
+  // and make "not asserted" indistinguishable from an asserted value.
+  it('registers an asset with no airframe property when MAV_TYPE is unreadable', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage({ header: { system_id: 3 }, message: { type: 'HEARTBEAT' } });
+
+    const registered = assets.getAssets();
+    expect(registered).toHaveLength(1);
+    expect(registered[0].localId).toBe('3');
+    expect(Object.hasOwn(registered[0], 'airframe')).toBe(false);
+    expect(Object.hasOwn(assets.registrations[0].description, 'airframe')).toBe(false);
+  });
+
+  // `systemIdOf`'s guard reaching the registry: a malformed id must not key an
+  // asset, and must not be confused with a valid one.
+  it('registers nothing for a heartbeat with no readable system_id', () => {
+    const assets = createFakeAssets();
+    const createSource = vi.spyOn(assets, 'createSource');
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage({ header: { system_id: Number.NaN }, message: { type: 'HEARTBEAT' } });
+    adapter.onMessage({ message: { type: 'HEARTBEAT' } });
+
+    expect(createSource).not.toHaveBeenCalled();
+    expect(assets.getAssets()).toHaveLength(0);
+  });
+
+  // Case 26, at the adapter's seam. The extension-level half — telemetry
+  // keeping working — lives in `index.test.ts`.
+  it('warns once and registers nothing while the service is absent', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const adapter = createAssetAdapter(() => undefined);
+
+    expect(() => {
+      adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+      adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+      adapter.onMessage(heartbeat(2, 'MAV_TYPE_FIXED_WING'));
+    }).not.toThrow();
+
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('claims on the first heartbeat after the service appears', () => {
+    const assets = createFakeAssets();
+    let resolved: FakeAssets | undefined = undefined;
+    const adapter = createAssetAdapter(() => resolved);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    expect(assets.getAssets()).toHaveLength(0);
+
+    resolved = assets;
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+
+    expect(assets.getAssets()).toHaveLength(1);
+  });
+
+  // Case 27. `isLive` is the signal; an identity comparison on what
+  // `getExtension()` returns could not see this, since the host builds a fresh
+  // record per call and only `.exports` is stable.
+  it('re-claims after the registry is torn down and replaced', () => {
+    let assets = createFakeAssets();
+    const first = assets;
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    expect(first.getAssets()).toHaveLength(1);
+
+    first.teardown();
+    expect(first.getAssets()).toHaveLength(0);
+    assets = createFakeAssets();
+
+    expect(() => adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'))).not.toThrow();
+
+    expect(assets.getAssets()).toHaveLength(1);
+    expect(assets.getAssets()[0].airframe).toEqual({ kind: 'multirotor' });
+    // Nothing was written through the dead handle.
+    expect(first.registrations.every((r) => r.accepted)).toBe(true);
+  });
+
+  // The degenerate half of case 27: torn down and *not* replaced. The claim
+  // returns an inert source, so the write is a no-op and nothing throws.
+  it('degrades when the registry is torn down and never replaced', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    assets.teardown();
+
+    expect(() => adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'))).not.toThrow();
+    expect(assets.getAssets()).toHaveLength(0);
+  });
+
+  // A disposed adapter stays disposed. Its own `dispose()` and containment's
+  // `disposeAll(context.subscriptions)` are the same call, and the extension's
+  // WebSocket is not a subscription — so after a failed activation the socket
+  // keeps delivering heartbeats. Re-claiming there would re-register the assets
+  // containment had just removed, one second later, defeating case 32.
+  it('stays disposed: a heartbeat after dispose claims nothing', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    adapter.dispose();
+    const createSource = vi.spyOn(assets, 'createSource');
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+
+    expect(createSource).not.toHaveBeenCalled();
+    expect(assets.getAssets()).toHaveLength(0);
+  });
+
+  it('disposes idempotently', () => {
+    const assets = createFakeAssets();
+    const adapter = createAssetAdapter(() => assets);
+
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    adapter.dispose();
+    adapter.dispose();
+
+    expect(assets.registrations[0].disposeCount).toBe(1);
+  });
+
+  // `createSource` throws on a duplicate live id, and the adapter runs inside a
+  // WebSocket message handler that does not catch what a handler throws. So the
+  // claim degrades, warns once, and retries — the next heartbeat after the
+  // stale source goes away succeeds.
+  it('degrades and recovers when the claim throws', () => {
+    const assets = createFakeAssets();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const squatter = assets.createSource('gcscode.sitl', 'Someone else');
+    const adapter = createAssetAdapter(() => assets);
+
+    expect(() => {
+      adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+      adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+    }).not.toThrow();
+    expect(assets.getAssets()).toHaveLength(0);
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    squatter.dispose();
+    adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
+
+    expect(assets.getAssets()).toHaveLength(1);
   });
 });

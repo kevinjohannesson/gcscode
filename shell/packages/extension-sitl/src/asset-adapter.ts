@@ -1,10 +1,20 @@
 /**
- * The pure half of the MAVLink asset adapter: `MAV_TYPE` -> gcscode's airframe
- * vocabulary, and the sender id out of an envelope header. Deliberately free
- * of registry and client imports so it unit-tests without either.
+ * The MAVLink asset adapter. Two halves:
+ *
+ * - the pure one — `MAV_TYPE` -> gcscode's airframe vocabulary, and the sender
+ *   id out of an envelope header — which unit-tests with no registry and no
+ *   client;
+ * - the stateful one, `createAssetAdapter`, which resolves the assets service
+ *   per inbound message, claims a source lazily on the first heartbeat, and
+ *   registers one asset per MAVLink system.
+ *
+ * Both import only types across the package boundary (ADR-0005): the live API
+ * arrives through the resolver `createAssetAdapter` is handed, which the
+ * extension builds from `host.extensions.getExtension(...)`.
  */
 
-import type { Airframe } from '@gcscode/extension-assets';
+import type { Disposable } from '@gcscode/extension-api';
+import type { Airframe, AssetDescription, AssetSource, AssetsApi } from '@gcscode/extension-assets';
 
 /** Every rotor count the dialect spells, plus the generic. Closed sets of
  *  whole tokens rather than regexes: there is no pattern to match, membership
@@ -180,4 +190,177 @@ export function systemIdOf(json: unknown): string | undefined {
   // nonstandard source rather than merely mis-name it.
   if (typeof id !== 'number' || !Number.isInteger(id) || id < 0) return undefined;
   return String(id);
+}
+
+// ---------------------------------------------------------------------------
+// The stateful half: claim, re-claim, and the skip rule.
+// ---------------------------------------------------------------------------
+
+/** The id this adapter claims, and the label a consumer renders. `sourceId` is
+ *  a comparison token and never displayed; `sourceLabel` is the operator-facing
+ *  name, which is why they are not the same string (ADR-0011). */
+const SOURCE_ID = 'gcscode.sitl';
+const SOURCE_LABEL = 'SITL';
+
+/** What the adapter remembers per MAVLink system. */
+interface TrackedAsset {
+  /** The handle the latest registration returned. Swapped on every real
+   *  change: replacing a registration leaves the superseded handle inert, so
+   *  keeping it would leave the adapter holding something that can no longer
+   *  remove its asset. */
+  disposable: Disposable;
+  /** The description that handle was registered with — the skip rule's
+   *  comparison basis. */
+  description: AssetDescription;
+}
+
+export interface MavlinkAssetAdapter extends Disposable {
+  /** Called for every frame the client delivers, heartbeat or not. */
+  onMessage(json: unknown): void;
+}
+
+/**
+ * The adapter's write path.
+ *
+ * Resolution is **per message**, and the handle is re-claimed whenever it
+ * reports `isLive === false` — the signal the spec chose over comparing what
+ * `host.extensions.getExtension()` returns, which is a freshly built record on
+ * every call (only `.exports` is stable) and which could not see a handle
+ * disposed by the host either way.
+ *
+ * Recovery latency therefore equals the message period: nothing re-claims
+ * until the next heartbeat the adapter acts on. Fine at SITL's 1 Hz; an
+ * adapter whose source is event-driven rather than periodic inherits "my
+ * assets reappear whenever something next happens", which can be never.
+ *
+ * Nothing here throws. It runs inside a WebSocket message handler that
+ * deliberately does not catch what a handler throws (see `mavlink-client`), so
+ * an absent service — or a claim the registry refuses — degrades to one
+ * warning and keeps the extension's telemetry duties intact.
+ */
+export function createAssetAdapter(resolve: () => AssetsApi | undefined): MavlinkAssetAdapter {
+  let source: AssetSource | undefined;
+  const tracked = new Map<string, TrackedAsset>();
+  let disposed = false;
+  let warnedAboutAbsence = false;
+  let warnedAboutClaim = false;
+
+  const claim = (api: AssetsApi): AssetSource | undefined => {
+    // Every handle in `tracked` belonged to the source being replaced, and a
+    // superseded source's handles are inert. Dropping them here is what keeps
+    // the skip rule honest across a re-claim: a kept description would skip
+    // the registration the new source still needs.
+    tracked.clear();
+    try {
+      return api.createSource(SOURCE_ID, SOURCE_LABEL);
+    } catch (error) {
+      // `createSource` throws on a duplicate live id — the one throwing path
+      // in the service's contract. Unreachable while this extension is the
+      // only claimant of its own id, and caught anyway: the alternative is an
+      // exception escaping a WebSocket handler once per second. The next
+      // heartbeat retries, so the adapter recovers on its own once whatever
+      // held the id lets go.
+      if (!warnedAboutClaim) {
+        warnedAboutClaim = true;
+        console.warn(
+          'gcscode.sitl: could not claim an asset source; not registering assets.',
+          error,
+        );
+      }
+      return undefined;
+    }
+  };
+
+  return {
+    onMessage(json: unknown): void {
+      // A disposed adapter stays disposed. Its own `dispose()` and
+      // containment's `disposeAll(context.subscriptions)` are the same call,
+      // and this extension's WebSocket is not a subscription — so after a
+      // failed activation the socket keeps delivering. Re-claiming there would
+      // re-register the assets containment had just removed.
+      if (disposed) return;
+
+      // Only HEARTBEAT carries a vehicle type. The extension's filter also
+      // admits ATTITUDE, GLOBAL_POSITION_INT, VFR_HUD and SYS_STATUS, each
+      // with a `header.system_id` and no `mavtype`: acting on those would
+      // register airframe-less assets and flap a known system's airframe
+      // between asserted and absent at the full message rate — the churn the
+      // skip rule exists to prevent.
+      const heartbeat = heartbeatMessageOf(json);
+      if (heartbeat === undefined) return;
+
+      const localId = systemIdOf(json);
+      // No readable sender id: nothing identifies the asset, so there is
+      // nothing to register. Deliberately before the claim, so a malformed
+      // frame neither claims a source nor reports the service absent.
+      if (localId === undefined) return;
+
+      const api = resolve();
+      if (api === undefined) {
+        // Degrade, do not throw: the absence is observable (ADR-0012), and the
+        // containment iteration left no throwing dependency resolution in the
+        // tree. Once per adapter, not once per heartbeat.
+        if (!warnedAboutAbsence) {
+          warnedAboutAbsence = true;
+          console.warn('gcscode.sitl: the assets service is not active; not registering assets.');
+        }
+        return;
+      }
+
+      if (source === undefined || !source.isLive) {
+        source = claim(api);
+        if (source === undefined) return;
+      }
+
+      const description: AssetDescription = { localId };
+      const airframe = airframeFromMavType(heartbeat['mavtype']);
+      // Assigned only when asserted: an `airframe: undefined` key would make
+      // "not asserted" indistinguishable from an asserted value.
+      if (airframe !== undefined) description.airframe = airframe;
+
+      const existing = tracked.get(localId);
+      // The skip. Re-registering at heartbeat rate would mint a fresh handle
+      // and inert the prior one every second, churning every consumer's
+      // derived state — and falsifying the premise ADR-0011's
+      // filtering-replaces-querying decision rests on.
+      if (existing !== undefined && sameDescription(existing.description, description)) return;
+
+      // Replacing supersedes the prior handle, which goes inert — so the
+      // stored one is swapped, never kept alongside and never disposed later.
+      tracked.set(localId, { disposable: source.registerAsset(description), description });
+    },
+
+    dispose(): void {
+      if (disposed) return;
+      disposed = true;
+      // Disposing the source already removes every asset it registered, so
+      // this loop is redundant today. It is here because the adapter *owns*
+      // these handles: disposing what it owns before dropping the reference is
+      // what makes "it holds the fresh handle, never the superseded one"
+      // (case 19) an observable claim rather than an aspiration, and it is the
+      // path a later iteration needs when a single asset goes away on its own.
+      for (const { disposable } of tracked.values()) disposable.dispose();
+      tracked.clear();
+      source?.dispose();
+      source = undefined;
+    },
+  };
+}
+
+/** The HEARTBEAT body, or undefined for anything else. `message.type` is
+ *  mavlink2rest's message-name discriminator — the same field
+ *  `telemetry-store`'s reducer switches on. */
+function heartbeatMessageOf(json: unknown): Record<string, unknown> | undefined {
+  if (typeof json !== 'object' || json === null) return undefined;
+  const message = (json as { message?: unknown }).message;
+  if (typeof message !== 'object' || message === null) return undefined;
+  const msg = message as Record<string, unknown>;
+  return msg['type'] === 'HEARTBEAT' ? msg : undefined;
+}
+
+/** `kind` is the whole of `Airframe` today, so comparing it compares the whole
+ *  description. A variant that grows a field of its own must extend this —
+ *  otherwise the skip would swallow a real change. */
+function sameDescription(a: AssetDescription, b: AssetDescription): boolean {
+  return a.localId === b.localId && a.airframe?.kind === b.airframe?.kind;
 }
