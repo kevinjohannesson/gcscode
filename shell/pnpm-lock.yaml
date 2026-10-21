@@ -183,6 +183,9 @@ importers:
       '@gcscode/extension-api':
         specifier: workspace:*
         version: link:../extension-api
+      '@gcscode/extension-assets':
+        specifier: workspace:*
+        version: link:../extension-assets
       '@gcscode/extension-example':
         specifier: workspace:*
         version: link:../extension-example

@@ -4,6 +4,7 @@
 
 import type { Extension } from '@gcscode/extension-api';
 
+import { assetsExtension } from '@gcscode/extension-assets';
 import { exampleExtension } from '@gcscode/extension-example';
 import { flightOverlayExtension } from '@gcscode/extension-flight-overlay';
 import { mapExtension } from '@gcscode/extension-map';
@@ -19,12 +20,21 @@ export interface BundledExtensionEntry {
 
 export const bundledExtensions: readonly BundledExtensionEntry[] = [
   { id: exampleExtension.manifest.id, extension: exampleExtension },
+  // A service other extensions write into. Its position here is documentation,
+  // NOT an ordering constraint: the MAVLink adapter resolves this service
+  // lazily per inbound message and claims its source on first use, so there is
+  // no activation-time edge for this list to order. Read the comments below
+  // the same way — only the map / flight-overlay pair states a requirement.
+  // See ADR-0012's Mechanics.
+  { id: assetsExtension.manifest.id, extension: assetsExtension },
   { id: sitlExtension.manifest.id, extension: sitlExtension },
-  // Must come after sitlExtension — vehicle-status reads SITL exports during
-  // first render and relies on insertion-order activation. See ADR-0005's
-  // "Cross-extension activation order is not guaranteed" consequence.
+  // Positioned after sitlExtension as documentation, not as a constraint:
+  // vehicle-status reads SITL exports lazily per use (getSitlExports() inside
+  // a $derived), so a later activation is picked up on the next read and
+  // ADR-0005's unguaranteed activation order costs nothing here.
   { id: vehicleStatusExtension.manifest.id, extension: vehicleStatusExtension },
-  // Same SITL-after constraint as vehicle-status — map-demo reads SITL exports.
+  // Same as vehicle-status, and documentation for the same reason: map-demo
+  // reads SITL exports lazily per use (getSitlExports() inside a $derived).
   { id: mapDemoExtension.manifest.id, extension: mapDemoExtension },
   // Map exposes a contribution API consumed by flight-overlay; it must
   // activate before flight-overlay. No ordering requirement vs. sitl.
@@ -32,6 +42,6 @@ export const bundledExtensions: readonly BundledExtensionEntry[] = [
   // Must come after mapExtension — flight-overlay reads map exports during
   // its activate(). Degrades (registers no overlay, warns once) if map is not
   // active, so the order is about the overlay appearing, not about avoiding a
-  // boot failure. Same insertion-order pattern as vehicle-status and map-demo.
+  // boot failure.
   { id: flightOverlayExtension.manifest.id, extension: flightOverlayExtension },
 ];

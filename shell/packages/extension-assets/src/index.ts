@@ -1,4 +1,6 @@
-import type { Disposable } from '@gcscode/extension-api';
+import type { Disposable, Extension } from '@gcscode/extension-api';
+
+import { createAssetRegistry, type AssetRegistryHandle } from './asset-registry.svelte';
 
 export type Airframe =
   | { kind: 'multirotor' }
@@ -49,3 +51,34 @@ export interface AssetsApi {
   /** Every asset currently registered, across every source. */
   getAssets(): readonly RegisteredAsset[];
 }
+
+/** The live registry for the current activation. Module-level because
+ *  `deactivate` needs it, never exported: the only way to reach it is
+ *  `activate()`'s return value, per ADR-0012. A fresh one per activation —
+ *  rather than `extension-map`'s surviving `mapApi` singleton — is the rule
+ *  for a service whose contents are asserted by *other* extensions: surviving
+ *  state would resurrect assets whose asserting adapter is long gone
+ *  (ADR-0011), and it is what makes `isLive` correct across the boundary: a
+ *  handle held through a disable reports false rather than writing into a
+ *  registry no consumer can reach. */
+let registry: AssetRegistryHandle | null = null;
+
+export const assetsExtension: Extension = {
+  manifest: {
+    id: 'gcscode.assets',
+    displayName: 'Assets',
+    version: '0.0.0',
+    description: 'Adapter-neutral registry of the assets gcscode knows about.',
+  },
+  /** Declares `AssetsApi`, not `AssetRegistryHandle`: `teardown` stays off the
+   *  type a consumer is written against. See `AssetRegistryHandle` for how far
+   *  that goes (type-level signal, not a runtime guarantee). */
+  activate(): AssetsApi {
+    registry = createAssetRegistry();
+    return registry;
+  },
+  deactivate() {
+    registry?.teardown();
+    registry = null;
+  },
+};

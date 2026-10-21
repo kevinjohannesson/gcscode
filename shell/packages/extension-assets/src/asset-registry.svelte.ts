@@ -75,6 +75,12 @@ class AssetRegistry implements AssetsApi {
     const source: AssetSource = {
       sourceId,
       get isLive() {
+        // Reads this source's own `disposed`, deliberately not the registry's
+        // `_tornDown`: teardown goes through every source's `dispose`, and
+        // this getter is what makes that mechanism observable. Reading the
+        // flag here would look like a simplification and would quietly disarm
+        // the check — a teardown that stopped disposing its sources would
+        // still report `false`, so no test would discriminate the two.
         return !disposed;
       },
       // `label` rides this source's closure for the same reason `keysByLocalId`
@@ -135,8 +141,14 @@ class AssetRegistry implements AssetsApi {
 }
 
 /** The registry plus the lifecycle control its owning extension needs.
- *  `activate()` keeps this and returns the narrower `AssetsApi` as `exports`,
- *  so no other extension can tear down a registry it does not own. */
+ *  `activate()` keeps this and declares the narrower `AssetsApi` as what it
+ *  returns, so `teardown` is absent from the type a consumer writes against.
+ *  That is a type-level signal, not a runtime guarantee: the host stores
+ *  exports as `unknown` and `getExtension<T>()` casts to whatever `T` the
+ *  caller supplies, so `getExtension<AssetRegistryHandle>(id)?.exports` is an
+ *  ordinary runtime path to `teardown`. Same standing as `RegisteredAsset`'s
+ *  `readonly` fields — in a single-realm host with no isolation the type is
+ *  the only enforcement there is. */
 export interface AssetRegistryHandle extends AssetsApi {
   teardown(): void;
 }
