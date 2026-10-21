@@ -106,7 +106,7 @@ import type maplibregl from 'maplibre-gl';
 const getMap = getContext<() => maplibregl.Map | null>('gcscode.map.maplibre');
 ```
 
-The string literal `'gcscode.map.maplibre'` is the public contract. Re-declare it in your consumer; do not `import` it from this package at runtime (ADR-0005 forbids runtime sibling imports). The constant is also exported as `MAPLIBRE_CONTEXT_KEY`, for documentation only — it has no consumers, and "type-only" would be meaningless for a `const string`, since a type-only import cannot carry a value. The duplication this section prescribes is a known tension in [ADR-0005](../../docs/decisions/ADR-0005-extension-boundaries.md): a public-contract _value_ has no sanctioned sharing mechanism, so nothing detects a consumer whose copy drifts.
+The string literal `'gcscode.map.maplibre'` is the public contract. Re-declare it in your consumer; do not `import` it from this package at runtime (ADR-0005 forbids runtime sibling imports). The entry point deliberately does **not** export the constant: nothing could legitimately reach it — `import type` cannot carry a `const string`, and the runtime sibling import is the thing ADR-0005 forbids — so an export would read less like documentation than like an invitation to cross the boundary. The duplication this section prescribes is a known tension in [ADR-0005](../../docs/decisions/ADR-0005-extension-boundaries.md): a public-contract _value_ has no sanctioned sharing mechanism, so nothing detects a consumer whose copy drifts.
 
 The getter form is intentional — children mount before the parent's `onMount` runs, so the underlying `Map` is null at the time `setContext` registers the value. Layer components call the getter at `$effect` time to read the current value.
 

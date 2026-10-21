@@ -85,8 +85,11 @@ describe('entry-point export surface', () => {
   // polices a consumer's imports, never a package's own exports. Hence a test.
   //
   // Deliberately scoped to what the rule claims — the live registry is
-  // absent — rather than asserting a full export allowlist, which would
-  // churn every time a legitimate type is added.
+  // absent under that name — rather than asserting a full export allowlist,
+  // which would churn every time a legitimate type is added. The boundary of
+  // the check: being name-based, it would not catch the same singleton
+  // re-leaked under a different name (`export default mapApi`, say). That is
+  // the accepted cost of not maintaining an allowlist.
   it('does not expose the live mapApi registry', () => {
     expect(Object.keys(mapExtensionModule)).not.toContain('mapApi');
   });

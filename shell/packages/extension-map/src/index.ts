@@ -1,7 +1,7 @@
 import type { Extension } from '@gcscode/extension-api';
 
 import { setHost } from './host-store';
-import { MAPLIBRE_CONTEXT_KEY, mapApi, type MapApi } from './map-api.svelte';
+import { mapApi, type MapApi } from './map-api.svelte';
 import MapView from './map-view.svelte';
 
 export type {
@@ -13,7 +13,6 @@ export type {
   MapControlComponentRegistration,
   MapControlContribution,
 } from './map-api.svelte';
-export { MAPLIBRE_CONTEXT_KEY };
 
 export const mapExtension: Extension = {
   manifest: {
