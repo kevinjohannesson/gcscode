@@ -9,6 +9,9 @@ class AssetRegistry implements AssetsApi {
    *  implementable. Reactive, which is how consumers observe without an event. */
   private readonly _assets = new SvelteMap<string, RegisteredAsset>();
   private readonly _liveSourceIds = new Set<string>();
+  /** Every live source's own `dispose`, so teardown runs each one rather than
+   *  reimplementing what it does. Each source removes itself on dispose. */
+  private readonly _sourceDisposers = new Set<() => void>();
   private _nextKey = 1;
 
   public createSource(sourceId: string, label: string): AssetSource {
@@ -23,10 +26,32 @@ class AssetRegistry implements AssetsApi {
     return [...this._assets.values()];
   }
 
+  /** Disposes every source and empties the registry. Handles held across this
+   *  boundary report `isLive === false` and go inert — they do not throw,
+   *  because a writer would otherwise throw inside a message handler. */
+  public teardown(): void {
+    // A copy: each `dispose` removes itself from the set as it runs.
+    for (const dispose of [...this._sourceDisposers]) dispose();
+    // Belt and braces. Disposing every tracked source already empties both,
+    // since every asset is registered through a source and every live id is
+    // tracked here; these two lines keep that true of a future entry path.
+    this._assets.clear();
+    this._liveSourceIds.clear();
+  }
+
   private _makeSource(sourceId: string, label: string): AssetSource {
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a private localId -> key index, mutated only from registerAsset and never read in a reactive context
     const keysByLocalId = new Map<string, string>();
     let disposed = false;
+
+    const dispose = () => {
+      if (disposed) return;
+      disposed = true;
+      for (const key of keysByLocalId.values()) this._assets.delete(key);
+      keysByLocalId.clear();
+      this._liveSourceIds.delete(sourceId);
+      this._sourceDisposers.delete(dispose);
+    };
 
     const source: AssetSource = {
       sourceId,
@@ -39,14 +64,9 @@ class AssetRegistry implements AssetsApi {
       // a fallback that could stamp a `sourceId` — a comparison token, never
       // displayed (ADR-0011) — into `sourceLabel`.
       registerAsset: (description) => this._register(source, label, keysByLocalId, description),
-      dispose: () => {
-        if (disposed) return;
-        disposed = true;
-        for (const key of keysByLocalId.values()) this._assets.delete(key);
-        keysByLocalId.clear();
-        this._liveSourceIds.delete(sourceId);
-      },
+      dispose,
     };
+    this._sourceDisposers.add(dispose);
     return source;
   }
 
@@ -71,7 +91,10 @@ class AssetRegistry implements AssetsApi {
       localId,
       // Absent stays absent: an `airframe: undefined` key would make
       // "not asserted" indistinguishable from an asserted value (ADR-0011).
-      ...(airframe === undefined ? {} : { airframe }),
+      // Copied, not held by reference: a writer that reuses its description
+      // object would otherwise corrupt a live entry *without* any `set()`
+      // running, so no consumer would even re-render to show the wrong value.
+      ...(airframe === undefined ? {} : { airframe: { ...airframe } }),
       sourceId: source.sourceId,
       sourceLabel,
       key,
@@ -92,6 +115,13 @@ class AssetRegistry implements AssetsApi {
   }
 }
 
-export function createAssetRegistry(): AssetsApi {
+/** The registry plus the lifecycle control its owning extension needs.
+ *  `activate()` keeps this and returns the narrower `AssetsApi` as `exports`,
+ *  so no other extension can tear down a registry it does not own. */
+export interface AssetRegistryHandle extends AssetsApi {
+  teardown(): void;
+}
+
+export function createAssetRegistry(): AssetRegistryHandle {
   return new AssetRegistry();
 }

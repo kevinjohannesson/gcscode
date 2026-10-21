@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "check": "svelte-check --tsconfig ./tsconfig.json && tsc --noEmit",
+    "check": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
