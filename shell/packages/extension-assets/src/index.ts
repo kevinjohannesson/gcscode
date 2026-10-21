@@ -41,7 +41,10 @@ export interface AssetSource extends Disposable {
 export interface AssetsApi {
   /** Claim a namespace for one source of assets. `sourceId` must be unique
    *  among live sources; a second claim on a live id throws. `label` is the
-   *  source's operator-facing name. */
+   *  source's operator-facing name. A claim against a registry that has
+   *  already been torn down returns an inert source (`isLive === false`)
+   *  rather than throwing, because a writer re-claims from inside a message
+   *  handler. */
   createSource(sourceId: string, label: string): AssetSource;
   /** Every asset currently registered, across every source. */
   getAssets(): readonly RegisteredAsset[];

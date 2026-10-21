@@ -188,6 +188,32 @@ describe('handle validity', () => {
     expect(registry.getAssets()).toEqual([]);
   });
 
+  it('hands back an inert source when the registry is already torn down', () => {
+    const registry = createAssetRegistry();
+    registry.teardown();
+
+    // A writer following the recipe re-claims from inside a message handler
+    // when `isLive` goes false, so claiming against a dead registry is inert
+    // rather than fatal — the same reasoning ADR-0011 applies to registering.
+    const source = registry.createSource('sitl', 'SITL');
+
+    expect(source.sourceId).toBe('sitl');
+    expect(source.isLive).toBe(false);
+  });
+
+  it('writes nothing through a source claimed from a torn-down registry', () => {
+    const registry = createAssetRegistry();
+    registry.teardown();
+    const source = registry.createSource('sitl', 'SITL');
+
+    let disposable: Disposable | undefined;
+    expect(() => {
+      disposable = source.registerAsset({ localId: '1' });
+    }).not.toThrow();
+    expect(registry.getAssets()).toEqual([]);
+    expect(() => disposable?.dispose()).not.toThrow();
+  });
+
   it('mints an independent registry per call, so re-enabling starts empty', () => {
     // Case 14's full form — deactivate, re-activate, observe empty — needs the
     // extension wiring and belongs to task 3. What the registry itself can pin

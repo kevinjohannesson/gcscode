@@ -12,9 +12,27 @@ class AssetRegistry implements AssetsApi {
   /** Every live source's own `dispose`, so teardown runs each one rather than
    *  reimplementing what it does. Each source removes itself on dispose. */
   private readonly _sourceDisposers = new Set<() => void>();
+  /** Set by `teardown`, never cleared: a torn-down registry stays torn down.
+   *  Consulted by `createSource` rather than by a source's own `isLive`, so
+   *  that disposing every source remains the mechanism by which a handle held
+   *  across teardown goes false — and a teardown that stopped doing it stays
+   *  detectable. */
+  private _tornDown = false;
   private _nextKey = 1;
 
   public createSource(sourceId: string, label: string): AssetSource {
+    if (this._tornDown) {
+      // Claiming against a dead registry is inert, not fatal: a writer
+      // re-claims from inside a message handler when `isLive` goes false, so
+      // ADR-0011's reasoning against throwing there covers claiming as much as
+      // registering. Built by disposing a real source rather than by writing a
+      // second definition of "inert", so the two cannot drift: the id is never
+      // added to `_liveSourceIds`, so this claim neither conflicts nor is
+      // conflicted with, and the disposer it registered removes itself.
+      const inert = this._makeSource(sourceId, label);
+      inert.dispose();
+      return inert;
+    }
     if (this._liveSourceIds.has(sourceId)) {
       throw new Error(`Asset source id "${sourceId}" is already claimed by a live source.`);
     }
@@ -30,6 +48,7 @@ class AssetRegistry implements AssetsApi {
    *  boundary report `isLive === false` and go inert — they do not throw,
    *  because a writer would otherwise throw inside a message handler. */
   public teardown(): void {
+    this._tornDown = true;
     // A copy: each `dispose` removes itself from the set as it runs.
     for (const dispose of [...this._sourceDisposers]) dispose();
     // Belt and braces. Disposing every tracked source already empties both,
