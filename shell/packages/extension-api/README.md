@@ -110,6 +110,29 @@ export const myExtension: Extension = {
 
 Consumers `import type { MyExports } from '@my-namespace/extension-my-extension'` and read the live value at runtime via `getExtension`. The `T` generic on `getExtension` is unsafe sugar — producers and consumers commit to a shared type contract via the producer's exported `*Exports` type. Reads inside Svelte `$derived` / template contexts auto-track the underlying registry: consumers re-render when the producer enables / disables.
 
+### Writing into another extension's service
+
+Reading a service is the easy direction. **Writing** into one — a service hands you a handle and you register things through it — has a constraint the reading side does not: the service can be disabled and re-enabled underneath you, with no reload and no notification, so a handle you captured earlier may no longer write anywhere. A gcscode service that hands out handles therefore gives them a validity signal, and the writer's job is to check it:
+
+```ts
+// Resolve per use, not once at activate(): the service may activate after you,
+// or be re-enabled after a disable.
+const api = resolveService();
+if (api === undefined) {
+  // Degrade and say so once. Do not throw — the absence is a normal state.
+  return;
+}
+if (handle === undefined || !handle.isLive) {
+  handle = api.createSource(MY_ID, MY_LABEL);
+  // Anything you registered through the old handle went inert with it, so drop
+  // whatever you were tracking and register it again.
+}
+```
+
+**Recovery is only as fast as your own code runs again**, and that is the part worth designing around rather than discovering. A writer driven by an inbound stream re-claims on its next message — about a second, for a 1 Hz telemetry link. A writer driven by a rare event recovers only when that event next fires. **A writer that registers once during `activate()` never recovers at all**, because nothing brings it back; it is the registrant shape the section above warns about, and a disable/re-enable of the service leaves its contributions permanently missing. If that matters for your contribution, give yourself a path that runs again.
+
+On the reading side the same "resolve per use" rule applies for a different reason. Reads inside Svelte `$derived` or template contexts auto-track the service's underlying reactive state, so a consumer re-renders when the producer activates, registers, or goes away — but only if it reads **per render**. A consumer that resolves the service once at `activate()` and caches the value it found sees a snapshot and never updates, which looks like the service being broken rather than the consumer. There is no change event to fall back on; reactivity is the contract.
+
 See [ADR-0005](../../docs/decisions/ADR-0005-extension-boundaries.md) for the full design and `@gcscode/extension-vehicle-status` for the canonical consumer.
 
 ## Configuration (`host.configuration`)
