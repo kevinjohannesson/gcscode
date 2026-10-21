@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { Disposable, ExtensionHost, ViewContribution } from '@gcscode/extension-api';
 
-import { mapApi, mapExtension } from './index';
+import { mapExtension } from './index';
+import { mapApi } from './map-api.svelte';
 
 function makeFakeHost(opts?: {
   registerView?: ExtensionHost['window']['registerView'];

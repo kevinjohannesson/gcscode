@@ -13,7 +13,7 @@ export type {
   MapControlComponentRegistration,
   MapControlContribution,
 } from './map-api.svelte';
-export { MAPLIBRE_CONTEXT_KEY, mapApi };
+export { MAPLIBRE_CONTEXT_KEY };
 
 export const mapExtension: Extension = {
   manifest: {
