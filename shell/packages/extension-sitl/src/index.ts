@@ -1,5 +1,7 @@
 import type { Extension } from '@gcscode/extension-api';
+import type { AssetsApi } from '@gcscode/extension-assets';
 
+import { createAssetAdapter } from './asset-adapter';
 import { createMavlinkClient, type MavlinkClient } from './mavlink-client';
 import SitlView from './sitl-view.svelte';
 import {
@@ -34,10 +36,10 @@ function composeUrl(baseUrl: string): string {
 
 let client: MavlinkClient | null = null;
 
-function openClient(baseUrl: string): void {
+function openClient(baseUrl: string, onMessage: (json: unknown) => void): void {
   client = createMavlinkClient({
     url: composeUrl(baseUrl),
-    onMessage: applyMessage,
+    onMessage,
     onConnectionStateChange: setConnectionState,
   });
 }
@@ -72,7 +74,26 @@ export const sitlExtension: Extension = {
     );
 
     const cfg = context.host.configuration.getConfiguration('gcscode.sitl');
-    openClient(cfg.get<string>('connectionUrl', DEFAULT_BASE_URL));
+
+    // Resolved per message rather than here: the assets service may activate
+    // after this one, and that lazy resolution is exactly why the bundling
+    // order stays a comment instead of becoming a constraint (ADR-0012).
+    const assetAdapter = createAssetAdapter(
+      () => context.host.extensions.getExtension<AssetsApi>('gcscode.assets')?.exports,
+    );
+    // Pushed to `subscriptions`, which is what makes a normal deactivate and
+    // containment's failure path both remove this extension's assets.
+    context.subscriptions.push(assetAdapter);
+
+    const handleMessage = (json: unknown): void => {
+      // Telemetry first. It is this extension's existing duty and must not
+      // depend on the newer one; the client deliberately does not catch what a
+      // handler throws, which is why the adapter degrades rather than throws.
+      applyMessage(json);
+      assetAdapter.onMessage(json);
+    };
+
+    openClient(cfg.get<string>('connectionUrl', DEFAULT_BASE_URL), handleMessage);
 
     context.subscriptions.push(
       context.host.configuration.onDidChangeConfiguration((e) => {
@@ -82,7 +103,7 @@ export const sitlExtension: Extension = {
           .get<string>('connectionUrl', DEFAULT_BASE_URL);
         // Fire-and-forget reconnect; errors propagate via the WebSocket's
         // onerror/onclose pathway already handled by createMavlinkClient.
-        void closeClient().then(() => openClient(newBase));
+        void closeClient().then(() => openClient(newBase, handleMessage));
       }),
     );
 

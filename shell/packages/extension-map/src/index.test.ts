@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { Disposable, ExtensionHost, ViewContribution } from '@gcscode/extension-api';
 
-import { mapApi, mapExtension } from './index';
+import * as mapExtensionModule from './index';
+import { mapExtension } from './index';
+import { mapApi } from './map-api.svelte';
 
 function makeFakeHost(opts?: {
   registerView?: ExtensionHost['window']['registerView'];
@@ -68,6 +70,28 @@ describe('mapExtension', () => {
     expect(captured[0].title).toBe('Map');
     expect(subscriptions).toHaveLength(1);
     expect(exports).toBe(mapApi);
+  });
+});
+
+describe('entry-point export surface', () => {
+  // ADR-0012: a service extension exports *types* from its package entry
+  // point, never its live registry. `mapApi` stays module-internal and is
+  // reachable only through `activate()`'s return value, which the host hands
+  // to consumers as `getExtension('gcscode.map')?.exports`.
+  //
+  // A consumer re-importing `mapApi` from the entry point is already a
+  // compile error, but nothing stops `index.ts` from silently re-adding the
+  // export, and the deferred ESLint work cannot help: `no-restricted-imports`
+  // polices a consumer's imports, never a package's own exports. Hence a test.
+  //
+  // Deliberately scoped to what the rule claims — the live registry is
+  // absent under that name — rather than asserting a full export allowlist,
+  // which would churn every time a legitimate type is added. The boundary of
+  // the check: being name-based, it would not catch the same singleton
+  // re-leaked under a different name (`export default mapApi`, say). That is
+  // the accepted cost of not maintaining an allowlist.
+  it('does not expose the live mapApi registry', () => {
+    expect(Object.keys(mapExtensionModule)).not.toContain('mapApi');
   });
 });
 

@@ -99,7 +99,9 @@ Vocabulary types live in `extension-assets`'s entry point and are consumed with 
 
 `vitest.config.ts` — copy `packages/extension-map-demo/vitest.config.ts` verbatim.
 
-Then `pnpm install` from `shell/` so the workspace links it.
+**One deviation, decided after task 1 reported it:** this package has no Svelte components, so the `check` script is `tsc --noEmit` only and `tsconfig.json`'s `include` drops `src/**/*.svelte` — otherwise `svelte-check` prints a warning for a glob that matches nothing. `packages/extension-api` is the in-repo precedent for a Svelte-less package. `extension-assets-demo` in task 6 **does** have a component and keeps both.
+
+Then `pnpm install` from `shell/` so the workspace links it. **Task 3 will also need `@gcscode/extension-assets` added to `packages/shell/package.json`** — the plan originally omitted it and the shell's import does not resolve without it. Commit the lockfile change with whichever task adds it.
 
 - [ ] **Step 2: write the failing registry tests**
 
@@ -394,7 +396,7 @@ Then `cd "$(git rev-parse --show-toplevel)"/shell && pnpm check` — the `@ts-ex
 
 - [ ] **Step 7: prove the tests can fail**
 
-For at least cases 6, 9 and 10, mutate the implementation, watch the specific test fail, restore, and report the mutation. Make `_register` always mint a fresh key (case 9 and case 6 should fail), and drop the `readonly` from `RegisteredAsset.airframe` (the `@ts-expect-error` becomes unused and `pnpm check` fails).
+For at least cases 6, 9 and 10, mutate the implementation, watch the specific test fail, restore, and report the mutation. Make `_register` always mint a fresh key, and drop the `readonly` from `RegisteredAsset.airframe` (the `@ts-expect-error` becomes unused and `pnpm check` fails). **Note on case 9, corrected during task 1:** an earlier draft of this step claimed the fresh-key mutation would fail case 9, and it did not — the test read `getAssets()[0].key` positionally, so the original entry still sat at index 0 and the stability assertion held. Case 9 must find its asset by `localId` and assert exactly one entry exists for it. The step that exists to catch vacuous assertions contained one.
 
 - [ ] **Step 8: commit**
 
@@ -455,7 +457,7 @@ describe('handle validity', () => {
 - [ ] **Step 2: run them and watch them fail**
 
 Run: `cd "$(git rev-parse --show-toplevel)"/shell/packages/extension-assets && npx vitest run`
-Expected: FAIL — `teardown` does not exist.
+Expected: FAIL — `teardown` does not exist. Note only the third of the three tests fails for that reason; cases 11 and 12 already pass on task 1's code, since `isLive` and the inert-write guard shipped there. A step that claims three failing tests and delivers one is the kind of thing to report, not work around.
 
 - [ ] **Step 3: implement teardown**
 
@@ -469,7 +471,6 @@ Add to the class, and widen the factory's return type so `index.ts` can call it 
     for (const dispose of [...this._sourceDisposers]) dispose();
     this._assets.clear();
     this._liveSourceIds.clear();
-    this._labels.clear();
   }
 ```
 
@@ -492,7 +493,29 @@ export function createAssetRegistry(): AssetRegistryHandle {
 - [ ] **Step 4: run them and watch them pass**
 
 Run: vitest from inside the package, then `pnpm check` from `shell/`.
-Expected: PASS, 14 tests.
+Expected: PASS. The count is task 1's 11 plus the three above, plus one each for step 4b's copy test and case 14 — report what you measure rather than matching a number here.
+
+- [ ] **Step 4b: copy the caller's `airframe` on register**
+
+Task 1's code-quality review found the writer-side sibling of the documented one-level-deep immutability gap: the registry stores the caller's `airframe` **object by reference**, so a writer that mutates one in place after registering would silently corrupt a live entry — and because no `set()` runs, **no reactive signal fires at all**, so no consumer would even re-render to show the corrupted value. That is the invisible-failure class, and the fix is one spread in `_register`:
+
+```ts
+      ...(airframe === undefined ? {} : { airframe: { ...airframe } }),
+```
+
+Use whatever local task 1 already destructured rather than re-reading `description.airframe` — task 1 destructures once deliberately.
+
+```ts
+
+```
+
+No writer mutates today — task 5's adapter builds a fresh description per message — so this is defence against a future one, bought for a shallow copy of a single-property object. Add a test: register with an `airframe`, mutate the object you passed in, and assert `getAssets()` still reports the original value.
+
+- [ ] **Step 4c: an inert source from a torn-down registry**
+
+Found by task 2's implementer: `createSource` on a torn-down registry returns a source reporting `isLive === true` whose writes land in an instance no consumer can reach — falsifying the spec's "`isLive` is true exactly when a write will land" for a writer that cached `AssetsApi` at `activate()`, the idiom the spec warns about. Set a `_tornDown` flag in `teardown()` and consult it in **`createSource`**, returning an inert source rather than throwing; ADR-0011's message-handler reasoning covers claiming as well as registering.
+
+**Consult the flag in `createSource`, not inside `isLive`.** If `isLive` read it directly, deleting the source-disposal loop from `teardown()` would still leave handles reporting `false` and step 5's mutation would stop discriminating. Re-run that mutation afterwards to confirm it still fails on the liveness assertion.
 
 - [ ] **Step 5: prove case 13 can fail**
 
@@ -585,7 +608,7 @@ import { createAssetRegistry, type AssetRegistryHandle } from './asset-registry.
 /** The live registry for the current activation. Module-level because
  *  `deactivate` needs it, but never exported: the only way to reach it is
  *  `activate()`'s return value, per ADR-0012. A fresh one per activation is
- *  what makes `isLive` a correct staleness signal — see the spec. */
+ *  what makes `isLive` a correct handle-validity signal — see the spec. */
 let registry: AssetRegistryHandle | null = null;
 
 export const assetsExtension: Extension = {
@@ -608,7 +631,7 @@ export const assetsExtension: Extension = {
 
 - [ ] **Step 4: bundle it, and fix the comments**
 
-In `packages/shell/src/extension-host/bundled-extensions.ts`, import `assetsExtension` and `assetsDemoExtension` (the latter arrives in task 6 — add its entry then, not now), and add the assets entry **with a comment that says ordering is not required**:
+In `packages/shell/src/extension-host/bundled-extensions.ts`, import `assetsExtension` and `assetsDemoExtension` (the latter arrives in task 6 — add its entry then, not now), and add the assets entry **with a comment that says ordering is not required**. Note the count: after this pass demotes `vehicle-status` and `map-demo`, only the **map → flight-overlay** pair states a real requirement — an earlier draft of this step said "three real constraints", which was already wrong and becomes more wrong as this pass lands.
 
 ```ts
   // Assets is a service other extensions write into. Deliberately NOT an
@@ -627,11 +650,17 @@ Then correct the two comments that overstate constraints. `vehicle-status` and `
   { id: vehicleStatusExtension.manifest.id, extension: vehicleStatusExtension },
 ```
 
-Apply the equivalent to `map-demo`. Leave `flight-overlay`'s comment alone — the containment iteration already corrected it.
+Apply the equivalent to `map-demo`. **`flight-overlay`'s comment needs one sentence deleted, contrary to an earlier draft of this step.** The containment iteration corrected its throw/degrade claim, but its trailing "Same insertion-order pattern as vehicle-status and map-demo" becomes false the moment this pass demotes those two — correcting two comments invalidates a third that referenced them, which is the position-dependent-documentation trap this project has hit before. Delete that sentence and nothing else.
 
 - [ ] **Step 5: run everything**
 
 Run: vitest from inside `extension-assets`, then from inside `packages/shell` (expect **279**, unchanged — nothing in the shell's behaviour changed), then `pnpm check` and `pnpm lint` from `shell/`.
+
+- [ ] **Step 5b: fix the shell test that asserts the rationale these comments deny**
+
+`bundled-extensions.test.ts`'s third case is named "bundles vehicle-status after sitl **so the consumer activates after the producer**" — asserting exactly the requirement the corrected comments say does not exist, since vehicle-status reads lazily. Meanwhile the one real constraint, **map before flight-overlay**, has no test at all.
+
+Replace it: assert `map` precedes `flight-overlay`, naming the reason (flight-overlay resolves map's exports during its own `activate`, so the overlay does not appear if map is absent — it degrades rather than throwing since the containment iteration). Drop the vehicle-status assertion: nothing depends on that order, which is the point the comments now make, and a test asserting a false rationale is worse than no test. Prove the new assertion can fail by temporarily swapping the two entries.
 
 - [ ] **Step 6: report case 34 by inspection, and commit**
 
@@ -866,7 +895,12 @@ The adapter needs a seam that does not require a WebSocket. Model it as a factor
 import { describe, expect, it, vi } from 'vitest';
 
 import { createAssetAdapter } from './asset-adapter';
-import { createAssetRegistry } from '@gcscode/extension-assets/src/asset-registry.svelte';
+// NOT this — measured during task 5 and wrong twice over: it is a runtime import
+// from a sibling extension package, which the boundary rule forbids and ESLint
+// catches, and it does not resolve at all because that package's `exports` map
+// has no `./src/*` subpath. Use a contract double for the source instead, and
+// rely on extension-assets' own cases 1-14 plus task 7's real wiring for the
+// behaviour of the registry itself.
 
 const heartbeat = (systemId: number, mavType: string, componentId = 1) => ({
   header: { system_id: systemId, component_id: componentId },
@@ -996,6 +1030,13 @@ export function createAssetAdapter(resolve: () => AssetsApi | undefined) {
 
   return {
     onMessage(json: unknown): void {
+      // HEARTBEAT only. The client's filter also admits GLOBAL_POSITION_INT,
+      // ATTITUDE, VFR_HUD and SYS_STATUS — every one carries header.system_id
+      // and none carries mavtype, so acting on them re-registers the asset with
+      // no airframe and overwrites the good value. Measured live before this
+      // guard existed: 102 frames produced 13 registrations in six seconds and
+      // the asset ended with no airframe at all. With the guard: 1 registration.
+      if (!isHeartbeat(json)) return;
       const localId = systemIdOf(json);
       if (localId === undefined) return;
 
@@ -1042,6 +1083,8 @@ function sameDescription(a: AssetDescription, b: AssetDescription): boolean {
 }
 ```
 
+**One failure the sketch does not handle.** `createSource` throws on a duplicate claim of a live source id, and the adapter calls it from inside a WebSocket message handler where throwing is the wrong failure mode. Guard the claim, warn once, and retry on the next message rather than letting it escape.
+
 - [ ] **Step 4: wire it into `index.ts`**
 
 Construct the adapter in `activate`, push its `dispose` to `context.subscriptions` (which is what makes cases 31–33 work), and call `onMessage` from the same place `applyMessage` is called. Resolve through the captured host:
@@ -1077,7 +1120,9 @@ git commit -m "feat(sitl): register assets from HEARTBEAT, claiming lazily"
 - Create: `src/index.ts`, `src/assets-status-item.svelte`, `src/index.test.ts`
 - Modify: `packages/shell/src/extension-host/bundled-extensions.ts` (add the entry)
 
-- [ ] **Step 1: scaffold** — same shape as task 1's package, depending on `@gcscode/extension-api` and `@gcscode/extension-assets` (type-only).
+- [ ] **Step 1: scaffold** — same shape as task 1's package, depending on `@gcscode/extension-api` and `@gcscode/extension-assets` (type-only). Unlike `extension-assets`, this package has a Svelte component, so keep `svelte-check` in `check` and `src/**/*.svelte` in the tsconfig `include`.
+
+**Do not copy `extension-map-demo`'s `vitest.config.ts` verbatim — measured during task 6, it makes every rune test fail.** That config uses `environment: 'node'` with no testing plugin, and a component reading runes then throws `rune_outside_svelte`. The fix is `svelteTesting()` from `@testing-library/svelte/vite`, which puts `browser` ahead of `node` in `resolve.conditions`; its auto-cleanup half is a no-op under `globals: true`, so the `resolve.conditions` effect is the whole reason it is needed. This defect is worse than an inconvenience: an implementer who hit it could reasonably conclude the per-render reading idiom does not work under test and cache at `activate()` instead — which is precisely the thing case 29 exists to forbid. A tooling failure that pushes you toward the wrong architecture is the dangerous kind.
 
 - [ ] **Step 2: write the failing tests**, including the reactivity case, which is the one that pins the contract term:
 
@@ -1087,8 +1132,8 @@ it('renders sourceLabel · airframe for each asset', async () => {
 });
 
 it('updates when an asset is registered after mount, with no event and no remount', async () => {
-  // Mount with an empty registry, register an asset, await a tick, assert the
-  // label changed. A component that cached getAssets() at setup fails this.
+  // Mount with an empty registry, register an asset, `flushSync()`, assert the
+  // label changed. `await`ing a tick is not the idiom for runes. A component that cached getAssets() at setup fails this.
 });
 
 it('renders empty when the service is absent', async () => {
@@ -1101,7 +1146,9 @@ it('renders empty when the service is absent', async () => {
 ```svelte
 <script lang="ts">
   import type { AssetsApi } from '@gcscode/extension-assets';
-  import { getHost } from './host-store';
+  // Export the resolver from the package's own `index.ts` — both in-repo precedents
+  // do that, and it is where the spec points. There is no `host-store` module here.
+  import { getHost } from './index';
 
   // Read per render, not cached at setup: the host's exports map and the
   // registry's asset map are both SvelteMaps, which is what makes this
@@ -1120,6 +1167,10 @@ it('renders empty when the service is absent', async () => {
 An asset with no `airframe` renders `—`, distinguishable from `unknown`, per case 28.
 
 - [ ] **Step 4: case 30 is a report, not an assertion.** In your task report, record what the source handle bought in this single-source deployment: which of the registry tests would change if `registerAsset` hung directly off `AssetsApi` with a source-id argument. This is deliberate evidence-gathering for the flat-registry fallback ADR-0011's Alternatives pre-authorises — not a judgment you have to make.
+
+- [ ] **Step 4b: re-check the assets-entry comment you are now invalidating**
+
+Task 3's code-quality review flagged that the assets entry's comment makes a **global** claim — "only the map/flight-overlay pair states a requirement" — which goes stale silently if a later entry adds a real ordering constraint. This task adds that later entry. The demo consumer reads the registry lazily per render, so it introduces no constraint and the claim still holds; confirm that in your report rather than assuming it, and if the comment needs narrowing from a global claim to a local one, narrow it. This is the same trap that made `flight-overlay`'s comment false in task 3: a claim about other entries decays when the set of entries changes.
 
 - [ ] **Step 5: run everything and commit**
 

@@ -16,7 +16,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@gcscode/extension-api": "workspace:*"
+    "@gcscode/extension-api": "workspace:*",
+    "@gcscode/extension-assets": "workspace:*"
   },
   "peerDependencies": {
     "svelte": "^5.0.0"

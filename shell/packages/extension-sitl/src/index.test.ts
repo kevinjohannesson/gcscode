@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 import type { Disposable, ExtensionContext, ExtensionHost } from '@gcscode/extension-api';
+import type { AssetDescription, AssetSource, AssetsApi } from '@gcscode/extension-assets';
 
 import { sitlExtension, type SitlExports } from './index';
 import SitlView from './sitl-view.svelte';
@@ -56,7 +57,7 @@ function lastMock(): MockWebSocket {
   return mock;
 }
 
-function makeContext(): {
+function makeContext(opts: { getExtension?: ExtensionHost['extensions']['getExtension'] } = {}): {
   context: ExtensionContext;
   registerView: ReturnType<typeof vi.fn>;
   registerCommand: ReturnType<typeof vi.fn>;
@@ -91,7 +92,7 @@ function makeContext(): {
       window: { registerView, registerStatusBarItem, showQuickPick: vi.fn() },
       commands: { registerCommand, executeCommand },
       keybindings: { registerKeybinding },
-      extensions: { getExtension: vi.fn(() => undefined) },
+      extensions: { getExtension: opts.getExtension ?? vi.fn(() => undefined) },
       configuration: { registerConfiguration, getConfiguration, onDidChangeConfiguration },
     },
     subscriptions,
@@ -111,6 +112,64 @@ function makeContext(): {
     onDidChangeConfiguration,
     getConfiguration,
   };
+}
+
+// ---------------------------------------------------------------------------
+// A spy-only stand-in for the assets service — enough for the two wiring
+// questions this file owns: that `activate()` claims nothing, and that an
+// absent service leaves telemetry working. The full contract double lives in
+// `asset-adapter.test.ts`, which is where the adapter's registry-facing
+// behaviour is asserted; this one is a VARIANT, not a duplicate, for the same
+// reason the two MockWebSockets are.
+// ---------------------------------------------------------------------------
+
+function makeFakeAssets(): {
+  api: AssetsApi;
+  createSource: ReturnType<typeof vi.fn>;
+  registered: AssetDescription[];
+} {
+  const registered: AssetDescription[] = [];
+  const createSource = vi.fn(
+    (sourceId: string): AssetSource => ({
+      sourceId,
+      isLive: true,
+      registerAsset: (description: AssetDescription) => {
+        registered.push({ ...description });
+        return { dispose: vi.fn() };
+      },
+      dispose: vi.fn(),
+    }),
+  );
+  return { api: { createSource, getAssets: () => [] }, createSource, registered };
+}
+
+/** The live frame, measured 2026-10-21 against mavlink2rest. */
+const HEARTBEAT_FRAME = {
+  header: { system_id: 1, component_id: 1, sequence: 166 },
+  message: {
+    type: 'HEARTBEAT',
+    mavtype: { type: 'MAV_TYPE_QUADROTOR' },
+    autopilot: { type: 'MAV_AUTOPILOT_ARDUPILOTMEGA' },
+    base_mode: 'MAV_MODE_FLAG_CUSTOM_MODE_ENABLED',
+    custom_mode: 4,
+    system_status: { type: 'MAV_STATE_STANDBY' },
+    mavlink_version: 3,
+  },
+};
+
+const POSITION_FRAME = {
+  header: { system_id: 1, component_id: 1, sequence: 167 },
+  message: {
+    type: 'GLOBAL_POSITION_INT',
+    lat: -353632610,
+    lon: 1491652300,
+    relative_alt: 5400,
+    hdg: 9000,
+  },
+};
+
+function deliver(frame: unknown): void {
+  lastMock().onmessage?.({ data: JSON.stringify(frame) });
 }
 
 // ---------------------------------------------------------------------------
@@ -135,7 +194,7 @@ describe('sitlExtension', () => {
     expect(typeof sitlExtension.manifest.version).toBe('string');
   });
 
-  it('registers a view, a command, a keybinding, and a configuration + change-listener; pushes all five disposables', () => {
+  it('registers a view, a command, a keybinding, a configuration + change-listener, and the asset adapter; pushes all six disposables', () => {
     const { context, registerView, registerCommand, registerKeybinding } = makeContext();
     const { subscriptions } = context;
 
@@ -156,7 +215,7 @@ describe('sitlExtension', () => {
       key: 'Alt+Shift+L',
       command: 'gcscode.sitl.getLocation',
     });
-    expect(subscriptions).toHaveLength(5);
+    expect(subscriptions).toHaveLength(6);
   });
 
   it('getLocation command returns current store location and logs it; returns null with no fix yet', () => {
@@ -301,6 +360,52 @@ describe('sitlExtension', () => {
     expect(mockInstances.length).toBeGreaterThanOrEqual(2);
     const latest = mockInstances[mockInstances.length - 1];
     expect(latest.url).toMatch(/^ws:\/\/192\.168\.1\.42:8088\/v1\/ws\/mavlink/);
+  });
+
+  // Case 25, at the extension's seam: the constraint the spec removed cannot
+  // creep back in as an activation-time claim.
+  it('claims no asset source during activate, and claims one on the first heartbeat', () => {
+    const assets = makeFakeAssets();
+    const { context } = makeContext({
+      getExtension: vi.fn((id: string) =>
+        id === 'gcscode.assets' ? { id, exports: assets.api as unknown } : undefined,
+      ) as ExtensionHost['extensions']['getExtension'],
+    });
+
+    sitlExtension.activate(context);
+    expect(assets.createSource).not.toHaveBeenCalled();
+
+    deliver(HEARTBEAT_FRAME);
+
+    expect(assets.createSource).toHaveBeenCalledTimes(1);
+    expect(assets.registered).toEqual([{ localId: '1', airframe: { kind: 'multirotor' } }]);
+  });
+
+  // Case 26: the service absent, through the real message path. The warning is
+  // the whole operator-facing signal v0 has — there is no notification
+  // primitive yet — and telemetry must be untouched by its absence.
+  it('degrades when the assets service is absent: warns once and keeps folding telemetry', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    try {
+      const { context } = makeContext();
+      sitlExtension.activate(context);
+
+      expect(() => {
+        deliver(HEARTBEAT_FRAME);
+        deliver(HEARTBEAT_FRAME);
+        deliver(POSITION_FRAME);
+      }).not.toThrow();
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain('assets service is not active');
+      // The telemetry duties, unaffected: mode from HEARTBEAT, fix from
+      // GLOBAL_POSITION_INT.
+      expect(telemetryState.mode).toBe('GUIDED');
+      expect(telemetryState.lat).toBeCloseTo(-35.363261, 6);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('activate returns SitlExports with the live telemetry store', () => {
