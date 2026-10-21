@@ -146,9 +146,15 @@ describe('asset registry', () => {
     source.registerAsset(description);
 
     // `readonly kind` now stops a *typed* writer from doing this, so the cast
-    // is the point rather than a wart: it simulates the caller the types cannot
-    // reach — a JS adapter, or one compiled against an older `.d.ts`. At
-    // runtime the type is erased and the copy below is the only protection.
+    // is the point rather than a wart: it simulates any caller that supplies
+    // its own `T`. That is not an exotic case — it is the documented route,
+    // since `getExtension<T>()` casts the stored `unknown` to whatever `T` the
+    // caller names (see `AssetRegistryHandle`'s own comment), so a fully-typed
+    // consumer can hand itself a mutable `airframe.kind` and never leave the
+    // type system. A JS adapter or a stale `.d.ts` reaches the same place by a
+    // duller road. At runtime the type is erased and the copy below is the only
+    // protection — and it is shallow, so a widened `Airframe` carrying a nested
+    // field would be protected at the top level only.
     (description.airframe! as { kind: Airframe['kind'] }).kind = 'none';
 
     // Stored by reference, this corruption would be invisible twice over: the
