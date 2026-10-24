@@ -12,13 +12,17 @@ name: Auto-merge
 #           branch has review requirements, and `master` is unprotected, so it
 #           stayed empty however many approvals existed. PR #34 was the first
 #           feat/* PR to reach this gate and exposed it.
-#         - spec/* or adr/*: `gcscode-red-team` count >= 2 (both Opus and Sonnet
-#           under multi-model dispatch) AND `gcscode-spec-quality` count >= 1.
-#           Enforces auto-dispatch obligation AND prevents mid-round merge race.
-#           Per spec: 2026-05-17-auto-merge-bypasses-final-respondent-v2.md.
+#         - spec/* or adr/*: the latest review by `gcscode-red-team` ends with
+#           the line `Blocking: 0`, and so does the latest review by
+#           `gcscode-extension-architect` if it posted any. The reviewers grade
+#           their own findings; this reads their count. If blocking findings
+#           remain after two fix checks, the gate stays shut and the owner
+#           decides. Was a review count (red-team >= 2, spec-quality >= 1) until
+#           review-loop-v2 dropped the Sonnet red-team and spec-quality roles.
 # Gate 4: The PR is mergeable (no conflicts).
 #
-# Spec: docs/specs/2026-05-14-auto-merge-on-user-approval.md
+# Specs: docs/specs/2026-05-14-auto-merge-on-user-approval.md,
+#        docs/specs/2026-10-22-review-loop-v2.md (Gate 3b)
 
 on:
   pull_request_review:
@@ -48,7 +52,7 @@ jobs:
           fi
           echo "Evaluating PR #${PR_NUMBER}"
 
-          PR_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,labels,reviews,mergeable,isDraft)
+          PR_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,labels,mergeable,isDraft)
           HEAD_REF=$(echo "$PR_JSON" | jq -r .headRefName)
           IS_DRAFT=$(echo "$PR_JSON" | jq -r .isDraft)
           MERGEABLE=$(echo "$PR_JSON" | jq -r .mergeable)
@@ -75,7 +79,7 @@ jobs:
               PR_CLASS=feat
               ;;
             spec/*|adr/*)
-              echo "Gate 2 OK: spec/ADR PR (head=${HEAD_REF}); gate 3b (both reviewers posted) applies"
+              echo "Gate 2 OK: spec/ADR PR (head=${HEAD_REF}); gate 3b (reviewers' Blocking: 0) applies"
               PR_CLASS=spec_or_adr
               ;;
             *)
@@ -105,7 +109,7 @@ jobs:
             # --json reviews` can truncate at 100, and truncation here is the one
             # direction that fails OPEN — the oldest 100 are returned, so a newer
             # CHANGES_REQUESTED could be dropped while an older APPROVED survives.
-            # Gate 3b's counts truncate toward failing closed, so they stay as-is.
+            # Gate 3b reads the latest review too, so it paginates the same way.
             # Raised by the final cross-cutting review on PR #35.
             # The REST payload spells bot logins `gcscode-final-review[bot]`, while
             # `gh pr view --json reviews` omits the suffix. Normalise so the match is
@@ -128,19 +132,37 @@ jobs:
             fi
             echo "Gate 3a OK: gcscode-final-review's latest verdict-bearing review is APPROVED"
           else
-            # Gate 3b: gcscode-red-team count >= 2 (both Opus and Sonnet under multi-model
-            # dispatch per multi-model-red-team-v1) AND gcscode-spec-quality count >= 1.
-            # Enforces auto-dispatch obligation AND prevents the initial-round merge race
-            # documented in 2026-05-17-auto-merge-bypasses-final-respondent-v2.md. Known
-            # limitation: cumulative counting does not gate re-review-round races; see v2
-            # spec's "Known limitation — cumulative-count semantics in re-review rounds".
-            REDTEAM_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-red-team")] | length')
-            SPECQUALITY_COUNT=$(echo "$PR_JSON" | jq -r '[.reviews[] | select(.author.login == "gcscode-spec-quality")] | length')
-            if [[ "$REDTEAM_COUNT" -lt 2 || "$SPECQUALITY_COUNT" -lt 1 ]]; then
-              echo "Gate 3b FAILED: red-team count=${REDTEAM_COUNT} (need >=2 for multi-model dispatch), spec-quality count=${SPECQUALITY_COUNT} (need >=1). Exiting cleanly."
+            # Gate 3b: the last non-blank line of `gcscode-red-team`'s latest review is
+            # `Blocking: 0`, and the same for `gcscode-extension-architect` if it has
+            # reviewed at all (its out-of-scope skip ends `Blocking: 0` too). Every
+            # other outcome fails closed: no red-team review yet, a missing trailer,
+            # or any non-zero count. A fix check replaces the round it checks, so
+            # after a Code-review-followup commit the gate stays shut until the
+            # reviewer's fix check lands. Same login normalisation, null-author guard
+            # and pagination as gate 3a above.
+            SPEC_REVIEWS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews" --jq '.[] | {login: ((.user.login // "") | sub("\\[bot\\]$"; "")), submittedAt: .submitted_at, body: (.body // "")}' | jq -s '{reviews: .}')
+            # Prints the N of the trailer, NONE if the login never reviewed, MISSING if the
+            # latest review has no `Blocking: N` last line.
+            latest_blocking() {
+              echo "$SPEC_REVIEWS" | jq -r --arg login "$1" '
+                [ .reviews[] | select(.login == $login and .submittedAt != null) ]
+                | sort_by(.submittedAt) | last
+                | if . == null then "NONE"
+                  else [ .body | gsub("\r"; "") | split("\n")[] | select(test("\\S")) ] | last // ""
+                    | (capture("^\\s*Blocking:\\s*(?<n>[0-9]+)\\s*$") | .n) // "MISSING"
+                  end'
+            }
+            REDTEAM_BLOCKING=$(latest_blocking gcscode-red-team)
+            ARCHITECT_BLOCKING=$(latest_blocking gcscode-extension-architect)
+            if [[ "$REDTEAM_BLOCKING" != "0" ]]; then
+              echo "Gate 3b FAILED: gcscode-red-team's latest review reads Blocking=${REDTEAM_BLOCKING} (expected 0). Exiting cleanly."
               exit 0
             fi
-            echo "Gate 3b OK: red-team count=${REDTEAM_COUNT}, spec-quality count=${SPECQUALITY_COUNT}"
+            if [[ "$ARCHITECT_BLOCKING" != "NONE" && "$ARCHITECT_BLOCKING" != "0" ]]; then
+              echo "Gate 3b FAILED: gcscode-extension-architect's latest review reads Blocking=${ARCHITECT_BLOCKING} (expected 0). Exiting cleanly."
+              exit 0
+            fi
+            echo "Gate 3b OK: red-team Blocking=0, extension-architect Blocking=${ARCHITECT_BLOCKING}"
           fi
 
           # Gate 4: PR is mergeable
