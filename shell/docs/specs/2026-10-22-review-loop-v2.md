@@ -1,0 +1,165 @@
+# Review loop v2
+
+Graded findings, fix checks and a stop rule for spec/ADR review, three roles removed, and (in a second PR) a controller that works from short context.
+
+**Status:** PR 1 (spec/ADR side) implemented in this PR. PR 2 (controller discipline and lean context) follows in its own PR and session.
+
+This spec is the implementation brief written on 22 Oct 2026 from an evaluation of PRs #2–#36 (the owner's report "gcscode review process evaluation"; the raw data is kept outside the repo), committed as the historical record per the brief, with the parts that turned out wrong corrected (see [Corrections to the brief](#corrections-to-the-brief)). The owner decided the change; this spec records it rather than proposing it.
+
+## Context
+
+- **Round 1 does almost all the useful work.** Across 26 PRs and 778 findings, round 1 found 198 of the 264 high/medium-value problems. Of the 66 found later, 60 were defects the controller's own fixes had introduced.
+- **Fixes are the weak point.** 207 findings (27%) were in text a followup had just written. 96 times a fix was claimed and a later review found leftovers (the "fixed it in 1 of 3 places" pattern).
+- **No stop rule.** Reviewers could only comment, nothing graded findings as blocking, and the prompts said "Under-critical is the only way to fail". Loops ended when someone got tired.
+- **Unique yield per role** (high / medium findings no other role raised):
+
+  | Role                | High | Medium              |
+  | ------------------- | ---- | ------------------- |
+  | Red-team Opus       | 14   | 74                  |
+  | Extension-architect | 7    | 14 (in only 6 PRs)  |
+  | Red-team Sonnet     | 1    | 17 (October: 0 / 3) |
+  | Spec-quality        | 0    | 3                   |
+
+- **The respondent cost a lot and could not be trusted.** It produced 32% of all subagent output tokens and took 17–33% of active time per PR, and it recorded false dispositions — for example items "routed to roadmap" that never landed.
+- **Where the time goes.** A spec/ADR PR took 2–3 h of active time: controller ~40%, reviewers ~30%, respondents ~25%.
+- **The controller drowns in context.** It ran #31–#36 in one 5-day session at a median 456k tokens of context.
+- **Every agent pays for the pipeline docs.** `shell/CLAUDE.md` was ~72k characters, about 65% of it review-pipeline procedure, and every subagent loads it.
+- **Stale model labels.** Review headers hard-coded model names that had stopped being true; the agents actually ran the Claude 5 family.
+
+## Goals
+
+- **Outcome in code over pace.** Rigour moves from spec prose to code and behaviour. Specs get shorter, and spec findings that matter become plan checklist items.
+- Spec/ADR review that ends: graded findings, a `Blocking: N` count, fix checks instead of full re-reviews, and a stop rule.
+- Fewer roles, chosen by unique yield: red-team (Opus) and the extension architect stay; the Sonnet red-team, the respondent and spec-quality go, replaced by a disposition table and a lint script.
+- Auto-merge for spec/ADR PRs reads the reviewers' own blocking count.
+- (PR 2) A controller that runs one PR per session from a handoff note, with `shell/CLAUDE.md` at roughly 7–10k characters.
+
+## Non-goals (this iteration)
+
+- **Superpowers is untouched.** Its skills and its spec-compliance, code-quality and final-review prompts are not edited. Everything layered on top is in scope: red-team, spec-quality, extension-architect, respondent, the posting discipline, the CLAUDE.md pipeline sections, `auto-merge.yml`, and the agent files.
+- **No new reviewer.** A different lens may replace the Sonnet red-team later (a simplicity/YAGNI reviewer is the leading idea); it goes on the roadmap, not into this work.
+- **No separate spec PR.** This brief is committed as the spec inside PR 1.
+- **The historical record stays.** Historical specs, plans and ADRs are not rewritten; superseded decisions get one-line breadcrumbs.
+- **Process PRs get light review:** one Opus red-team round, then fix checks — not the full panel. That applies to this work's own PRs.
+- **Merging** is the owner's: they merge, or apply the `auto-merge` label.
+
+## Architecture
+
+### How the work runs
+
+- **Own worktree.** Implementation happens in a worktree; the main checkout's branch is never switched.
+- **Two PRs, one session each.** PR 1, then a handoff note (state, decisions, open items) at `.claude/handoffs/review-loop-v2.md` (gitignored); a fresh session does PR 2 from that note.
+- **Check the docs before relying on harness features** — path-scoped rules, project skills under `shell/.claude/`, `omitClaudeMd`, pinned model IDs. Checked against the Claude Code docs on 2026-10-24; results are folded into the items below.
+
+### PR 1 — review loop v2 (spec/ADR side)
+
+1. **Agent files carry their own instructions.** The bodies of the red-team and extension-architect prompts moved into `.claude/agents/red-team-reviewer.md` and `.claude/agents/extension-architect-reviewer.md`; `.claude/reviewer-prompts/` is gone. The "controller MUST include the template / ERROR" guard is removed (on #36 two reviewers aborted on it). A dispatch passes only variables — `PR`, `KIND`, `MODE` (`initial` or `fix-check`), `FIX_SHA`, `PREVIOUS_REVIEW_ID` — and an agent works out any it is not given. Each agent fixes its own token slug in its body, so a review cannot be posted under the wrong bot (this happened on #32). Agents read the artifact at the PR head, not the local checkout.
+2. **Findings format, for every reviewer.** A numbered list; each finding has an ID (`RT-3`, `EA-2`), `[blocking]` or `[non-blocking]`, a location (file:line or section), a one-line problem and a one-line suggested fix. Short reasoning follows for blocking findings only, then a `Checked against:` line, and the review ends with `Blocking: N`. Blocking means it would cause a defect, a wrong decision, or real rework if shipped as written. "Under-critical is the only way to fail" and "Verbosity WITHIN a finding … is not a failure mode" are replaced by "Two failure modes: missing a real defect, and burying it under minor ones." "Include every section every time" is gone.
+3. **Fix-check mode** replaces full re-reviews. Input: the fix diff plus the reviewer's own previous review. Output: each earlier open finding marked `[resolved]`, `[not resolved]` or `[partly resolved]` with the remaining locations; new findings are allowed in the diff, and elsewhere only if blocking. Same format, ending `Blocking: N`. Header: `## <Role> fix check of <SHA> — <model>`.
+4. **Drift is informational.** Cross-check only against documents the artifact links to, the ADR index, and whatever a grep for the artifact's key terms turns up. Drift is blocking only when it contradicts an accepted ADR; the suggested fix is then "change the spec, or supersede the ADR". Agentic-process specs are out of the cross-check corpus for product PRs.
+5. **Routing by kind.**
+
+   | PR                       | Round 1                                                                        | Fix checks                                                  |
+   | ------------------------ | ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+   | Product spec/ADR         | Red-team + extension-architect (when its heuristic matches) + `pnpm lint:docs` | Red-team; the architect only if it raised blocking findings |
+   | Agentic-process spec/ADR | Red-team (+ `pnpm lint:docs`)                                                  | Red-team                                                    |
+
+   The brief listed the lint for product PRs only, while item 8 has the controller run it before any spec/ADR PR; the implementation follows item 8, since the lint is free.
+
+6. **Stop rule.** The loop ends when each dispatched role's latest review shows `Blocking: 0`, or after two fix checks. Leftovers go into the spec's Known unknowns with their finding IDs. The controller then reports to the owner and stops; it does not ask "how should I close out".
+7. **Three roles removed.** The Sonnet red-team (dispatch and the registry's `Secondary model` column); the respondent (agent file, prompt, CLAUDE.md sections, token helper and config entry — the GitHub App stays installed and unused); spec-quality (agent file, prompt, config entry and token-helper slug). Dangling references were swept with `git grep`.
+8. **A lint script replaces spec-quality's mechanical half.** `shell/scripts/lint-docs.mjs` (`pnpm lint:docs`) checks that relative links resolve, including heading anchors; that there are no `/Users/<name>` or `/home/<name>` paths; and that a newly added spec or ADR has the required headings. No template existed, so the required headings are the ones current specs and ADRs already share: spec — Context, Goals, Non-goals, VS Code alignment, Known unknowns; ADR — Status, Context, Decision, Consequences. By default it checks markdown changed against `origin/master` and reports problems on changed lines only, so history does not fail a breadcrumb edit; `--all` sweeps everything.
+9. **Disposition table in every `Code-review-followup:` commit.** One line per open finding ID: `fixed: <file or hunk>`, `kept: <reason>`, or `deferred: <file>#<section>`. `.claude/scripts/check-dispositions.mjs <PR>` checks that every ID still open in the latest reviews has a line, that `fixed:` files are in the commit, and that each `deferred:` target exists and mentions the finding ID — in a line the commit adds, or already. Requiring the ID (rather than just "the target file is touched") is what catches "routed to roadmap" claims that never landed.
+10. **Gate 3b in `auto-merge.yml`.** It required `gcscode-red-team` count ≥ 2 and `gcscode-spec-quality` count ≥ 1, which breaks once those roles go. It now passes when the last non-blank line of `gcscode-red-team`'s latest review is `Blocking: 0`, and the same for `gcscode-extension-architect` if it has reviewed (its out-of-scope skip ends `Blocking: 0` as well). No red-team review, a missing trailer, or any non-zero count fails closed, so if blocking findings remain after two fix checks auto-merge stays off and the owner decides. The workflow's header comments and CLAUDE.md describe the new gate.
+11. **Headers and models.** Headers take the model name from the agent's own system prompt — subagents' system prompts do state the model they run as (checked by probe; the docs do not say so) — never from a literal. The live stale model strings are gone; historical specs are untouched. Model IDs are pinned in agent frontmatter, which accepts full IDs per the docs: red-team `claude-opus-5-5`, extension-architect `claude-opus-5-5` (the owner chose Opus over Fable; see [Known unknowns](#known-unknowns)).
+12. **Roadmap.** A Considering entry for a simplicity/YAGNI reviewer, which takes over the devil's-advocate v2 idea: it would argue for less — cut speculative abstraction, question constraints that exist only because an old doc says so, flag deferral triggers that will never fire. The multi-model red-team experiment is recorded as resolved: Sonnet dropped after the October evaluation.
+
+**PR 1 is done when** a grep for the old stale model strings in live (non-historical) files returns nothing; the reviewer prompts live only in the agent files; Gate 3b reads `Blocking: 0`; the lint and disposition scripts run; and the PR has had one red-team round and one fix check.
+
+### PR 2 — controller discipline and lean context
+
+1. **Controller discipline** (the owner's layer, not superpowers'):
+   - **Sweep before every fix commit.** Turn each finding into a search (`git grep -n`) across code, tests, specs, plans, ADRs, CLAUDE.md and READMEs. Fix or explicitly keep every hit, and list the hits in the disposition table.
+   - **Fix scope.** A followup does only what the findings ask. Any new claim about the repo ("unreachable", "already handled", a count, "deviation from the spec", a deferral trigger) is checked with a command before committing. Unrequested improvements go in a separate commit or on the roadmap.
+   - **Spec findings handed to the plan** become checklist items in the plan, and the final cross-cutting review verifies them. This is how the configuration bug was lost.
+   - **New tests:** the implementer mutates the changed branches and lists the survivors in its task report. This extends the existing "tests must be seen failing" rule; it goes in CLAUDE.md, not the superpowers prompts.
+2. **End-of-PR report to the owner,** in a fixed format: what changed (3–5 bullets); blocking findings and their resolution; non-blocking findings deferred, and where; what the owner should look at in the code (files or functions); open decisions. This report is the owner's main interface; PR comments are history.
+3. **Session hygiene.** One controller session per PR or iteration, started from a handoff note in `.claude/handoffs/` and ended by writing one. When working unattended, don't ask questions: take the documented default and record it in the end-of-PR report. Stop and ask only for irreversible decisions.
+4. **Context restructure** (target: `shell/CLAUDE.md` ≈ 7–10k characters).
+
+   | Content                                                                                                                                                                 | New home                                                                            |
+   | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+   | Product core (what, layout, boundary rule, conventions, extension shape, commands), short git rules, worktree rule, pointers                                            | Stays in `shell/CLAUDE.md`                                                          |
+   | Svelte MCP section + the C#-style class conventions (today only in the owner's auto-memory)                                                                             | `shell/.claude/rules/svelte.md`, scoped to `packages/**/*.svelte` and `*.svelte.ts` |
+   | Spec/ADR/plan conventions, specs-as-historical-record, non-goals propagation, the VS Code alignment rule                                                                | `shell/.claude/rules/docs.md`, scoped to `docs/**`                                  |
+   | Dispatch by kind, findings format, fix checks, stop rule, disposition table, merge gate, per-task posting discipline and dismissal of per-task blocks, end-of-PR report | A `review-loop` skill, loaded only when reviewing                                   |
+   - Make `.claude/agent-config.json` the single registry for each role: identity, app ids, agent file, model, routing, verdicts. Delete the registry and verdict tables and slug lists from CLAUDE.md and point to the config instead. `gh-app-token-reviewer` validates slugs against the config. Add a breadcrumb in ADR-0009 saying the registry moved.
+   - Strip history out of instructions: dates, PR numbers and "Codified…" belong in specs.
+   - Docs facts for this step (checked 2026-10-24): path-scoped rules in `shell/.claude/rules/` resolve their `paths:` globs relative to `shell/`; skills in `shell/.claude/skills/` and in the git-root `.claude/skills/` are both discovered from a `shell/` working directory; `omitClaudeMd: true` in agent frontmatter (Claude Code 2.1.271 or later) starts a subagent without CLAUDE.md, an option for the reviewer agents.
+
+5. **Memory cleanup** (the owner's auto-memory): rewrite the `project_dual_purpose` index line to drop "dense docs and slow pace are features"; delete `project_agentic_team_tech_debt` (stale), `project_reviewer_design_patterns` (duplicates CLAUDE.md) and `project_agent_file_discovery_session_bound` once its replacement fact is recorded (hot-reload works except for directories created after session start); move `project_expert_reviewer_track` to the roadmap; fix the stale paths in `project_agent_artifact_location` and `feedback_vscode_alignment`; clarify or expire `feedback_automerge_authorized_for_queued` (its queue has drained) and the "pause agentic-track work" note; move `feedback_svelte_class_wrappers`, `feedback_push_before_dispatching_reviewers` and `project_github_actions_gotchas` into repo rules so subagents see them too.
+
+**PR 2 is done when** CLAUDE.md is ≤ ~10k characters, no registry table appears in more than one place, and a fresh session can run a spec/ADR PR using only the skill and the agent files.
+
+### Separate follow-ups (normal flow, not these PRs)
+
+- **Configuration bug (#25/#26).** In `shell/packages/shell/src/configuration/configuration-store.svelte.ts`, re-registration restores from `_pendingPersisted`, a snapshot set once in the constructor; `update()` never refreshes it, so update → disable → re-enable brings back the boot-time value. Still present on 2026-10-24. Add a test with `update()` between dispose and re-register, then fix.
+- **PR #36 spec contradictions.** First check whether the asset-abstraction implementation (PR #37, merged) already resolved them; the `MAV_TYPE` enum shape was fixed in 9748080. Lazy claiming makes case 32 ("activate throws after claiming its source") impossible to set up; the skip-unchanged cache is never reset on re-claim, contradicting case 27; case 10 makes `localId`/`airframe` readonly while the API block labelled "unchanged" still declares them mutable.
+- **Privacy.** The owner's home path appears in `shell/docs/specs/2026-05-17-relative-paths-in-reviewer-output.md` (lines 10, 20, 66, 91, 148, per `pnpm lint:docs --all`). The owner decides whether to scrub a historical spec.
+- **Parallel-session readiness,** a later PR: hotspot files every iteration edits (CLAUDE.md, roadmap, out-of-scope) conflict across worktrees; auto-merge needs a retry after losing a base-branch race (seen on #31/#32, already on the roadmap); each worktree needs its own dev-server port; disk space.
+
+### Owner's own settings (outside the repo)
+
+- Update Claude Code. The VS Code extension already runs 2.1.309 (enough for the 5.5 models, Fable and `omitClaudeMd`); the `claude` CLI on the owner's PATH was still 2.1.150 on 2026-10-24.
+- Set `"cleanupPeriodDays": 365` in the user settings so future evaluations still have session logs.
+- Add a Notification hook so the owner is pinged when Claude waits for input; two 5-hour stalls were sessions waiting on a question.
+
+## Validation
+
+- **Scripts.** `pnpm test:scripts` runs 17 unit tests over `lint-docs.mjs` and `check-dispositions.mjs`. Each test was seen failing: a sweep of 27 mutations, one per branch, was killed 27/27, each by the test written for it.
+- **Lint on real docs.** `pnpm lint:docs --all` over 114 tracked markdown files reports 23 problems, all genuine (links inside specs that quote text meant for CLAUDE.md, and the five home-path lines above); none is a false positive. In default mode none of them surfaces unless its line is edited.
+- **Gate 3b.** The workflow's `run:` script was executed against a stubbed `gh` in six scenarios — no review, red-team blocking, a fix check bringing it to 0, architect blocking, architect out-of-scope skip, and an old-format review with no trailer — with the expected merge or fail-closed outcome in each. This PR, on a `spec/` branch, is the gate's first live run, since `pull_request` events use the PR head's workflow file.
+- **Live review.** One red-team round and one fix check on this PR, in the new format.
+
+## VS Code alignment
+
+Not applicable: an agentic-process change with no effect on the extension API or host.
+
+## `docs/out-of-scope.md` propagation
+
+- Multi-model reviewers: rewritten as tried on red-team and dropped.
+- Effort-level control: names red-team and extension-architect instead of spec-quality.
+- Red-team blocking verdicts, final spec reviewer with `--approve`, extension-architect verdict promotion: note that `Blocking: N` now gates spec/ADR auto-merge.
+- Automated enforcement of reviewer dispatch: points at the new review-loop section; Gate 3b now fails closed without a red-team review.
+- Agent file hot-reload: mostly resolved by the harness, except directories created after session start.
+- Repo-relative paths entries: reviewer output only (the respondent is gone); committed docs are checked by `pnpm lint:docs`.
+- Removed as resolved or moot: the script-based spec-quality linter (shipped), per-model identities for the red-team pair, required engagement with respondent posts.
+- Added: review freshness in Gate 3b (see Known unknowns).
+
+## `docs/roadmap.md` propagation
+
+- Shipped: "Review loop v2 — spec/ADR side"; removal notes on the spec-quality, multi-model and respondent entries.
+- Considering: the multi-model evaluation resolved KEEP-OPUS-ONLY; respondent engagement moot; the `.claude/reviewer-prompts/` rename resolved by removing the directory; new entry for the simplicity/YAGNI reviewer.
+
+## Known unknowns
+
+- **Review freshness in Gate 3b.** The gate reads the latest review's count, not whether that review saw the PR head, so a commit pushed after a `Blocking: 0` review can auto-merge unreviewed. A `commit_id == head` check would close it at the cost of failing closed on any trailing commit. The owner's label is the control for now; tracked in `docs/out-of-scope.md`.
+- **Label timing.** If the `auto-merge` label goes on before a slower extension-architect review lands, a red-team `Blocking: 0` can merge first. CLAUDE.md says the label goes on only once every round-1 reviewer has posted; nothing enforces it.
+- **Format compliance is untested at scale.** The gate and the disposition checker parse the reviewers' output. One live round on this PR is the only evidence that the agents follow the format; a review missing its trailer fails closed (safe), but a mis-tagged finding would slip past the checker.
+- **Within-document consistency now falls to red-team.** Spec-quality's non-mechanical mandate was not reassigned explicitly; its unique yield was 0 high / 3 medium, so the expected loss is small. Revisit at the next evaluation.
+- **"Agentic-process" versus "product" is a judgment call** for both routing and the red-team's cross-check corpus. Misclassifying a mixed PR as process skips the extension architect.
+- **Agent edits made in a worktree entered mid-session cannot be dispatched under their own name** in that session (probe, Claude Code 2.1.309). This PR is reviewed by the existing `red-team-reviewer` agent with the new instructions passed inline, as the brief anticipated.
+- **Fable for the extension architect was not adopted.** The docs say a Fable request from a subagent that needs usage credits re-runs on the fallback model without a prompt, so a Fable architect could silently be something else. The owner chose Opus. The header's real model name lets the next evaluation compare against the October Opus baseline (7 high / 14 medium unique findings over 6 PRs).
+
+## Corrections to the brief
+
+What the 22 Oct brief got wrong, checked on 2026-10-24:
+
+- `feat/asset-abstraction-v0` was no longer live in the main checkout: it merged as PR #37 on 21 Oct.
+- The running Claude Code was 2.1.309 (VS Code extension), not 2.1.251.
+- Agent files do reload mid-session (per the docs), except a directory that did not exist when the session started — which includes a worktree entered mid-session.
+- The CLAUDE.md registry's stale model names had already been corrected on 21–22 Oct; the remaining live occurrences were in the reviewer prompts and a CLAUDE.md correction note.
+- `.claude/handoffs/` was not gitignored; this PR adds it.
+- Devil's-advocate v2 had no roadmap entry to take over; it was only mentioned in CLAUDE.md and the red-team prompt.
+- For Fable, the risk for a subagent is a silent fallback to another model, not a five-minute consent hold (that applies to background sessions and agent-team teammates).
+- The privacy spec's leaked lines are 10, 20, 66, 91 and 148 (the brief said 26 for 66).
