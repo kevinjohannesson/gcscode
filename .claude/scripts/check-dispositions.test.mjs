@@ -103,6 +103,13 @@ test('fixed paths must exist and be changed by the commit; prose is ignored', ()
   ]);
 });
 
+test('a file the commit deletes counts as fixed in it', () => {
+  assert.deepEqual(
+    check('RT-1 fixed: old/removed.md\nRT-2 kept: r', { changed: ['old/removed.md'] }),
+    [],
+  );
+});
+
 test('deferred targets must exist and mention the PR-qualified ID', () => {
   assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/roadmap.md#considering'), []);
   assert.deepEqual(

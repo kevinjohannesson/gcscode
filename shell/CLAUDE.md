@@ -208,7 +208,7 @@ Per-task reviewers post under task-headers. Final cross-cutting review posts at 
 
 ## Reviewer instructions
 
-Red-team reviews on PR open; the extension architect too when a product PR touches extension architecture. Each review ends `Blocking: N`. Fix checks follow each `Code-review-followup:` commit, at most two.
+Red-team reviews on PR open; the extension architect too when a product PR touches extension architecture. Each review ends `Blocking: N`. Fix checks follow each `Code-review-followup:` commit — at most two, plus one closing check if leftovers are recorded.
 
 🤖 Reviews authored by per-role bot identities (`gcscode-red-team[bot]`, `gcscode-extension-architect[bot]`) — see [docs/specs/2026-10-22-review-loop-v2.md](../blob/master/shell/docs/specs/2026-10-22-review-loop-v2.md) for the workflow.
 ```
@@ -243,7 +243,7 @@ Codified 2026-10-20 from PR #34 (host activation-failure containment) and PR #35
 
 ### Review loop for spec/ADR PRs
 
-A spec or ADR PR gets one round of review, then fix checks until nothing blocks or two fix checks have run. Spec: [`docs/specs/2026-10-22-review-loop-v2.md`](docs/specs/2026-10-22-review-loop-v2.md).
+A spec or ADR PR gets one round of review, then at most two fix checks, then — only if findings are left over — one closing check of the commit that records them (step 6). Spec: [`docs/specs/2026-10-22-review-loop-v2.md`](docs/specs/2026-10-22-review-loop-v2.md).
 
 **Two kinds of PR.** A _product_ spec or ADR is about the app, its extensions or its API. An _agentic-process_ spec or ADR is about how gcscode is built: reviewers, the review loop, merge gates, agent prompts, the agentic-actor registry.
 
@@ -268,7 +268,7 @@ A spec or ADR PR gets one round of review, then fix checks until nothing blocks 
    A `deferred:` target must record the finding qualified by its PR, `PR #<n> <ID>` (for example `(PR #38 EA-1)`), because IDs restart on every PR. After committing and before pushing, run `.claude/scripts/check-dispositions.mjs <PR>`: it fails when an open finding has no line, a `fixed:` file does not exist or is not in the commit, or a `deferred:` target does not contain `PR #<n> <ID>`. A finding an earlier followup already disposed needs no new line until its reviewer reviews again. Amend the unpushed followup until it passes. Disagreeing with a finding is allowed — say so in a `kept:` line with the evidence, where the fix check can contest it.
 
 5. **Push, then dispatch fix checks** per the table, with `MODE: fix-check`, `FIX_SHA` and `PREVIOUS_REVIEW_ID` (the review id each reviewer returned). A fix check marks each earlier finding resolved, not resolved, or partly resolved with the places still wrong, and may raise new findings: in the fix diff, or anywhere if blocking.
-6. **Stop** when every dispatched role's latest review ends `Blocking: 0` and raises nothing new, or after two fix checks. If the last review leaves findings with no disposition (new findings from that review, or anything still open after two fix checks), make one closing `Code-review-followup:` commit that only records them in the spec's Known unknowns (`deferred: <spec path>#known-unknowns`, entries carrying `PR #<n> <ID>`), and dispatch one closing fix check of it; that check is the loop's last review whatever it says, and if it reports blocking findings auto-merge stays off and the owner decides. Then mark the PR ready (`gh pr ready <n>`), report to the owner, and stop; don't ask how to close out.
+6. **Stop** once no finding needs a disposition — every dispatched role's latest review ends `Blocking: 0` and leaves nothing open that a followup has not disposed — or after two fix checks, whichever comes first. A role with no fix check (an architect whose round 1 ended `Blocking: 0`) is done once a followup has disposed its findings. If findings still need a disposition when the loop stops — new ones, ones a fix check marked not or partly resolved, or a `kept:` it rejected — record them in one closing `Code-review-followup:` commit that changes nothing else: `deferred:` lines to the spec's Known unknowns (an ADR's Consequences section), each entry carrying `PR #<n> <ID>`. Dispatch one closing fix check of that commit; it is the loop's last review whatever it says, and if it reports blocking findings, auto-merge stays off and the owner decides. Then mark the PR ready (`gh pr ready <n>`), report to the owner, and stop; don't ask how to close out.
 
 **Findings format** (the agent files are authoritative): a numbered list in which each finding has an ID (`RT-3`, `EA-2`), `[blocking]` or `[non-blocking]`, a location, a one-line problem and a one-line fix; short reasoning for blocking findings only; and a last line `Blocking: N`. Blocking means it would cause a defect, a wrong decision or real rework if shipped as written. Drift from an earlier decision is non-blocking unless it contradicts an accepted ADR.
 

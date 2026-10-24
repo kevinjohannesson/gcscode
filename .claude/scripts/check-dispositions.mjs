@@ -92,10 +92,12 @@ export function checkDispositions({ pr, open, message, changed, fileText }) {
 
     if (verb === 'fixed') {
       for (const path of value.split(/,\s*/).map((part) => part.split(/[\s:#]/)[0])) {
-        if (fileText(path) === null) {
-          if (looksLikePath(path)) problems.push(`${id}: fixed in ${path}, which does not exist`);
-        } else if (!changed.has(path)) {
+        // A path the commit changes is fine even if it no longer exists (a deletion).
+        if (changed.has(path)) continue;
+        if (fileText(path) !== null) {
           problems.push(`${id}: fixed in ${path}, but this commit does not change ${path}`);
+        } else if (looksLikePath(path)) {
+          problems.push(`${id}: fixed in ${path}, which does not exist`);
         }
       }
     }
