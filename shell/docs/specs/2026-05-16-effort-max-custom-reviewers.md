@@ -225,3 +225,5 @@ The investigation's findings also confirmed that:
 - The Agent tool itself doesn't expose `effort` directly as a parameter; you set it via the agent file frontmatter that the subagent_type references.
 - Opus 4.7 deprecated manual thinking control in favor of adaptive thinking. So even if we hit the Anthropic API directly, "max effort" is a different thing now than it would have been a few model generations ago.
 - The `effort` field is Claude Code's own behavior dial — depth of reasoning, possibly extended thinking, possibly token allocation — not strictly equivalent to the Anthropic API's `thinking_budget`. So this iteration ships Claude-Code-effort-max for our custom-dispatched roles, which is what we have access to.
+
+> **review-loop-v2 breadcrumb (added 2026-10-24):** the agent files are no longer thin dispatch wrappers: they carry the full role instructions and pin model IDs, and the "template not included" abort guard is removed. See [`2026-10-22-review-loop-v2.md`](2026-10-22-review-loop-v2.md).

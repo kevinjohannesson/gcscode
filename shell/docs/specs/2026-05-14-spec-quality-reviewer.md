@@ -386,3 +386,5 @@ The initial spec proposed a 4-concern mandate (structure, internal consistency, 
 The iteration is therefore the **first concrete test of "does red-team's organic critique surface pattern-misalignment naturally?"** (the empirical question the reviewer-role-design-conventions spec posed for the next role-adding iteration). The answer was yes: red-team flagged the mandate-overlap problem without an explicit "check the design patterns" directive. Recorded as evidence that the design-conventions spec's bet (organic critique > explicit directive) is paying off.
 
 A meta-observation worth recording: this iteration's spec went from "add reviewer with broad mandate" to "add reviewer with surgically narrow mandate" in one red-team round. The narrowing is the load-bearing design choice — and it came from the very mechanism this iteration is reinforcing. The architecture is, modestly, working on itself.
+
+> **review-loop-v2 breadcrumb (added 2026-10-24):** the spec-quality role is removed; its mechanical checks moved to `pnpm lint:docs` and within-document consistency falls to red-team. See [`2026-10-22-review-loop-v2.md`](2026-10-22-review-loop-v2.md).

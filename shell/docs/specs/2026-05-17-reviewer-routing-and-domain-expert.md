@@ -750,3 +750,5 @@ This iteration ships the reviewer routing layer; the deferral entry is now stale
 ```
 
 (The original Commit 6c proposing a vs-code-alignment.md ledger row was dropped — see the VS Code alignment section above for rationale.)
+
+> **review-loop-v2 breadcrumb (added 2026-10-24):** the extension architect's `[blocking]` open-question discipline is replaced by graded findings with a `Blocking: N` trailer, it gets fix checks only while it has blocking findings, and it is never routed to agentic-process PRs. See [`2026-10-22-review-loop-v2.md`](2026-10-22-review-loop-v2.md).

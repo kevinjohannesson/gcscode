@@ -308,3 +308,5 @@ User initiated this iteration after the auto-merge iteration shipped (2026-05-14
 **Effort dimension surfaced during brainstorm** as a key architectural finding: the current Agent dispatch tool doesn't expose thinking_budget, so this iteration's "Opus vs Sonnet" test conflates model size with default effort. Documented as a known limitation and added as a future iteration (custom dispatch for effort control). The user's question that surfaced this — "we also give an effort level with the model, do we do this for our reviewers as well?" — is the kind of architectural insight the iteration captures explicitly rather than papering over.
 
 This is the **sixth iteration on the agentic-team track** and the first to introduce a multi-axis experiment (one role × two models) rather than a structural addition (a new role, a new workflow). Sets a precedent for experiment-shaped iterations vs build-shaped iterations.
+
+> **review-loop-v2 breadcrumb (added 2026-10-24):** the evaluation resolved KEEP-OPUS-ONLY (October review-process evaluation, PRs #2–#36); the Sonnet red-team dispatch is removed. See [`2026-10-22-review-loop-v2.md`](2026-10-22-review-loop-v2.md).
