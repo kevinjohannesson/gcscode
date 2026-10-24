@@ -52,14 +52,20 @@ test('resolving links and anchors', () => {
   ]);
 });
 
-test('absolute home-directory paths are flagged, also inside code', () => {
-  assert.deepEqual(lint('```\ncd /Users/someone/project\n```'), [
-    '2: absolute home-directory path "/Users/someone" — use a repo-relative path',
+test('local paths that leak the machine layout are flagged, also inside code', () => {
+  const leak = (line, path) =>
+    `${line}: local path "${path}" leaks the machine layout — use a repo-relative path`;
+  assert.deepEqual(lint('```\ncd /Users/someone/project\n```'), [leak(2, '/Users/someone')]);
+  assert.deepEqual(lint('/home/dev/x'), [leak(1, '/home/dev')]);
+  assert.deepEqual(lint('C:\\Users\\dev\\repo'), [leak(1, 'C:\\Users\\dev')]);
+  assert.deepEqual(lint('see .claude/projects/-Users-dev-repo/x.jsonl'), [leak(1, '-Users-dev')]);
+  assert.deepEqual(lint('scratch at /private/tmp/claude-501/x'), [
+    leak(1, '/private/tmp/claude-501'),
   ]);
-  assert.deepEqual(lint('/home/dev/x'), [
-    '1: absolute home-directory path "/home/dev" — use a repo-relative path',
-  ]);
-  assert.deepEqual(lint('the rule bans `/Users/` and `/home/...` prefixes'), []);
+  assert.deepEqual(
+    lint('the rule bans `/Users/`, `/home/...`, `-Users-<name>` and `/private/tmp/...` prefixes'),
+    [],
+  );
 });
 
 test('only the given lines are reported', () => {

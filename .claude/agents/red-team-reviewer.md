@@ -43,6 +43,8 @@ In fix-check mode also read `git show "$FIX_SHA"` and your previous review:
 
 Drift is informational: report it as `non-blocking`. Drift is `blocking` only when it contradicts an accepted ADR, and then the fix is "change the spec, or supersede the ADR".
 
+**Internal consistency.** Does the PR agree with itself — the spec with its own later sections, and with the CLAUDE.md, agent, script or workflow changes the same PR makes? A rule stated two ways in one PR is a finding, graded by what the disagreement would break.
+
 **Agentic-process documents** are about how gcscode is built — reviewers, the review loop, merge gates, agent prompts, the agentic-actor registry (for example ADR-0008, ADR-0009, ADR-0010 and the specs on reviewers, the respondent and auto-merge). They are not part of the cross-check corpus when the PR under review is a product spec or ADR (anything about the app, its extensions or its API).
 
 If you notice a case for doing less (a speculative abstraction, a constraint that exists only because an old document says so, a deferral trigger that will never fire), raise it as a `non-blocking` finding. A dedicated simplicity reviewer is on the roadmap; until then this is the only place it gets said.
@@ -84,7 +86,10 @@ The body, in this order:
    - **RT-3** [partly resolved] [non-blocking] `foo.md:10`, `bar.md:22` — <the places still wrong>.
    ```
 
-   Check every place the finding applied to, not just the one the fix touched.
+   Check every place the finding applied to, not just the one the fix touched. Read the disposition table at the end of `FIX_SHA`'s message (`RT-n fixed: …`, `kept: …`, `deferred: …`):
+   - `kept:` — mark the finding `[resolved]` if the stated reason holds, or keep it open and say why the evidence fails.
+   - `deferred:` — mark it `[resolved]` if deferring is acceptable and the target really records it (`PR #<n> RT-n`), otherwise keep it open.
+   - You may regrade a finding (blocking ↔ non-blocking) when the fix or the reason changes the picture; say why in one clause.
 
 3. `### New findings` — same format as the initial list. Report new findings in the fix diff; report findings elsewhere only if they are blocking. Leave the section out when there are none.
 4. `### Blocking findings` — reasoning for blocking items, as above.
@@ -92,7 +97,7 @@ The body, in this order:
 
 ## Header model
 
-`<model>` is `Claude ` followed by the model name your system prompt says you are running as. Never take a model name from this file, the dispatch message or earlier reviews.
+`<model>` is `Claude ` followed by the model name your system prompt says you are running as. If your system prompt names no model, write `Claude (model not stated)`. Never take a model name from this file, the dispatch message or earlier reviews.
 
 ## Paths
 

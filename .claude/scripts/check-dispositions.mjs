@@ -6,23 +6,30 @@
 //
 // Every finding still open in each reviewer's latest review (an ID such as RT-3
 // tagged [blocking], [non-blocking], [not resolved] or [partly resolved]) needs one
-// line in the commit message:
+// line in the commit message, unless a followup since that review disposed it:
 //
 //   RT-1 fixed: shell/docs/specs/foo.md
 //   RT-2 kept: <reason>
 //   RT-3 deferred: shell/docs/roadmap.md#considering
 //
-// `fixed:` paths must be changed by the commit. A `deferred:` target must exist,
-// and must mention the finding ID — either in a line the commit adds there, or
-// already. That is what catches "routed to the roadmap" claims that never landed.
+// `fixed:` paths must exist and be changed by the commit. A `deferred:` target must
+// exist and mention the finding qualified by its PR (`PR #38 RT-3`), because IDs
+// restart on every PR. That is what catches "routed to the roadmap" claims that
+// never landed.
 
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const STATUS = /\*{0,2}\b([A-Z]{2,4}-\d{1,3})\b\*{0,2}\s*\[(blocking|non-blocking|resolved|not resolved|partly resolved)\]/g;
-const DISPOSITION = /^\s*(?:[-*]\s+)?([A-Z]{2,4}-\d{1,3}):?\s+(fixed|kept|deferred):\s*(.+?)\s*$/;
+const ID = '[A-Z]{2,4}-\\d{1,3}';
+const STATUS = new RegExp(
+  `\\*{0,2}\\b(${ID})\\b\\*{0,2}\\s*\\[(blocking|non-blocking|resolved|not resolved|partly resolved)\\]`,
+  'g',
+);
+const DISPOSITION = new RegExp(
+  `^\\s*(?:[-*]\\s+)?(${ID}):?\\s+(fixed|kept|deferred):\\s*(.+?)\\s*$`,
+);
 
-/** The newest submitted review per author: [{ login, submittedAt, body }]. */
+/** The newest submitted review per author: [{ login, submittedAt, commitId, body }]. */
 export function latestPerAuthor(reviews) {
   const latest = new Map();
   for (const review of reviews) {
@@ -52,20 +59,32 @@ export function parseDispositions(message) {
   return dispositions;
 }
 
+/** A review's open IDs minus those disposed by a followup committed after it. */
+export function stillOpen(body, laterMessages) {
+  const disposed = new Set(
+    laterMessages.flatMap((message) => [...parseDispositions(message).keys()]),
+  );
+  return openFindings(body).filter((id) => !disposed.has(id));
+}
+
+/** Whether a token in a `fixed:` value names a file rather than describing a hunk. */
+const looksLikePath = (token) => token.includes('/') || /\.[a-z]{1,5}$/i.test(token);
+
 /**
  * Problems with a commit's dispositions.
- *   open        IDs still open in the latest reviews
- *   message     the commit message
- *   changed     Set of repo-relative paths the commit changes
- *   addedText   (path) → text of the lines the commit adds to that file
- *   fileText    (path) → file contents at the commit, or null if it doesn't exist
+ *   pr        the PR number, which qualifies deferred IDs
+ *   open      IDs still open in the latest reviews
+ *   message   the commit message
+ *   changed   Set of repo-relative paths the commit changes
+ *   fileText  (path) → file contents at the commit, or null if it doesn't exist
  */
-export function checkDispositions({ open, message, changed, addedText, fileText }) {
+export function checkDispositions({ pr, open, message, changed, fileText }) {
   const problems = [];
   const dispositions = parseDispositions(message);
 
   for (const id of open) {
-    if (!dispositions.has(id)) problems.push(`${id}: no disposition line (fixed: / kept: / deferred:)`);
+    if (!dispositions.has(id))
+      problems.push(`${id}: no disposition line (fixed: / kept: / deferred:)`);
   }
 
   for (const [id, { verb, value }] of dispositions) {
@@ -73,7 +92,9 @@ export function checkDispositions({ open, message, changed, addedText, fileText 
 
     if (verb === 'fixed') {
       for (const path of value.split(/,\s*/).map((part) => part.split(/[\s:#]/)[0])) {
-        if (fileText(path) !== null && !changed.has(path)) {
+        if (fileText(path) === null) {
+          if (looksLikePath(path)) problems.push(`${id}: fixed in ${path}, which does not exist`);
+        } else if (!changed.has(path)) {
           problems.push(`${id}: fixed in ${path}, but this commit does not change ${path}`);
         }
       }
@@ -82,10 +103,10 @@ export function checkDispositions({ open, message, changed, addedText, fileText 
     if (verb === 'deferred') {
       const path = value.split('#')[0].trim();
       const text = fileText(path);
-      const mentions = new RegExp(`\\b${id}\\b`);
+      const qualified = new RegExp(`PR #${pr}\\b(?:[\\s,/]+${ID})*[\\s,/]+${id}\\b`);
       if (text === null) problems.push(`${id}: deferred to ${path}, which does not exist`);
-      else if (!mentions.test(addedText(path)) && !mentions.test(text)) {
-        problems.push(`${id}: deferred to ${path}, but ${id} appears nowhere in it`);
+      else if (!qualified.test(text)) {
+        problems.push(`${id}: deferred to ${path}, but "PR #${pr} ${id}" appears nowhere in it`);
       }
     }
   }
@@ -94,7 +115,12 @@ export function checkDispositions({ open, message, changed, addedText, fileText 
 }
 
 function run(command, args, cwd) {
-  return execFileSync(command, args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  return execFileSync(command, args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 64 * 1024 * 1024,
+  });
 }
 
 function main([pr, commit = 'HEAD']) {
@@ -112,31 +138,42 @@ function main([pr, commit = 'HEAD']) {
     '--paginate',
     `repos/{owner}/{repo}/pulls/${pr}/reviews`,
     '--jq',
-    '.[] | {login: .user.login, submittedAt: .submitted_at, body: (.body // "")}',
+    '.[] | {login: .user.login, submittedAt: .submitted_at, commitId: .commit_id, body: (.body // "")}',
   ])
     .split('\n')
     .filter(Boolean)
     .map((line) => JSON.parse(line));
-  const open = [...new Set(latestPerAuthor(reviews).flatMap((review) => openFindings(review.body)))];
+
+  // Followups between a review and this commit may already have disposed its findings
+  // (a role with no newer review, such as an architect whose round 1 had no blockers).
+  const messagesSince = (reviewCommit) => {
+    try {
+      return git(['log', '--format=%B%x00', `${reviewCommit}..${commit}^`]).split('\0');
+    } catch {
+      return [];
+    }
+  };
+  const open = [
+    ...new Set(
+      latestPerAuthor(reviews).flatMap((review) =>
+        stillOpen(review.body, review.commitId ? messagesSince(review.commitId) : []),
+      ),
+    ),
+  ];
 
   const message = git(['log', '-1', '--format=%B', commit]);
   const changed = new Set(
     git(['diff-tree', '--no-commit-id', '--name-only', '-r', commit]).split('\n').filter(Boolean),
   );
-  const addedText = (path) =>
-    git(['show', '--format=', '-U0', commit, '--', path])
-      .split('\n')
-      .filter((line) => line.startsWith('+') && !line.startsWith('+++'))
-      .join('\n');
   const fileText = (path) => {
     try {
-      return execFileSync('git', ['show', `${commit}:${path}`], { cwd: root, encoding: 'utf8', stdio: 'pipe' });
+      return git(['show', `${commit}:${path}`]);
     } catch {
       return null;
     }
   };
 
-  const problems = checkDispositions({ open, message, changed, addedText, fileText });
+  const problems = checkDispositions({ pr, open, message, changed, fileText });
   for (const problem of problems) console.log(problem);
   console.log(
     problems.length === 0

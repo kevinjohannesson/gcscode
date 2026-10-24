@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkDispositions, latestPerAuthor, openFindings, parseDispositions } from './check-dispositions.mjs';
+import {
+  checkDispositions,
+  latestPerAuthor,
+  openFindings,
+  parseDispositions,
+  stillOpen,
+} from './check-dispositions.mjs';
 
 const initialReview = `## Red-team review — spec — Claude X
 1. **RT-1** [blocking] \`a.md:3\` — wrong. Fix: right.
@@ -49,19 +55,33 @@ test('parseDispositions reads one line per ID, with or without a bullet', () => 
   });
 });
 
-const files = { 'a.md': 'a', 'b.md': 'b', 'docs/roadmap.md': 'entry (PR #38 RT-2)\n', 'docs/out.md': 'nothing\n' };
-const check = (message, { changed = ['a.md'], added = {} } = {}) =>
+test('stillOpen drops findings an earlier followup already disposed', () => {
+  assert.deepEqual(stillOpen(initialReview, []), ['RT-1', 'RT-2']);
+  assert.deepEqual(stillOpen(initialReview, ['Code-review-followup: x\n\nRT-2 kept: r\n']), [
+    'RT-1',
+  ]);
+});
+
+const files = {
+  'a.md': 'a',
+  'b.md': 'b',
+  'docs/roadmap.md': 'entry (PR #38 RT-2)\nlist (PR #38 RT-1, RT-5)\nother (PR #12 RT-7)\n',
+  'docs/out.md': 'nothing\n',
+};
+const check = (message, { changed = ['a.md'], open = ['RT-1', 'RT-2'] } = {}) =>
   checkDispositions({
-    open: ['RT-1', 'RT-2'],
+    pr: '38',
+    open,
     message,
     changed: new Set(changed),
-    addedText: (path) => added[path] ?? '',
     fileText: (path) => files[path] ?? null,
   });
 
 test('every open finding needs a disposition', () => {
   assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 kept: reason'), []);
-  assert.deepEqual(check('RT-1 fixed: a.md'), ['RT-2: no disposition line (fixed: / kept: / deferred:)']);
+  assert.deepEqual(check('RT-1 fixed: a.md'), [
+    'RT-2: no disposition line (fixed: / kept: / deferred:)',
+  ]);
 });
 
 test('unknown IDs are reported', () => {
@@ -70,30 +90,42 @@ test('unknown IDs are reported', () => {
   ]);
 });
 
-test('fixed paths must be changed by the commit; prose is ignored', () => {
+test('fixed paths must exist and be changed by the commit; prose is ignored', () => {
   assert.deepEqual(check('RT-1 fixed: a.md:3, b.md § Goals\nRT-2 kept: r'), [
     'RT-1: fixed in b.md, but this commit does not change b.md',
   ]);
   assert.deepEqual(check('RT-1 fixed: the gate comment block\nRT-2 kept: r'), []);
+  assert.deepEqual(check('RT-1 fixed: docs/specs/x.md\nRT-2 kept: r'), [
+    'RT-1: fixed in docs/specs/x.md, which does not exist',
+  ]);
+  assert.deepEqual(check('RT-1 fixed: shell/scripts/lint-docs\nRT-2 kept: r'), [
+    'RT-1: fixed in shell/scripts/lint-docs, which does not exist',
+  ]);
 });
 
-test('deferred targets must exist and mention the ID', () => {
+test('deferred targets must exist and mention the PR-qualified ID', () => {
   assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/roadmap.md#considering'), []);
-  assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/out.md#later'), [
-    'RT-2: deferred to docs/out.md, but RT-2 appears nowhere in it',
-  ]);
   assert.deepEqual(
-    check('RT-1 fixed: a.md\nRT-2 deferred: docs/out.md', { added: { 'docs/out.md': '+ later (RT-2)' } }),
+    check('RT-1 fixed: a.md\nRT-5 deferred: docs/roadmap.md', { open: ['RT-1', 'RT-5'] }),
     [],
   );
+  assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/out.md#later'), [
+    'RT-2: deferred to docs/out.md, but "PR #38 RT-2" appears nowhere in it',
+  ]);
   assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/missing.md'), [
     'RT-2: deferred to docs/missing.md, which does not exist',
   ]);
 });
 
+test("another PR's mention of the same ID does not count", () => {
+  assert.deepEqual(check('RT-7 deferred: docs/roadmap.md', { open: ['RT-7'] }), [
+    'RT-7: deferred to docs/roadmap.md, but "PR #38 RT-7" appears nowhere in it',
+  ]);
+});
+
 test('an ID does not match a longer ID', () => {
-  files['docs/out.md'] = 'RT-20 lives here\n';
+  files['docs/out.md'] = '(PR #38 RT-20) lives here\n';
   assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/out.md'), [
-    'RT-2: deferred to docs/out.md, but RT-2 appears nowhere in it',
+    'RT-2: deferred to docs/out.md, but "PR #38 RT-2" appears nowhere in it',
   ]);
 });

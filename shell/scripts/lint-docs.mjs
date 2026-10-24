@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Mechanical checks for markdown docs, run before opening a spec/ADR PR:
 //   - relative links resolve, including heading anchors;
-//   - no absolute home-directory paths (/Users/<name>, /home/<name>);
+//   - no local paths that leak a username or machine layout (/Users/<name>, /home/<name>,
+//     C:\Users\<name>, the dashed -Users-<name> form in Claude Code temp and session
+//     paths, /private/tmp/...);
 //   - newly added specs and ADRs carry the required headings.
 //
 // Usage (from shell/): pnpm lint:docs [--base <ref>] [--all] [files...]
@@ -15,8 +17,10 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, normalize, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Matches the leaked prefix (`/Users/<name>`), which is the private part.
-const ABSOLUTE_HOME_PATH = /\/(?:Users|home)\/[A-Za-z0-9][\w.-]*/;
+// Matches the leaked prefix (`/Users/<name>`), which is the private part. Each form
+// needs a name-like character after the prefix, so prose such as `/Users/...` passes.
+const ABSOLUTE_HOME_PATH =
+  /\/(?:Users|home)\/[A-Za-z0-9][\w.-]*|[A-Za-z]:\\Users\\[A-Za-z0-9][\w.-]*|-Users-[A-Za-z0-9][\w.]*|\/private\/tmp\/[A-Za-z0-9][\w.-]*/;
 const INLINE_LINK = /!?\[(?:[^\]]|\][^(])*?\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g;
 const REFERENCE_DEFINITION = /^\s{0,3}\[[^\]]+\]:\s*<?(\S+?)>?(?:\s+"[^"]*")?\s*$/;
 const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
@@ -117,7 +121,10 @@ export function lintFile({ path, text, lines = null, kind = null, fs }) {
   for (const [lineNumber, line] of walkLines(text)) {
     const leak = ABSOLUTE_HOME_PATH.exec(line);
     if (leak)
-      report(lineNumber, `absolute home-directory path "${leak[0]}" — use a repo-relative path`);
+      report(
+        lineNumber,
+        `local path "${leak[0]}" leaks the machine layout — use a repo-relative path`,
+      );
   }
 
   for (const { line, target } of links(text)) {

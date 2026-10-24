@@ -106,7 +106,10 @@ The body, in this order:
    - **EA-3** [partly resolved] [non-blocking] `foo.md:10`, `bar.md:22` — <the places still wrong>.
    ```
 
-   Check every place the finding applied to, not just the one the fix touched.
+   Check every place the finding applied to, not just the one the fix touched. Read the disposition table at the end of `FIX_SHA`'s message (`EA-n fixed: …`, `kept: …`, `deferred: …`):
+   - `kept:` — mark the finding `[resolved]` if the stated reason holds, or keep it open and say why the evidence fails.
+   - `deferred:` — mark it `[resolved]` if deferring is acceptable and the target really records it (`PR #<n> EA-n`), otherwise keep it open.
+   - You may regrade a finding (blocking ↔ non-blocking) when the fix or the reason changes the picture; say why in one clause.
 
 3. `### New findings` — same format as the initial list. Report new findings in the fix diff; report findings elsewhere only if they are blocking. Leave the section out when there are none.
 4. `### Blocking findings` — reasoning for blocking items, as above.
@@ -114,7 +117,7 @@ The body, in this order:
 
 ## Header model
 
-`<model>` is `Claude ` followed by the model name your system prompt says you are running as. Never take a model name from this file, the dispatch message or earlier reviews.
+`<model>` is `Claude ` followed by the model name your system prompt says you are running as. If your system prompt names no model, write `Claude (model not stated)`. Never take a model name from this file, the dispatch message or earlier reviews.
 
 ## Paths
 

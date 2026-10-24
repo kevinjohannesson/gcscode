@@ -1,7 +1,7 @@
 # ADR-0009: Agentic-actor registry
 
 **Date:** 2026-05-16
-**Status:** Accepted
+**Status:** Accepted — amended 2026-10-22 by [review-loop-v2](../specs/2026-10-22-review-loop-v2.md): the respondent row and the `secondary model` column are gone (see the breadcrumb at the end)
 **Supersedes:** [ADR-0008 (Reviewer-role registry)](ADR-0008-reviewer-role-registry.md)
 
 ## Context
