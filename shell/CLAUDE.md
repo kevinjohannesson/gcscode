@@ -8,7 +8,7 @@ A Svelte 5 SPA scaffolded as the shell for a VS Code–style ground control stat
 
 pnpm workspace organized into three roles: `@gcscode/shell` (the app — owns bootstrapping and the extension registry), `@gcscode/extension-api` (the **only** import path for extensions — types and contracts), and a set of extension packages. The canonical worked-example extension is `@gcscode/extension-example` (new extension authors read it first); the rest are first-party feature extensions (`extension-sitl`, `extension-map`, `extension-flight-overlay`, `extension-vehicle-status`, and others). See `packages/` for the current set.
 
-The workspace root is this directory, `shell/`. The git root is one level up; besides `shell/` it holds `.claude/` (the reviewer registry, agents, skills, scripts, handoffs) and `.github/`. Shared tooling here: ESLint flat config, Prettier, `tsconfig.base.json`, which each package extends. `svelte.config.js` and `vite.config.ts` live in `packages/shell/`.
+The workspace root is this directory, `shell/`. The git root is one level up; besides `shell/` it holds `.claude/` (the reviewer registry, agents, skills, scripts) and `.github/`. Shared tooling here: ESLint flat config, Prettier, `tsconfig.base.json`, which each package extends. `svelte.config.js` and `vite.config.ts` live in `packages/shell/`.
 
 ## Boundary rule — load bearing
 
@@ -33,8 +33,8 @@ An extension module exports a named `const` of type `Extension` with `{ manifest
 
 - **Filenames:** kebab-case for everything, including `.svelte` components. Component import bindings stay PascalCase: `import ExampleView from './example-view.svelte'`.
 - **Extension export name:** a named `const` matching the extension's slug (`exampleExtension`, `telemetryExtension`). Never `default`, never a generic `extension`.
-- **Docs locations** (these override the superpowers skills' `docs/superpowers/` defaults): specs `docs/specs/YYYY-MM-DD-<topic>.md`, plans `docs/plans/YYYY-MM-DD-<topic>.md`, ADRs `docs/decisions/ADR-NNNN-<slug>.md`, architecture notes `docs/architecture/YYYY-MM-DD-<topic>.md` (indexed in its README). Before writing under `docs/`, read `.claude/rules/docs.md`: it loads by itself only when the session runs in the same checkout as the file.
-- **Svelte:** before Svelte work, read `.claude/rules/svelte.md` (it too loads by itself only in the session's own checkout).
+- **Docs locations** (these override the superpowers skills' `docs/superpowers/` defaults): specs `docs/specs/YYYY-MM-DD-<topic>.md`, plans `docs/plans/YYYY-MM-DD-<topic>.md`, ADRs `docs/decisions/ADR-NNNN-<slug>.md`, architecture notes `docs/architecture/YYYY-MM-DD-<topic>.md` (indexed in its README). Before writing under `docs/`, read `.claude/rules/docs.md`: it loads by itself only when the session started in the same checkout as the file.
+- **Svelte:** before Svelte work, read `.claude/rules/svelte.md` (it too loads by itself only in the checkout the session started in).
 - **Scratch:** `scratch/` is for one-off exploration that shouldn't become real code. Gitignored.
 - **Public repo:** commits, docs, PR bodies and reviews are world-readable. Use repo-relative paths, never a home-directory path, and no credentials or internal URLs.
 
@@ -66,7 +66,7 @@ A dispatch that will commit in a worktree restates these three rules: the subage
 
 ## Sessions
 
-One controller session per PR or iteration, run in the checkout where the work lives: start it in the worktree's `shell/`, or have the owner run `/cd` there once the worktree exists (Claude can't run `/cd`). A session uses the path-scoped rules, skills and agent files of the checkout it runs in. Start from the handoff note in `.claude/handoffs/` at the git root (gitignored) and end by writing one: state, decisions made, open items. When working unattended, don't ask questions: take the documented default and record it in the end-of-PR report. Stop and ask only before something irreversible.
+One controller session per PR or iteration. When the worktree already exists, start the session in its `shell/`: a session sees the path-scoped rules and skills of the checkout it started in, and that checkout's agent files as they were at start. A session that creates its worktree stays where it started, so it reads the rules explicitly (§ Conventions) and dispatches edited agent files inline (`review-loop` skill). Handoff notes live in the main checkout's `.claude/handoffs/` (gitignored), never a worktree's, which `git worktree remove` deletes; from any checkout that is `"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/handoffs/"`. Start from the latest note and end by writing one: state, decisions made, open items. When working unattended, don't ask questions: take the documented default and record it in the end-of-PR report. Stop and ask only before something irreversible.
 
 ## Commands
 

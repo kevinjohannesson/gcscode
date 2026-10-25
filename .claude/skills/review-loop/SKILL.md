@@ -5,7 +5,7 @@ description: How gcscode PRs are reviewed, from the first reviewer dispatch to t
 
 # Review loop
 
-Who reviews what is in the registry, `.claude/agent-config.json`: each role's bot identity, PR classes, trigger, routing, verdicts, and the agent file or superpowers prompt it runs. This skill is how the controller uses it.
+Who reviews what is in the registry, `.claude/agent-config.json`: each role's bot identity, App IDs, routing, verdicts, and the agent file or superpowers prompt it runs. This skill is how the controller uses it.
 
 State each rule once, in the file it belongs to, and point to it. A summary that restates a rule drifts from it, and fixes that rewrite a rule tend to introduce new defects into it.
 
