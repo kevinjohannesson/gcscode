@@ -30,6 +30,7 @@ import type {
   StyleSpecification,
   TerrainSpecification,
 } from '../types/style-spec';
+import { compareClassNames } from '../utils/compare-class-names';
 import { deepEqual } from '../utils/deep-equal';
 import { normalizeStyle } from '../utils/style-utils';
 import {
@@ -272,11 +273,22 @@ export default class Maplibre {
     }
 
     const map = that.map;
+    // The props the map was parked with; the new props are synced against them in step 4.
+    const prevProps = that._recycledProps ?? that._props;
+    that._recycledProps = null;
     // When reusing the saved map, we need to reparent the map(canvas) and other child nodes
     // into the new container from the props.
     // Step 1: reparenting child nodes from old container to new container
     const oldContainer = map.getContainer();
     container.className = oldContainer.className;
+    // Not upstream, which has no `class` prop: the copy brings the previous component's own
+    // `class` tokens along with MapLibre's classes. Drop them; the new component adds its own.
+    const prevClass = (prevProps as { class?: string }).class;
+    for (const token of compareClassNames(prevClass, undefined) ?? []) {
+      if (token) {
+        container.classList.remove(token);
+      }
+    }
     while (oldContainer.childNodes.length > 0) {
       container.appendChild(oldContainer.childNodes[0]);
     }
@@ -294,8 +306,6 @@ export default class Maplibre {
 
     // Step 4: apply new props. The wrapper reads the new live props object from now on;
     // sync the map to it against the props it was parked with, without style diffing.
-    const prevProps = that._recycledProps ?? that._props;
-    that._recycledProps = null;
     that._props = props;
     that._syncAll(prevProps, false);
     map.resize();

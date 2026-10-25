@@ -96,6 +96,10 @@ function getCameraConstraints(map: MapRef) {
   };
 }
 
+function classesOf(element: Element): string[] {
+  return [...element.classList].sort();
+}
+
 function cameraOf(map: MapRef): ViewState {
   const center = map.getCenter();
   return {
@@ -385,6 +389,86 @@ test("the children's element comes after MapLibre's, as in upstream's DOM", asyn
 
     r.unmount();
   }
+});
+
+test('id lands on the container', async () => {
+  const r = render({ id: 'my-map' });
+  const map = await mapOf(r);
+
+  expect(map.getContainer().id).toBe('my-map');
+  expect(r.target.querySelector('#my-map')).toBe(map.getContainer());
+});
+
+test('class changes add and remove only the component’s own tokens', async () => {
+  const r = render({ class: 'a b' });
+  flushSync();
+  const container = r.target.firstElementChild!;
+  expect(classesOf(container), 'applied before the map exists').toEqual(['a', 'b']);
+
+  const map = await mapOf(r);
+  expect(map.getContainer()).toBe(container);
+  // MapLibre adds `maplibregl-map`, and `maplibregl-crosshair` during a box zoom.
+  container.classList.add('maplibregl-crosshair');
+  expect(classesOf(container)).toEqual(['a', 'b', 'maplibregl-crosshair', 'maplibregl-map']);
+
+  r.props.class = 'b c';
+  flushSync();
+  expect(classesOf(container)).toEqual(['b', 'c', 'maplibregl-crosshair', 'maplibregl-map']);
+
+  r.props.class = undefined;
+  flushSync();
+  expect(classesOf(container)).toEqual(['maplibregl-crosshair', 'maplibregl-map']);
+
+  r.props.class = 'd';
+  flushSync();
+  expect(classesOf(container)).toEqual(['d', 'maplibregl-crosshair', 'maplibregl-map']);
+
+  // A blank class, as `class="{a} {b}"` gives when both are empty.
+  r.props.class = '  ';
+  flushSync();
+  expect(classesOf(container)).toEqual(['maplibregl-crosshair', 'maplibregl-map']);
+});
+
+test('a reused map’s container carries MapLibre’s classes and the new class only', async () => {
+  const first = render({ reuseMaps: true, class: 'old shared' });
+  const firstMap = await mapOf(first);
+  first.unmount();
+
+  const second = render({ reuseMaps: true, class: 'new shared' });
+  const secondMap = await mapOf(second);
+  expect(secondMap.getMap()).toBe(firstMap.getMap());
+  expect(classesOf(secondMap.getContainer())).toEqual(['maplibregl-map', 'new', 'shared']);
+
+  second.props.class = 'newer';
+  flushSync();
+  expect(classesOf(secondMap.getContainer())).toEqual(['maplibregl-map', 'newer']);
+
+  // Parked with a blank class, as `class="{a} {b}"` gives when both are empty.
+  second.props.class = '  ';
+  flushSync();
+  second.unmount();
+  const third = render({ reuseMaps: true, class: 'third' });
+  const thirdMap = await mapOf(third);
+  expect(thirdMap.getMap()).toBe(firstMap.getMap());
+  expect(classesOf(thirdMap.getContainer())).toEqual(['maplibregl-map', 'third']);
+});
+
+test('style changes keep MapLibre’s container styling', async () => {
+  const r = render({ style: 'color: rgb(1, 2, 3)' });
+  const map = await mapOf(r);
+  const container = map.getContainer();
+  expect(container.style.color).toBe('rgb(1, 2, 3)');
+
+  r.props.style = 'color: rgb(4, 5, 6)';
+  flushSync();
+
+  expect(container.style.color).toBe('rgb(4, 5, 6)');
+  expect(container.style.position).toBe('relative');
+  // MapLibre styles its container through `maplibregl-map` (overflow: hidden) and its own
+  // child elements, never through the container's inline style.
+  expect(container.classList.contains('maplibregl-map')).toBe(true);
+  expect(getComputedStyle(container).overflow).toBe('hidden');
+  expect(container.querySelector('.maplibregl-canvas-container')).not.toBeNull();
 });
 
 test('zoom={undefined} is uncontrolled', async () => {

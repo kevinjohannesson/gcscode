@@ -4,6 +4,7 @@
   import Maplibre, { handlerNames, settingNames } from '../maplibre/maplibre';
   import type { ErrorEvent } from '../types/events';
   import type { MapLib } from '../types/lib';
+  import { compareClassNames } from '../utils/compare-class-names';
   import { setGlobals } from '../utils/set-globals';
   import type { ConstraintRange } from '../utils/transform';
   import { setMapContext, type MapContextValue } from './map-context';
@@ -38,6 +39,32 @@
   // Spread, because the attribute isn't in Svelte's element typings. `recycle()` looks for it.
   const childContainerAttributes = { 'mapboxgl-children': '' };
 
+  // `class` is applied token by token rather than as an attribute, which would wipe the classes
+  // MapLibre puts on the container (`maplibregl-map`, `maplibregl-crosshair` in a box zoom).
+  let appliedClass: string | undefined;
+
+  /** Adds the tokens `next` has and `prev` lacks, and removes the reverse. */
+  function updateClassTokens(prev: string | undefined, next: string | undefined): void {
+    const nextTokens = next?.split(/\s+/) ?? [];
+    for (const token of compareClassNames(prev, next) ?? []) {
+      if (!token) {
+        continue;
+      }
+      if (nextTokens.includes(token)) {
+        container.classList.add(token);
+      } else {
+        container.classList.remove(token);
+      }
+    }
+  }
+
+  // Not `sync()`: the classes go on before the map exists.
+  $effect(() => {
+    const next = props.class;
+    updateClassTokens(appliedClass, next);
+    appliedClass = next;
+  });
+
   /** The map's `MapRef`, or `null` until the map exists. */
   export function getMapRef(): MapRef | null {
     return contextValue.map;
@@ -66,6 +93,10 @@
         setGlobals(mapboxgl, props);
         if (reuseMaps) {
           maplibre = Maplibre.reuse(props, container);
+          if (maplibre) {
+            // reuse() gave the container the parked map's classes, minus the old `class` tokens.
+            updateClassTokens(undefined, appliedClass);
+          }
         }
         if (!maplibre) {
           maplibre = new Maplibre(mapboxgl.Map, props, container);
@@ -221,7 +252,6 @@
 <div
   bind:this={container}
   id={props.id}
-  class={props.class}
   style="position: relative; width: 100%; height: 100%; {props.style ?? ''}"
 >
   {#if mapInstance}
