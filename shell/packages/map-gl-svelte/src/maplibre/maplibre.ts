@@ -407,6 +407,8 @@ export default class Maplibre {
     for (const eventName of Object.keys(otherEvents)) {
       map.on(eventName as keyof MapEventType, this._onEvent);
     }
+    // Not upstream. After the callbacks, so it sees a state that `onMoveEnd` sets.
+    map.on('moveend', this._onMoveEnd);
     return map;
   }
 
@@ -682,6 +684,19 @@ export default class Maplibre {
     const cb = this._callback(cameraEvents[e.type]);
     if (cb) {
       cb(e);
+    }
+  };
+
+  /**
+   * Re-applies the camera props once movement has ended. Upstream re-applies them on every
+   * render; the port only when they change, and changes that land while the map is moving are
+   * skipped. A drag released without inertia ends that way: its last `onMove` lands mid-drag, and
+   * no later change would apply it. Skips the `moveend` of its own `jumpTo`, which MapLibre fires
+   * synchronously: for props the map can't reach (clamped), the re-apply would recurse.
+   */
+  private _onMoveEnd = (): void => {
+    if (!this._internalUpdate && this.updateViewState()) {
+      this.requestRedraw();
     }
   };
 

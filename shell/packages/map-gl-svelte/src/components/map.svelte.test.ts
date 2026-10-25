@@ -15,7 +15,7 @@ import {
   waitForStyleLoad,
 } from '../test-utils/map-test-utils';
 import type { ViewState } from '../types/common';
-import type { ErrorEvent, MapEvent } from '../types/events';
+import type { ErrorEvent, MapEvent, ViewStateChangeEvent } from '../types/events';
 import type { MapLib } from '../types/lib';
 import { MOUNTED_MAPS_CONTEXT_KEY, type MountedMapsContextValue } from './use-map.svelte';
 
@@ -361,6 +361,141 @@ test('Map#controlled#delayed-update', async () => {
 });
 
 // ---- Port-specific tests ----
+
+const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+/**
+ * Drags the map with the mouse: a `mousedown` in the middle of the canvas, five `mousemove`s a
+ * frame apart, then a `mouseup`. MapLibre's pan handler listens for these on the canvas container
+ * and the document, so synthetic events drive it. MapLibre eases on after the release (inertia,
+ * an `easeTo`) only with two or more pan moves from the last 160 ms (`handler_inertia.ts`). So
+ * without inertia the pointer rests 300 ms before the release, which then fires `moveend` at once.
+ */
+async function dragMap(map: MapRef, inertia: boolean): Promise<void> {
+  const canvas = map.getCanvas();
+  const rect = canvas.getBoundingClientRect();
+  const at = (i: number, buttons: number): MouseEventInit => ({
+    bubbles: true,
+    cancelable: true,
+    clientX: rect.left + 200 + i * 20,
+    clientY: rect.top + 150 + i * 10,
+    button: 0,
+    buttons,
+  });
+  canvas.dispatchEvent(new MouseEvent('mousedown', at(0, 1)));
+  for (let i = 1; i <= 5; i++) {
+    canvas.dispatchEvent(new MouseEvent('mousemove', at(i, 1)));
+    // MapLibre applies the move in its next frame, which runs before this callback.
+    await nextFrame();
+  }
+  if (!inertia) {
+    await sleep(300);
+  }
+  canvas.dispatchEvent(new MouseEvent('mouseup', at(5, 0)));
+}
+
+/** Renders a frame now and resolves once it has been rendered. */
+async function renderNow(map: MapRef): Promise<void> {
+  const rendered = waitForEvent(map.getMap(), 'render');
+  map.getMap().triggerRepaint();
+  await rendered;
+}
+
+const sameCenter = (a: [number?, number?], b: [number?, number?]) => a[0] === b[0] && a[1] === b[1];
+
+// The spec's "controlled camera ignoring a gesture when `onMove` is not applied", with a real drag.
+test.each([
+  ['without inertia', false],
+  ['with inertia', true],
+])(
+  'a controlled camera ignores a drag released %s when onMove is not applied',
+  async (_, inertia) => {
+    const proposals: [number, number][] = [];
+    const frames: [number, number][] = [];
+    const r = render({
+      mapStyle: EMPTY_STYLE,
+      longitude: -100,
+      latitude: 40,
+      zoom: 4,
+      onMove: (e: ViewStateChangeEvent) => {
+        proposals.push([e.viewState.longitude, e.viewState.latitude]);
+      },
+      onRender: (e: MapEvent) => {
+        const center = e.target.getCenter();
+        frames.push([center.lng, center.lat]);
+      },
+    });
+    const map = await loadedMapOf(r);
+    const moveEnd = waitForEvent(map.getMap(), 'moveend');
+    await dragMap(map, inertia);
+    const atRelease = proposals.length;
+    await moveEnd;
+    await renderNow(map);
+
+    // The drag was real: MapLibre proposed cameras away from the props, after the release too
+    // when it eased on.
+    expect(atRelease).toBeGreaterThan(0);
+    expect(sameCenter(proposals.at(-1)!, [-100, 40]), 'the last proposal is elsewhere').toBe(false);
+    expect(proposals.length > atRelease, 'proposals after the release').toBe(inertia);
+    // The map rendered the props throughout, and still does now that the movement has ended.
+    expect(frames.length).toBeGreaterThan(5);
+    expect(frames.filter((center) => !sameCenter(center, [-100, 40]))).toEqual([]);
+  },
+);
+
+test.each([
+  ['without inertia', false],
+  ['with inertia', true],
+])(
+  'a controlled camera that applies onMove ends a drag released %s at the state',
+  async (_, inertia) => {
+    const frames: MirrorFrame[] = [];
+    let drags = 0;
+    const r = render({
+      mirror: 'direct',
+      mapStyle: EMPTY_STYLE,
+      onDrag: () => drags++,
+      onMirrorRender: (vs: Partial<ViewState>, e: MapEvent) => {
+        const center = e.target.getCenter();
+        frames.push({
+          state: [vs.longitude, vs.latitude],
+          center: [center.lng, center.lat],
+          moving: e.target.isMoving(),
+        });
+      },
+    });
+    const map = await loadedMapOf(r);
+    const moveEnd = waitForEvent(map.getMap(), 'moveend');
+    await dragMap(map, inertia);
+    const atRelease = frames.length;
+    await moveEnd;
+    await renderNow(map);
+
+    expect(drags, 'the drag reached the map').toBeGreaterThan(0);
+    expect(
+      frames.slice(atRelease).some((f) => f.moving),
+      'moving after the release',
+    ).toBe(inertia);
+    const last = frames.at(-1)!;
+    expect(last.moving).toBe(false);
+    expect(sameCenter(last.state, [-100, 40]), 'the state followed the drag').toBe(false);
+    expect(last.center, 'once movement has ended, the map renders the state').toEqual(last.state);
+  },
+);
+
+test('a camera the map can’t reach is applied once per change, with no loop at moveend', async () => {
+  // Web Mercator stops at ±85.05° latitude, so MapLibre clamps 89 and the props never match.
+  const r = render({ mapStyle: EMPTY_STYLE, longitude: 0, latitude: 89, zoom: 2 });
+  const map = await loadedMapOf(r);
+  const jumpTo = vi.spyOn(map.getMap(), 'jumpTo');
+
+  r.props.zoom = 3;
+  expect(() => flushSync()).not.toThrow();
+
+  expect(jumpTo).toHaveBeenCalledOnce();
+  expect(map.getZoom()).toBe(3);
+  expect(map.getCenter().lat).toBeLessThan(86);
+});
 
 test('children see the map at init', async () => {
   const onProbe = vi.fn();
