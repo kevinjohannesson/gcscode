@@ -158,6 +158,7 @@ Not applicable: an agentic-process change with no effect on the extension API or
 - **Three summaries put the owner's decision at the second fix check (PR #38 RT-14, partly resolved).** Resolved in PR #39: CLAUDE.md now points at the workflow's header comment instead of summarising the gates, and the workflow's header comment and item 10 above put the decision at the loop's last review.
 - **A full spec/ADR PR run from the skill alone is still to come.** PR #39 checked the parts with a fresh headless session (the skill is discovered, the rules load on the files they scope) and was itself reviewed by following the skill, but by a session that also had the old CLAUDE.md in context. The next spec/ADR PR, started from a handoff note in a fresh session, is the real test.
 - **Reviewer agents still load CLAUDE.md.** `omitClaudeMd: true` was not adopted: at about 9k characters CLAUDE.md is cheap, and it carries the product context red-team cross-checks against. Revisit if it grows past the 10k target again.
+- **CLAUDE.md § Subagent worktree discipline still says the controller "should run in the worktree" (PR #39 RT-10, partly resolved).** § Sessions lets a session that creates its own worktree stay where it started, so read alone the line sends that controller looking for a way in mid-session — the owner wait RT-10 was about. The fix is to cut it to "Where the controller session runs: § Sessions." Left because this loop had used its two fix checks; trigger: the next PR that edits `shell/CLAUDE.md`.
 
 ## Corrections to the brief
 
