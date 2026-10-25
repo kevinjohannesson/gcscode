@@ -275,7 +275,7 @@ Each row is a deliberate deviation from upstream's code. (Mechanism numbers refe
 
 ## Differences from upstream
 
-Upstream is `@vis.gl/react-maplibre` at tag `v8.1.3` (`modules/react-maplibre/` only). Anything not listed here behaves as upstream does. If you find a difference that isn't listed, it is a bug in this port or in this list.
+Upstream is `@vis.gl/react-maplibre` at tag `v8.1.3` (`modules/react-maplibre/` only). The aim is that anything not listed here behaves as upstream does. That is a goal, not a proof: a difference that isn't listed is a bug in this port or in this list.
 
 ### Behavior
 
