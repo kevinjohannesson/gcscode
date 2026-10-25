@@ -65,7 +65,8 @@ test('stillOpen drops findings an earlier followup already disposed', () => {
 const files = {
   'a.md': 'a',
   'b.md': 'b',
-  'docs/roadmap.md': 'entry (PR #38 RT-2)\nlist (PR #38 RT-1, RT-5)\nother (PR #12 RT-7)\n',
+  'docs/roadmap.md':
+    '# Roadmap\n## Shipped\nnarrative (PR #38 RT-3)\n## Considering\nentry (PR #38 RT-2)\nlist (PR #38 RT-1, RT-5)\nother (PR #12 RT-7)\n',
   'docs/out.md': 'nothing\n',
 };
 const check = (message, { changed = ['a.md'], open = ['RT-1', 'RT-2'] } = {}) =>
@@ -116,12 +117,27 @@ test('deferred targets must exist and mention the PR-qualified ID', () => {
     check('RT-1 fixed: a.md\nRT-5 deferred: docs/roadmap.md', { open: ['RT-1', 'RT-5'] }),
     [],
   );
-  assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/out.md#later'), [
+  assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/out.md'), [
     'RT-2: deferred to docs/out.md, but "PR #38 RT-2" appears nowhere in it',
   ]);
   assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/missing.md'), [
     'RT-2: deferred to docs/missing.md, which does not exist',
   ]);
+});
+
+test('a deferral to a #section must be recorded under that heading', () => {
+  const only = (id) => ({ open: [id] });
+  assert.deepEqual(check('RT-3 deferred: docs/roadmap.md#considering', only('RT-3')), [
+    'RT-3: deferred to docs/roadmap.md#considering, but "PR #38 RT-3" appears nowhere under that heading',
+  ]);
+  assert.deepEqual(check('RT-3 deferred: docs/roadmap.md#shipped', only('RT-3')), []);
+  assert.deepEqual(check('RT-3 deferred: docs/roadmap.md', only('RT-3')), []);
+  assert.deepEqual(check('RT-2 deferred: docs/roadmap.md#Considering (the list)', only('RT-2')), []);
+  assert.deepEqual(check('RT-2 deferred: docs/roadmap.md#later', only('RT-2')), [
+    'RT-2: deferred to docs/roadmap.md#later, but docs/roadmap.md has no heading #later',
+  ]);
+  files['docs/fr.md'] = '## Résumé\n(PR #38 RT-4)\n';
+  assert.deepEqual(check('RT-4 deferred: docs/fr.md#r%C3%A9sum%C3%A9', only('RT-4')), []);
 });
 
 test("another PR's mention of the same ID does not count", () => {

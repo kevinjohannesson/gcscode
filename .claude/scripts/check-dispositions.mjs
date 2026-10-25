@@ -14,11 +14,12 @@
 //
 // `fixed:` paths must exist and be changed by the commit. A `deferred:` target must
 // exist and mention the finding qualified by its PR (`PR #38 RT-3`), because IDs
-// restart on every PR. That is what catches "routed to the roadmap" claims that
-// never landed.
+// restart on every PR — under the named heading when the target has a `#section`.
+// That is what catches "routed to the roadmap" claims that never landed.
 
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { section } from '../../shell/scripts/lint-docs.mjs';
 
 const ID = '[A-Z]{2,4}-\\d{1,3}';
 const STATUS = new RegExp(
@@ -103,12 +104,20 @@ export function checkDispositions({ pr, open, message, changed, fileText }) {
     }
 
     if (verb === 'deferred') {
-      const path = value.split('#')[0].trim();
+      const target = value.split(/\s/)[0];
+      const [path, anchor] = target.split('#');
       const text = fileText(path);
       const qualified = new RegExp(`PR #${pr}\\b(?:[\\s,/]+${ID})*[\\s,/]+${id}\\b`);
-      if (text === null) problems.push(`${id}: deferred to ${path}, which does not exist`);
-      else if (!qualified.test(text)) {
-        problems.push(`${id}: deferred to ${path}, but "PR #${pr} ${id}" appears nowhere in it`);
+      if (text === null) {
+        problems.push(`${id}: deferred to ${path}, which does not exist`);
+        continue;
+      }
+      const scope = anchor ? section(text, decodeURIComponent(anchor)) : text;
+      if (scope === null) {
+        problems.push(`${id}: deferred to ${target}, but ${path} has no heading #${anchor}`);
+      } else if (!qualified.test(scope)) {
+        const where = anchor ? 'under that heading' : 'in it';
+        problems.push(`${id}: deferred to ${target}, but "PR #${pr} ${id}" appears nowhere ${where}`);
       }
     }
   }

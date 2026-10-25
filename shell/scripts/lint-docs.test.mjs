@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addedLines, anchors, docKind, links, lintFile, slugify } from './lint-docs.mjs';
+import { addedLines, anchors, docKind, links, lintFile, section, slugify } from './lint-docs.mjs';
 
 const files = {
   'docs/specs/target.md': '# Target\n\n## Known unknowns\n\n## Repeat\n\n## Repeat\n',
@@ -28,6 +28,36 @@ test('anchors suffix duplicate headings', () => {
     [...anchors(files['docs/specs/target.md'])],
     ['target', 'known-unknowns', 'repeat', 'repeat-1'],
   );
+});
+
+test('section runs from its heading to the next heading at the same or a higher level', () => {
+  const text = [
+    '# Spec', // 1
+    'intro',
+    '## Known unknowns', // 3
+    'first',
+    '### Detail', // 5
+    'nested',
+    '```',
+    '## not a heading',
+    '```',
+    'after fence', // 10
+    '## Corrections', // 11
+    'last',
+    '## Repeat',
+    'one',
+    '## Repeat', // 15
+    'two',
+  ].join('\n');
+  assert.equal(
+    section(text, 'known-unknowns'),
+    'first\n### Detail\nnested\n```\n## not a heading\n```\nafter fence',
+  );
+  assert.equal(section(text, 'detail'), 'nested\n```\n## not a heading\n```\nafter fence');
+  assert.equal(section(text, 'Corrections'), 'last');
+  assert.equal(section(text, 'repeat-1'), 'two');
+  assert.equal(section(text, 'spec'), text.split('\n').slice(1).join('\n'));
+  assert.equal(section(text, 'not-a-heading'), null);
 });
 
 test('links skip fenced code and inline code', () => {
