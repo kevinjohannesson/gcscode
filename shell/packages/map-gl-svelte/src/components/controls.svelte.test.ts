@@ -169,7 +169,7 @@ test('geolocate exposes its control', async () => {
   expect(control, 'getControl() is a maplibregl.GeolocateControl').toBeInstanceOf(
     maplibregl.GeolocateControl,
   );
-  expect(control, 'and the one on the map').toBe(r.geolocate());
+  expect((await r.map()).hasControl(control!), 'and the one on the map').toBe(true);
 
   control!.fire('geolocate', { coords: { latitude: 1, longitude: 2 } });
   expect(onGeolocate).toHaveBeenCalledOnce();
