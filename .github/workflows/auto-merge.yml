@@ -19,14 +19,16 @@ name: Auto-merge
 #           the line `Blocking: 0`, and so does the latest review by
 #           `gcscode-extension-architect` if it posted any, and each count agrees
 #           with the findings that review tags as blocking. The reviewers grade
-#           their own findings; this reads their count. If blocking findings
-#           remain after two fix checks, the gate stays shut and the owner
-#           decides. Was a review count (red-team >= 2, spec-quality >= 1) until
-#           review-loop-v2 dropped the Sonnet red-team and spec-quality roles.
+#           their own findings; this reads their count. If the review loop's
+#           last review still counts blocking findings, the gate stays shut and
+#           the owner decides. Was a review count (red-team >= 2,
+#           spec-quality >= 1) until review-loop-v2 dropped the Sonnet red-team
+#           and spec-quality roles.
 # Gate 4: The PR is mergeable (no conflicts).
 #
 # Specs: docs/specs/2026-05-14-auto-merge-on-user-approval.md,
-#        docs/specs/2026-10-22-review-loop-v2.md (Gate 3b)
+#        docs/specs/2026-10-22-review-loop-v2.md (Gate 3b).
+# The review loop itself: .claude/skills/review-loop/SKILL.md.
 
 on:
   pull_request_review:
@@ -154,9 +156,10 @@ jobs:
             # `[blocking]` — so a miscounted trailer cannot wave a listed blocker through.
             # Every other outcome fails closed: no red-team review yet, a missing
             # trailer, a count mismatch, or any non-zero count.
-            # This gate does not see commits pushed after the latest review. CLAUDE.md
-            # keeps the PR in draft until the loop's last review, and the pre-gate
-            # refuses drafts; that is what keeps an unreviewed trailing commit out.
+            # This gate does not see commits pushed after the latest review. The
+            # review-loop skill keeps the PR in draft until the loop's last review,
+            # and the pre-gate refuses drafts; that is what keeps an unreviewed
+            # trailing commit out.
             # Same exact logins, null-author guard and pagination as gate 3a above.
             SPEC_REVIEWS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews" --jq '.[] | {login: (.user.login // ""), submittedAt: .submitted_at, body: (.body // "")}' | jq -s '{reviews: .}')
             # Prints the N of the trailer when it agrees with the blocking tags; NONE if
