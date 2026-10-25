@@ -14,7 +14,7 @@ State each rule once, in the file it belongs to, and point to it. A summary that
 - **The PR must contain HEAD.** Push in the same command as each commit, and before dispatching check `git status -sb` and `gh pr view <n> --json commits`. Reviewers read the local tree, so a PR missing commits looks fine from inside the session.
 - **Never name a model in a dispatch prompt.** A role's `model` alias goes in the Agent call's `model` parameter; the review header names the model the reviewer's own system prompt states.
 - **No absolute paths in a dispatch prompt.** Reviewers echo them into PR comments, and gcscode is public: reviews, PR bodies and commit messages use repo-relative paths and carry no credentials or internal URLs. A reviewer reporting a leaked path quotes it in a code block and says it is a leak.
-- **Agent files reload on the next dispatch**, except from a `.claude/agents/` directory that did not exist when the session started — which includes a worktree created or entered mid-session. To use an agent file edited there, dispatch the existing agent of the same role with the edited body inline.
+- **An agent file edited during a session does not reach a dispatch by name in that session.** The Claude Code docs say edits apply on the next dispatch, but on 2.1.309 a session started in `shell/` kept dispatching the session-start content of the git-root `.claude/agents/red-team-reviewer.md` after git replaced it and after an in-place change; a worktree's `.claude/agents/` is not seen at all. To use an edited agent file, start a fresh session, or dispatch the existing agent of the same role with the edited body inline.
 
 ## Feature PRs (`feat/*`)
 
