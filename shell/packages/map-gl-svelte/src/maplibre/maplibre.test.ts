@@ -82,6 +82,34 @@ test('external camera writes are silent', () => {
   expect(m.updateViewState()).toBe(false);
 });
 
+test('a throwing camera listener does not leave the internal-update flag set', () => {
+  const onMove = vi.fn<(e: ViewStateChangeEvent) => void>();
+  const props: MaplibreProps = {
+    mapStyle: EMPTY_STYLE,
+    longitude: -100,
+    latitude: 40,
+    zoom: 4,
+    onMove,
+  };
+  const m = create(props);
+  const failure = new Error('listener failed');
+  const throwing = (): void => {
+    throw failure;
+  };
+  // MapLibre's `fire` doesn't catch, so this escapes `jumpTo` inside `updateViewState`.
+  m.map.on('move', throwing);
+
+  props.zoom = 6;
+  expect(() => m.updateViewState()).toThrow(failure);
+  m.map.off('move', throwing);
+
+  // The hook still enforces the controlled zoom, and camera callbacks fire again.
+  m.map.jumpTo({ zoom: 10 });
+  expect(m.map.getZoom()).toBe(6);
+  expect(onMove).toHaveBeenCalledOnce();
+  expect(onMove.mock.lastCall?.[0].viewState.zoom).toBe(10);
+});
+
 test('camera props are not applied while moving', async () => {
   const props: MaplibreProps = { mapStyle: EMPTY_STYLE, initialViewState: { zoom: 4 } };
   const m = create(props);

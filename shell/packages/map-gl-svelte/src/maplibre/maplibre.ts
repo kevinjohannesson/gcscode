@@ -522,8 +522,13 @@ export default class Maplibre {
       const changes = applyViewStateToTransform(tr, cameraProps);
       if (Object.keys(changes).length > 0) {
         this._internalUpdate = true;
-        map.jumpTo(changes);
-        this._internalUpdate = false;
+        // jumpTo fires camera events synchronously and MapLibre doesn't catch listener errors;
+        // a stuck flag would silence camera callbacks and stop the hook enforcing for good.
+        try {
+          map.jumpTo(changes);
+        } finally {
+          this._internalUpdate = false;
+        }
         return true;
       }
     }
