@@ -1,1 +1,4 @@
 .worktrees/
+
+# Controller handoff notes between sessions (shell/docs/specs/2026-10-22-review-loop-v2.md)
+.claude/handoffs/

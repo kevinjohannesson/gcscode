@@ -290,3 +290,5 @@ Beyond these: see also future iterations in [`docs/specs/2026-05-12-reviews-as-a
 ## Origin
 
 Brainstormed in the same session that completed the reviews-as-artifacts mechanics validation in PR #1 (2026-05-14). The brainstorm itself produced a meta-finding worth recording: the user initially scoped red-team as one agent doing three angles (premise + devil's advocate + consistency). Mid-brainstorm we surfaced that those are really three roles, with premise + consistency blending naturally and devil's advocate being genuinely separate. That bundling-into-one is exactly the kind of premise/structure issue a future domain-expert reviewer would catch — i.e., this iteration's brainstorm illustrated its own motivation. The constrained v1 (premise + consistency only, deferring devil's advocate to v2 as a separate agent) is the resulting scope.
+
+> **review-loop-v2 breadcrumb (added 2026-10-24):** red-team's instructions moved into `.claude/agents/red-team-reviewer.md`; the four-section output became a graded findings list ending `Blocking: N`, and re-reviews became fix checks. See [`2026-10-22-review-loop-v2.md`](2026-10-22-review-loop-v2.md).

@@ -8,8 +8,10 @@
     "build": "pnpm -r build",
     "preview": "pnpm --filter @gcscode/shell preview",
     "check": "pnpm -r check",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && pnpm test:scripts",
+    "test:scripts": "node --test 'scripts/*.test.mjs' '../.claude/scripts/*.test.mjs'",
     "lint": "eslint . && prettier --check .",
+    "lint:docs": "node scripts/lint-docs.mjs",
     "format": "prettier --write ."
   },
   "devDependencies": {

@@ -1,7 +1,7 @@
 # ADR-0009: Agentic-actor registry
 
 **Date:** 2026-05-16
-**Status:** Accepted
+**Status:** Accepted — amended 2026-10-22 by [review-loop-v2](../specs/2026-10-22-review-loop-v2.md): the respondent row and the `secondary model` column are gone (see the breadcrumb at the end)
 **Supersedes:** [ADR-0008 (Reviewer-role registry)](ADR-0008-reviewer-role-registry.md)
 
 ## Context
@@ -191,3 +191,5 @@ Append the following Considering entry to `shell/docs/roadmap.md` under the agen
   - **Respondent subagent v2** (queued #2): will populate the respondent's `model` and `secondary model` columns; addresses cross-session limitation.
   - **Per-role bot identities for reviewers** (queued #3): splits `gcscode-reviewer[bot]` into per-role App identities (`gcscode-red-team[bot]`, etc.); the `identity` column gets per-row distinct values instead of the uniform v1 value.
   - **Reviewer routing layer** (queued #4): may need to query the registry's `targets` column for "which actors fire on this PR class?"; the registry's source-of-truth role becomes operational.
+
+> **review-loop-v2 breadcrumb (added 2026-10-24):** the registry lost its respondent row, its `Secondary model` column and the spec-quality role; its prompt-template column now points at `.claude/agents/`, and the registry is due to move into `.claude/agent-config.json` in review-loop-v2's second PR. See [`docs/specs/2026-10-22-review-loop-v2.md`](../specs/2026-10-22-review-loop-v2.md).

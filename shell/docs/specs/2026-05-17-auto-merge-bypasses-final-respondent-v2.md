@@ -314,3 +314,5 @@ Append the following one-line blockquote to the end of `shell/docs/specs/2026-05
 ```
 
 Per CLAUDE.md "Specs as historical record," this breadcrumb is a one-line cross-reference (the convention's explicit pattern), not a deep substantive edit to v1's content.
+
+> **review-loop-v2 breadcrumb (added 2026-10-24):** Gate 3b no longer counts reviews; it passes when the latest red-team review (and the latest extension-architect review, if any) ends `Blocking: 0`. See [`2026-10-22-review-loop-v2.md`](2026-10-22-review-loop-v2.md).

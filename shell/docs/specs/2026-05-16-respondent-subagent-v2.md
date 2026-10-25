@@ -520,3 +520,5 @@ Design refined through three clarifying questions:
 - **Dispatch shape:** parallel-3 with controller pre-fetches. Mirrors red-team / spec-quality dispatch pattern; subagent fetches only prior respondent posts (round-aware context only).
 
 The v1 propagation gap (Known Unknowns) was an incidental discovery during this iteration's brainstorm — a `grep` against `shell/docs/out-of-scope.md` for v1's planned entry returned nothing, surfacing that v1's post-merge implementation skipped two planned propagation edits. Surfacing the gap is in scope; backfilling is not.
+
+> **review-loop-v2 breadcrumb (added 2026-10-24):** the respondent subagent, its prompt and its token helper are removed (the GitHub App stays installed, unused); dispositions go in the followup commit instead. See [`2026-10-22-review-loop-v2.md`](2026-10-22-review-loop-v2.md).
