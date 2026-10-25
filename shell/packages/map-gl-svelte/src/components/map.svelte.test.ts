@@ -813,7 +813,20 @@ test('mapLib load failure goes to onError', async () => {
   expect(onError).toHaveBeenCalledOnce();
   const event = onError.mock.calls[0][0];
   expect(event.type).toBe('error');
+  // Upstream's payload: there is no map to be the target, and no input event.
+  expect(event.target).toBeNull();
+  expect(event.originalEvent).toBeNull();
   expect(event.error.message).toBe('boom');
+});
+
+test('mapLib load failure goes to console.error without onError', async () => {
+  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const error = new Error('boom');
+  render({ mapLib: Promise.reject(error) });
+  flushSync();
+  await sleep(0);
+
+  expect(consoleError).toHaveBeenCalledExactlyOnceWith(error);
 });
 
 test('reuseMaps', async () => {
