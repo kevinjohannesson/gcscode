@@ -193,6 +193,35 @@ test('geojson data updates on reassignment, not on mutation', async () => {
   expect(featureNames(map, 'pts'), 'mutated data does not').toEqual(['a', 'b']);
 });
 
+// Upstream's `updateSource` answers any changed option of a GeoJSON source with `setData(data)`.
+// In the port, `data` reaches that path separately from the options, so check it's the current one.
+test('a changed geojson option re-sends the current data', async () => {
+  const r = render({
+    mapStyle: EMPTY_STYLE,
+    source: { ...pointsSource(), attribution: 'one' },
+    nested: { id: 'nested' },
+  });
+  const map = await r.map();
+  await eventually(() => expect(map.getLayer('nested'), 'nested layer is added').toBeDefined());
+  const source = r.props.source as { data: PointCollection; attribution: string };
+  source.data = featureCollection(pointFeature('a', [0, 0]), pointFeature('b', [1, 1]));
+  flushSync();
+  await settle(map);
+  expect(featureNames(map, 'pts'), 'reassigned data').toEqual(['a', 'b']);
+  const setData = vi.spyOn(map.getSource<GeoJSONSource>('pts')!, 'setData');
+
+  source.attribution = 'two';
+  flushSync();
+  await settle(map);
+
+  expect(setData, 'the option change goes to setData').toHaveBeenCalledOnce();
+  expect(setData.mock.calls[0][0], 'with the current data').toEqual(
+    featureCollection(pointFeature('a', [0, 0]), pointFeature('b', [1, 1])),
+  );
+  expect(featureNames(map, 'pts'), 'the source keeps the current features').toEqual(['a', 'b']);
+  expect(r.errors, 'no error events').toEqual([]);
+});
+
 test('a Source and a Layer without id get generated ids', async () => {
   const r = render({
     mapStyle: EMPTY_STYLE,
