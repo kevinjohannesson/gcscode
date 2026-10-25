@@ -62,7 +62,7 @@ Work happens in a worktree under `.worktrees/` at the git root; the main checkou
 2. Chain `git branch --show-current` before every `git commit`; if it reads `master`, stop — you are in the main checkout.
 3. Run `pnpm format`, `pnpm test`, `pnpm check` and `pnpm lint` only with that prefix; otherwise they change or read the main checkout.
 
-A dispatch that will commit in a worktree restates these three rules: the subagent cannot tell which worktree it is in. The controller session itself should run in the worktree (§ Sessions).
+A dispatch that will commit in a worktree restates these three rules: the subagent cannot tell which worktree it is in. Where the controller session runs: § Sessions.
 
 ## Sessions
 
