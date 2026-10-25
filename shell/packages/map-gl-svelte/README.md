@@ -273,13 +273,15 @@ Each row is a deliberate deviation from upstream's code. (Mechanism numbers refe
 | `useMap()` hook                                                         | `useMap()` called during initialisation, returning an object whose `current` and per-id entries stay reactive                                                                    | Destructuring would break reactivity; document that.                                                                                                                                                                |
 | `MapContext.Provider` wrapping children                                 | Svelte context set by `<Map>`                                                                                                                                                    | Same purpose.                                                                                                                                                                                                       |
 
+The table is the design document's, verbatim. Its `style` row calls `class` on `<Map>` a normal attribute; the port applies it token by token instead, so MapLibre's container classes survive (difference 14).
+
 ## Differences from upstream
 
 Upstream is `@vis.gl/react-maplibre` at tag `v8.1.3` (`modules/react-maplibre/` only). The aim is that anything not listed here behaves as upstream does. That is a goal, not a proof: a difference that isn't listed is a bug in this port or in this list.
 
 ### Behavior
 
-1. **Forced redraw uses MapLibre's public `map.redraw()`.** After an external change (a setting, the controlled size, the camera while the map isn't moving), the port queues a redraw that runs in a microtask right after the update, so it lands before the next animation frame and the map and the surrounding UI change in the same frame. Upstream cancels `map._frame` and calls `map._render()`. On MapLibre 5 the pending frame is held in `_frameRequest` and there is no `_frame`, so, from reading upstream's code, upstream's cancel does nothing and it renders twice per external change. The port renders once. Redraw requests are coalesced: at most one redraw runs per microtask turn, however many props changed.
+1. **Forced redraw uses MapLibre's public `map.redraw()`.** After an external change (a setting, a zoom or pitch limit, the controlled size, the camera while the map isn't moving), the port queues a redraw that runs in a microtask right after the update, so it lands before the next animation frame and the map and the surrounding UI change in the same frame. Upstream cancels `map._frame` and calls `map._render()`. On MapLibre 5 the pending frame is held in `_frameRequest` and there is no `_frame`, so, from reading upstream's code, upstream's cancel does nothing and it renders twice per external change. The port renders once. Redraw requests are coalesced: at most one redraw runs per microtask turn, however many props changed.
 2. **Reassignment, not mutation.** See [Sources and layers](#sources-and-layers). This covers `paint`, `layout`, `filter`, Source options including GeoJSON `data`, and `mapStyle`.
 3. **`zoom={undefined}` is uncontrolled.** A camera field is controlled when its value is not `undefined`. Upstream decides by whether the prop is present (`'zoom' in props`), which Svelte props can't reliably tell from "undefined".
 4. **A Source's id reaches all its descendant Layers**, through context, not only direct children (upstream uses `cloneElement` on direct children). An explicit `source` prop on a Layer wins.
@@ -313,7 +315,7 @@ Upstream's tests target MapLibre `^6`; these run on 5.24.
 22. Upstream's test `getTransformLike#pre-v5` is dropped: the port's floor is MapLibre 5.
 23. Upstream's `Map#controlled#mirror-back` assertion is kept verbatim as an **expected failure** (`test.fails`), next to a test that pins the measured lag. See open question 1.
 24. The two translated upstream `Source`/`Layer` tests wait for the source or the layer itself, where upstream waits for the style to load. Measured: a pending re-check can re-add the source before the style swap's own `styledata`, after which that wait never resolves. The assertions are unchanged.
-25. **No translated test was adjusted for a MapLibre 5-versus-6 difference.** No such difference was recorded while porting. The test differences in 22 to 24 come from the port's floor, from Svelte, and from the style-load wait in upstream's helper.
+25. **No translated test was adjusted for a MapLibre 5-versus-6 difference.** No such difference was recorded while porting. The test differences in 22 to 24 come from the port's floor, from Svelte, and from the style-load wait in upstream's helper. Besides those, the translated tests have harness changes: frames are recorded and asserted after `moveend` instead of asserting inside `onRender` (which throws inside MapLibre's render loop), and some tests add checks marked "Not upstream".
 
 ## Open questions, answered
 
