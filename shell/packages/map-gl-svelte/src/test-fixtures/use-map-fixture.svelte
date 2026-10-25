@@ -19,6 +19,8 @@
     onMaps?: (name: string, maps: MapCollection) => void;
     /** Each map's `onError`. */
     onMapError?: (event: ErrorEvent) => void;
+    /** The probe outside every map also renders `{maps}` as text. */
+    stringify?: boolean;
   };
 
   let props: Props = $props();
@@ -39,7 +41,7 @@
       {/if}
     </Map>
   {/each}
-  <UseMapProbe name="outer" watch={props.watch} onMaps={props.onMaps} />
+  <UseMapProbe name="outer" watch={props.watch} onMaps={props.onMaps} stringify={props.stringify} />
 {/snippet}
 
 {#if props.provider ?? true}

@@ -11,6 +11,8 @@
     watch?: string;
     /** Receives what `useMap()` returned, to inspect it outside the template. */
     onMaps?: (name: string, maps: MapCollection) => void;
+    /** Also renders `{maps}` itself, as text. */
+    stringify?: boolean;
   } = $props();
 
   // During initialisation, as `useMap()` requires. Used as it is, never destructured.
@@ -22,4 +24,7 @@
   <span class="watch">{maps[props.watch ?? ''] ? 'yes' : 'no'}</span>
   <span class="current">{maps.current ? 'yes' : 'no'}</span>
   <span class="keys">{Object.keys(maps).join(',')}</span>
+  {#if props.stringify}
+    <span class="string">{maps}</span>
+  {/if}
 </p>

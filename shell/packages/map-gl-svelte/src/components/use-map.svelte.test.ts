@@ -15,7 +15,7 @@ type Rendered = {
   /** The raw MapLibre map of the `index`-th `<Map>`, once it has created it. */
   map(index: number): Promise<MapLibreMap>;
   /** The text of one of the probe's spans. */
-  text(probe: string, span: 'watch' | 'current' | 'keys'): string | null | undefined;
+  text(probe: string, span: 'watch' | 'current' | 'keys' | 'string'): string | null | undefined;
   unmount(): void;
 };
 
@@ -153,6 +153,48 @@ test('useMap lists the registered maps and current, as upstream does', async () 
   flushSync();
   expect(Object.keys(maps)).toEqual(['mapA', 'current']);
   expect(r.text('outer', 'keys'), 'the template follows').toBe('mapA,current');
+});
+
+test('reading one id follows that id alone', async () => {
+  const r = render({ ids: [] });
+  const { maps } = r;
+  const seen: boolean[] = [];
+  // Reads `maps.mymap` and nothing else, unlike the probe's template, which also lists the keys.
+  const stop = $effect.root(() => {
+    $effect(() => {
+      seen.push(Boolean(maps.mymap));
+    });
+  });
+  flushSync();
+
+  r.props.ids = ['mymap'];
+  flushSync();
+  await r.map(0);
+  flushSync();
+  stop();
+
+  expect(seen).toEqual([false, true]);
+});
+
+test('useMap() reads as a plain object for anything but a registered id', async () => {
+  const r = render({ ids: ['mapA'] });
+  await waitForLoad(await r.map(0));
+  flushSync();
+  const { maps } = r;
+  expect(maps.mapA, 'a registered id').toBeTruthy();
+  expect(maps.nope, 'an unknown id').toBeUndefined();
+
+  // Upstream's `useMap()` returns a plain object, which inherits Object.prototype's members.
+  expect(String(maps)).toBe('[object Object]');
+  // eslint-disable-next-line no-prototype-builtins -- the call under test
+  expect(maps.hasOwnProperty('mapA'), 'hasOwnProperty, a registered id').toBe(true);
+  // eslint-disable-next-line no-prototype-builtins -- the call under test
+  expect(maps.hasOwnProperty('nope'), 'hasOwnProperty, an unknown id').toBe(false);
+  expect('toString' in maps, 'inherited members are in it').toBe(true);
+
+  r.props.stringify = true;
+  expect(() => flushSync(), '{maps} in a template').not.toThrow();
+  expect(r.text('outer', 'string')).toBe('[object Object]');
 });
 
 test('a map given no id is registered as "default"', async () => {

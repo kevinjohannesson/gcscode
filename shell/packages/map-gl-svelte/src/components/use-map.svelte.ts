@@ -59,16 +59,27 @@ export function useMap(): MapCollection {
 
   const registered = (): ReadonlyMap<string, MapRef> | undefined => mounted?.maps;
 
-  // A proxy rather than an object, because the ids are not known in advance. Read-only.
+  // A proxy rather than an object, because the ids are not known in advance. Read-only. Anything
+  // but `current` and a registered id reads from the empty target, so Object.prototype's members
+  // (`toString`, `hasOwnProperty`, …) work, as on the plain object upstream returns.
   return new Proxy({} as MapCollection, {
-    get(_target, key) {
-      if (typeof key !== 'string') {
-        return undefined;
+    get(target, key) {
+      if (key === 'current') {
+        return mapContext?.map;
       }
-      return key === 'current' ? mapContext?.map : registered()?.get(key);
+      // `has` first: it tracks the id even while it isn't registered.
+      const maps = registered();
+      if (typeof key === 'string' && maps?.has(key)) {
+        return maps.get(key);
+      }
+      return Reflect.get(target, key);
     },
-    has(_target, key) {
-      return typeof key === 'string' && (key === 'current' || Boolean(registered()?.has(key)));
+    has(target, key) {
+      return (
+        key === 'current' ||
+        (typeof key === 'string' && Boolean(registered()?.has(key))) ||
+        Reflect.has(target, key)
+      );
     },
     // Registered ids, then `current`, as in the object upstream builds: `{...maps, current}`.
     ownKeys() {
