@@ -110,6 +110,48 @@ test('a throwing camera listener does not leave the internal-update flag set', (
   expect(onMove.mock.lastCall?.[0].viewState.zoom).toBe(10);
 });
 
+// MapLibre 5.24's own limits when none are given (`defaultMinZoom` etc. in its `ui/map.ts`).
+const MAPLIBRE_DEFAULT_LIMITS = [-2, 22, 0, 60];
+
+function limits(m: Maplibre): (number | null)[] {
+  return [m.map.getMinZoom(), m.map.getMaxZoom(), m.map.getMinPitch(), m.map.getMaxPitch()];
+}
+
+test('clearing a pitch limit restores MapLibre’s default', () => {
+  const props: MaplibreProps = { mapStyle: EMPTY_STYLE };
+  const m = create(props);
+  expect(m.map.getMaxPitch()).toBe(60);
+
+  let prev: MaplibreProps = { ...props };
+  props.maxPitch = 70;
+  m.syncAll(prev);
+  expect(m.map.getMaxPitch()).toBe(70);
+
+  prev = { ...props };
+  props.maxPitch = undefined;
+  m.syncAll(prev);
+  expect(m.map.getMaxPitch()).toBe(60);
+
+  // 85 is a value like any other, not "unset".
+  prev = { ...props };
+  props.maxPitch = 85;
+  m.syncAll(prev);
+  expect(m.map.getMaxPitch()).toBe(85);
+});
+
+test('nullish limits at creation leave MapLibre’s defaults', () => {
+  for (const reset of [undefined, null]) {
+    const m = create({
+      mapStyle: EMPTY_STYLE,
+      minZoom: reset,
+      maxZoom: reset,
+      minPitch: reset,
+      maxPitch: reset,
+    });
+    expect(limits(m), String(reset)).toEqual(MAPLIBRE_DEFAULT_LIMITS);
+  }
+});
+
 test('camera props are not applied while moving', async () => {
   const props: MaplibreProps = { mapStyle: EMPTY_STYLE, initialViewState: { zoom: 4 } };
   const m = create(props);

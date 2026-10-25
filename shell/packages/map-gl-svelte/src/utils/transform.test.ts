@@ -146,12 +146,18 @@ test('applyViewStateToTransform ignores undefined center, bearing and padding', 
   ).toStrictEqual({ bearing: 12 });
 });
 
-function createConstraintMap(setMinName: string, setMaxName: string) {
+/** The value MapLibre's setter uses when it is called with `null` or `undefined`. */
+type DefaultRange = { min: number; max: number };
+
+function createConstraintMap(setMinName: string, setMaxName: string, defaultRange: DefaultRange) {
   let first: 'min' | 'max' | null = null;
   let currentMin = 0;
   let currentMax = 0;
+  const getMinName = setMinName.replace('set', 'get');
   const map = {
-    [setMinName]: (nextMin: number) => {
+    [getMinName]: () => currentMin,
+    [setMinName]: (nextMin: number | null | undefined) => {
+      nextMin ??= defaultRange.min;
       if (nextMin > currentMax) {
         throw new Error(`Setting ${setMinName} (${nextMin}) > current max (${currentMax})`);
       }
@@ -160,7 +166,8 @@ function createConstraintMap(setMinName: string, setMaxName: string) {
         first = 'min';
       }
     },
-    [setMaxName]: (nextMax: number) => {
+    [setMaxName]: (nextMax: number | null | undefined) => {
+      nextMax ??= defaultRange.max;
       if (nextMax < currentMin) {
         throw new Error(`Setting ${setMaxName} (${nextMax}) < current min (${currentMin})`);
       }
@@ -188,8 +195,9 @@ function testConstraintUpdate(
   setMinName: string,
   setMaxName: string,
   label: string,
+  defaultRange: DefaultRange,
 ) {
-  const helper = createConstraintMap(setMinName, setMaxName);
+  const helper = createConstraintMap(setMinName, setMaxName, defaultRange);
 
   // Range shifting down
   helper.reset(5, 10);
@@ -241,16 +249,53 @@ function testConstraintUpdate(
   updateFn(helper.map, { min: 3, max: 8 }, { min: 6, max: 10 });
   expect(helper.getFirst(), `${label}: 6 - 10 -> 3 - 8, partial overlap shifting down`).toBe('min');
 
+  // Resetting max may lower it below the current min
+  helper.reset(defaultRange.max + 1, defaultRange.max + 2);
+  updateFn(
+    helper.map,
+    { min: defaultRange.max - 2, max: undefined },
+    { min: defaultRange.max + 1, max: defaultRange.max + 2 },
+  );
+  expect(helper.getFirst(), `${label}: lower min before resetting max`).toBe('min');
+
+  // Not in upstream's #2612 tests: resetting min while lowering max below the current min
+  helper.reset(5, 10);
+  updateFn(helper.map, { min: undefined, max: 3 }, { min: 5, max: 10 });
+  expect(helper.getFirst(), `${label}: reset min before lowering max`).toBe('min');
+
+  // Not in upstream's #2612 tests: the order follows the map's current min, not the previous
+  // props (they differ once the raw map's limits were changed directly)
+  helper.reset(5, 10);
+  updateFn(helper.map, { min: 4, max: 4.5 }, { min: 1, max: 3 });
+  expect(helper.getFirst(), `${label}: order from the map's current min`).toBe('min');
+
+  // All nullable forms represent the same native reset
+  helper.reset(defaultRange.min, defaultRange.max);
+  const nullableChanged = updateFn(
+    helper.map,
+    { min: null, max: undefined },
+    { min: undefined, max: null },
+  );
+  expect(nullableChanged, `${label}: nullable reset forms are equivalent`).toBe(false);
+  expect(helper.getFirst(), `${label}: nullable reset forms do not call setters`).toBe(null);
+
   // No change returns false
   helper.reset(3, 10);
   const changed = updateFn(helper.map, { min: 3, max: 10 }, { min: 3, max: 10 });
   expect(changed, `${label}: no change returns false`).toBe(false);
 }
 
+// MapLibre's own setter defaults (`defaultMinZoom` etc. in maplibre-gl's `ui/map.ts`).
 test('updateZoomConstraint', () => {
-  testConstraintUpdate(updateZoomConstraint, 'setMinZoom', 'setMaxZoom', 'zoom');
+  testConstraintUpdate(updateZoomConstraint, 'setMinZoom', 'setMaxZoom', 'zoom', {
+    min: -2,
+    max: 22,
+  });
 });
 
 test('updatePitchConstraint', () => {
-  testConstraintUpdate(updatePitchConstraint, 'setMinPitch', 'setMaxPitch', 'pitch');
+  testConstraintUpdate(updatePitchConstraint, 'setMinPitch', 'setMaxPitch', 'pitch', {
+    min: 0,
+    max: 60,
+  });
 });

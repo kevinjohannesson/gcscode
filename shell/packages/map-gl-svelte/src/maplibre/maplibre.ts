@@ -42,8 +42,27 @@ import {
   type ConstraintRange,
 } from '../utils/transform';
 
+const cameraConstraintNames = ['minZoom', 'maxZoom', 'minPitch', 'maxPitch'] as const;
+
+/** Map options that are also live props; MapLibre's own docs and defaults apply. */
+type ReactiveMapOptions = Pick<
+  MapOptions,
+  (typeof cameraConstraintNames)[number] | 'maxBounds' | 'renderWorldCopies'
+>;
+
+// A nullish limit means MapLibre's default. Passing it to the constructor would override that
+// default instead (on 5.24 `undefined` gives minZoom 0 rather than -2, and `null` gives null limits).
+function removeNullishCameraConstraints(options: ReactiveMapOptions): void {
+  for (const propName of cameraConstraintNames) {
+    if (options[propName] === null || options[propName] === undefined) {
+      delete options[propName];
+    }
+  }
+}
+
 export type MaplibreProps = Partial<ViewState> &
-  MapCallbacks & {
+  MapCallbacks &
+  ReactiveMapOptions & {
     /** Camera options used when constructing the Map instance */
     initialViewState?: Partial<ViewState> & {
       /** The initial bounds of the map. If bounds is specified, it overrides longitude, latitude and zoom options. */
@@ -90,31 +109,6 @@ export type MaplibreProps = Partial<ViewState> &
     interactiveLayerIds?: string[];
     /** CSS cursor */
     cursor?: string;
-
-    /** Minimum zoom available to the map.
-     * @default 0
-     */
-    minZoom?: number;
-    /** Maximum zoom available to the map.
-     * @default 22
-     */
-    maxZoom?: number;
-    /** Minimum pitch available to the map.
-     * @default 0
-     */
-    minPitch?: number;
-    /** Maximum pitch available to the map.
-     * @default 85
-     */
-    maxPitch?: number;
-    /** Bounds of the map.
-     * @default [-180, -85.051129, 180, 85.051129]
-     */
-    maxBounds?: [number, number, number, number];
-    /** Whether to render copies of the world or not.
-     * @default true
-     */
-    renderWorldCopies?: boolean;
   };
 
 /** The map's interaction handlers, each switched by a prop of the same name. */
@@ -132,12 +126,11 @@ type SettingName = 'maxBounds' | 'projection' | 'renderWorldCopies';
 
 const DEFAULT_STYLE = { version: 8, sources: {}, layers: [] } as StyleSpecification;
 
-/** The value each constraint and setting prop stands for when it is `undefined`. */
-export const DEFAULT_SETTINGS = {
-  minZoom: 0,
-  maxZoom: 22,
-  minPitch: 0,
-  maxPitch: 85,
+/**
+ * The value each setting prop stands for when it is `undefined`. Zoom and pitch limits have no
+ * entry: a nullish limit goes to MapLibre's setter as is, which restores MapLibre's own default.
+ */
+const DEFAULT_SETTINGS = {
   maxBounds: [-180, -85.051129, 180, 85.051129] as [number, number, number, number],
   projection: 'mercator' as const,
   renderWorldCopies: true,
@@ -209,17 +202,11 @@ type Handler = { enable(options?: unknown): void; disable(): void };
 type HandlerProps = Partial<Record<HandlerName, unknown>>;
 
 function zoomRange(props: MaplibreProps): ConstraintRange {
-  return {
-    min: props.minZoom ?? DEFAULT_SETTINGS.minZoom,
-    max: props.maxZoom ?? DEFAULT_SETTINGS.maxZoom,
-  };
+  return { min: props.minZoom, max: props.maxZoom };
 }
 
 function pitchRange(props: MaplibreProps): ConstraintRange {
-  return {
-    min: props.minPitch ?? DEFAULT_SETTINGS.minPitch,
-    max: props.maxPitch ?? DEFAULT_SETTINGS.maxPitch,
-  };
+  return { min: props.minPitch, max: props.maxPitch };
 }
 
 /**
@@ -337,6 +324,7 @@ export default class Maplibre {
       container,
       style: normalizeStyle(mapStyle),
     };
+    removeNullishCameraConstraints(mapOptions);
 
     const viewState: Partial<ViewState> =
       mapOptions.initialViewState || mapOptions.viewState || mapOptions;

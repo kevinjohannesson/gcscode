@@ -9,8 +9,11 @@ import { deepEqual } from './deep-equal';
  */
 export type CameraProps = Partial<ViewState> & { viewState?: Partial<ViewState> };
 
+/** One end of a map constraint. `null` or `undefined` resets it to MapLibre's own default. */
+export type ConstraintValue = number | null | undefined;
+
 /** A `{ min, max }` pair of a map constraint such as zoom or pitch limits. */
-export type ConstraintRange = { min: number; max: number };
+export type ConstraintRange = { min: ConstraintValue; max: ConstraintValue };
 
 /**
  * maplibre-gl v6 removed the public `map.transform` property in favor of
@@ -83,39 +86,53 @@ export function applyViewStateToTransform(
   return changes;
 }
 
+function isConstraintReset(value: ConstraintValue): value is null | undefined {
+  return value === null || value === undefined;
+}
+
+function sameConstraintValue(a: ConstraintValue, b: ConstraintValue): boolean {
+  return (isConstraintReset(a) && isConstraintReset(b)) || a === b;
+}
+
 /**
  * Update a min/max constraint pair in the right order to avoid
  * temporarily setting min > max (which maplibre rejects).
+ * A nullish end is passed to MapLibre's setter as is, which resets it to MapLibre's default.
  * @param nextRange - the desired constraint range
  * @param currentRange - the current constraint range
+ * @param getCurrentMin - getter for the map's current minimum
  * @param setMin - setter for the minimum value
  * @param setMax - setter for the maximum value
  */
 function updateConstraint(
   nextRange: ConstraintRange,
   currentRange: ConstraintRange,
-  setMin: (v: number) => void,
-  setMax: (v: number) => void,
+  getCurrentMin: () => number,
+  setMin: (v?: number | null) => void,
+  setMax: (v?: number | null) => void,
 ): boolean {
-  if (nextRange.min === currentRange.min && nextRange.max === currentRange.max) {
+  const minChanged = !sameConstraintValue(nextRange.min, currentRange.min);
+  const maxChanged = !sameConstraintValue(nextRange.max, currentRange.max);
+
+  if (!minChanged && !maxChanged) {
     return false;
   }
 
-  // When moving up (min increasing), update max first to make room
-  if (nextRange.min >= currentRange.min) {
-    if (nextRange.max !== currentRange.max) {
-      setMax(nextRange.max);
-    }
-    if (nextRange.min !== currentRange.min) {
+  // When lowering or resetting min, update it first to make room.
+  // Otherwise update max first before raising min.
+  if (isConstraintReset(nextRange.min) || nextRange.min < getCurrentMin()) {
+    if (minChanged) {
       setMin(nextRange.min);
+    }
+    if (maxChanged) {
+      setMax(nextRange.max);
     }
   } else {
-    // When moving down (min decreasing), update min first to make room
-    if (nextRange.min !== currentRange.min) {
-      setMin(nextRange.min);
-    }
-    if (nextRange.max !== currentRange.max) {
+    if (maxChanged) {
       setMax(nextRange.max);
+    }
+    if (minChanged) {
+      setMin(nextRange.min);
     }
   }
 
@@ -130,6 +147,7 @@ export function updateZoomConstraint(
   return updateConstraint(
     nextRange,
     currentRange,
+    () => map.getMinZoom(),
     (v) => map.setMinZoom(v),
     (v) => map.setMaxZoom(v),
   );
@@ -143,6 +161,7 @@ export function updatePitchConstraint(
   return updateConstraint(
     nextRange,
     currentRange,
+    () => map.getMinPitch(),
     (v) => map.setMinPitch(v),
     (v) => map.setMaxPitch(v),
   );
