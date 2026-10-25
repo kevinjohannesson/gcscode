@@ -122,7 +122,8 @@ export type HandlerName =
   | 'touchZoomRotate'
   | 'touchPitch';
 
-type SettingName = 'maxBounds' | 'projection' | 'renderWorldCopies';
+/** The map settings applied through `updateSetting`. */
+export type SettingName = 'maxBounds' | 'projection' | 'renderWorldCopies';
 
 const DEFAULT_STYLE = { version: 8, sources: {}, layers: [] } as StyleSpecification;
 
@@ -184,8 +185,12 @@ const otherEvents = {
   sourcedata: 'onSourceData',
   error: 'onError',
 } as const satisfies Record<string, keyof MapCallbacks>;
-const settingNames: readonly SettingName[] = ['maxBounds', 'projection', 'renderWorldCopies'];
-const handlerNames: readonly HandlerName[] = [
+export const settingNames: readonly SettingName[] = [
+  'maxBounds',
+  'projection',
+  'renderWorldCopies',
+];
+export const handlerNames: readonly HandlerName[] = [
   'scrollZoom',
   'boxZoom',
   'dragRotate',
@@ -238,6 +243,8 @@ export default class Maplibre {
   } = {};
   private _redrawRequested = false;
   private _destroyed = false;
+  // What `reuse()` diffs the next props against; set by `recycle()`.
+  private _recycledProps: MaplibreProps | null = null;
 
   public constructor(
     MapClass: new (options: MapOptions) => MapInstance,
@@ -286,8 +293,9 @@ export default class Maplibre {
     }
 
     // Step 4: apply new props. The wrapper reads the new live props object from now on;
-    // sync the map to it against the previous props, without style diffing.
-    const prevProps = that._props;
+    // sync the map to it against the props it was parked with, without style diffing.
+    const prevProps = that._recycledProps ?? that._props;
+    that._recycledProps = null;
     that._props = props;
     that._syncAll(prevProps, false);
     map.resize();
@@ -392,13 +400,19 @@ export default class Maplibre {
     return map;
   }
 
-  /** Parks the wrapper in `savedMaps` for `reuse()`, after removing the children's element. */
+  /**
+   * Parks the wrapper in `savedMaps` for `reuse()`, after removing the children's element.
+   * Keeps a shallow copy of the props for `reuse()` to diff the next props against: a Svelte
+   * props object goes on reading its parent's state after the component unmounts, so diffing
+   * against it later would miss every prop that changed while the map was parked.
+   */
   public recycle(): void {
     // Clean up unnecessary elements before storing for reuse.
     const container = this._map.getContainer();
     const children = container.querySelector('[mapboxgl-children]');
     children?.remove();
 
+    this._recycledProps = { ...this._props };
     Maplibre.savedMaps.push(this);
   }
 

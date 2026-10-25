@@ -336,3 +336,24 @@ test('reuse() adopts the new container and the new live props', async () => {
   expect(oldOnClick).not.toHaveBeenCalled();
   oldContainer.remove();
 });
+
+test('reuse() diffs against the props as they were when recycled', async () => {
+  // A props object that keeps changing after recycle(), as a Svelte parent's state can.
+  const props: MaplibreProps = {
+    mapStyle: EMPTY_STYLE,
+    cursor: 'pointer',
+    renderWorldCopies: false,
+  };
+  const first = create(props);
+  await waitForLoad(first.map);
+  const oldContainer = first.map.getContainer();
+
+  first.recycle();
+  props.cursor = 'wait';
+  props.renderWorldCopies = true;
+  expect(Maplibre.reuse(props, createContainer())).toBe(first);
+
+  expect(first.map.getCanvas().style.cursor).toBe('wait');
+  expect(first.map.getRenderWorldCopies()).toBe(true);
+  oldContainer.remove();
+});
