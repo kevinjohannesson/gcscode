@@ -8,9 +8,21 @@
 
   let layerCounter = 0;
 
+  /** The layer types MapLibre adds without a source. */
+  const SOURCELESS_TYPES = ['background', 'custom'];
+
   /** An id for a Layer given none. Upstream's are `jsx-layer-N`. */
   function generateId(): string {
     return `svelte-layer-${layerCounter++}`;
+  }
+
+  /**
+   * Whether the layer can be added now: a layer of a type that needs a source waits until it has
+   * a source id, and that source is on the map. Upstream waits for `source={undefined}` too
+   * (`'source' in props`), which Svelte can't tell from an absent `source`.
+   */
+  function canAdd(map: MapInstance, type: string, source: string | undefined): boolean {
+    return source === undefined ? SOURCELESS_TYPES.includes(type) : Boolean(map.getSource(source));
   }
 
   function createLayer(
@@ -19,7 +31,7 @@
     props: LayerProps,
     source: string | undefined,
   ): void {
-    if (map.style && map.style._loaded && (source === undefined || map.getSource(source))) {
+    if (map.style && map.style._loaded && canAdd(map, props.type, source)) {
       const options: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(props)) {
         // Svelte passes an unset prop as a present `undefined`, which MapLibre's validation

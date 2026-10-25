@@ -8,10 +8,12 @@ import {
   layerIds,
   pointFeature,
   render,
+  settle,
   waitForMapLoad,
   type FixtureProps,
 } from '../test-fixtures/source-layer-harness.svelte';
 import { EMPTY_STYLE, backgroundStyle } from '../test-utils/map-test-utils';
+import type { LayerProps } from './layer-props';
 
 afterEach(() => {
   cleanup();
@@ -147,6 +149,40 @@ test.each(['nested', 'flat'] as const)(
     expect(r.errors, 'no error events').toEqual([]);
   },
 );
+
+// `source={selectedId}` before anything is selected. The Source is mounted, so the layer can't
+// be waiting for it: only the undefined id holds it back.
+test.each([
+  ['source={undefined}', { source: undefined }],
+  ['no source prop', {}],
+])('a circle layer with %s waits silently for a source id', async (_, source) => {
+  const r = render({
+    mapStyle: EMPTY_STYLE,
+    flat: { id: 'flat', type: 'circle', ...source },
+    source: pointsSource(),
+  });
+  const map = await r.map();
+  await eventually(() => expect(map.getSource('pts'), 'the source is added').toBeDefined());
+  await settle(map);
+  expect(map.getLayer('flat'), 'no layer yet').toBeUndefined();
+  expect(r.errors, 'no error event').toEqual([]);
+
+  r.props.flat = { id: 'flat', type: 'circle', source: 'pts' };
+  flushSync();
+  await eventually(() => expect(map.getLayer('flat'), 'the layer is added').toBeDefined());
+  expect(map.getLayer('flat')?.source).toBe('pts');
+  expect(r.errors, 'no error events').toEqual([]);
+});
+
+test.each([
+  ['background', { id: 'paper', type: 'background' }],
+  ['custom', { id: 'paper', type: 'custom', render: () => {} }],
+] satisfies [string, LayerProps][])('a %s layer needs no source', async (_, flat) => {
+  const r = render({ mapStyle: EMPTY_STYLE, flat });
+  const map = await r.map();
+  await eventually(() => expect(map.getLayer('paper'), 'the layer is added').toBeDefined());
+  expect(r.errors, 'no error events').toEqual([]);
+});
 
 test('layer updates', async () => {
   const warn = vi.spyOn(console, 'warn');
