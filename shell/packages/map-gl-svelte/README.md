@@ -1,6 +1,6 @@
 # map-gl-svelte
 
-A Svelte 5 port of `@vis.gl/react-maplibre`, the MapLibre bindings of react-map-gl. The public API follows upstream's: the same components, props, callback names and event payloads. The internals use Svelte's own fine-grained reactivity instead of React's re-render-and-diff. Everything that behaves differently is listed below.
+A Svelte 5 port of `@vis.gl/react-maplibre`, the MapLibre bindings of react-map-gl. The public API follows upstream's (the same components, props, callback names and event payloads), apart from the differences listed below. The internals use Svelte's own fine-grained reactivity instead of React's re-render-and-diff. That list is the differences known to the author.
 
 This package is a standalone artifact housed in the gcscode repo: `"private": true`, consumed from source (no build step), client-only (no SSR). It is not part of the gcscode shell or its extensions.
 
@@ -99,7 +99,7 @@ Object props update on **reassignment, not mutation**. Pass a new object to chan
 </Map>
 ```
 
-Nested and flat layers go through the same code: a Layer's only link to a Source is the source id, checked against the map. A style swap (`mapStyle` changing) wipes the style's sources and layers; both forms re-add themselves.
+Nested and flat layers go through the same code: a Layer's only link to a Source is the source id, checked against the map. A style swap (`mapStyle` changing) wipes the style's sources and layers; a Source and its nested Layers re-add themselves (the demo's style button shows it).
 
 ### Markers and popups
 
@@ -203,7 +203,7 @@ Use that component as a child of `<Map>`. The demo's `zoom-readout.svelte` is a 
 
 `bind:this` replaces upstream's refs. `<Map>` exports `getMapRef()`, which returns the `MapRef` (every public map method, bound to the map, minus the mutators upstream fences off, plus `getMap()` for the raw MapLibre map) or `null` until the map exists. `<Marker>` exports `getMarker()`, `<Popup>` `getPopup()` and `<GeolocateControl>` `getControl()`.
 
-`<MapProvider>` and `useMap()` work as upstream's do. Call `useMap()` during component initialisation and read `maps.current` or `maps[id]` where you use them. **Don't destructure** the result: `const { current } = useMap()` takes a snapshot and loses reactivity.
+`<MapProvider>` and `useMap()` follow upstream's, with the differences in items 8 and 21 below. Call `useMap()` during component initialisation and read `maps.current` or `maps[id]` where you use them. **Don't destructure** the result: `const { current } = useMap()` takes a snapshot and loses reactivity.
 
 ```svelte
 <!-- app.svelte -->
@@ -240,7 +240,7 @@ Use that component as a child of `<Map>`. The demo's `zoom-readout.svelte` is a 
 pnpm --filter map-gl-svelte demo
 ```
 
-Opens a Vite app on port 5175 with five pages: uncontrolled and controlled cameras side by side, a GeoJSON source with circle and line layers (a button that reassigns `data`, another that swaps the style), a draggable marker with a popup and a marker with custom children, all eight built-in controls, and a custom `IControl` through `useControl`. The basemap is OpenFreeMap's positron style (free, no key), so the demo needs network access. The demo imports the package only through `map-gl-svelte`.
+Opens a Vite app on port 5175 with five pages: uncontrolled and controlled cameras side by side, a GeoJSON source with circle and line layers (a button that reassigns `data`, another that swaps the style), a draggable marker with a popup and a marker with custom children, all eight built-in controls, and a custom `IControl` through `useControl`. The basemap is OpenFreeMap's positron style (free, no key), so the demo needs network access. The demo imports the package only through `map-gl-svelte` (and MapLibre's stylesheet).
 
 ## Tests
 
@@ -279,7 +279,7 @@ Upstream is `@vis.gl/react-maplibre` at tag `v8.1.3` (`modules/react-maplibre/` 
 
 ### Behavior
 
-1. **Forced redraw uses MapLibre's public `map.redraw()`.** After an external change (a setting, the controlled size, the camera while the map isn't moving), the map is redrawn synchronously so the map and the surrounding UI change in the same frame. Upstream cancels `map._frame` and calls `map._render()`. On MapLibre 5 the pending frame is held in `_frameRequest` and there is no `_frame`, so, from reading upstream's code, upstream's cancel does nothing and it renders twice per external change. The port renders once. At most one redraw happens per Svelte update flush, however many props changed.
+1. **Forced redraw uses MapLibre's public `map.redraw()`.** After an external change (a setting, the controlled size, the camera while the map isn't moving), the port queues a redraw that runs in a microtask right after the update, so it lands before the next animation frame and the map and the surrounding UI change in the same frame. Upstream cancels `map._frame` and calls `map._render()`. On MapLibre 5 the pending frame is held in `_frameRequest` and there is no `_frame`, so, from reading upstream's code, upstream's cancel does nothing and it renders twice per external change. The port renders once. Redraw requests are coalesced: at most one redraw runs per microtask turn, however many props changed.
 2. **Reassignment, not mutation.** See [Sources and layers](#sources-and-layers). This covers `paint`, `layout`, `filter`, Source options including GeoJSON `data`, and `mapStyle`.
 3. **`zoom={undefined}` is uncontrolled.** A camera field is controlled when its value is not `undefined`. Upstream decides by whether the prop is present (`'zoom' in props`), which Svelte props can't reliably tell from "undefined".
 4. **A Source's id reaches all its descendant Layers**, through context, not only direct children (upstream uses `cloneElement` on direct children). An explicit `source` prop on a Layer wins.
@@ -309,14 +309,14 @@ Upstream's tests target MapLibre `^6`; these run on 5.24.
 
 22. Upstream's test `getTransformLike#pre-v5` is dropped: the port's floor is MapLibre 5.
 23. Upstream's `Map#controlled#mirror-back` assertion is kept verbatim as an **expected failure** (`test.fails`), next to a test that pins the measured lag. See open question 1.
-24. The two translated upstream `Source`/`Layer` tests wait for the source or the layer itself, where upstream waits for the style to load. Measured: a pending re-check can re-add the source before the style swap's own `styledata`, after which upstream's wait never resolves. The assertions are unchanged.
-25. **No translated test needed adjusting for a MapLibre 5-versus-6 difference.** Each translated test was run on 5.24 and any failure was read to decide between a port bug and a version difference; none turned out to be a version difference. The test differences in 22 to 24 come from the port's floor, from Svelte, and from a timing assumption in upstream's helper.
+24. The two translated upstream `Source`/`Layer` tests wait for the source or the layer itself, where upstream waits for the style to load. Measured: a pending re-check can re-add the source before the style swap's own `styledata`, after which that wait never resolves. The assertions are unchanged.
+25. **No translated test was adjusted for a MapLibre 5-versus-6 difference.** No such difference was recorded while porting. The test differences in 22 to 24 come from the port's floor, from Svelte, and from the style-load wait in upstream's helper.
 
 ## Open questions, answered
 
 The spec set four questions to settle by measuring. All measurements are on MapLibre 5.24 in headless Chromium.
 
-1. **Does a controlled camera lag during a drag?** Yes, by one event. While the map is moving, the controlled map renders the camera from the _previous_ `onMove`, one event behind the app's state, and catches up when movement ends. Delayed updates (state set in a `setTimeout`) behave as upstream's test expects. The mechanism is the same as in React: the camera hook can only apply props the app has already set, and `onMove` reports the proposal after the hook ran. Upstream's mirror-back test passes in React only because the `viewState` it checks against is the one bound at React's last render, which is just as stale as the map. Svelte's `$state` is already current, so the lag becomes visible. React's side is reasoned from upstream's code, not measured.
+1. **Does a controlled camera lag during a drag?** Yes, by one event. While the map is moving, the controlled map renders the camera from the _previous_ `onMove`, one event behind the app's state, and catches up when movement ends. Delayed updates (state set in a `setTimeout`) behave as upstream's test expects. The mechanism is the same as in React (the React side is reasoned from upstream's code, not measured): the camera hook can only apply props the app has already set, and `onMove` reports the proposal after the hook ran. Upstream's mirror-back test passes in React only because the `viewState` it checks against is the one bound at React's last render, which is just as stale as the map. Svelte's `$state` is already current, so the lag becomes visible.
 2. **Does Svelte tear a parent's effects down before or after its children's?** Children before parent, the opposite of React. Upstream's Source cleanup (remove every style layer that uses the source, then the source) is still needed, for flat `<Layer source="…">` components that live outside the Source.
 3. **Is Source's `setTimeout(0)` needed?** No: the style-swap test is green without it. It is kept anyway, for fidelity with upstream.
 4. **Does the forced redraw need `$effect.pre`?** No. The redraw (one microtask after the update) lands before the next animation frame, with or without `flushSync`, and `$effect` versus `$effect.pre` makes no difference. Only render-before-next-frame was measured; that the DOM is updated before the effect runs relies on Svelte's documented flush order.
