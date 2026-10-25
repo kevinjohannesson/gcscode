@@ -35,6 +35,8 @@ git show "<headRefOid>:<path>"        # a full file at the PR head
 In fix-check mode also read `git show "$FIX_SHA"` and your previous review:
 `gh api "repos/{owner}/{repo}/pulls/$PR/reviews/$PREVIOUS_REVIEW_ID" --jq .body`.
 
+Read `shell/.claude/rules/docs.md` at the PR head too: it holds the conventions specs and ADRs are written to (required headings, the historical record, VS Code alignment, out-of-scope propagation), and it does not load by itself when you read files with `git show`.
+
 Also read the ADRs the artifact relies on and, when it touches API surface, `shell/packages/extension-api/README.md` and the source under `shell/packages/extension-api/src/`.
 
 ## Scope

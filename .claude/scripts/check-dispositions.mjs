@@ -10,15 +10,16 @@
 //
 //   RT-1 fixed: shell/docs/specs/foo.md
 //   RT-2 kept: <reason>
-//   RT-3 deferred: shell/docs/roadmap.md#considering
+//   RT-3 deferred: shell/docs/specs/2026-10-22-review-loop-v2.md#known-unknowns
 //
-// `fixed:` paths must exist and be changed by the commit. A `deferred:` target must
-// exist and mention the finding qualified by its PR (`PR #38 RT-3`), because IDs
-// restart on every PR. That is what catches "routed to the roadmap" claims that
-// never landed.
+// `fixed:` paths must exist and be changed by the commit. A `deferred:` target names
+// a file and a `#section`, and that section must mention the finding qualified by its
+// PR (`PR #38 RT-3`), because IDs restart on every PR. That is what catches "routed to
+// the roadmap" claims that never landed.
 
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { section } from '../../shell/scripts/lint-docs.mjs';
 
 const ID = '[A-Z]{2,4}-\\d{1,3}';
 const STATUS = new RegExp(
@@ -103,12 +104,27 @@ export function checkDispositions({ pr, open, message, changed, fileText }) {
     }
 
     if (verb === 'deferred') {
-      const path = value.split('#')[0].trim();
+      const target = value.split(/\s/)[0];
+      const [path, anchor] = target.split('#');
       const text = fileText(path);
       const qualified = new RegExp(`PR #${pr}\\b(?:[\\s,/]+${ID})*[\\s,/]+${id}\\b`);
-      if (text === null) problems.push(`${id}: deferred to ${path}, which does not exist`);
-      else if (!qualified.test(text)) {
-        problems.push(`${id}: deferred to ${path}, but "PR #${pr} ${id}" appears nowhere in it`);
+      if (text === null) {
+        problems.push(`${id}: deferred to ${path}, which does not exist`);
+        continue;
+      }
+      if (!anchor) {
+        problems.push(
+          `${id}: deferred to ${path} without a #section — name the heading that records it`,
+        );
+        continue;
+      }
+      const scope = section(text, decodeURIComponent(anchor));
+      if (scope === null) {
+        problems.push(`${id}: deferred to ${target}, but ${path} has no heading #${anchor}`);
+      } else if (!qualified.test(scope)) {
+        problems.push(
+          `${id}: deferred to ${target}, but "PR #${pr} ${id}" appears nowhere under that heading`,
+        );
       }
     }
   }

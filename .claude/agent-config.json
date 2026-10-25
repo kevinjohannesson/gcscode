@@ -1,9 +1,54 @@
 {
-  "reviewerApps": {
-    "spec-compliance": { "appId": "3742240", "installationId": "133058924" },
-    "code-quality":    { "appId": "3742253", "installationId": "133059467" },
-    "final-review":    { "appId": "3742256", "installationId": "133059507" },
-    "red-team":        { "appId": "3742257", "installationId": "133059552" },
-    "extension-architect":   { "appId": "3748928", "installationId": "133236796" }
+  "$comment": "The reviewer registry (shell/docs/decisions/ADR-0013-agent-config-is-the-registry.md): one entry per role, and nothing else restates these fields; when each role runs is the review-loop skill's. A role with an agentFile keeps its instructions, pinned model ID, review header and token slug in that file. A role without one runs a superpowers prompt (instructions), so the controller's dispatch carries its token step, verdicts and headers from here, and model is a family alias. In headers, <model> is 'Claude ' plus the model the reviewer's system prompt names. Private keys: $HOME/.config/gcscode/gcscode-<role>.pem, or $GH_REVIEWER_APP_PRIVATE_KEY_DIR/gcscode-<role>.pem. Dispatch, timing and the architect's routing heuristic: the review-loop skill.",
+  "roles": {
+    "spec-compliance": {
+      "identity": "gcscode-spec-compliance[bot]",
+      "appId": "3742240",
+      "installationId": "133058924",
+      "routing": "always",
+      "verdicts": ["--comment", "--request-changes"],
+      "instructions": "superpowers:subagent-driven-development/spec-reviewer-prompt.md",
+      "model": "sonnet",
+      "header": "## Spec-compliance review — task <N> — <model>",
+      "reReviewHeader": "## Spec-compliance review — task <N> (re-review of <SHA>) — <model>"
+    },
+    "code-quality": {
+      "identity": "gcscode-code-quality[bot]",
+      "appId": "3742253",
+      "installationId": "133059467",
+      "routing": "always",
+      "verdicts": ["--comment", "--request-changes"],
+      "instructions": "superpowers:subagent-driven-development/code-quality-reviewer-prompt.md",
+      "model": "sonnet",
+      "header": "## Code-quality review — task <N> — <model>",
+      "reReviewHeader": "## Code-quality review — task <N> (re-review of <SHA>) — <model>"
+    },
+    "final-review": {
+      "identity": "gcscode-final-review[bot]",
+      "appId": "3742256",
+      "installationId": "133059507",
+      "routing": "always",
+      "verdicts": ["--request-changes", "--approve"],
+      "instructions": "superpowers:requesting-code-review/code-reviewer.md",
+      "model": "opus",
+      "header": "## Final cross-cutting review — <model>",
+      "reReviewHeader": "## Final cross-cutting review (re-review of <SHA>) — <model>"
+    },
+    "red-team": {
+      "identity": "gcscode-red-team[bot]",
+      "appId": "3742257",
+      "installationId": "133059552",
+      "routing": "always",
+      "verdicts": ["--comment"],
+      "agentFile": ".claude/agents/red-team-reviewer.md"
+    },
+    "extension-architect": {
+      "identity": "gcscode-extension-architect[bot]",
+      "appId": "3748928",
+      "installationId": "133236796",
+      "routing": "heuristic: product spec/ADR PRs that touch extension architecture (review-loop skill); never agentic-process PRs",
+      "verdicts": ["--comment"],
+      "agentFile": ".claude/agents/extension-architect-reviewer.md"
+    }
   }
 }

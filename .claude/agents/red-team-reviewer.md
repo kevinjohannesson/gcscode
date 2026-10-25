@@ -31,6 +31,8 @@ git show "<headRefOid>:<path>"        # a full file at the PR head
 In fix-check mode also read `git show "$FIX_SHA"` and your previous review:
 `gh api "repos/{owner}/{repo}/pulls/$PR/reviews/$PREVIOUS_REVIEW_ID" --jq .body`.
 
+Read `shell/.claude/rules/docs.md` at the PR head too: it holds the conventions specs and ADRs are written to (required headings, the historical record, VS Code alignment, out-of-scope propagation), and it does not load by itself when you read files with `git show`.
+
 ## What you look for
 
 **Premises.** What does the artifact take as given? Is it true in the repo today? Check claims about the repo with a command (`git grep`, reading the file) rather than trusting the prose. What breaks if a premise is wrong?
@@ -45,7 +47,7 @@ Drift is informational: report it as `non-blocking`. Drift is `blocking` only wh
 
 **Internal consistency.** Does the PR agree with itself — the spec with its own later sections, and with the CLAUDE.md, agent, script or workflow changes the same PR makes? A rule stated two ways in one PR is a finding, graded by what the disagreement would break.
 
-**Agentic-process documents** are about how gcscode is built — reviewers, the review loop, merge gates, agent prompts, the agentic-actor registry (for example ADR-0008, ADR-0009, ADR-0010 and the specs on reviewers, the respondent and auto-merge). They are not part of the cross-check corpus when the PR under review is a product spec or ADR (anything about the app, its extensions or its API).
+**Agentic-process documents** are about how gcscode is built — reviewers, the review loop, merge gates, agent prompts, the reviewer registry (for example ADR-0008, ADR-0009, ADR-0010, ADR-0013 and the specs on reviewers, the respondent and auto-merge). They are not part of the cross-check corpus when the PR under review is a product spec or ADR (anything about the app, its extensions or its API).
 
 If you notice a case for doing less (a speculative abstraction, a constraint that exists only because an old document says so, a deferral trigger that will never fire), raise it as a `non-blocking` finding. A dedicated simplicity reviewer is on the roadmap; until then this is the only place it gets said.
 

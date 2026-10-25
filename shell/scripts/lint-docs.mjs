@@ -59,28 +59,51 @@ function* walkLines(text) {
   }
 }
 
-/** Heading texts outside code fences, in order. */
-export function headings(text) {
+/**
+ * Headings outside code fences, in order: [{ line, level, text, anchor }]. Anchors are
+ * the ones GitHub generates, with -1, -2 suffixes on duplicates.
+ */
+function headingList(text) {
+  const seen = new Map();
   const found = [];
-  for (const [, line, inFence] of walkLines(text)) {
+  for (const [line, content, inFence] of walkLines(text)) {
     if (inFence) continue;
-    const match = /^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/.exec(line);
-    if (match) found.push(match[1]);
+    const match = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/.exec(content);
+    if (!match) continue;
+    const base = slugify(match[2]);
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    found.push({
+      line,
+      level: match[1].length,
+      text: match[2],
+      anchor: count === 0 ? base : `${base}-${count}`,
+    });
   }
   return found;
 }
 
-/** Anchors GitHub generates for a document, with -1, -2 suffixes on duplicates. */
+/** Heading texts outside code fences, in order. */
+export function headings(text) {
+  return headingList(text).map((heading) => heading.text);
+}
+
+/** Anchors GitHub generates for a document. */
 export function anchors(text) {
-  const seen = new Map();
-  const result = new Set();
-  for (const heading of headings(text)) {
-    const base = slugify(heading);
-    const count = seen.get(base) ?? 0;
-    seen.set(base, count + 1);
-    result.add(count === 0 ? base : `${base}-${count}`);
-  }
-  return result;
+  return new Set(headingList(text).map((heading) => heading.anchor));
+}
+
+/**
+ * The text under the heading with this anchor, up to the next heading at the same or a
+ * higher level (so subsections are included), or null if no heading has the anchor.
+ */
+export function section(text, anchor) {
+  const list = headingList(text);
+  const start = list.findIndex((heading) => heading.anchor === anchor.toLowerCase());
+  if (start === -1) return null;
+  const end = list.slice(start + 1).find((heading) => heading.level <= list[start].level);
+  const lines = text.split('\n');
+  return lines.slice(list[start].line, end ? end.line - 1 : lines.length).join('\n');
 }
 
 /** Link targets outside code fences and inline code: [{ line, target }]. */

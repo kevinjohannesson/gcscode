@@ -26,7 +26,7 @@ This is a multi-stage flow; each stage gates the next. Don't jump ahead.
 
 Read in this order, skim-not-deep-read, focused on what's changed since the last housekeeping pass:
 
-1. `CLAUDE.md` — current conventions and the "Planning conventions" section.
+1. `CLAUDE.md` and `.claude/rules/` — current conventions; `.claude/rules/docs.md` holds the planning conventions.
 2. `docs/roadmap.md` — what's shipped, what's planned, Phase status.
 3. `docs/out-of-scope.md` — deferred items + their triggers.
 4. `docs/vs-code-alignment.md` — the cumulative VS Code alignment ledger.
@@ -35,7 +35,7 @@ Read in this order, skim-not-deep-read, focused on what's changed since the last
 7. `packages/extension-api/src/index.ts` — the public API contract.
 8. Any package READMEs that have shipped iterations recently.
 9. `git log --oneline -30` — recent commit history.
-10. `docs/brainfarts.md` — read but treat as inert (per CLAUDE.md, agents must not pull requirements from here).
+10. `docs/brainfarts.md` — read but treat as inert (per `.claude/rules/docs.md`, agents must not pull requirements from here).
 11. `docs/architecture/README.md` — the architecture-note index. Check that every note in the folder has an index row.
 
 Optional: peek at the user's auto-memory at `~/.claude/projects/<project-slug>/memory/MEMORY.md` for current preferences and settled topics. Respect "settled" topics (e.g., Svelte coupling) — high bar to re-open.
@@ -72,7 +72,7 @@ Once the cut is chosen:
 - For each meaningful sub-decision in the chosen cut, invoke `superpowers:brainstorming`. Each brainstorm produces a spec at `docs/specs/YYYY-MM-DD-<topic>.md`. (NOT the brainstorming-skill default of `docs/superpowers/specs/`; project CLAUDE.md overrides.)
 - After each spec is approved by the user and committed, invoke `superpowers:writing-plans`. Plans land at `docs/plans/YYYY-MM-DD-<topic>.md`. (Same override.)
 - For docs-only iterations, execute inline (the 2026-04-27-roadmap precedent: spec/plan land on master, implementation commits land on master directly).
-- For code iterations, follow CLAUDE.md's "Subagent-driven plan execution" section: invoke `superpowers:subagent-driven-development` with a worktree. Per-task implementer + spec-compliance review + code-quality review + `Code-review-followup:` commits + final cross-cutting review + `--no-ff` merge via `superpowers:finishing-a-development-branch`.
+- For code iterations, follow the `review-loop` skill's feature-PR section: invoke `superpowers:subagent-driven-development` with a worktree. Per-task implementer + spec-compliance review + code-quality review + `Code-review-followup:` commits + final cross-cutting review + `--no-ff` merge via `superpowers:finishing-a-development-branch`.
 
 If multiple iterations are bundled into the cut, do them sequentially. Don't try to brainstorm all of them at once — each gets its own spec, plan, and (for code) feature branch.
 
@@ -83,7 +83,7 @@ After the cut ships:
 - New alignments / divergences / deferrals → propagate to `docs/vs-code-alignment.md` per its Maintenance section.
 - New deferrals → also propagate to `docs/out-of-scope.md` per its existing entries.
 - Iteration ships → flip the roadmap checkbox per `docs/roadmap.md` Maintenance.
-- Cross-cutting deferrals from per-iteration specs → propagate to `docs/out-of-scope.md` (per CLAUDE.md "Non-goals propagate" rule).
+- Cross-cutting deferrals from per-iteration specs → propagate to `docs/out-of-scope.md` (per the "Non-goals propagate" rule in `.claude/rules/docs.md`).
 - New architecture note landed → confirm its row exists in `docs/architecture/README.md`'s index.
 
 The propagation pass is part of the housekeeping itself — don't end the iteration without it.

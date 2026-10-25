@@ -1,6 +1,6 @@
 # VS Code alignment ledger
 
-This document records gcscode's cumulative alignments with and divergences from VS Code's extension architecture. Per `CLAUDE.md`, alignment with VS Code is the long-term goal "in spirit, not by byte" — we adopt VS Code's load-bearing patterns and diverge on syntax / style / ergonomics when local context warrants.
+This document records gcscode's cumulative alignments with and divergences from VS Code's extension architecture. Per `.claude/rules/docs.md`, alignment with VS Code is the long-term goal "in spirit, not by byte" — we adopt VS Code's load-bearing patterns and diverge on syntax / style / ergonomics when local context warrants.
 
 Per-spec "VS Code alignment" sections (see e.g. [`specs/2026-04-27-extension-deactivate-hook.md`](specs/2026-04-27-extension-deactivate-hook.md)) record one iteration's snapshot. This ledger is the cross-iteration cumulative view.
 
