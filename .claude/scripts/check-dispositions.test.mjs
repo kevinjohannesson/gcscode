@@ -67,7 +67,7 @@ const files = {
   'b.md': 'b',
   'docs/roadmap.md':
     '# Roadmap\n## Shipped\nnarrative (PR #38 RT-3)\n## Considering\nentry (PR #38 RT-2)\nlist (PR #38 RT-1, RT-5)\nother (PR #12 RT-7)\n',
-  'docs/out.md': 'nothing\n',
+  'docs/out.md': '## Later\nnothing\n',
 };
 const check = (message, { changed = ['a.md'], open = ['RT-1', 'RT-2'] } = {}) =>
   checkDispositions({
@@ -114,24 +114,28 @@ test('a file the commit deletes counts as fixed in it', () => {
 test('deferred targets must exist and mention the PR-qualified ID', () => {
   assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/roadmap.md#considering'), []);
   assert.deepEqual(
-    check('RT-1 fixed: a.md\nRT-5 deferred: docs/roadmap.md', { open: ['RT-1', 'RT-5'] }),
+    check('RT-1 fixed: a.md\nRT-5 deferred: docs/roadmap.md#considering', {
+      open: ['RT-1', 'RT-5'],
+    }),
     [],
   );
-  assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/out.md'), [
-    'RT-2: deferred to docs/out.md, but "PR #38 RT-2" appears nowhere in it',
+  assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/out.md#later'), [
+    'RT-2: deferred to docs/out.md#later, but "PR #38 RT-2" appears nowhere under that heading',
   ]);
-  assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/missing.md'), [
+  assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/missing.md#x'), [
     'RT-2: deferred to docs/missing.md, which does not exist',
   ]);
 });
 
-test('a deferral to a #section must be recorded under that heading', () => {
+test('a deferral names a #section and is recorded under that heading', () => {
   const only = (id) => ({ open: [id] });
   assert.deepEqual(check('RT-3 deferred: docs/roadmap.md#considering', only('RT-3')), [
     'RT-3: deferred to docs/roadmap.md#considering, but "PR #38 RT-3" appears nowhere under that heading',
   ]);
   assert.deepEqual(check('RT-3 deferred: docs/roadmap.md#shipped', only('RT-3')), []);
-  assert.deepEqual(check('RT-3 deferred: docs/roadmap.md', only('RT-3')), []);
+  assert.deepEqual(check('RT-3 deferred: docs/roadmap.md', only('RT-3')), [
+    'RT-3: deferred to docs/roadmap.md without a #section — name the heading that records it',
+  ]);
   assert.deepEqual(check('RT-2 deferred: docs/roadmap.md#Considering (the list)', only('RT-2')), []);
   assert.deepEqual(check('RT-2 deferred: docs/roadmap.md#later', only('RT-2')), [
     'RT-2: deferred to docs/roadmap.md#later, but docs/roadmap.md has no heading #later',
@@ -141,14 +145,14 @@ test('a deferral to a #section must be recorded under that heading', () => {
 });
 
 test("another PR's mention of the same ID does not count", () => {
-  assert.deepEqual(check('RT-7 deferred: docs/roadmap.md', { open: ['RT-7'] }), [
-    'RT-7: deferred to docs/roadmap.md, but "PR #38 RT-7" appears nowhere in it',
+  assert.deepEqual(check('RT-7 deferred: docs/roadmap.md#considering', { open: ['RT-7'] }), [
+    'RT-7: deferred to docs/roadmap.md#considering, but "PR #38 RT-7" appears nowhere under that heading',
   ]);
 });
 
 test('an ID does not match a longer ID', () => {
-  files['docs/out.md'] = '(PR #38 RT-20) lives here\n';
-  assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/out.md'), [
-    'RT-2: deferred to docs/out.md, but "PR #38 RT-2" appears nowhere in it',
+  files['docs/out.md'] = '## Later\n(PR #38 RT-20) lives here\n';
+  assert.deepEqual(check('RT-1 fixed: a.md\nRT-2 deferred: docs/out.md#later'), [
+    'RT-2: deferred to docs/out.md#later, but "PR #38 RT-2" appears nowhere under that heading',
   ]);
 });

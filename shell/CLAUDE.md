@@ -33,8 +33,8 @@ An extension module exports a named `const` of type `Extension` with `{ manifest
 
 - **Filenames:** kebab-case for everything, including `.svelte` components. Component import bindings stay PascalCase: `import ExampleView from './example-view.svelte'`.
 - **Extension export name:** a named `const` matching the extension's slug (`exampleExtension`, `telemetryExtension`). Never `default`, never a generic `extension`.
-- **Docs locations** (these override the superpowers skills' `docs/superpowers/` defaults): specs `docs/specs/YYYY-MM-DD-<topic>.md`, plans `docs/plans/YYYY-MM-DD-<topic>.md`, ADRs `docs/decisions/ADR-NNNN-<slug>.md`, architecture notes `docs/architecture/YYYY-MM-DD-<topic>.md` (indexed in its README). Writing them: `.claude/rules/docs.md`, which loads when you touch `docs/`.
-- **Svelte:** `.claude/rules/svelte.md` loads when you touch a `.svelte` or `.svelte.ts` file.
+- **Docs locations** (these override the superpowers skills' `docs/superpowers/` defaults): specs `docs/specs/YYYY-MM-DD-<topic>.md`, plans `docs/plans/YYYY-MM-DD-<topic>.md`, ADRs `docs/decisions/ADR-NNNN-<slug>.md`, architecture notes `docs/architecture/YYYY-MM-DD-<topic>.md` (indexed in its README). Before writing under `docs/`, read `.claude/rules/docs.md`: it loads by itself only when the session runs in the same checkout as the file.
+- **Svelte:** before Svelte work, read `.claude/rules/svelte.md` (it too loads by itself only in the session's own checkout).
 - **Scratch:** `scratch/` is for one-off exploration that shouldn't become real code. Gitignored.
 - **Public repo:** commits, docs, PR bodies and reviews are world-readable. Use repo-relative paths, never a home-directory path, and no credentials or internal URLs.
 
@@ -47,9 +47,9 @@ An extension module exports a named `const` of type `Extension` with `{ manifest
 ## Branching and merging
 
 - Code goes on `feat/<topic>` branches, specs on `spec/<topic>`, ADRs on `adr/<slug>` (take the next free ADR number when you create the branch), all off master. Plans and architecture notes may land on master directly. An ADR needed in the middle of a feature ships as its own PR first.
-- Open PRs as drafts and push after every commit. Reviewing, fixing findings, merging and reporting: the `review-loop` skill (`../.claude/skills/review-loop/`). Who reviews: `../.claude/agent-config.json`.
+- Open PRs as drafts, and push every commit before any reviewer is dispatched. Reviewing, fixing findings, merging and reporting: the `review-loop` skill (`../.claude/skills/review-loop/`). Who reviews: `../.claude/agent-config.json`.
 - Executing a plan: `superpowers:subagent-driven-development`, one implementer per task, reviewed per the `review-loop` skill.
-- Review fixes go in separate `Code-review-followup:` commits on the same branch — never amends, never squashed. The review trail is part of the history.
+- Review fixes go in separate `Code-review-followup:` commits on the same branch. Never amend a pushed commit or squash: the review trail is part of the history.
 - After a spec or ADR PR merges, implement it on a `feat/` branch. Only purely mechanical docs edits whose exact text the spec gives go straight to master; if you find yourself making a decision the spec didn't, use a branch.
 - The owner merges. The `auto-merge` label hands it to `.github/workflows/auto-merge.yml`, whose header comment describes the gates; `test/*` branches stay manual.
 - Never `--no-verify`. No force pushes to master, nor to a PR branch once it has reviews.
@@ -62,11 +62,11 @@ Work happens in a worktree under `.worktrees/` at the git root; the main checkou
 2. Chain `git branch --show-current` before every `git commit`; if it reads `master`, stop — you are in the main checkout.
 3. Run `pnpm format`, `pnpm test`, `pnpm check` and `pnpm lint` only with that prefix; otherwise they change or read the main checkout.
 
-A dispatch that will commit in a worktree restates these three rules: the subagent cannot tell which worktree it is in.
+A dispatch that will commit in a worktree restates these three rules: the subagent cannot tell which worktree it is in. The controller session itself should run in the worktree (§ Sessions).
 
 ## Sessions
 
-One controller session per PR or iteration. Start it from the handoff note in `.claude/handoffs/` at the git root (gitignored) and end it by writing one: state, decisions made, open items. When working unattended, don't ask questions: take the documented default and record it in the end-of-PR report. Stop and ask only before something irreversible.
+One controller session per PR or iteration, run in the checkout where the work lives: start it in the worktree's `shell/`, or have the owner run `/cd` there once the worktree exists (Claude can't run `/cd`). A session uses the path-scoped rules, skills and agent files of the checkout it runs in. Start from the handoff note in `.claude/handoffs/` at the git root (gitignored) and end by writing one: state, decisions made, open items. When working unattended, don't ask questions: take the documented default and record it in the end-of-PR report. Stop and ask only before something irreversible.
 
 ## Commands
 

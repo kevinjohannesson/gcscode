@@ -11,7 +11,7 @@ State each rule once, in the file it belongs to, and point to it. A summary that
 
 ## Before any dispatch
 
-- **The PR must contain HEAD.** Push in the same command as each commit, and before dispatching check `git status -sb` and `gh pr view <n> --json commits`. Reviewers read the local tree, so a PR missing commits looks fine from inside the session.
+- **The PR must contain HEAD before any dispatch.** Push each commit once it is final — a spec/ADR followup once `check-dispositions.mjs` passes (step 4) — and before dispatching check `git status -sb` and `gh pr view <n> --json commits` (the count can lag a push by a few seconds). Reviewers read the local tree, so a PR missing commits looks fine from inside the session.
 - **Never name a model in a dispatch prompt.** A role's `model` alias goes in the Agent call's `model` parameter; the review header names the model the reviewer's own system prompt states.
 - **No absolute paths in a dispatch prompt.** Reviewers echo them into PR comments, and gcscode is public: reviews, PR bodies and commit messages use repo-relative paths and carry no credentials or internal URLs. A reviewer reporting a leaked path quotes it in a code block and says it is a leak.
 - **An agent file edited during a session does not reach a dispatch by name in that session.** The Claude Code docs say edits apply on the next dispatch, but on 2.1.309 a session started in `shell/` kept dispatching the session-start content of the git-root `.claude/agents/red-team-reviewer.md` after git replaced it and after an in-place change; a worktree's `.claude/agents/` is not seen at all. To use an edited agent file, start a fresh session, or dispatch the existing agent of the same role with the edited body inline.
@@ -22,7 +22,7 @@ State each rule once, in the file it belongs to, and point to it. A summary that
 2. After each task: spec-compliance review, then code-quality review once spec-compliance passes. At the end of the iteration: `gh pr ready <n>`, then the final cross-cutting review.
 3. These roles run superpowers' prompts, so every dispatch carries:
    - the PR number;
-   - the token step, in the same command as the post: `GH_TOKEN=$(.claude/scripts/gh-app-token-reviewer <role>) gh pr review <n> ...`;
+   - the token step, in the same command as the post and by a path that works from any directory: `GH_TOKEN=$("$(git rev-parse --show-toplevel)/.claude/scripts/gh-app-token-reviewer" <role>) gh pr review <n> ...` (an empty token makes `gh` post as the owner);
    - the role's `verdicts`, `header` and `reReviewHeader` from the registry, with `<model>` explained as `Claude ` plus the model its system prompt names;
    - "repo-relative paths only";
    - **final review only:** confirm every per-task `--request-changes` on the PR was addressed before approving — `feat/*` auto-merge reads this role alone — and verify each item of the plan's checklist of spec findings.
@@ -58,10 +58,10 @@ A _product_ spec or ADR is about the app, its extensions or its API. An _agentic
    ```
    RT-1 fixed: shell/docs/specs/2026-10-22-foo.md
    RT-2 kept: <why it does not apply or is not worth the change, with the evidence>
-   EA-1 deferred: shell/docs/roadmap.md#considering
+   EA-1 deferred: shell/docs/specs/2026-10-22-foo.md#known-unknowns
    ```
 
-   A `deferred:` target records the finding as `PR #<n> <ID>` — IDs restart on every PR — under the heading the line names. After committing and before pushing, run `.claude/scripts/check-dispositions.mjs <PR>` and amend the unpushed commit until it passes. A finding an earlier followup already disposed needs no new line until its reviewer reviews again. Disagreement goes in a `kept:` line, where the fix check can contest it.
+   A `deferred:` target names a file and a `#section` — a heading anchor that exists in it — and that section records the finding as `PR #<n> <ID>`, because IDs restart on every PR. After committing and before pushing, run `"$(git rev-parse --show-toplevel)/.claude/scripts/check-dispositions.mjs" <PR>` and amend the unpushed commit until it passes. A finding an earlier followup already disposed needs no new line until its reviewer reviews again. Disagreement goes in a `kept:` line, where the fix check can contest it.
 
 5. **Push, then dispatch fix checks** per the table, with `MODE: fix-check`, `FIX_SHA` and `PREVIOUS_REVIEW_ID` (the id that reviewer returned). A fix check marks each earlier finding resolved, not resolved or partly resolved, and may raise new findings in the fix diff, or anywhere if they are blocking.
 6. **Stop** when no finding needs a disposition, or once the second round of fix checks has posted, whichever comes first. No finding needs a disposition when either:

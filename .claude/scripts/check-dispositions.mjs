@@ -10,12 +10,12 @@
 //
 //   RT-1 fixed: shell/docs/specs/foo.md
 //   RT-2 kept: <reason>
-//   RT-3 deferred: shell/docs/roadmap.md#considering
+//   RT-3 deferred: shell/docs/specs/2026-10-22-review-loop-v2.md#known-unknowns
 //
-// `fixed:` paths must exist and be changed by the commit. A `deferred:` target must
-// exist and mention the finding qualified by its PR (`PR #38 RT-3`), because IDs
-// restart on every PR — under the named heading when the target has a `#section`.
-// That is what catches "routed to the roadmap" claims that never landed.
+// `fixed:` paths must exist and be changed by the commit. A `deferred:` target names
+// a file and a `#section`, and that section must mention the finding qualified by its
+// PR (`PR #38 RT-3`), because IDs restart on every PR. That is what catches "routed to
+// the roadmap" claims that never landed.
 
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -112,12 +112,19 @@ export function checkDispositions({ pr, open, message, changed, fileText }) {
         problems.push(`${id}: deferred to ${path}, which does not exist`);
         continue;
       }
-      const scope = anchor ? section(text, decodeURIComponent(anchor)) : text;
+      if (!anchor) {
+        problems.push(
+          `${id}: deferred to ${path} without a #section — name the heading that records it`,
+        );
+        continue;
+      }
+      const scope = section(text, decodeURIComponent(anchor));
       if (scope === null) {
         problems.push(`${id}: deferred to ${target}, but ${path} has no heading #${anchor}`);
       } else if (!qualified.test(scope)) {
-        const where = anchor ? 'under that heading' : 'in it';
-        problems.push(`${id}: deferred to ${target}, but "PR #${pr} ${id}" appears nowhere ${where}`);
+        problems.push(
+          `${id}: deferred to ${target}, but "PR #${pr} ${id}" appears nowhere under that heading`,
+        );
       }
     }
   }
