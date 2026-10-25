@@ -75,6 +75,9 @@
     const { mapLib, reuseMaps, id } = props;
     let isMounted = true;
     let maplibre: Maplibre | null = null;
+    // Whether the provider registered this map. It throws for a taken id, and the map holding that
+    // id must not lose it when this one goes.
+    let registered = false;
 
     const lib = (mapLib || import('maplibre-gl')) as MapLib | Promise<MapLib | { default: MapLib }>;
     Promise.resolve(lib)
@@ -114,6 +117,7 @@
 
         mapInstance = maplibre;
         mountedMaps?.onMapMount(contextValue.map, id);
+        registered = true;
       })
       .catch((error: Error) => {
         const { onError } = props;
@@ -132,7 +136,9 @@
     return () => {
       isMounted = false;
       if (maplibre) {
-        mountedMaps?.onMapUnmount(id);
+        if (registered) {
+          mountedMaps?.onMapUnmount(id);
+        }
         if (reuseMaps) {
           // Copies the props. During teardown Svelte reads them as they were before any change
           // not yet flushed, which is as the effects last applied them.

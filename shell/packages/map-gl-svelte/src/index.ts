@@ -1,4 +1,4 @@
-// Mirrors upstream `src/index.ts`; components and hooks are exported as later tasks add them.
+// Mirrors upstream `src/index.ts`.
 import Map from './components/map.svelte';
 export { Map };
 export default Map;
@@ -16,6 +16,8 @@ export { default as NavigationControl } from './components/navigation-control.sv
 export { default as ScaleControl } from './components/scale-control.svelte';
 export { default as TerrainControl } from './components/terrain-control.svelte';
 export { useControl } from './components/use-control';
+export { default as MapProvider } from './components/map-provider.svelte';
+export { useMap } from './components/use-map.svelte';
 
 export type { MapProps } from './components/map-props';
 export type { MapRef } from './maplibre/create-ref';

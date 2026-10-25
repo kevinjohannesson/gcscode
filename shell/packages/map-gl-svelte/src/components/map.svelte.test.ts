@@ -752,7 +752,11 @@ test('bind:this exposes the MapRef', async () => {
 test('registers with the mounted maps context', async () => {
   const onMapMount = vi.fn();
   const onMapUnmount = vi.fn();
-  const mountedMaps: MountedMapsContextValue = { maps: {}, onMapMount, onMapUnmount };
+  const mountedMaps: MountedMapsContextValue = {
+    maps: new globalThis.Map(),
+    onMapMount,
+    onMapUnmount,
+  };
   const r = render({ id: 'mymap' }, new globalThis.Map([[MOUNTED_MAPS_CONTEXT_KEY, mountedMaps]]));
   const ref = await mapOf(r);
 
