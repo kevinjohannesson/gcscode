@@ -123,6 +123,31 @@ test('a flat layer declared before its source appears when the source mounts', a
   expect(r.errors, 'no error events').toEqual([]);
 });
 
+// `{#if showLabels}<Layer … />{/if}`: the Source stays mounted, so its sweep of the layers on
+// the source (M20) can't be what removes the layer, and neither can `map.remove()`.
+test.each(['nested', 'flat'] as const)(
+  'a %s layer removes itself on unmount, leaving its source',
+  async (which) => {
+    const r = render({
+      mapStyle: EMPTY_STYLE,
+      flat: { id: 'flat', type: 'circle', source: 'pts' },
+      source: pointsSource(),
+      nested: { id: 'nested' },
+    });
+    const map = await r.map();
+    await eventually(() => expect(layerIds(map).sort(), 'both layers').toEqual(['flat', 'nested']));
+    const other = which === 'nested' ? 'flat' : 'nested';
+
+    r.props[which] = undefined;
+    flushSync();
+
+    expect(map.getLayer(which), 'the layer is removed').toBeUndefined();
+    expect(map.getLayer(other), 'the other layer stays').toBeDefined();
+    expect(map.getSource('pts'), 'the source stays').toBeDefined();
+    expect(r.errors, 'no error events').toEqual([]);
+  },
+);
+
 test('layer updates', async () => {
   const warn = vi.spyOn(console, 'warn');
   const r = render({
