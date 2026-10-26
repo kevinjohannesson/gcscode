@@ -337,7 +337,8 @@ export interface ExtensionContext {
  * expose an API may return nothing.
  *
  * `deactivate?()` is an optional hook for non-disposable / async cleanup. The
- * host awaits the returned Promise (if any) before tearing down subscriptions.
+ * host awaits the returned Promise (if any) for at most 5000 ms before tearing
+ * down subscriptions; past that it logs and tears them down anyway.
  *
  * See ADR-0007 for the manifest's shape and growth conventions.
  */

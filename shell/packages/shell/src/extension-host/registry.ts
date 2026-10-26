@@ -46,6 +46,36 @@ function disposeAll(disposables: readonly Disposable[], extensionId: string): vo
 }
 
 /**
+ * How long `deactivate` waits for an extension's own `deactivate` hook. VS Code
+ * uses the same number, but only at host shutdown and for all extensions
+ * together; here it bounds each runtime disable, so the extensions panel's
+ * toggle cannot hang on one extension's cleanup.
+ */
+const DEACTIVATE_HOOK_TIMEOUT_MS = 5000;
+
+/**
+ * Run a `deactivate` hook, waiting at most `DEACTIVATE_HOOK_TIMEOUT_MS`. Never
+ * rejects: a throw or rejection is logged, even one that arrives after the
+ * bound. Past the bound the host stops waiting but cannot stop the hook, so its
+ * remaining code still runs after the extension's subscriptions are disposed.
+ */
+function runDeactivateHook(hook: () => void | Promise<void>, extensionId: string): Promise<void> {
+  const settled = new Promise<void>((resolve) => resolve(hook())).catch((error: unknown) => {
+    console.error(`Error in extension "${extensionId}" deactivate hook:`, error);
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<void>((resolve) => {
+    timer = setTimeout(() => {
+      console.error(
+        `Extension "${extensionId}" deactivate hook did not settle within ${DEACTIVATE_HOOK_TIMEOUT_MS} ms; disposing its subscriptions anyway.`,
+      );
+      resolve();
+    }, DEACTIVATE_HOOK_TIMEOUT_MS);
+  });
+  return Promise.race([settled, timedOut]).finally(() => clearTimeout(timer));
+}
+
+/**
  * Promise-like enough that `await` would adopt it: any object with a callable
  * `then`, not just a native `Promise` — a custom thenable has to be contained
  * the same way. A *callable* thenable (a function carrying `then`) is out of
@@ -353,11 +383,7 @@ export function createRegistry(): Registry {
 
       const hook = deactivateHooksByExtension.get(extensionId);
       if (hook !== undefined) {
-        try {
-          await hook();
-        } catch (error) {
-          console.error(`Error in extension "${extensionId}" deactivate hook:`, error);
-        }
+        await runDeactivateHook(hook, extensionId);
       }
 
       disposeAll(subscriptions, extensionId);
