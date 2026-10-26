@@ -1,0 +1,3 @@
+# Vitest browser mode saves a screenshot when a test fails.
+__screenshots__/
+.vitest-attachments/
