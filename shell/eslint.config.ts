@@ -4,7 +4,7 @@ import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 
 // The only shell files that need real extensions: the list the host activates,
-// and the one test that runs real extensions across the boundary.
+// and the teardown test that runs two real extensions across the boundary.
 const SHELL_EXTENSION_IMPORTERS = [
   'packages/shell/src/extension-host/bundled-extensions.ts',
   'packages/shell/src/extension-host/asset-teardown.test.ts',
