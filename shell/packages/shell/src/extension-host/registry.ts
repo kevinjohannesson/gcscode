@@ -404,6 +404,8 @@ export function createRegistry(): Registry {
         tearDown();
         return;
       }
+      // `runDeactivateHook` never rejects, so `tearDown` always runs; were it to
+      // reject, the pending entry would never clear and wedge this id.
       const deactivation = runDeactivateHook(hook, extensionId).then(tearDown);
       pendingDeactivations.set(extensionId, deactivation);
       return deactivation;

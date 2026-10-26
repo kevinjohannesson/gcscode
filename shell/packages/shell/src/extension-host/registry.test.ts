@@ -1887,15 +1887,16 @@ describe('deactivate hook timeout', () => {
     expect([firstSettled, secondSettled]).toEqual([true, true]);
     expect(hook).toHaveBeenCalledTimes(1);
 
-    // Re-enabled at t = 6000. A second bound of its own would fire at t = 7000
-    // and tear down the new activation.
+    // Re-enabled at t = 6000. A second bound of its own would fire at t = 7000,
+    // log a second timeout, and delete the new activation's registry entries.
+    // Its view would survive — the stale disposables are identity-guarded — so
+    // the view list cannot tell; the log count and the third call below can.
     await vi.advanceTimersByTimeAsync(1000);
     activateWithHook(registry, hook);
     await vi.advanceTimersByTimeAsync(1000);
-    expect(registry.listViews().map((v) => v.id)).toEqual(['ext.a.view']);
     expect(consoleErrorSpy).toHaveBeenCalledOnce();
 
-    // The new activation is fully live: disabling it runs its hook.
+    // The new activation's entries survived: disabling it runs its hook.
     const third = registry.deactivate('ext.a');
     expect(hook).toHaveBeenCalledTimes(2);
     await vi.advanceTimersByTimeAsync(5000);
