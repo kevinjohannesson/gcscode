@@ -1865,6 +1865,44 @@ describe('deactivate hook timeout', () => {
     expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
 
+  it('joins a second call to the pending one, so it cannot undo a re-activation', async () => {
+    const registry = createRegistry();
+    const hook = vi.fn(() => new Promise<void>(() => {}));
+    activateWithHook(registry, hook);
+
+    let firstSettled = false;
+    let secondSettled = false;
+    void registry.deactivate('ext.a').then(() => {
+      firstSettled = true;
+    });
+    await vi.advanceTimersByTimeAsync(2000);
+    // The operator clicks Disable again while the first is still waiting.
+    void registry.deactivate('ext.a').then(() => {
+      secondSettled = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(2999); // t = 4999
+    expect([firstSettled, secondSettled]).toEqual([false, false]);
+    await vi.advanceTimersByTimeAsync(1); // t = 5000
+    expect([firstSettled, secondSettled]).toEqual([true, true]);
+    expect(hook).toHaveBeenCalledTimes(1);
+
+    // Re-enabled at t = 6000. A second bound of its own would fire at t = 7000
+    // and tear down the new activation.
+    await vi.advanceTimersByTimeAsync(1000);
+    activateWithHook(registry, hook);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(registry.listViews().map((v) => v.id)).toEqual(['ext.a.view']);
+    expect(consoleErrorSpy).toHaveBeenCalledOnce();
+
+    // The new activation is fully live: disabling it runs its hook.
+    const third = registry.deactivate('ext.a');
+    expect(hook).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(5000);
+    await third;
+    expect(registry.listViews()).toEqual([]);
+  });
+
   it('still logs a hook that rejects after the bound', async () => {
     const registry = createRegistry();
     let rejectHook!: (reason: unknown) => void;

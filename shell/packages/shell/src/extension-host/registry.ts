@@ -93,9 +93,9 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 // The four contribution maps and the cross-extension exports map are SvelteMap
 // instances (from svelte/reactivity), so $derived(registry.list*()) and
 // $derived(host.extensions.getExtension(...)) re-track on set/delete and the rendered UI
-// updates without remount. subscriptionsByExtension and deactivateHooksByExtension
-// stay plain Maps because no UI consumer reads them — the registry uses them
-// internally for deactivate orchestration only.
+// updates without remount. subscriptionsByExtension, deactivateHooksByExtension
+// and pendingDeactivations stay plain Maps because no UI consumer reads them —
+// the registry uses them internally for deactivate orchestration only.
 export function createRegistry(): Registry {
   const views = new SvelteMap<string, ViewContribution>();
   const statusBarItems = new SvelteMap<string, StatusBarItemContribution>();
@@ -104,6 +104,7 @@ export function createRegistry(): Registry {
   const exportsByExtension = new SvelteMap<string, unknown>();
   const subscriptionsByExtension = new Map<string, readonly Disposable[]>();
   const deactivateHooksByExtension = new Map<string, () => void | Promise<void>>();
+  const pendingDeactivations = new Map<string, Promise<void>>();
   const configurationStore = new ConfigurationStore();
 
   function execute<T>(id: string, args: unknown[], attribution: string): Promise<T> {
@@ -376,20 +377,36 @@ export function createRegistry(): Registry {
       }
     },
     async deactivate(extensionId) {
+      // A call while the hook is pending joins it instead of running the hook
+      // again under a bound of its own. Two bounds let the later one fire after
+      // the operator had re-enabled the extension, and tear down the new
+      // activation in its place.
+      const pending = pendingDeactivations.get(extensionId);
+      if (pending !== undefined) return pending;
+
       const subscriptions = subscriptionsByExtension.get(extensionId);
       if (subscriptions === undefined) {
         throw new Error(`Cannot deactivate extension: id "${extensionId}" is not active.`);
       }
 
-      const hook = deactivateHooksByExtension.get(extensionId);
-      if (hook !== undefined) {
-        await runDeactivateHook(hook, extensionId);
-      }
+      // Clears the pending entry in the same step as the registry state, so no
+      // window exists in which a new activation's call would join a stale one.
+      const tearDown = (): void => {
+        disposeAll(subscriptions, extensionId);
+        subscriptionsByExtension.delete(extensionId);
+        deactivateHooksByExtension.delete(extensionId);
+        exportsByExtension.delete(extensionId);
+        pendingDeactivations.delete(extensionId);
+      };
 
-      disposeAll(subscriptions, extensionId);
-      subscriptionsByExtension.delete(extensionId);
-      deactivateHooksByExtension.delete(extensionId);
-      exportsByExtension.delete(extensionId);
+      const hook = deactivateHooksByExtension.get(extensionId);
+      if (hook === undefined) {
+        tearDown();
+        return;
+      }
+      const deactivation = runDeactivateHook(hook, extensionId).then(tearDown);
+      pendingDeactivations.set(extensionId, deactivation);
+      return deactivation;
     },
     listViews() {
       return Array.from(views.values());
