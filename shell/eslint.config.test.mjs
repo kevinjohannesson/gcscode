@@ -10,11 +10,13 @@ const eslint = new ESLint({ cwd: import.meta.dirname });
 const PACKAGE = '@typescript-eslint/no-restricted-imports';
 const ESCAPE = 'no-restricted-imports';
 
-async function restrictions(filePath: string, code: string): Promise<string[]> {
+// A message without a rule is a parse error or an ignored file. It is kept,
+// so a snippet that was never linted cannot read as allowed.
+async function restrictions(filePath, code) {
   const [result] = await eslint.lintText(code, { filePath });
   return result.messages
-    .map((message) => message.ruleId ?? '')
-    .filter((ruleId) => ruleId === PACKAGE || ruleId === ESCAPE);
+    .filter(({ ruleId }) => ruleId === null || ruleId === PACKAGE || ruleId === ESCAPE)
+    .map(({ ruleId, message }) => ruleId ?? `not linted: ${message}`);
 }
 
 test('shell code may not import an extension package, at runtime or for types', async () => {
@@ -50,7 +52,7 @@ test('shell code may import @gcscode/extension-api', async () => {
   );
 });
 
-test('the two allowlisted files may import extension packages', async () => {
+test('the two allowlisted files may import extension packages, and their neighbours may not', async () => {
   const code = "import { mapExtension } from '@gcscode/extension-map';";
   assert.deepEqual(
     await restrictions('packages/shell/src/extension-host/bundled-extensions.ts', code),
@@ -60,6 +62,12 @@ test('the two allowlisted files may import extension packages', async () => {
     await restrictions('packages/shell/src/extension-host/asset-teardown.test.ts', code),
     [],
   );
+  // Same directory, a test file, and a `bundled-extensions` prefix: an
+  // allowlist widened to any of those would admit it.
+  assert.deepEqual(
+    await restrictions('packages/shell/src/extension-host/bundled-extensions.test.ts', code),
+    [PACKAGE],
+  );
 });
 
 test('relative imports that stay inside the package are allowed at every depth', async () => {
@@ -68,7 +76,8 @@ test('relative imports that stay inside the package are allowed at every depth',
     await restrictions('packages/shell/src/main.ts', "import '../vite.config';"),
     [],
   );
-  // The workbench's real imports, which a fixed `../../*` group would flag.
+  // The workbench's real import, which a fixed `../../*` group would flag,
+  // then the longest climb from there that stays inside the package.
   const workbench = 'packages/shell/src/built-in/workbench/index.ts';
   assert.deepEqual(await restrictions(workbench, "import '../../extension-host/registry';"), []);
   assert.deepEqual(await restrictions(workbench, "import '../../../package.json';"), []);
