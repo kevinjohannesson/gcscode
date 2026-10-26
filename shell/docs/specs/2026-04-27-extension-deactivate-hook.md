@@ -15,6 +15,7 @@ The shape is VS Code-aligned: `deactivate?(): void | Promise<void>`, no args, ho
 - **Async `activate` / async `register`.** No `activate(): Promise<void>` overload, no `register(...): Promise<void>`. Trigger to revisit: an extension needs to do async work at boot before it can register contributions (e.g. fetch config). No consumer today.
 
 - **CancellationToken or timeout for the hook.** VS Code does not have one and we do not need one yet. If a hook hangs, the deactivate promise hangs. Trigger to revisit: a hook in production hangs for long enough to be a problem.
+  _Revised 2026-10-26 (PR #40): the host now bounds the hook at 5000 ms; see the [roadmap](../roadmap.md)'s `deactivate` timeout entry. VS Code does bound it, but only at extension-host shutdown._
 
 - **Hook runs on shell shutdown.** No shell-shutdown code path exists today (browser SPA reloads naturally tear down everything). Trigger to revisit: a shell-shutdown / process-exit hook is added.
 
