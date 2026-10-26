@@ -72,6 +72,14 @@ test('relative imports that stay inside the package are allowed at every depth',
   const workbench = 'packages/shell/src/built-in/workbench/index.ts';
   assert.deepEqual(await restrictions(workbench, "import '../../extension-host/registry';"), []);
   assert.deepEqual(await restrictions(workbench, "import '../../../package.json';"), []);
+  // Six directories down, where the last block takes over.
+  assert.deepEqual(
+    await restrictions(
+      'packages/shell/src/a/b/c/d/e/six.ts',
+      `import '${'../'.repeat(6)}package.json';`,
+    ),
+    [],
+  );
 });
 
 test('relative imports that escape the package root are flagged at every depth', async () => {
@@ -94,6 +102,21 @@ test('relative imports that escape the package root are flagged at every depth',
   assert.deepEqual(await restrictions(workbench, "import '../../../../../package.json';"), [
     ESCAPE,
   ]);
+  assert.deepEqual(
+    await restrictions(
+      'packages/shell/src/app.svelte',
+      '<script lang="ts">import \'../../extension-map/src/map-api.svelte\';</script>',
+    ),
+    [ESCAPE],
+  );
+  // Six directories down, where the last block takes over.
+  assert.deepEqual(
+    await restrictions(
+      'packages/shell/src/a/b/c/d/e/six.ts',
+      `import '${'../'.repeat(7)}package.json';`,
+    ),
+    [ESCAPE],
+  );
   // Ten directories down, past the deepest exact block.
   assert.deepEqual(
     await restrictions(
