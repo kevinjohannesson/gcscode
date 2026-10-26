@@ -10,7 +10,7 @@ A Svelte 5 port of `@vis.gl/react-maplibre` (the MapLibre half of [react-map-gl]
 - Built through the subagent-driven pipeline (implementer per task, then a spec-compliance and a code-quality review, then a final cross-cutting review), with the reviews returned to the controller only, not posted to a PR.
 - Merging to `master`, and whether to open a PR at all, is the user's call after the branch is done.
 
-## Why
+## Context
 
 Curiosity, not a gcscode need. The user has written a private Svelte 5 MapLibre library (it can't be shared) and wants to see how vis.gl, the team behind deck.gl, binds MapLibre to a reactive framework, and later how that performs. The user described their own library's approach in conversation:
 
@@ -131,6 +131,10 @@ Each row is a deliberate deviation from upstream's code. The README repeats this
 | `useMap()` hook                                                         | `useMap()` called during initialisation, returning an object whose `current` and per-id entries stay reactive                                                                    | Destructuring would break reactivity; document that.                                                                                                                                                                |
 | `MapContext.Provider` wrapping children                                 | Svelte context set by `<Map>`                                                                                                                                                    | Same purpose.                                                                                                                                                                                                       |
 
+## VS Code alignment
+
+Not applicable. This package is a standalone library housed in the repo (see Status), outside gcscode's extension architecture, so it has no extension-API divergence to record. Its alignment target is upstream react-map-gl, covered by "Svelte translations" above.
+
 ## Reactivity model
 
 This is the "idiomatic Svelte" part, and the main place the port differs from upstream's code.
@@ -180,7 +184,7 @@ packages/map-gl-svelte/
 
 `demo/` as in dockview-svelte (`pnpm --filter map-gl-svelte demo`, its own port). A few pages modelled on upstream's examples: uncontrolled and controlled camera, a GeoJSON source with layers plus a style-swap button, markers and popups, the built-in controls, and `useControl` with a minimal custom control. Tiles from OpenFreeMap's positron style, as `map-view.svelte` uses (free, no key). deck.gl and drawing examples are out of scope (they need extra dependencies, and belong with the benchmark).
 
-## Open questions to settle by measuring, not reading
+## Known unknowns: open questions to settle by measuring, not reading
 
 Each answer goes in the README or the plan's notes.
 
