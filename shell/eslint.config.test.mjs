@@ -10,13 +10,14 @@ const eslint = new ESLint({ cwd: import.meta.dirname });
 const PACKAGE = '@typescript-eslint/no-restricted-imports';
 const ESCAPE = 'no-restricted-imports';
 
-// A message without a rule is a parse error or an ignored file. It is kept,
-// so a snippet that was never linted cannot read as allowed.
+// Messages without a rule (a parse error, an ignored file, an unused
+// eslint-disable directive) are kept, so a snippet that was never linted
+// cannot read as allowed.
 async function restrictions(filePath, code) {
   const [result] = await eslint.lintText(code, { filePath });
   return result.messages
     .filter(({ ruleId }) => ruleId === null || ruleId === PACKAGE || ruleId === ESCAPE)
-    .map(({ ruleId, message }) => ruleId ?? `not linted: ${message}`);
+    .map(({ ruleId, message }) => ruleId ?? `no rule: ${message}`);
 }
 
 test('shell code may not import an extension package, at runtime or for types', async () => {
