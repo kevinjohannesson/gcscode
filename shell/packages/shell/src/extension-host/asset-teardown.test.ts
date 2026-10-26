@@ -5,11 +5,11 @@
  * real host registry and manager, the real `@gcscode/extension-assets`
  * service, and the real `@gcscode/extension-sitl` adapter. Every earlier test
  * in the iteration is within one package, because the boundary rule forbids an
- * extension package from importing a sibling at runtime — the shell is the one
- * package allowed to, so this is the only place the boundary itself can be
- * exercised. `app.test.ts` is the in-repo precedent for the shape: real
- * registry, real manager, real extensions, fixtures only where a fixture is
- * the subject.
+ * extension package from importing a sibling at runtime — only the shell may,
+ * and only in files allowlisted in `eslint.config.ts`, this one among them — so
+ * this is the only place the boundary itself can be exercised. `app.test.ts`
+ * is the in-repo precedent for the shape: real registry, real manager, real
+ * extensions, fixtures only where a fixture is the subject.
  *
  * Heartbeats arrive through the extension's own message path — a stubbed
  * global `WebSocket`, the seam `mavlink-client.test.ts` and `index.test.ts`
