@@ -23,6 +23,23 @@ if ! xcode-select -p >/dev/null 2>&1; then
   exit 1
 fi
 
+# Verify clang is recent enough for ArduPilot's build. ArduPilot passes
+# -ffile-prefix-map (Xcode 13+) and a current MACOSX_DEPLOYMENT_TARGET; old
+# CLT installs blow up partway into the SITL build with cryptic errors. Catch
+# it now before the 10-minute build instead of after.
+if ! echo 'int main(void){return 0;}' \
+     | clang -x c -ffile-prefix-map=a=b -c -o /dev/null - >/dev/null 2>&1; then
+  CLANG_VER="$(clang --version 2>/dev/null | head -1 || echo unknown)"
+  err "Your clang is too old for the ArduPilot SITL build:"
+  err "  ${CLANG_VER}"
+  err "Update Xcode Command Line Tools and re-run. Either:"
+  err "    softwareupdate --install -a"
+  err "  or, for a clean reinstall:"
+  err "    sudo rm -rf /Library/Developer/CommandLineTools"
+  err "    sudo xcode-select --install"
+  exit 1
+fi
+
 if ! command -v brew >/dev/null 2>&1; then
   err "Homebrew not found. Install from https://brew.sh and re-run."
   exit 1
@@ -71,13 +88,16 @@ pip install --quiet --upgrade pip wheel
 
 log "Installing Python deps (MAVProxy, pymavlink, build helpers)"
 # empy is pinned because ArduPilot's waf still uses the 3.x API; 4.x breaks the build.
+# gnureadline is required by MAVProxy on macOS (declared as a platform-conditional
+# dep, but the wheel-vs-sdist pip path sometimes drops it on the floor).
 pip install --quiet \
   "empy==3.3.4" \
   "pexpect" \
   "future" \
   "lxml" \
   "pymavlink" \
-  "MAVProxy"
+  "MAVProxy" \
+  "gnureadline"
 
 # ---------------------------------------------------------------------------
 # 5. Build SITL
