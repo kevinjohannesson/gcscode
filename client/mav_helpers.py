@@ -183,3 +183,107 @@ def request_default_streams(master) -> None:
 
 def rad_to_deg(x: Optional[float]) -> float:
     return math.degrees(x) if x is not None else 0.0
+
+
+# ---------------------------------------------------------------------------
+# GUIDED-mode position commanding
+# ---------------------------------------------------------------------------
+
+# Approximate Earth metres-per-degree of latitude. Good for offsets up to a few
+# kilometres; for anything bigger, switch to a proper geodesic library.
+LAT_M_PER_DEG = 111_320.0
+
+# SET_POSITION_TARGET_GLOBAL_INT type_mask: ignore everything except lat/lon/alt.
+# Bits set = "ignore this field".
+#   bits 0..2  : pos x/y/z       -> 0 (use)
+#   bits 3..5  : vel x/y/z       -> 1 (ignore)
+#   bits 6..8  : accel x/y/z     -> 1 (ignore)
+#   bit  9     : force flag      -> 0
+#   bit  10    : yaw             -> 1 (ignore)
+#   bit  11    : yaw_rate        -> 1 (ignore)
+TYPE_MASK_POSITION_ONLY = 0b0000_1111_1111_1000
+
+
+def latlon_offset(home_lat: float, home_lon: float,
+                  north_m: float, east_m: float) -> tuple[float, float]:
+    """Compute (lat, lon) at a (north, east) metre offset from a home point.
+
+    Equirectangular approximation — accurate to ~1 m for offsets within a few km
+    of the home location, which is plenty for SITL flight tests.
+    """
+    dlat = north_m / LAT_M_PER_DEG
+    dlon = east_m / (LAT_M_PER_DEG * math.cos(math.radians(home_lat)))
+    return home_lat + dlat, home_lon + dlon
+
+
+def horizontal_distance_m(lat1: float, lon1: float,
+                          lat2: float, lon2: float) -> float:
+    """Equirectangular horizontal distance between two lat/lon points, in metres."""
+    dlat_m = (lat2 - lat1) * LAT_M_PER_DEG
+    dlon_m = (lon2 - lon1) * LAT_M_PER_DEG * math.cos(math.radians(lat1))
+    return math.hypot(dlat_m, dlon_m)
+
+
+def current_position(master, timeout_s: float = 10.0) -> tuple[float, float, float]:
+    """Return the current (lat, lon, relative_alt_m) from GLOBAL_POSITION_INT.
+
+    Useful for capturing the home position once airborne, or any time you need
+    a fresh fix.
+    """
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        msg = master.recv_match(type="GLOBAL_POSITION_INT", blocking=True, timeout=1)
+        if msg:
+            return msg.lat / 1e7, msg.lon / 1e7, msg.relative_alt / 1000.0
+    raise TimeoutError("no GLOBAL_POSITION_INT received")
+
+
+def goto_global(master, lat: float, lon: float, alt_m: float) -> None:
+    """Send a GUIDED-mode position target.
+
+    Vehicle must already be armed and in GUIDED. lat/lon are degrees, alt_m is
+    metres above the home altitude (MAV_FRAME_GLOBAL_RELATIVE_ALT_INT).
+    """
+    master.mav.set_position_target_global_int_send(
+        0,                                  # time_boot_ms (autopilot ignores)
+        master.target_system, master.target_component,
+        mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT,
+        TYPE_MASK_POSITION_ONLY,
+        int(lat * 1e7), int(lon * 1e7), float(alt_m),
+        0.0, 0.0, 0.0,                      # vx, vy, vz (ignored)
+        0.0, 0.0, 0.0,                      # afx, afy, afz (ignored)
+        0.0, 0.0,                           # yaw, yaw_rate (ignored)
+    )
+
+
+def wait_position_global(master, target_lat: float, target_lon: float,
+                         tolerance_m: float = 3.0, timeout_s: float = 60.0,
+                         live_log: bool = True) -> float:
+    """Block until vehicle is within `tolerance_m` of (target_lat, target_lon).
+
+    Returns the final horizontal distance to target. Logs a self-refreshing
+    line with current position + distance if `live_log` is True.
+    """
+    deadline = time.time() + timeout_s
+    last_log = 0.0
+    while time.time() < deadline:
+        msg = master.recv_match(type="GLOBAL_POSITION_INT", blocking=True, timeout=1)
+        if msg is None:
+            continue
+        cur_lat = msg.lat / 1e7
+        cur_lon = msg.lon / 1e7
+        dist = horizontal_distance_m(cur_lat, cur_lon, target_lat, target_lon)
+
+        now = time.time()
+        if live_log and now - last_log > 0.25:
+            print(f"    pos {cur_lat:.6f},{cur_lon:.6f}   d={dist:5.1f} m",
+                  end="\r", flush=True)
+            last_log = now
+
+        if dist <= tolerance_m:
+            if live_log:
+                print()
+            return dist
+    raise TimeoutError(
+        f"did not reach ({target_lat:.6f},{target_lon:.6f}) within {timeout_s}s"
+    )
