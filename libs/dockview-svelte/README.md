@@ -4,7 +4,7 @@ A Svelte 5 binding package for [`dockview-core`](https://www.npmjs.com/package/d
 
 ## Status
 
-Lives in the gcscode monorepo as `packages/dockview-svelte` for now; eventually publishable as a standalone npm package.
+Lives in the gcscode monorepo as `libs/dockview-svelte` for now; eventually publishable as a standalone npm package.
 
 ## Usage
 

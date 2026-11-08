@@ -8,9 +8,9 @@
 // tagged [blocking], [non-blocking], [not resolved] or [partly resolved]) needs one
 // line in the commit message, unless a followup since that review disposed it:
 //
-//   RT-1 fixed: shell/docs/specs/foo.md
+//   RT-1 fixed: docs/specs/foo.md
 //   RT-2 kept: <reason>
-//   RT-3 deferred: shell/docs/specs/2026-10-22-review-loop-v2.md#known-unknowns
+//   RT-3 deferred: docs/specs/2026-10-22-review-loop-v2.md#known-unknowns
 //
 // `fixed:` paths must exist and be changed by the commit. A `deferred:` target names
 // a file and a `#section`, and that section must mention the finding qualified by its
@@ -19,7 +19,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { section } from '../../shell/scripts/lint-docs.mjs';
+import { section } from '../../scripts/lint-docs.mjs';
 
 const ID = '[A-Z]{2,4}-\\d{1,3}';
 const STATUS = new RegExp(

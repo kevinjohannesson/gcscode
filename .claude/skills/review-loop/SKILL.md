@@ -46,19 +46,19 @@ A _product_ spec or ADR is about the app, its extensions or its API. An _agentic
 | Product         | red-team; the extension architect when routing matches | red-team; the architect only while its latest review has `Blocking:` above 0 |
 | Agentic-process | red-team                                               | red-team                                                                    |
 
-**Extension-architect routing** is the controller's judgment: dispatch when a product PR touches the extension API surface, the host↔extension boundary, lifecycle, isolation, communication, discovery, conflicts or the extension performance floor (signal list: `shell/docs/specs/2026-05-17-reviewer-routing-and-domain-expert.md` § Extension architect's heuristic). When unsure, dispatch: a wrong dispatch costs one out-of-scope skip, which ends `Blocking: 0`. Re-evaluate when a followup brings extension architecture in. Never dispatch it on an agentic-process PR.
+**Extension-architect routing** is the controller's judgment: dispatch when a product PR touches the extension API surface, the host↔extension boundary, lifecycle, isolation, communication, discovery, conflicts or the extension performance floor (signal list: `docs/specs/2026-05-17-reviewer-routing-and-domain-expert.md` § Extension architect's heuristic). When unsure, dispatch: a wrong dispatch costs one out-of-scope skip, which ends `Blocking: 0`. Re-evaluate when a followup brings extension architecture in. Never dispatch it on an agentic-process PR.
 
 ### Steps
 
-1. **Lint.** Run `pnpm lint:docs` from `shell/` and fix what it reports.
+1. **Lint.** Run `pnpm lint:docs` from the repo root and fix what it reports.
 2. **Open a draft PR** (template below) and push. It stays a draft until the loop's last review has posted: auto-merge refuses drafts, so no review can merge it ahead of a later commit, and no later commit can merge unreviewed.
 3. **Round 1.** Dispatch in parallel `subagent_type: red-team-reviewer` and, when routed, `subagent_type: extension-architect-reviewer`. The message carries only variables: `PR`, `KIND` (`spec` or `ADR`) and `MODE: initial`. The agent file holds the instructions, the pinned model and the token slug. Each returns its review id and `Blocking: N`.
 4. **Fix** in one `Code-review-followup:` commit per round, following "Fixing findings" below. Dispose of every finding still open in the reviewers' latest reviews in that commit, so the fix check sees the deferrals too. The message ends with the disposition table, one line per finding:
 
    ```
-   RT-1 fixed: shell/docs/specs/2026-10-22-foo.md
+   RT-1 fixed: docs/specs/2026-10-22-foo.md
    RT-2 kept: <why it does not apply or is not worth the change, with the evidence>
-   EA-1 deferred: shell/docs/specs/2026-10-22-foo.md#known-unknowns
+   EA-1 deferred: docs/specs/2026-10-22-foo.md#known-unknowns
    ```
 
    A `deferred:` target names a file and a `#section` — a heading anchor that exists in it — and that section records the finding as `PR #<n> <ID>`, because IDs restart on every PR. After committing and before pushing, run `"$(git rev-parse --show-toplevel)/.claude/scripts/check-dispositions.mjs" <PR>` and amend the unpushed commit until it passes. A finding an earlier followup already disposed needs no new line until its reviewer reviews again. Disagreement goes in a `kept:` line, where the fix check can contest it.
@@ -76,7 +76,7 @@ A _product_ spec or ADR is about the app, its extensions or its API. An _agentic
 
 ## Merging
 
-The owner merges — `gh pr merge --merge <n>`, which keeps the merge commit — or applies the `auto-merge` label once the PR is ready. The gates are described once, in the header comment of `.github/workflows/auto-merge.yml`. Two of them shape the controller's work: a draft never merges, and a `spec/*` or `adr/*` PR that changes anything outside `shell/docs/` is refused by Gate 2, so say so in its PR body; the owner merges it by hand. If the owner merges despite an open `--request-changes` or a non-zero `Blocking:`, leave a PR comment saying why.
+The owner merges — `gh pr merge --merge <n>`, which keeps the merge commit — or applies the `auto-merge` label once the PR is ready. The gates are described once, in the header comment of `.github/workflows/auto-merge.yml`. Two of them shape the controller's work: a draft never merges, and a `spec/*` or `adr/*` PR that changes anything outside `docs/` is refused by Gate 2, so say so in its PR body; the owner merges it by hand. If the owner merges despite an open `--request-changes` or a non-zero `Blocking:`, leave a PR comment saying why.
 
 ## Fixing findings
 
@@ -104,7 +104,7 @@ Look at: the files or functions most worth your eyes, and why.
 Open decisions: what only you can decide, including defaults taken while unattended.
 ```
 
-Then write the handoff note (`shell/CLAUDE.md` § Sessions).
+Then write the handoff note (`CLAUDE.md` § Sessions).
 
 ## PR templates
 
@@ -117,8 +117,8 @@ Feature PR (`gh pr create --draft --body ...`):
 
 ## Links
 
-- Spec: [`docs/specs/YYYY-MM-DD-<topic>.md`](../blob/master/shell/docs/specs/YYYY-MM-DD-<topic>.md)
-- Plan: [`docs/plans/YYYY-MM-DD-<topic>.md`](../blob/master/shell/docs/plans/YYYY-MM-DD-<topic>.md)
+- Spec: [`docs/specs/YYYY-MM-DD-<topic>.md`](../blob/master/docs/specs/YYYY-MM-DD-<topic>.md)
+- Plan: [`docs/plans/YYYY-MM-DD-<topic>.md`](../blob/master/docs/plans/YYYY-MM-DD-<topic>.md)
 - ADRs (if any): …
 
 ## Reviews
@@ -141,7 +141,7 @@ Spec or ADR PR:
 
 Reviewed per `.claude/skills/review-loop/SKILL.md`: red-team, plus the extension architect on product PRs that touch extension architecture. Each review ends `Blocking: N`.
 
-<If the PR changes anything outside `shell/docs/`: Gate 2 refuses auto-merge, so the owner merges it by hand.>
+<If the PR changes anything outside `docs/`: Gate 2 refuses auto-merge, so the owner merges it by hand.>
 ```
 
 ## Designing a reviewer role

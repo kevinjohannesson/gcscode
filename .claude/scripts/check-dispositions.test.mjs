@@ -99,8 +99,8 @@ test('fixed paths must exist and be changed by the commit; prose is ignored', ()
   assert.deepEqual(check('RT-1 fixed: docs/specs/x.md\nRT-2 kept: r'), [
     'RT-1: fixed in docs/specs/x.md, which does not exist',
   ]);
-  assert.deepEqual(check('RT-1 fixed: shell/scripts/lint-docs\nRT-2 kept: r'), [
-    'RT-1: fixed in shell/scripts/lint-docs, which does not exist',
+  assert.deepEqual(check('RT-1 fixed: scripts/lint-docs\nRT-2 kept: r'), [
+    'RT-1: fixed in scripts/lint-docs, which does not exist',
   ]);
 });
 

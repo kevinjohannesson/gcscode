@@ -122,5 +122,16 @@ export default [
       ],
     },
   },
-  { ignores: ['**/node_modules/**', '**/dist/**', '**/.svelte-kit/**', '**/scratch/**'] },
+  // Other worktrees (.worktrees/, .claude/worktrees/) sit inside the workspace root,
+  // and .claude/ holds agent scripts this config has never linted.
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.svelte-kit/**',
+      '**/scratch/**',
+      '.worktrees/**',
+      '.claude/**',
+    ],
+  },
 ];

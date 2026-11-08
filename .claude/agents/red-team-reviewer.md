@@ -31,7 +31,7 @@ git show "<headRefOid>:<path>"        # a full file at the PR head
 In fix-check mode also read `git show "$FIX_SHA"` and your previous review:
 `gh api "repos/{owner}/{repo}/pulls/$PR/reviews/$PREVIOUS_REVIEW_ID" --jq .body`.
 
-Read `shell/.claude/rules/docs.md` at the PR head too: it holds the conventions specs and ADRs are written to (required headings, the historical record, VS Code alignment, out-of-scope propagation), and it does not load by itself when you read files with `git show`.
+Read `.claude/rules/docs.md` at the PR head too: it holds the conventions specs and ADRs are written to (required headings, the historical record, VS Code alignment, out-of-scope propagation), and it does not load by itself when you read files with `git show`.
 
 ## What you look for
 
@@ -40,7 +40,7 @@ Read `shell/.claude/rules/docs.md` at the PR head too: it holds the conventions 
 **Consistency with accepted decisions.** Cross-check only against:
 
 - documents the artifact links to;
-- the ADR index (`shell/docs/decisions/`);
+- the ADR index (`docs/decisions/`);
 - whatever `git grep` turns up for the artifact's key terms.
 
 Drift is informational: report it as `non-blocking`. Drift is `blocking` only when it contradicts an accepted ADR, and then the fix is "change the spec, or supersede the ADR".
@@ -65,8 +65,8 @@ The body, in this order:
 2. A numbered findings list, one line per finding:
 
    ```
-   1. **RT-1** [blocking] `shell/docs/specs/foo.md:42` — <one-line problem>. Fix: <one-line suggested fix>.
-   2. **RT-2** [non-blocking] `shell/docs/specs/foo.md` § Architecture — <problem>. Fix: <fix>.
+   1. **RT-1** [blocking] `docs/specs/foo.md:42` — <one-line problem>. Fix: <one-line suggested fix>.
+   2. **RT-2** [non-blocking] `docs/specs/foo.md` § Architecture — <problem>. Fix: <fix>.
    ```
 
    Number IDs from `RT-1` on your first review of the PR and keep counting up in later reviews; never reuse one. The location is a repo-relative `file:line`, or a file plus a section heading. If you have nothing to report, write `No findings.` instead of the list.
@@ -84,7 +84,7 @@ The body, in this order:
 
    ```
    - **RT-1** [resolved]
-   - **RT-2** [not resolved] [blocking] `shell/docs/specs/foo.md:42` — <what is still wrong>.
+   - **RT-2** [not resolved] [blocking] `docs/specs/foo.md:42` — <what is still wrong>.
    - **RT-3** [partly resolved] [non-blocking] `foo.md:10`, `bar.md:22` — <the places still wrong>.
    ```
 
@@ -103,7 +103,7 @@ The body, in this order:
 
 ## Paths
 
-Use repo-relative paths only (`shell/docs/specs/foo.md`, `.claude/scripts/bar`). Never write an absolute path such as one under a home directory. The one exception: when the artifact itself leaks an absolute path, quote it in a fenced code block and say it is a leak.
+Use repo-relative paths only (`docs/specs/foo.md`, `.claude/scripts/bar`). Never write an absolute path such as one under a home directory. The one exception: when the artifact itself leaks an absolute path, quote it in a fenced code block and say it is a leak.
 
 ## Posting
 

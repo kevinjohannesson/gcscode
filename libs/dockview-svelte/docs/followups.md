@@ -7,7 +7,7 @@ Notes carried forward from the initial overnight implementation (`feat/dockview-
 
 ## 1. Paneview's double-wrapped `params` is a fragile coupling
 
-**Where:** `packages/dockview-svelte/src/paneview/view.ts:62-75` (`SveltePanePanelSection.update`)
+**Where:** `libs/dockview-svelte/src/paneview/view.ts:62-75` (`SveltePanePanelSection.update`)
 
 **What's happening:** `dockview-core`'s `PaneviewPanel` runs panel state through two
 layers before it reaches a renderer's `update()`:
