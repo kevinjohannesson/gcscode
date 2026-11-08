@@ -1,4 +1,40 @@
-.worktrees/
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Controller handoff notes between sessions (shell/docs/specs/2026-10-22-review-loop-v2.md)
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local exploration / one-off code
+scratch/
+
+# Git worktrees: .worktrees/ for CLI sessions, .claude/worktrees/ for desktop-app sessions (CLAUDE.md)
+.worktrees/
+.claude/worktrees/
+
+# Controller handoff notes between sessions (docs/specs/2026-10-22-review-loop-v2.md)
 .claude/handoffs/
+
+# Brainstorming companion artifacts (superpowers:brainstorming visual companion)
+.superpowers/
+
+# Claude Code harness runtime artifacts (e.g. scheduled-task locks)
+.claude/*.lock
