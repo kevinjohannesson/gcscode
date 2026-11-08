@@ -227,7 +227,7 @@ For the full design rationale see [`docs/specs/2026-05-18-configuration-system-v
 
 - runs the hook **before** disposing `context.subscriptions`,
 - catches and logs hook errors (sync throw or async rejection); subscription teardown still proceeds,
-- awaits the returned Promise (if any).
+- awaits the returned Promise (if any) for **at most 5000 ms**. Past that it logs, disposes the subscriptions anyway and stops waiting, but it cannot stop the hook: code after a slow `await` still runs, possibly after the operator has re-enabled the extension. Don't let that code clobber module state a newer activation may have set.
 
 Use `subscriptions` for everything that fits the `Disposable` shape; reach for `deactivate?()` only when teardown does not. See [`docs/specs/2026-04-27-extension-deactivate-hook.md`](../../docs/specs/2026-04-27-extension-deactivate-hook.md).
 

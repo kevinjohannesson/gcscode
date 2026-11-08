@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock, MockInstance } from 'vitest';
 
 import type {
   Disposable,
@@ -1779,6 +1779,153 @@ describe('activate containment', () => {
       laterHost!.commands.registerCommand({ id: 'x.later.cmd', run: () => undefined }),
     ).not.toThrow();
     expect(registry.listCommands().map((c) => c.id)).toContain('x.later.cmd');
+  });
+});
+
+// The bound is 5000 ms. The tests spell the number out rather than importing
+// it, so changing the bound has to change them too.
+describe('deactivate hook timeout', () => {
+  let consoleErrorSpy: MockInstance<typeof console.error>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  /** Activates `ext.a` with one view, one plain subscription and `deactivate`. */
+  function activateWithHook(
+    registry: ReturnType<typeof createRegistry>,
+    deactivate: () => void | Promise<void>,
+  ): Mock {
+    const disposeSpy = vi.fn();
+    registry.activate({
+      manifest: { id: 'ext.a', displayName: 'ext.a', version: '0.0.0' },
+      activate(ctx) {
+        ctx.subscriptions.push(
+          ctx.host.window.registerView({
+            id: 'ext.a.view',
+            component: fakeComponent,
+            title: 'Test View',
+          }),
+          { dispose: disposeSpy },
+        );
+      },
+      deactivate,
+    });
+    return disposeSpy;
+  }
+
+  it('waits up to 5000 ms for a hook that never settles, then logs and tears down anyway', async () => {
+    const registry = createRegistry();
+    const disposeSpy = activateWithHook(registry, () => new Promise<void>(() => {}));
+
+    let settled = false;
+    const deactivating = registry.deactivate('ext.a').then(() => {
+      settled = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(settled).toBe(false);
+    expect(disposeSpy).not.toHaveBeenCalled();
+    expect(registry.listViews().map((v) => v.id)).toEqual(['ext.a.view']);
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await deactivating;
+    expect(settled).toBe(true);
+    expect(disposeSpy).toHaveBeenCalledTimes(1);
+    expect(registry.listViews()).toEqual([]);
+    expect(consoleErrorSpy).toHaveBeenCalledOnce();
+    expect(consoleErrorSpy.mock.calls[0][0]).toContain('"ext.a"');
+    expect(consoleErrorSpy.mock.calls[0][0]).toContain('5000 ms');
+    // The registry has forgotten the extension, so it can be activated again.
+    await expect(registry.deactivate('ext.a')).rejects.toThrow(/not active/);
+  });
+
+  it('cancels the bound when the hook settles in time', async () => {
+    const registry = createRegistry();
+    const disposeSpy = activateWithHook(
+      registry,
+      () => new Promise<void>((resolve) => setTimeout(resolve, 100)),
+    );
+
+    const deactivating = registry.deactivate('ext.a');
+    await vi.advanceTimersByTimeAsync(100);
+    await deactivating;
+    expect(disposeSpy).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+
+    // A bound left running would report a timeout for a hook that met it.
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+  });
+
+  it('joins a second call to the pending one, so it cannot undo a re-activation', async () => {
+    const registry = createRegistry();
+    const hook = vi.fn(() => new Promise<void>(() => {}));
+    activateWithHook(registry, hook);
+
+    let firstSettled = false;
+    let secondSettled = false;
+    void registry.deactivate('ext.a').then(() => {
+      firstSettled = true;
+    });
+    await vi.advanceTimersByTimeAsync(2000);
+    // The operator clicks Disable again while the first is still waiting.
+    void registry.deactivate('ext.a').then(() => {
+      secondSettled = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(2999); // t = 4999
+    expect([firstSettled, secondSettled]).toEqual([false, false]);
+    await vi.advanceTimersByTimeAsync(1); // t = 5000
+    expect([firstSettled, secondSettled]).toEqual([true, true]);
+    expect(hook).toHaveBeenCalledTimes(1);
+
+    // Re-enabled at t = 6000. A second bound of its own would fire at t = 7000,
+    // log a second timeout, and delete the new activation's registry entries.
+    // Its view would survive — the stale disposables are identity-guarded — so
+    // the view list cannot tell; the log count and the third call below can.
+    await vi.advanceTimersByTimeAsync(1000);
+    activateWithHook(registry, hook);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(consoleErrorSpy).toHaveBeenCalledOnce();
+
+    // The new activation's entries survived: disabling it runs its hook.
+    const third = registry.deactivate('ext.a');
+    expect(hook).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(5000);
+    await third;
+    expect(registry.listViews()).toEqual([]);
+  });
+
+  it('still logs a hook that rejects after the bound', async () => {
+    const registry = createRegistry();
+    let rejectHook!: (reason: unknown) => void;
+    activateWithHook(
+      registry,
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectHook = reject;
+        }),
+    );
+
+    const deactivating = registry.deactivate('ext.a');
+    await vi.advanceTimersByTimeAsync(5000);
+    await deactivating;
+    expect(consoleErrorSpy).toHaveBeenCalledOnce();
+
+    const late = new Error('late');
+    rejectHook(late);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
+    expect(consoleErrorSpy.mock.calls[1][0]).toContain('"ext.a"');
+    expect(consoleErrorSpy.mock.calls[1][1]).toBe(late);
   });
 });
 

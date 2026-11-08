@@ -16,7 +16,9 @@ The workspace root is this directory, `shell/`. The git root is one level up; be
 
 **Type-only imports from sibling extension packages are allowed**, exclusively for consuming cross-extension `exports` (see [ADR-0005](docs/decisions/ADR-0005-extension-boundaries.md)). `import type` is erased at compile time; anything that emits JS at runtime against a sibling extension package is a violation.
 
-ESLint enforces both rules (`@typescript-eslint/no-restricted-imports` with `allowTypeImports: true` for the sibling pattern). Don't work around either.
+**The shell imports no extension package, not even types**, outside the allowlist in `eslint.config.ts`, and no relative import may leave its package.
+
+ESLint enforces all of this (`@typescript-eslint/no-restricted-imports` with `allowTypeImports: true` for the sibling pattern). Don't work around it.
 
 Corollary: if an extension needs a capability the host doesn't yet expose, first ask **whether the host would have to own the surface that capability mutates** ([ADR-0012](docs/decisions/ADR-0012-service-extensions-vs-host-namespaces.md)).
 
@@ -72,7 +74,7 @@ One controller session per PR or iteration. When the worktree already exists, st
 
 - `pnpm dev` — run the shell's dev server
 - `pnpm build` — build all packages
-- `pnpm test` — all package tests, then the repo scripts' tests (`pnpm test:scripts`)
+- `pnpm test` — all package tests, then the root tooling tests (`pnpm test:scripts`)
 - `pnpm check` — svelte-check + tsc across all packages
 - `pnpm lint` — ESLint + Prettier
 - `pnpm lint:docs` — links, anchors, leaked local paths and required headings in changed markdown
