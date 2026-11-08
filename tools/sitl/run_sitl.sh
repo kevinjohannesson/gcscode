@@ -31,11 +31,13 @@ SITL_BIN="${ARDUPILOT_DIR}/build/sitl/bin/arducopter"
 SITL_LOG="/tmp/ArduCopter-sitl.log"
 export PATH="${SITL_HOME}/bin:${PATH}"
 
+[[ "${SITL_HOME}" == /* ]] || { echo "ERROR: GCSCODE_SITL_HOME must be an absolute path, got: ${SITL_HOME}" >&2; exit 1; }
+
 [[ -x "${SITL_BIN}" ]]  || { echo "ERROR: SITL binary missing: ${SITL_BIN}"  >&2; exit 1; }
 [[ -d "${VENV_DIR}" ]] || { echo "ERROR: venv missing. Run ./setup.sh."     >&2; exit 1; }
 
-if ! command -v mavlink2rest >/dev/null 2>&1; then
-  echo "ERROR: mavlink2rest not found. Run ./setup.sh, which installs it." >&2
+if [[ ! -x "${SITL_HOME}/bin/mavlink2rest" ]]; then
+  echo "ERROR: mavlink2rest missing from ${SITL_HOME}/bin. Run ./setup.sh, which installs it." >&2
   exit 1
 fi
 mkdir -p "${LOG_DIR}"
@@ -57,9 +59,21 @@ fi
 # Tunables (env-overridable)
 SITL_MODEL="${SITL_MODEL:-+}"                                       # e.g. +, quad, X, octa
 SITL_DEFAULTS="${SITL_DEFAULTS:-${ARDUPILOT_DIR}/Tools/autotest/default_params/copter.parm}"
-SITL_INSTANCE="${SITL_INSTANCE:-0}"                                  # -I flag
-PRIMARY_OUT="${PRIMARY_OUT:-udp:127.0.0.1:14550}"
-GCS_OUT="${GCS_OUT:-udp:127.0.0.1:14551}"
+PRIMARY_OUT="${PRIMARY_OUT:-udp:127.0.0.1:14550}"                     # Python client
+# Fixed: instance 0 listens on TCP 5760, and mavlink2rest (and through it the
+# GCS) reads UDP 14551.
+SITL_INSTANCE=0
+GCS_OUT="udp:127.0.0.1:14551"
+
+# SITL runs from the ArduPilot folder, so resolve a relative path now.
+[[ "${SITL_DEFAULTS}" == /* ]] || SITL_DEFAULTS="${PWD}/${SITL_DEFAULTS}"
+
+for port in 5760 8088; do
+  if nc -z 127.0.0.1 "${port}" 2>/dev/null; then
+    echo "ERROR: something already listens on TCP ${port} (another SITL or mavlink2rest?). Stop it first." >&2
+    exit 1
+  fi
+done
 
 cleanup() {
   if [[ -n "${M2R_PID:-}" ]] && kill -0 "${M2R_PID}" 2>/dev/null; then
@@ -117,6 +131,11 @@ mavlink2rest \
   --server "127.0.0.1:8088" \
   >"${M2R_LOG}" 2>&1 &
 M2R_PID=$!
+sleep 1
+if ! kill -0 "${M2R_PID}" 2>/dev/null; then
+  echo "ERROR: mavlink2rest exited at startup. Check ${M2R_LOG}" >&2
+  exit 1
+fi
 
 cat <<INFO
 ==> SITL up. Starting MAVProxy router.

@@ -28,7 +28,7 @@ we write our own sim.
 Closest thing to the ArduPilot experience: dynamics compiled into PX4, no
 external process, no Java, no Gazebo. Since PX4 v1.14 it runs as plain SITL
 with no flight-controller hardware. Models: quadx, hex (v1.17+), airplane,
-xvert tailsitter, standard*vtol. Airframe tuned via `SIH*\*` params.
+xvert tailsitter, `standard_vtol`. Airframe tuned via `SIH_*` params.
 Caveat: community-supported; docs say "may not work with current PX4
 versions, known to work with v1.14". Needs a smoke test on v1.17.0 before
 committing to it.
@@ -103,7 +103,7 @@ Open question: whether to reuse `run_sitl.sh`'s mavlink2rest block verbatim
 - Add `ulimit -S -n 2048` to `~/.zshrc` before building — the macOS default of
   256 file descriptors causes `LD: too many open files` partway through.
 - `Tools/setup/macos.sh` creates a `.venv` in the PX4 repo root. That's a
-  _second_ venv alongside this project's existing `venv/` — keep them straight,
+  _second_ venv alongside SITL's own venv (`$GCSCODE_SITL_HOME/venv`) — keep them straight,
   or have the PX4 script activate the right one explicitly.
 
 ## 7. Sources

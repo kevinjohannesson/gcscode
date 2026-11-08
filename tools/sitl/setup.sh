@@ -12,11 +12,20 @@ ARDUPILOT_DIR="${SITL_HOME}/ardupilot"
 VENV_DIR="${SITL_HOME}/venv"
 BIN_DIR="${SITL_HOME}/bin"
 SITL_BIN="${ARDUPILOT_DIR}/build/sitl/bin/arducopter"
-# The version the gcscode SITL extension was built and tested against.
-MAVLINK2REST_VERSION="${MAVLINK2REST_VERSION:-1.0.2}"
+# The mavlink2rest release the gcscode SITL extension was built and tested
+# against, with the sha256 digests GitHub publishes for its macOS binaries.
+M2R_PINNED_VERSION="1.0.2"
+M2R_SHA256_AARCH64="d6b6ddd19785a2bca7593932f75bb3a36f94863813c5fd13438e4d85e5b6c574"
+M2R_SHA256_X86_64="f58df85407937b9def832b2d70993cf18451667ac924c9fda4a5bb32e0ec7882"
+MAVLINK2REST_VERSION="${MAVLINK2REST_VERSION:-${M2R_PINNED_VERSION}}"
 
 log() { printf "\n\033[1;34m==>\033[0m %s\n" "$*"; }
 err() { printf "\n\033[1;31mERROR:\033[0m %s\n" "$*" >&2; }
+
+if [[ "${SITL_HOME}" != /* ]]; then
+  err "GCSCODE_SITL_HOME must be an absolute path, got: ${SITL_HOME}"
+  exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Platform & toolchain checks
@@ -111,26 +120,44 @@ pip install --quiet \
 # ---------------------------------------------------------------------------
 # 5. mavlink2rest (the REST/WebSocket bridge the GCS reads telemetry from)
 # ---------------------------------------------------------------------------
-if command -v mavlink2rest >/dev/null 2>&1; then
-  log "mavlink2rest already on PATH: $(command -v mavlink2rest)"
-elif [[ -x "${BIN_DIR}/mavlink2rest" ]]; then
-  log "mavlink2rest already installed: ${BIN_DIR}/mavlink2rest"
+# run_sitl.sh puts BIN_DIR first on PATH, so this copy is the one that runs,
+# whatever other mavlink2rest is installed. It is replaced whenever its version
+# differs from MAVLINK2REST_VERSION.
+M2R_BIN="${BIN_DIR}/mavlink2rest"
+M2R_HAVE="$("${M2R_BIN}" --version 2>/dev/null | awk '{print $2}' || true)"
+if [[ "${M2R_HAVE}" == "${MAVLINK2REST_VERSION}" ]]; then
+  log "mavlink2rest ${M2R_HAVE} already installed: ${M2R_BIN}"
 else
   case "$(uname -m)" in
-    arm64) M2R_ARCH="aarch64" ;;
-    x86_64) M2R_ARCH="x86_64" ;;
+    arm64) M2R_ARCH="aarch64"; M2R_SHA256="${M2R_SHA256_AARCH64}" ;;
+    x86_64) M2R_ARCH="x86_64"; M2R_SHA256="${M2R_SHA256_X86_64}" ;;
     *) err "No mavlink2rest release for $(uname -m)"; exit 1 ;;
   esac
   M2R_URL="https://github.com/mavlink/mavlink2rest/releases/download/${MAVLINK2REST_VERSION}/mavlink2rest-${M2R_ARCH}-apple-darwin"
   log "Downloading mavlink2rest ${MAVLINK2REST_VERSION} to ${BIN_DIR}"
-  curl -fsSL -o "${BIN_DIR}/mavlink2rest" "${M2R_URL}"
-  chmod +x "${BIN_DIR}/mavlink2rest"
+  M2R_TMP="$(mktemp "${BIN_DIR}/mavlink2rest.XXXXXX")"
+  if ! curl -fsSL -o "${M2R_TMP}" "${M2R_URL}"; then
+    rm -f "${M2R_TMP}"
+    err "Download failed: ${M2R_URL}"
+    exit 1
+  fi
+  if [[ "${MAVLINK2REST_VERSION}" == "${M2R_PINNED_VERSION}" ]]; then
+    if ! echo "${M2R_SHA256}  ${M2R_TMP}" | shasum -a 256 -c --status; then
+      rm -f "${M2R_TMP}"
+      err "mavlink2rest ${MAVLINK2REST_VERSION} does not match its published sha256; not installed."
+      exit 1
+    fi
+  else
+    log "MAVLINK2REST_VERSION is overridden, so there is no pinned checksum to verify"
+  fi
+  chmod +x "${M2R_TMP}"
+  mv "${M2R_TMP}" "${M2R_BIN}"
 fi
 
 # ---------------------------------------------------------------------------
 # 6. Build SITL
 # ---------------------------------------------------------------------------
-if [[ -x "${SITL_BIN}" && -z "${SITL_REBUILD:-}" ]]; then
+if [[ -x "${SITL_BIN}" && "${SITL_REBUILD:-}" != 1 ]]; then
   log "ArduCopter SITL already built (SITL_REBUILD=1 to rebuild)"
 else
   log "Configuring waf for SITL"
