@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 # ArduPilot SITL setup for macOS (Apple Silicon + Intel).
 # Idempotent — safe to re-run.
+#
+# The repo holds only scripts. The ArduPilot checkout (~2 GB), the Python venv,
+# the mavlink2rest binary and the logs live in one folder outside it, shared by
+# every worktree: GCSCODE_SITL_HOME, default ~/.gcscode/sitl.
 set -euo pipefail
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ARDUPILOT_DIR="${PROJECT_ROOT}/ardupilot"
-VENV_DIR="${PROJECT_ROOT}/venv"
+SITL_HOME="${GCSCODE_SITL_HOME:-${HOME}/.gcscode/sitl}"
+ARDUPILOT_DIR="${SITL_HOME}/ardupilot"
+VENV_DIR="${SITL_HOME}/venv"
+BIN_DIR="${SITL_HOME}/bin"
+SITL_BIN="${ARDUPILOT_DIR}/build/sitl/bin/arducopter"
+# The version the gcscode SITL extension was built and tested against.
+MAVLINK2REST_VERSION="${MAVLINK2REST_VERSION:-1.0.2}"
 
 log() { printf "\n\033[1;34m==>\033[0m %s\n" "$*"; }
 err() { printf "\n\033[1;31mERROR:\033[0m %s\n" "$*" >&2; }
@@ -64,6 +72,7 @@ brew install --quiet ccache wget || true
 # ---------------------------------------------------------------------------
 # 3. Clone ArduPilot
 # ---------------------------------------------------------------------------
+mkdir -p "${SITL_HOME}" "${BIN_DIR}" "${SITL_HOME}/logs"
 if [[ ! -d "${ARDUPILOT_DIR}/.git" ]]; then
   log "Cloning ArduPilot (~1.5 GB with submodules; 5-10 min on average wifi)"
   git clone --recurse-submodules \
@@ -100,16 +109,39 @@ pip install --quiet \
   "gnureadline"
 
 # ---------------------------------------------------------------------------
-# 5. Build SITL
+# 5. mavlink2rest (the REST/WebSocket bridge the GCS reads telemetry from)
 # ---------------------------------------------------------------------------
-log "Configuring waf for SITL"
-( cd "${ARDUPILOT_DIR}" && ./waf configure --board sitl )
-
-log "Building ArduCopter SITL (5-10 min on first build)"
-( cd "${ARDUPILOT_DIR}" && ./waf copter )
+if command -v mavlink2rest >/dev/null 2>&1; then
+  log "mavlink2rest already on PATH: $(command -v mavlink2rest)"
+elif [[ -x "${BIN_DIR}/mavlink2rest" ]]; then
+  log "mavlink2rest already installed: ${BIN_DIR}/mavlink2rest"
+else
+  case "$(uname -m)" in
+    arm64) M2R_ARCH="aarch64" ;;
+    x86_64) M2R_ARCH="x86_64" ;;
+    *) err "No mavlink2rest release for $(uname -m)"; exit 1 ;;
+  esac
+  M2R_URL="https://github.com/mavlink/mavlink2rest/releases/download/${MAVLINK2REST_VERSION}/mavlink2rest-${M2R_ARCH}-apple-darwin"
+  log "Downloading mavlink2rest ${MAVLINK2REST_VERSION} to ${BIN_DIR}"
+  curl -fsSL -o "${BIN_DIR}/mavlink2rest" "${M2R_URL}"
+  chmod +x "${BIN_DIR}/mavlink2rest"
+fi
 
 # ---------------------------------------------------------------------------
-# 6. Summary
+# 6. Build SITL
+# ---------------------------------------------------------------------------
+if [[ -x "${SITL_BIN}" && -z "${SITL_REBUILD:-}" ]]; then
+  log "ArduCopter SITL already built (SITL_REBUILD=1 to rebuild)"
+else
+  log "Configuring waf for SITL"
+  ( cd "${ARDUPILOT_DIR}" && ./waf configure --board sitl )
+
+  log "Building ArduCopter SITL (5-10 min on first build)"
+  ( cd "${ARDUPILOT_DIR}" && ./waf copter )
+fi
+
+# ---------------------------------------------------------------------------
+# 7. Summary
 # ---------------------------------------------------------------------------
 cat <<DONE
 
@@ -117,13 +149,13 @@ Setup complete.
 
   ArduPilot : ${ARDUPILOT_DIR}
   Venv      : ${VENV_DIR}
-  Binary    : ${ARDUPILOT_DIR}/build/sitl/bin/arducopter
+  Binary    : ${SITL_BIN}
 
-Run a flight in two terminals:
+Run a flight in two terminals, from tools/sitl:
 
   Terminal A:   ./run_sitl.sh
 
-  Terminal B:   source venv/bin/activate
+  Terminal B:   source "${VENV_DIR}/bin/activate"
                 python client/connect.py        # heartbeat sanity check
                 python client/telemetry.py      # live attitude/GPS stream
                 python client/arm_takeoff.py    # arm, takeoff 10m, land

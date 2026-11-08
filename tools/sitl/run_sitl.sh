@@ -11,37 +11,45 @@
 #   arducopter (TCP 5760)  <->  MAVProxy  -->  UDP 14550  (Python CLI client)
 #                                          -->  UDP 14551  (reserved GCS)
 #
+#   mavlink2rest listens on UDP 14551 and serves http://127.0.0.1:8088
+#
 # Args are forwarded to MAVProxy. Examples:
 #   ./run_sitl.sh                        # defaults
 #   SITL_MODEL=quad ./run_sitl.sh        # different copter frame
 #   ./run_sitl.sh --console              # MAVProxy console (needs wxPython)
+#
+# State lives outside the repo, in GCSCODE_SITL_HOME (default ~/.gcscode/sitl):
+# the ArduPilot checkout, the venv, mavlink2rest and MAVProxy's logs (logs/).
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ARDUPILOT_DIR="${PROJECT_ROOT}/ardupilot"
-VENV_DIR="${PROJECT_ROOT}/venv"
+SITL_HOME="${GCSCODE_SITL_HOME:-${HOME}/.gcscode/sitl}"
+ARDUPILOT_DIR="${SITL_HOME}/ardupilot"
+VENV_DIR="${SITL_HOME}/venv"
+LOG_DIR="${SITL_HOME}/logs"
 SITL_BIN="${ARDUPILOT_DIR}/build/sitl/bin/arducopter"
 SITL_LOG="/tmp/ArduCopter-sitl.log"
+export PATH="${SITL_HOME}/bin:${PATH}"
 
 [[ -x "${SITL_BIN}" ]]  || { echo "ERROR: SITL binary missing: ${SITL_BIN}"  >&2; exit 1; }
 [[ -d "${VENV_DIR}" ]] || { echo "ERROR: venv missing. Run ./setup.sh."     >&2; exit 1; }
 
 if ! command -v mavlink2rest >/dev/null 2>&1; then
-  echo "ERROR: mavlink2rest not on PATH. Install:" >&2
-  echo "    https://github.com/mavlink/mavlink2rest/releases" >&2
+  echo "ERROR: mavlink2rest not found. Run ./setup.sh, which installs it." >&2
   exit 1
 fi
+mkdir -p "${LOG_DIR}"
 
 # shellcheck disable=SC1091
 source "${VENV_DIR}/bin/activate"
 
 # Verify MAVProxy is installed in the venv. We import the package rather than
 # looking for `mavproxy.py` on PATH, because invoking Python scripts directly
-# is unreliable when the project path contains spaces (the kernel splits the
+# is unreliable when the venv path contains spaces (the kernel splits the
 # shebang on whitespace). We launch MAVProxy via `python -m` below.
 if ! python -c "import MAVProxy" >/dev/null 2>&1; then
   echo "ERROR: MAVProxy not installed in venv. Reinstall with:" >&2
-  echo "    source venv/bin/activate"                           >&2
+  echo "    source \"${VENV_DIR}/bin/activate\""                 >&2
   echo "    pip install --force-reinstall MAVProxy"             >&2
   exit 1
 fi
@@ -114,7 +122,8 @@ cat <<INFO
 ==> SITL up. Starting MAVProxy router.
     master : tcp:127.0.0.1:5760
     out    : ${PRIMARY_OUT}   (-> Python CLI client)
-    out    : ${GCS_OUT}   (-> reserved for your future GCS)
+    out    : ${GCS_OUT}   (-> mavlink2rest, for the GCS)
+    logs   : ${LOG_DIR}
 
     Tail SITL stdout in another terminal:  tail -f ${SITL_LOG}
     Stop everything: Ctrl-C  (or type 'exit' at the MAVProxy prompt)
@@ -123,9 +132,10 @@ INFO
 
 # Launch MAVProxy as a Python module rather than executing mavproxy.py
 # directly. This sidesteps the macOS kernel's shebang parser, which can't
-# handle interpreter paths with spaces (your project path contains "Drone SITL").
+# handle interpreter paths with spaces.
 python -m MAVProxy.mavproxy \
   --master "tcp:127.0.0.1:5760" \
+  --state-basedir "${LOG_DIR}" \
   --out    "${PRIMARY_OUT}" \
   --out    "${GCS_OUT}" \
   "$@"
