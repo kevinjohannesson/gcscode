@@ -20,7 +20,7 @@ Next, roughly in order: link-quality impairments, gimbal and zoom through SITL's
 
 ## Running it (all on one machine)
 
-1. **SITL.** Raise the telemetry rate from MAVProxy's default 4 Hz so the video moves smoothly:
+1. **SITL** ([`tools/sitl`](../sitl/README.md)). Raise the telemetry rate from MAVProxy's default 4 Hz so the video moves smoothly. From `tools/sitl`:
 
    ```sh
    ./run_sitl.sh --streamrate 25
@@ -28,10 +28,10 @@ Next, roughly in order: link-quality impairments, gimbal and zoom through SITL's
 
    Keep `SIM_TERRAIN` at 1, ArduPilot's default (if you set it to 0 for the spike, type `param set SIM_TERRAIN 1` at the MAVProxy prompt: the terminal where `run_sitl.sh` runs).
 
-2. **Point camera-sim at SITL's terrain folder.** Create `packages/camera-sim/.env.local` (gitignored) with the folder that holds SITL's `.DAT` files:
+2. **Point camera-sim at SITL's terrain folder.** Create `tools/camera-sim/.env.local` (gitignored) with the folder that holds SITL's `.DAT` files:
 
    ```sh
-   CAMERA_SIM_TERRAIN_DIR="/path/to/Drone SITL/ardupilot/terrain"
+   CAMERA_SIM_TERRAIN_DIR="/path/to/home/.gcscode/sitl/ardupilot/terrain"
    ```
 
 3. **MediaMTX.** Download the binary for your platform from the [MediaMTX releases](https://github.com/bluenviron/mediamtx/releases) and run `./mediamtx`. The defaults are what camera-sim expects: WebRTC (WHIP) on 8889, RTSP on 8554, any stream path allowed.
