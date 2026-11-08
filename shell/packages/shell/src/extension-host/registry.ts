@@ -46,6 +46,36 @@ function disposeAll(disposables: readonly Disposable[], extensionId: string): vo
 }
 
 /**
+ * How long `deactivate` waits for an extension's own `deactivate` hook. VS Code
+ * uses the same number, but only at host shutdown and for all extensions
+ * together; here it bounds each runtime disable, so the extensions panel's
+ * toggle cannot hang on one extension's cleanup.
+ */
+const DEACTIVATE_HOOK_TIMEOUT_MS = 5000;
+
+/**
+ * Run a `deactivate` hook, waiting at most `DEACTIVATE_HOOK_TIMEOUT_MS`. Never
+ * rejects: a throw or rejection is logged, even one that arrives after the
+ * bound. Past the bound the host stops waiting but cannot stop the hook, so its
+ * remaining code still runs after the extension's subscriptions are disposed.
+ */
+function runDeactivateHook(hook: () => void | Promise<void>, extensionId: string): Promise<void> {
+  const settled = new Promise<void>((resolve) => resolve(hook())).catch((error: unknown) => {
+    console.error(`Error in extension "${extensionId}" deactivate hook:`, error);
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<void>((resolve) => {
+    timer = setTimeout(() => {
+      console.error(
+        `Extension "${extensionId}" deactivate hook did not settle within ${DEACTIVATE_HOOK_TIMEOUT_MS} ms; disposing its subscriptions anyway.`,
+      );
+      resolve();
+    }, DEACTIVATE_HOOK_TIMEOUT_MS);
+  });
+  return Promise.race([settled, timedOut]).finally(() => clearTimeout(timer));
+}
+
+/**
  * Promise-like enough that `await` would adopt it: any object with a callable
  * `then`, not just a native `Promise` — a custom thenable has to be contained
  * the same way. A *callable* thenable (a function carrying `then`) is out of
@@ -63,9 +93,9 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 // The four contribution maps and the cross-extension exports map are SvelteMap
 // instances (from svelte/reactivity), so $derived(registry.list*()) and
 // $derived(host.extensions.getExtension(...)) re-track on set/delete and the rendered UI
-// updates without remount. subscriptionsByExtension and deactivateHooksByExtension
-// stay plain Maps because no UI consumer reads them — the registry uses them
-// internally for deactivate orchestration only.
+// updates without remount. subscriptionsByExtension, deactivateHooksByExtension
+// and pendingDeactivations stay plain Maps because no UI consumer reads them —
+// the registry uses them internally for deactivate orchestration only.
 export function createRegistry(): Registry {
   const views = new SvelteMap<string, ViewContribution>();
   const statusBarItems = new SvelteMap<string, StatusBarItemContribution>();
@@ -74,6 +104,7 @@ export function createRegistry(): Registry {
   const exportsByExtension = new SvelteMap<string, unknown>();
   const subscriptionsByExtension = new Map<string, readonly Disposable[]>();
   const deactivateHooksByExtension = new Map<string, () => void | Promise<void>>();
+  const pendingDeactivations = new Map<string, Promise<void>>();
   const configurationStore = new ConfigurationStore();
 
   function execute<T>(id: string, args: unknown[], attribution: string): Promise<T> {
@@ -346,24 +377,38 @@ export function createRegistry(): Registry {
       }
     },
     async deactivate(extensionId) {
+      // A call while the hook is pending joins it instead of running the hook
+      // again under a bound of its own. Two bounds let the later one fire after
+      // the operator had re-enabled the extension, and tear down the new
+      // activation in its place.
+      const pending = pendingDeactivations.get(extensionId);
+      if (pending !== undefined) return pending;
+
       const subscriptions = subscriptionsByExtension.get(extensionId);
       if (subscriptions === undefined) {
         throw new Error(`Cannot deactivate extension: id "${extensionId}" is not active.`);
       }
 
-      const hook = deactivateHooksByExtension.get(extensionId);
-      if (hook !== undefined) {
-        try {
-          await hook();
-        } catch (error) {
-          console.error(`Error in extension "${extensionId}" deactivate hook:`, error);
-        }
-      }
+      // Clears the pending entry in the same step as the registry state, so no
+      // window exists in which a new activation's call would join a stale one.
+      const tearDown = (): void => {
+        disposeAll(subscriptions, extensionId);
+        subscriptionsByExtension.delete(extensionId);
+        deactivateHooksByExtension.delete(extensionId);
+        exportsByExtension.delete(extensionId);
+        pendingDeactivations.delete(extensionId);
+      };
 
-      disposeAll(subscriptions, extensionId);
-      subscriptionsByExtension.delete(extensionId);
-      deactivateHooksByExtension.delete(extensionId);
-      exportsByExtension.delete(extensionId);
+      const hook = deactivateHooksByExtension.get(extensionId);
+      if (hook === undefined) {
+        tearDown();
+        return;
+      }
+      // `runDeactivateHook` never rejects, so `tearDown` always runs; were it to
+      // reject, the pending entry would never clear and wedge this id.
+      const deactivation = runDeactivateHook(hook, extensionId).then(tearDown);
+      pendingDeactivations.set(extensionId, deactivation);
+      return deactivation;
     },
     listViews() {
       return Array.from(views.values());
