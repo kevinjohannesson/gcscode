@@ -120,8 +120,7 @@ pip install --quiet \
 # ---------------------------------------------------------------------------
 # 5. mavlink2rest (the REST/WebSocket bridge the GCS reads telemetry from)
 # ---------------------------------------------------------------------------
-# run_sitl.sh puts BIN_DIR first on PATH, so this copy is the one that runs,
-# whatever other mavlink2rest is installed. It is replaced whenever its version
+# run_sitl.sh runs this copy by path, whatever other mavlink2rest is installed. It is replaced whenever its version
 # differs from MAVLINK2REST_VERSION.
 M2R_BIN="${BIN_DIR}/mavlink2rest"
 M2R_HAVE="$("${M2R_BIN}" --version 2>/dev/null | awk '{print $2}' || true)"
