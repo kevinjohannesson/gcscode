@@ -29,14 +29,14 @@ VENV_DIR="${SITL_HOME}/venv"
 LOG_DIR="${SITL_HOME}/logs"
 SITL_BIN="${ARDUPILOT_DIR}/build/sitl/bin/arducopter"
 SITL_LOG="/tmp/ArduCopter-sitl.log"
-export PATH="${SITL_HOME}/bin:${PATH}"
+M2R_BIN="${SITL_HOME}/bin/mavlink2rest"   # the pinned copy setup.sh installs
 
 [[ "${SITL_HOME}" == /* ]] || { echo "ERROR: GCSCODE_SITL_HOME must be an absolute path, got: ${SITL_HOME}" >&2; exit 1; }
 
 [[ -x "${SITL_BIN}" ]]  || { echo "ERROR: SITL binary missing: ${SITL_BIN}"  >&2; exit 1; }
 [[ -d "${VENV_DIR}" ]] || { echo "ERROR: venv missing. Run ./setup.sh."     >&2; exit 1; }
 
-if [[ ! -x "${SITL_HOME}/bin/mavlink2rest" ]]; then
+if [[ ! -x "${M2R_BIN}" ]]; then
   echo "ERROR: mavlink2rest missing from ${SITL_HOME}/bin. Run ./setup.sh, which installs it." >&2
   exit 1
 fi
@@ -65,8 +65,11 @@ PRIMARY_OUT="${PRIMARY_OUT:-udp:127.0.0.1:14550}"                     # Python c
 SITL_INSTANCE=0
 GCS_OUT="udp:127.0.0.1:14551"
 
-# SITL runs from the ArduPilot folder, so resolve a relative path now.
-[[ "${SITL_DEFAULTS}" == /* ]] || SITL_DEFAULTS="${PWD}/${SITL_DEFAULTS}"
+# SITL runs from the ArduPilot folder, so resolve a relative path now, against
+# the folder the command was typed in (pnpm runs scripts from the package folder
+# and passes the original one as INIT_CWD).
+[[ "${SITL_DEFAULTS}" == /* ]] || SITL_DEFAULTS="${INIT_CWD:-${PWD}}/${SITL_DEFAULTS}"
+[[ -f "${SITL_DEFAULTS}" ]] || { echo "ERROR: SITL_DEFAULTS not found: ${SITL_DEFAULTS}" >&2; exit 1; }
 
 for port in 5760 8088; do
   if nc -z 127.0.0.1 "${port}" 2>/dev/null; then
@@ -126,7 +129,7 @@ echo "==> Starting mavlink2rest"
 echo "    listen   : udp 14551 (GCS port)"
 echo "    serve    : http://127.0.0.1:8088 (REST + ws://.../v1/ws/mavlink)"
 echo "    log      : ${M2R_LOG}"
-mavlink2rest \
+"${M2R_BIN}" \
   --connect "udpin:127.0.0.1:14551" \
   --server "127.0.0.1:8088" \
   >"${M2R_LOG}" 2>&1 &

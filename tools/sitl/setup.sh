@@ -136,6 +136,7 @@ else
   M2R_URL="https://github.com/mavlink/mavlink2rest/releases/download/${MAVLINK2REST_VERSION}/mavlink2rest-${M2R_ARCH}-apple-darwin"
   log "Downloading mavlink2rest ${MAVLINK2REST_VERSION} to ${BIN_DIR}"
   M2R_TMP="$(mktemp "${BIN_DIR}/mavlink2rest.XXXXXX")"
+  trap 'rm -f "${M2R_TMP:-}"' EXIT   # an interrupted download leaves nothing behind
   if ! curl -fsSL -o "${M2R_TMP}" "${M2R_URL}"; then
     rm -f "${M2R_TMP}"
     err "Download failed: ${M2R_URL}"
