@@ -4,7 +4,7 @@ name: Auto-merge
 # Pre-gate: PR is not in draft state.
 # Gate 1: The `auto-merge` label is present (user's opt-in signal).
 # Gate 2: The PR's headRefName is `feat/*`, `spec/*`, or `adr/*`; a `spec/*` or
-#         `adr/*` PR changes nothing outside `shell/docs/`, so code cannot merge on
+#         `adr/*` PR changes nothing outside `docs/`, so code cannot merge on
 #         a spec reviewer's count instead of gate 3a's final review.
 # Gate 3: Bot signal — class-aware, and in both classes read from the reviews
 #         API rather than from GitHub's computed reviewDecision, matching the bot
@@ -88,9 +88,9 @@ jobs:
               # Spec and ADR PRs carry documents only. Anything else (scripts, agent
               # files, this workflow) belongs on a feat/ branch behind gate 3a, or is
               # merged by hand. Renames count by both names; paginated like the reviews.
-              OUTSIDE_DOCS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '.[] | (.filename, (.previous_filename // empty)) | select(startswith("shell/docs/") | not)')
+              OUTSIDE_DOCS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '.[] | (.filename, (.previous_filename // empty)) | select(startswith("docs/") | not)')
               if [[ -n "$OUTSIDE_DOCS" ]]; then
-                echo "Gate 2 FAILED: spec/ADR PR changes files outside shell/docs/ (merge by hand, or move them to a feat/ branch):"
+                echo "Gate 2 FAILED: spec/ADR PR changes files outside docs/ (merge by hand, or move them to a feat/ branch):"
                 echo "$OUTSIDE_DOCS"
                 exit 0
               fi

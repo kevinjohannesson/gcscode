@@ -124,10 +124,10 @@ test('required headings for new specs and ADRs', () => {
 });
 
 test('docKind recognises spec and ADR filenames only', () => {
-  assert.equal(docKind('shell/docs/specs/2026-10-22-review-loop-v2.md'), 'spec');
-  assert.equal(docKind('shell/docs/decisions/ADR-0013-x.md'), 'adr');
-  assert.equal(docKind('shell/docs/roadmap.md'), null);
-  assert.equal(docKind('shell/docs/plans/2026-10-22-x.md'), null);
+  assert.equal(docKind('docs/specs/2026-10-22-review-loop-v2.md'), 'spec');
+  assert.equal(docKind('docs/decisions/ADR-0013-x.md'), 'adr');
+  assert.equal(docKind('docs/roadmap.md'), null);
+  assert.equal(docKind('docs/plans/2026-10-22-x.md'), null);
 });
 
 test('addedLines reads zero-context hunks', () => {

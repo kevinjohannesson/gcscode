@@ -9,7 +9,7 @@
     "preview": "pnpm --filter @gcscode/shell preview",
     "check": "pnpm -r check",
     "test": "pnpm -r test && pnpm test:scripts",
-    "test:scripts": "node --test 'scripts/*.test.mjs' '../.claude/scripts/*.test.mjs' eslint.config.test.mjs",
+    "test:scripts": "node --test 'scripts/*.test.mjs' '.claude/scripts/*.test.mjs' eslint.config.test.mjs",
     "lint": "eslint . && prettier --check .",
     "lint:docs": "node scripts/lint-docs.mjs",
     "format": "prettier --write ."
@@ -38,7 +38,7 @@
     "vitest": "^4.1.5"
   },
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.0 || ^22.13.0 || >=24"
   },
   "packageManager": "pnpm@9.11.0"
 }

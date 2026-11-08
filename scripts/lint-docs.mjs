@@ -6,7 +6,7 @@
 //     paths, /private/tmp/...);
 //   - newly added specs and ADRs carry the required headings.
 //
-// Usage (from shell/): pnpm lint:docs [--base <ref>] [--all] [files...]
+// Usage (from the repo root): pnpm lint:docs [--base <ref>] [--all] [files...]
 //   no file args  markdown changed against the merge base with <ref> (default origin/master);
 //                 problems are reported on changed lines only
 //   files...      those files, every line

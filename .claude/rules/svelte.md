@@ -1,7 +1,9 @@
 ---
 paths:
   - 'packages/**/*.svelte'
+  - 'libs/**/*.svelte'
   - 'packages/**/*.svelte.ts'
+  - 'libs/**/*.svelte.ts'
 ---
 
 # Svelte

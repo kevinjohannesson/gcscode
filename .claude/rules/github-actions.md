@@ -1,4 +1,7 @@
-<!-- No `paths:` on purpose: `.github/` sits outside `shell/`, and neither a `../.github/**` glob here nor a git-root rule scoped to `.github/**` loaded when a shell/ session read the workflow (probe, Claude Code 2.1.310). -->
+---
+paths:
+  - '.github/**'
+---
 
 # GitHub Actions
 
