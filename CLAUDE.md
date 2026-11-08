@@ -2,13 +2,16 @@
 
 ## What this repo is
 
-A Svelte 5 SPA scaffolded as the shell for a VS Code–style ground control station (GCS). Extensions contribute UI fragments into named extension surfaces. First-party features will be built as extensions against the same public API used by third-party extensions later.
+gcscode is a VS Code–style ground control station (GCS): a Svelte 5 SPA whose shell hosts extensions, which contribute UI fragments into named extension surfaces. First-party features will be built as extensions against the same public API used by third-party extensions later. The repo also holds libraries that are not gcscode itself.
 
 ## Layout
 
-pnpm workspace organized into three roles: `@gcscode/shell` (the app — owns bootstrapping and the extension registry), `@gcscode/extension-api` (the **only** import path for extensions — types and contracts), and a set of extension packages. The canonical worked-example extension is `@gcscode/extension-example` (new extension authors read it first); the rest are first-party feature extensions (`extension-sitl`, `extension-map`, `extension-flight-overlay`, `extension-vehicle-status`, and others). See `packages/` for the current set.
+One pnpm workspace at the git root:
 
-The workspace root is this directory, `shell/`. The git root is one level up; besides `shell/` it holds `.claude/` (the reviewer registry, agents, skills, scripts) and `.github/`. Shared tooling here: ESLint flat config, Prettier, `tsconfig.base.json`, which each package extends. `svelte.config.js` and `vite.config.ts` live in `packages/shell/`.
+- `packages/` — gcscode itself, in three roles: `@gcscode/shell` (the app — owns bootstrapping and the extension registry), `@gcscode/extension-api` (the **only** import path for extensions — types and contracts), and the extension packages. The canonical worked-example extension is `@gcscode/extension-example` (new extension authors read it first); the rest are first-party feature extensions (`extension-sitl`, `extension-map`, `extension-flight-overlay`, `extension-vehicle-status`, and others).
+- `libs/` — generic libraries that know nothing about gcscode: `dockview-svelte` (the shell lays out its views with it) and `map-gl-svelte` (a standalone MapLibre binding no package uses yet).
+
+Shared tooling at the root: ESLint flat config, Prettier, `tsconfig.base.json`, which each package extends. `svelte.config.js` and `vite.config.ts` live in `packages/shell/`. `.claude/` holds the reviewer registry, agents, skills, scripts, rules and commands.
 
 ## Boundary rule — load bearing
 
@@ -48,8 +51,8 @@ An extension module exports a named `const` of type `Extension` with `{ manifest
 
 ## Branching and merging
 
-- Code goes on `feat/<topic>` branches, specs on `spec/<topic>`, ADRs on `adr/<slug>` (take the next free ADR number when you create the branch), all off master. Plans and architecture notes may land on master directly. An ADR needed in the middle of a feature ships as its own PR first.
-- Open PRs as drafts, and push every commit before any reviewer is dispatched. Reviewing, fixing findings, merging and reporting: the `review-loop` skill (`../.claude/skills/review-loop/`). Who reviews: `../.claude/agent-config.json`.
+- Code goes on `feat/<topic>` branches, specs on `spec/<topic>`, ADRs on `adr/<slug>` (take the next free ADR number when you create the branch), all off master. Plans and architecture notes may land on master directly. An ADR needed in the middle of a feature ships as its own PR first. A desktop-app worktree starts on a `claude/<slug>` branch: create the `feat/`, `spec/` or `adr/` branch before the first commit, since the merge gates read the prefix.
+- Open PRs as drafts, and push every commit before any reviewer is dispatched. Reviewing, fixing findings, merging and reporting: the `review-loop` skill (`.claude/skills/review-loop/`). Who reviews: `.claude/agent-config.json`.
 - Executing a plan: `superpowers:subagent-driven-development`, one implementer per task, reviewed per the `review-loop` skill.
 - Review fixes go in separate `Code-review-followup:` commits on the same branch. Never amend a pushed commit or squash: the review trail is part of the history.
 - After a spec or ADR PR merges, implement it on a `feat/` branch. Only purely mechanical docs edits whose exact text the spec gives go straight to master; if you find yourself making a decision the spec didn't, use a branch.
@@ -58,9 +61,9 @@ An extension module exports a named `const` of type `Extension` with `{ manifest
 
 ## Subagent worktree discipline
 
-Work happens in a worktree under `.worktrees/` at the git root; the main checkout's branch is never switched. The Bash tool resets the working directory between calls, so in a worktree:
+Work happens in a worktree — under `.worktrees/` for CLI sessions, `.claude/worktrees/` for desktop-app sessions; the main checkout's branch is never switched. The Bash tool resets the working directory between calls, so in a worktree:
 
-1. Prefix every command with `cd <worktree>/shell &&`.
+1. Prefix every command with `cd <worktree> &&`.
 2. Chain `git branch --show-current` before every `git commit`; if it reads `master`, stop — you are in the main checkout.
 3. Run `pnpm format`, `pnpm test`, `pnpm check` and `pnpm lint` only with that prefix; otherwise they change or read the main checkout.
 
@@ -68,7 +71,7 @@ A dispatch that will commit in a worktree restates these three rules: the subage
 
 ## Sessions
 
-One controller session per PR or iteration. When the worktree already exists, start the session in its `shell/`: a session sees the path-scoped rules and skills of the checkout it started in, and that checkout's agent files as they were at start. A session that creates its worktree stays where it started, so it reads the rules explicitly (§ Conventions) and dispatches edited agent files inline (`review-loop` skill). Handoff notes live in the main checkout's `.claude/handoffs/` (gitignored), never a worktree's, which `git worktree remove` deletes; from any checkout that is `"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/handoffs/"`. Start from the latest note and end by writing one: state, decisions made, open items. When working unattended, don't ask questions: take the documented default and record it in the end-of-PR report. Stop and ask only before something irreversible.
+One controller session per PR or iteration. When the worktree already exists, start the session in it: a session sees the path-scoped rules and skills of the checkout it started in, and that checkout's agent files as they were at start. A session that creates its worktree stays where it started, so it reads the rules explicitly (§ Conventions) and dispatches edited agent files inline (`review-loop` skill). Handoff notes live in the main checkout's `.claude/handoffs/` (gitignored), never a worktree's, which `git worktree remove` deletes; from any checkout that is `"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/handoffs/"`. Start from the latest note and end by writing one: state, decisions made, open items. When working unattended, don't ask questions: take the documented default and record it in the end-of-PR report. Stop and ask only before something irreversible.
 
 ## Commands
 
