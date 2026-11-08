@@ -1,0 +1,30 @@
+# --- ArduPilot source (huge; cloned by setup.sh) ---
+ardupilot/
+
+# --- Python virtual environment ---
+venv/
+
+# --- ArduPilot/SITL build & runtime artifacts (in case anything escapes ardupilot/) ---
+build/
+*.parm
+*.log
+*.bin
+*.tlog
+*.tlog.raw
+logs/
+terrain/
+mav.parm
+*.BIN
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# --- Editor / OS ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
