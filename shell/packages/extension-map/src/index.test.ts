@@ -81,7 +81,7 @@ describe('entry-point export surface', () => {
   //
   // A consumer re-importing `mapApi` from the entry point is already a
   // compile error, but nothing stops `index.ts` from silently re-adding the
-  // export, and the deferred ESLint work cannot help: `no-restricted-imports`
+  // export, and the ESLint boundary rule cannot help: `no-restricted-imports`
   // polices a consumer's imports, never a package's own exports. Hence a test.
   //
   // Deliberately scoped to what the rule claims — the live registry is
