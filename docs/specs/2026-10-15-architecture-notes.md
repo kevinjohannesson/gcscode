@@ -144,6 +144,8 @@ The call is also a judgment about the **deferrals** this spec surfaces, not only
 
 Expected next notes (not iterations; they land directly under this convention): capability APIs and their prior art; STANAG 4586 as a reference architecture.
 
+> **ADR-0014 breadcrumb (added 2026-11-09):** STANAG 4586 is no longer a planned second protocol ([ADR-0014](../decisions/ADR-0014-protocols-as-languages.md)), so its reference note is not expected.
+
 ## Origin
 
 Surfaced 2026-10-15 during a brainstorm on a vehicle capability model, held in a Claude chat session outside Claude Code. The user proposed the meta goal of using established patterns where applicable, and recording architecture discussions as dated docs entries. The first note and the `CLAUDE.md` lines were drafted in that session and held back from master. The user asked for this spec so the convention goes through the repo's own process rather than landing ad hoc.

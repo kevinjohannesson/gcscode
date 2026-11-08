@@ -2,6 +2,8 @@
 
 The first adapter-neutral contract: a service extension holding assets with one optional property, `extension-sitl` becoming the MAVLink adapter that registers into it, and a throwaway consumer that renders what arrives.
 
+> **ADR-0014 breadcrumb (added 2026-11-09):** [ADR-0014](../decisions/ADR-0014-protocols-as-languages.md) supersedes ADR-0011: the registry keeps identity only, `airframe` leaves it, and the live-state contract this spec hands its seams to is dropped. Where those seams went: [`docs/roadmap.md`](../roadmap.md).
+
 ## Context
 
 [ADR-0011](../decisions/ADR-0011-asset-vocabulary-and-registry.md) fixed the asset vocabulary, the single heterogeneous registry, and identity as per-source namespaces with registry-minted opaque keys. [ADR-0012](../decisions/ADR-0012-service-extensions-vs-host-namespaces.md) decided that domain capabilities are service extensions rather than host namespaces, which is why the registry ships as `@gcscode/extension-assets` and not as `host.assets.*`. The host-side activation-failure containment iteration ([`2026-10-16-activation-failure-containment.md`](2026-10-16-activation-failure-containment.md)) shipped first because [ADR-0012](../decisions/ADR-0012-service-extensions-vs-host-namespaces.md) identified a missing service as a boot halt, and this rule makes most product value a service.
