@@ -10,7 +10,7 @@ A ground control station (GCS) for drones: a Svelte 5 app whose shell hosts exte
 
 ## Running it
 
-Needs Node 20 or later and pnpm 9.
+Needs Node 20.19+, 22.13+ or 24+ (the range Vite and ESLint accept), and pnpm 9.
 
 ```sh
 pnpm install
