@@ -77,6 +77,10 @@ export class CameraView {
     this._lastRenderMs = nowMs;
     const pose = this.track.predict(nowMs);
     if (pose !== undefined) applyGimbalPose(this._camera, pose, this._settings.pitchDeg);
+    const aglM =
+      pose === undefined
+        ? undefined
+        : pose.up - this._world.groundHeightLocal(pose.east, pose.north);
     this._renderer.render(this._world.scene, this._camera);
     // Copy straight after rendering, in the same task, so the WebGL buffer is still intact.
     this._compositor.compose(this._renderer.domElement, {
@@ -84,6 +88,7 @@ export class CameraView {
       utc,
       frameNumber: this._frameNumber,
       pose,
+      aglM,
       pitchDeg: this._settings.pitchDeg,
     });
     this._frameNumber++;

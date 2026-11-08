@@ -5,6 +5,8 @@ export interface OverlayInfo {
   readonly utc: Date;
   readonly frameNumber: number;
   readonly pose: VehiclePose | undefined;
+  /** Height above the rendered ground (SITL's ground) under the vehicle, metres. */
+  readonly aglM: number | undefined;
   readonly pitchDeg: number;
 }
 
@@ -15,10 +17,10 @@ export interface OverlayInfo {
  */
 export function overlayLines(info: OverlayInfo): string[] {
   const id = `SYS ${info.systemId}  ${info.utc.toISOString()}  #${String(info.frameNumber).padStart(6, '0')}`;
-  if (info.pose === undefined) return [id, 'NO POSITION YET'];
+  if (info.pose === undefined || info.aglM === undefined) return [id, 'NO POSITION YET'];
   const heading = String(Math.round(info.pose.headingDeg) % 360).padStart(3, '0');
   const pitch = Math.round(info.pitchDeg);
-  return [id, `ALT ${info.pose.up.toFixed(1)} m  HDG ${heading}°  PITCH ${pitch}°`];
+  return [id, `AGL ${info.aglM.toFixed(1)} m  HDG ${heading}°  PITCH ${pitch}°`];
 }
 
 /** A warning across the frame when the pose is too old to trust. */

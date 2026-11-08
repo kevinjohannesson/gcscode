@@ -15,15 +15,26 @@ export interface SimConfig {
   readonly mediaUrl: string;
   /** MediaMTX's RTSP base URL, shown so you know where to point VLC. */
   readonly rtspUrl: string;
-  /** Centre of the rendered world. Set it, don't derive it from a vehicle: each SITL instance can have its own home. */
+  /**
+   * SITL's start location (`SIM_OPOS_*` or `--home`): the centre of the
+   * rendered world and the reference for SITL's ground. Set it, don't derive
+   * it from a vehicle: each SITL instance can have its own home.
+   */
   readonly origin: GeoPoint;
+  /** SITL's home altitude above mean sea level, metres (`SIM_OPOS_ALT`). */
+  readonly originAltM: number;
+  /** Render SITL's terrain (`SIM_TERRAIN 1`, ArduPilot's default) or a flat world (`SIM_TERRAIN 0`). */
+  readonly terrain: boolean;
+  /** Where the terrain `.DAT` files are served; the dev server maps `/terrain` to SITL's terrain folder. */
+  readonly terrainUrl: string;
   readonly imagery: {
     /** XYZ template with `{z}`, `{x}`, `{y}`. */
     readonly urlTemplate: string;
     /** Burned into every frame; the imagery provider requires it. */
     readonly attribution: string;
-    readonly zoom: number;
-    /** Side of the square of imagery around the origin, metres. */
+    /** Finest zoom level to load near a camera. */
+    readonly maxZoom: number;
+    /** Side of the square of world around the origin, metres. */
     readonly extentM: number;
   };
   readonly camera: {
@@ -42,6 +53,12 @@ export interface SimConfig {
 
 /** SITL's default home (ArduPilot `locations.txt`, CMAC). */
 export const CMAC: GeoPoint = { lat: -35.363262, lon: 149.165237 };
+export const CMAC_ALT_M = 584;
+
+/** Coarsest imagery level: z13 tiles are about 4 km across at CMAC's latitude. */
+export const IMAGERY_ROOT_ZOOM = 13;
+/** Split a tile while a camera is closer than this many times its size. */
+export const IMAGERY_SPLIT_FACTOR = 2;
 
 export const ESRI_WORLD_IMAGERY = {
   urlTemplate:
@@ -96,11 +113,27 @@ export function readConfig(search: string): SimConfig {
   };
 
   let origin = CMAC;
+  let originAltM = CMAC_ALT_M;
   const rawOrigin = params.get('origin');
   if (rawOrigin !== null) {
-    const parsed = point(rawOrigin);
-    if (parsed) origin = parsed;
-    else warnings.push(`Ignored origin=${rawOrigin}: expected "lat,lon".`);
+    const parts = rawOrigin.split(',');
+    const parsed = point(parts.slice(0, 2).join(','));
+    const alt = parts.length === 3 ? Number(parts[2]!.trim()) : CMAC_ALT_M;
+    const altOk =
+      parts.length === 2 || (parts.length === 3 && parts[2]!.trim() !== '' && Number.isFinite(alt));
+    if (parsed && altOk) {
+      origin = parsed;
+      originAltM = alt;
+    } else {
+      warnings.push(`Ignored origin=${rawOrigin}: expected "lat,lon" or "lat,lon,alt".`);
+    }
+  }
+
+  let terrain = true;
+  const rawTerrain = params.get('terrain');
+  if (rawTerrain !== null) {
+    if (rawTerrain === 'on' || rawTerrain === 'off') terrain = rawTerrain === 'on';
+    else warnings.push(`Ignored terrain=${rawTerrain}: expected "on" or "off".`);
   }
 
   let markers = defaultMarkers(origin);
@@ -119,11 +152,14 @@ export function readConfig(search: string): SimConfig {
     mediaUrl,
     rtspUrl,
     origin,
+    originAltM,
+    terrain,
+    terrainUrl: (params.get('terrainUrl') ?? '/terrain').replace(/\/+$/, ''),
     imagery: {
       urlTemplate: params.get('imagery') ?? ESRI_WORLD_IMAGERY.urlTemplate,
       attribution: params.get('attribution') ?? ESRI_WORLD_IMAGERY.attribution,
-      zoom: number('zoom', 18, { min: 1, max: 21, integer: true }),
-      extentM: number('extent', 2000, { min: 100, max: 10000 }),
+      maxZoom: number('zoom', 19, { min: IMAGERY_ROOT_ZOOM, max: 21, integer: true }),
+      extentM: number('extent', 8000, { min: 500, max: 20000 }),
     },
     camera: {
       hfovDeg: number('hfov', 70, { min: 10, max: 150 }),
@@ -154,5 +190,5 @@ export function streamName(systemId: number): string {
 /** The mavlink2rest URL with camera-sim's message filter appended. */
 export function mavlinkSubscriptionUrl(mavlinkUrl: string): string {
   const separator = mavlinkUrl.includes('?') ? '&' : '?';
-  return `${mavlinkUrl}${separator}filter=${encodeURIComponent('^(GLOBAL_POSITION_INT)$')}`;
+  return `${mavlinkUrl}${separator}filter=${encodeURIComponent('^(GLOBAL_POSITION_INT|HEARTBEAT)$')}`;
 }

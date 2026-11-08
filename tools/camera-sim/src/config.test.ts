@@ -3,12 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { CMAC, mavlinkSubscriptionUrl, readConfig, streamName } from './config';
 
 describe('readConfig', () => {
-  it('defaults to everything on localhost, centred on CMAC, camera straight down', () => {
+  it('defaults to everything on localhost, SITL’s CMAC home with terrain, camera straight down', () => {
     const config = readConfig('');
     expect(config.mavlinkUrl).toBe('ws://localhost:8088/v1/ws/mavlink');
     expect(config.mediaUrl).toBe('http://localhost:8889');
     expect(config.rtspUrl).toBe('rtsp://localhost:8554');
     expect(config.origin).toEqual({ lat: -35.363262, lon: 149.165237 });
+    expect(config.originAltM).toBe(584);
+    expect(config.terrain).toBe(true);
+    expect(config.terrainUrl).toBe('/terrain');
     expect(config.camera).toEqual({
       hfovDeg: 70,
       width: 1280,
@@ -16,8 +19,8 @@ describe('readConfig', () => {
       fps: 30,
       pitchDeg: -90,
     });
-    expect(config.imagery.zoom).toBe(18);
-    expect(config.imagery.extentM).toBe(2000);
+    expect(config.imagery.maxZoom).toBe(19);
+    expect(config.imagery.extentM).toBe(8000);
     expect(config.warnings).toEqual([]);
   });
 
@@ -53,20 +56,53 @@ describe('readConfig', () => {
     ]);
   });
 
+  it('reads SITL’s home altitude as an optional third origin value', () => {
+    expect(readConfig('?origin=52.1,5.2,12.5')).toMatchObject({
+      origin: { lat: 52.1, lon: 5.2 },
+      originAltM: 12.5,
+    });
+    expect(readConfig('?origin=52.1,5.2').originAltM).toBe(584);
+  });
+
+  it('switches terrain off for SITL running with SIM_TERRAIN 0', () => {
+    expect(readConfig('?terrain=off').terrain).toBe(false);
+    expect(readConfig('?terrain=on').terrain).toBe(true);
+  });
+
+  it('reads the imagery detail and world size', () => {
+    const config = readConfig('?zoom=20&extent=4000&terrainUrl=http://mac.local:5174/terrain/');
+    expect(config.imagery.maxZoom).toBe(20);
+    expect(config.imagery.extentM).toBe(4000);
+    expect(config.terrainUrl).toBe('http://mac.local:5174/terrain');
+  });
+
   it('keeps the default and warns when an override is out of range or not a number', () => {
-    const config = readConfig('?pitch=-120&fps=2.5&zoom=&origin=north&markers=1,2;x');
+    const config = readConfig(
+      '?pitch=-120&fps=2.5&zoom=&origin=north&markers=1,2;x&terrain=yes&extent=50',
+    );
     expect(config.camera.pitchDeg).toBe(-90);
     expect(config.camera.fps).toBe(30);
-    expect(config.imagery.zoom).toBe(18);
+    expect(config.imagery.maxZoom).toBe(19);
+    expect(config.imagery.extentM).toBe(8000);
     expect(config.origin).toEqual(CMAC);
+    expect(config.terrain).toBe(true);
     expect(config.markers).toHaveLength(3);
     expect(config.warnings).toEqual([
-      'Ignored origin=north: expected "lat,lon".',
+      'Ignored origin=north: expected "lat,lon" or "lat,lon,alt".',
+      'Ignored terrain=yes: expected "on" or "off".',
       'Ignored markers=1,2;x: expected "lat,lon;lat,lon".',
-      'Ignored zoom=: expected a number from 1 to 21.',
+      'Ignored zoom=: expected a number from 13 to 21.',
+      'Ignored extent=50: expected a number from 500 to 20000.',
       'Ignored fps=2.5: expected a number from 1 to 60.',
       'Ignored pitch=-120: expected a number from -90 to 30.',
     ]);
+  });
+
+  it('rejects an origin altitude that isn’t a number', () => {
+    const config = readConfig('?origin=52.1,5.2,high');
+    expect(config.origin).toEqual(CMAC);
+    expect(config.originAltM).toBe(584);
+    expect(config.warnings).toHaveLength(1);
   });
 
   it('treats an empty value as absent even where 0 would be in range', () => {
@@ -83,15 +119,15 @@ describe('streamName', () => {
 });
 
 describe('mavlinkSubscriptionUrl', () => {
-  it('asks mavlink2rest for positions only', () => {
+  it('asks mavlink2rest for positions and heartbeats only', () => {
     expect(mavlinkSubscriptionUrl('ws://localhost:8088/v1/ws/mavlink')).toBe(
-      'ws://localhost:8088/v1/ws/mavlink?filter=%5E(GLOBAL_POSITION_INT)%24',
+      'ws://localhost:8088/v1/ws/mavlink?filter=%5E(GLOBAL_POSITION_INT%7CHEARTBEAT)%24',
     );
   });
 
   it('appends to an existing query string', () => {
     expect(mavlinkSubscriptionUrl('ws://h/ws?x=1')).toBe(
-      'ws://h/ws?x=1&filter=%5E(GLOBAL_POSITION_INT)%24',
+      'ws://h/ws?x=1&filter=%5E(GLOBAL_POSITION_INT%7CHEARTBEAT)%24',
     );
   });
 });

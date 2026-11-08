@@ -1,51 +1,6 @@
-import {
-  BufferGeometry,
-  CanvasTexture,
-  Float32BufferAttribute,
-  Group,
-  Mesh,
-  MeshBasicMaterial,
-  SRGBColorSpace,
-  TextureLoader,
-  type Texture,
-} from 'three';
-
 import type { LocalFrame } from '../geo/local-frame';
-import {
-  tileBounds,
-  tilesCovering,
-  tileUrl,
-  type GeoBounds,
-  type TileId,
-} from '../geo/web-mercator-tiles';
-
-export interface TileQuad {
-  /** Scene coordinates (x east, y up, z south) of SW, SE, NE, NW. */
-  readonly positions: readonly number[];
-  /** Texture coordinates for the same corners; v = 1 is the tile image's top (north) edge. */
-  readonly uvs: readonly number[];
-  /** Two triangles, wound so the face points up (+y). */
-  readonly indices: readonly number[];
-}
-
-/**
- * The flat quad one map tile covers. Each corner is placed through the local
- * frame, so the ground sits exactly where SITL's coordinates say it does.
- */
-export function tileQuad(frame: LocalFrame, tile: TileId): TileQuad {
-  const b = tileBounds(tile);
-  const corners = [
-    { lat: b.south, lon: b.west },
-    { lat: b.south, lon: b.east },
-    { lat: b.north, lon: b.east },
-    { lat: b.north, lon: b.west },
-  ].map((c) => frame.toLocal(c));
-  return {
-    positions: corners.flatMap((c) => [c.east, 0, -c.north]),
-    uvs: [0, 0, 1, 0, 1, 1, 0, 1],
-    indices: [0, 1, 2, 0, 2, 3],
-  };
-}
+import { tileXToLon, tileYToLat, type GeoBounds, type TileId } from '../geo/web-mercator-tiles';
+import type { GroundModel } from '../terrain/sitl-ground';
 
 /** The lat/lon box enclosing a square of `extentM` metres centred on the frame origin. */
 export function groundBounds(frame: LocalFrame, extentM: number): GeoBounds {
@@ -64,103 +19,82 @@ export function groundBounds(frame: LocalFrame, extentM: number): GeoBounds {
   };
 }
 
-export interface GroundImagery {
-  readonly urlTemplate: string;
-  readonly zoom: number;
-  readonly extentM: number;
+/**
+ * Grid resolution for a tile: about one vertex every 50 m (half SITL's 100 m
+ * terrain spacing), at least 4 and at most 32 segments a side.
+ */
+export function segmentsFor(tileSizeM: number): number {
+  return Math.min(32, Math.max(4, Math.ceil(tileSizeM / 50)));
 }
 
-export interface GroundTileStatus {
-  readonly total: number;
-  readonly loaded: number;
-  readonly failed: number;
+/** How far a tile's skirt hangs below its edge: enough to hide seams between detail levels. */
+export function skirtDepthFor(tileSizeM: number): number {
+  return Math.min(200, Math.max(2, tileSizeM * 0.1));
+}
+
+export interface TileMeshData {
+  /** Scene coordinates (x east, y up, z south): the grid row by row from the north edge, then the skirt. */
+  readonly positions: number[];
+  /** v = 1 is the tile image's top (north) edge. */
+  readonly uvs: number[];
+  readonly indices: number[];
 }
 
 /**
- * Satellite tiles over the configured square, each on its own quad. A tile
- * that fails to load shows a grid instead, so a missing network or an
- * unreachable provider still leaves a usable, clearly-not-imagery ground.
+ * A tile as a grid shaped to the ground, plus a skirt hanging below its four
+ * edges. Rows are spaced evenly in Web Mercator, not latitude, so the imagery
+ * maps onto the grid without stretching.
  */
-export class GroundTiles {
-  public readonly group = new Group();
-  private _loaded = 0;
-  private _failed = 0;
-  private readonly _total: number;
+export function tileMeshData(
+  frame: LocalFrame,
+  tile: TileId,
+  ground: GroundModel,
+  segments: number,
+  skirtDepth: number,
+): TileMeshData {
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  const side = segments + 1;
+  const index = (i: number, j: number) => j * side + i;
 
-  public constructor(frame: LocalFrame, imagery: GroundImagery) {
-    this.group.name = 'ground-tiles';
-    const tiles = tilesCovering(groundBounds(frame, imagery.extentM), imagery.zoom);
-    this._total = tiles.length;
-    const loader = new TextureLoader();
-    loader.setCrossOrigin('anonymous');
-    const fallback = createFallbackTexture();
-
-    for (const tile of tiles) {
-      const quad = tileQuad(frame, tile);
-      const geometry = new BufferGeometry();
-      geometry.setAttribute('position', new Float32BufferAttribute(quad.positions, 3));
-      geometry.setAttribute('uv', new Float32BufferAttribute(quad.uvs, 2));
-      geometry.setIndex([...quad.indices]);
-      const material = new MeshBasicMaterial({ color: 0x6b7262 });
-      this.group.add(new Mesh(geometry, material));
-
-      loader.load(
-        tileUrl(imagery.urlTemplate, tile),
-        (texture) => {
-          prepareImageryTexture(texture);
-          material.map = texture;
-          material.color.set(0xffffff);
-          material.needsUpdate = true;
-          this._loaded++;
-        },
-        undefined,
-        () => {
-          material.map = fallback;
-          material.color.set(0xffffff);
-          material.needsUpdate = true;
-          this._failed++;
-        },
-      );
+  for (let j = 0; j <= segments; j++) {
+    const lat = tileYToLat(tile.y + j / segments, tile.z);
+    for (let i = 0; i <= segments; i++) {
+      const lon = tileXToLon(tile.x + i / segments, tile.z);
+      const local = frame.toLocal({ lat, lon });
+      positions.push(local.east, ground.heightAt({ lat, lon }), -local.north);
+      uvs.push(i / segments, 1 - j / segments);
+    }
+  }
+  for (let j = 0; j < segments; j++) {
+    for (let i = 0; i < segments; i++) {
+      const nw = index(i, j);
+      const ne = index(i + 1, j);
+      const sw = index(i, j + 1);
+      const se = index(i + 1, j + 1);
+      indices.push(sw, se, ne, sw, ne, nw); // faces up (+y)
     }
   }
 
-  public get status(): GroundTileStatus {
-    return { total: this._total, loaded: this._loaded, failed: this._failed };
-  }
-}
-
-function prepareImageryTexture(texture: Texture): void {
-  texture.colorSpace = SRGBColorSpace;
-  // Oblique views read the ground at a grazing angle; anisotropic filtering
-  // keeps it sharp. three.js clamps this to what the GPU supports.
-  texture.anisotropy = 8;
-}
-
-/** A grey grid with a dark border: unmistakably "imagery missing". */
-function createFallbackTexture(): Texture {
-  const size = 256;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    ctx.fillStyle = '#7d8471';
-    ctx.fillRect(0, 0, size, size);
-    ctx.strokeStyle = '#5a5f50';
-    ctx.lineWidth = 2;
-    for (let i = 0; i <= size; i += 32) {
-      ctx.beginPath();
-      ctx.moveTo(i, 0);
-      ctx.lineTo(i, size);
-      ctx.moveTo(0, i);
-      ctx.lineTo(size, i);
-      ctx.stroke();
+  // Skirt: each edge's vertices again, lowered, joined to the edge.
+  const edges = [
+    Array.from({ length: side }, (_, i) => index(i, 0)), // north
+    Array.from({ length: side }, (_, j) => index(segments, j)), // east
+    Array.from({ length: side }, (_, i) => index(segments - i, segments)), // south
+    Array.from({ length: side }, (_, j) => index(0, segments - j)), // west
+  ];
+  for (const edge of edges) {
+    const first = positions.length / 3;
+    for (const v of edge) {
+      positions.push(positions[v * 3]!, positions[v * 3 + 1]! - skirtDepth, positions[v * 3 + 2]!);
+      uvs.push(uvs[v * 2]!, uvs[v * 2 + 1]!);
     }
-    ctx.strokeStyle = '#3c3f35';
-    ctx.lineWidth = 6;
-    ctx.strokeRect(0, 0, size, size);
+    for (let k = 0; k < segments; k++) {
+      const a = edge[k]!;
+      const b = edge[k + 1]!;
+      indices.push(a, b, first + k + 1, a, first + k + 1, first + k);
+    }
   }
-  const texture = new CanvasTexture(canvas);
-  prepareImageryTexture(texture);
-  return texture;
+  return { positions, uvs, indices };
 }
