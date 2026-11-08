@@ -6,6 +6,7 @@ A ground control station (GCS) for drones: a Svelte 5 app whose shell hosts exte
 
 - `packages/` — gcscode itself: the shell (`packages/shell`), the extension API (`packages/extension-api`) and the extensions.
 - `libs/` — generic libraries that are not gcscode itself: `dockview-svelte`, which the shell uses for its layout, and `map-gl-svelte`.
+- `tools/` — what gcscode is developed and tested against: `tools/sitl` runs a simulated drone ([its README](tools/sitl/README.md)).
 - `docs/` — the roadmap, specs, plans and architecture decisions.
 
 ## Running it

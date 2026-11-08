@@ -2,7 +2,7 @@
 
 ## What this repo is
 
-gcscode is a VS Code–style ground control station (GCS): a Svelte 5 SPA whose shell hosts extensions, which contribute UI fragments into named extension surfaces. First-party features will be built as extensions against the same public API used by third-party extensions later. The repo also holds libraries that are not gcscode itself.
+gcscode is a VS Code–style ground control station (GCS): a Svelte 5 SPA whose shell hosts extensions, which contribute UI fragments into named extension surfaces. First-party features will be built as extensions against the same public API used by third-party extensions later. The repo also holds what surrounds it: libraries that are not gcscode itself, and tools gcscode is developed and tested against.
 
 ## Layout
 
@@ -10,6 +10,7 @@ One pnpm workspace at the git root:
 
 - `packages/` — gcscode itself, in three roles: `@gcscode/shell` (the app — owns bootstrapping and the extension registry), `@gcscode/extension-api` (the **only** import path for extensions — types and contracts), and the extension packages. The canonical worked-example extension is `@gcscode/extension-example` (new extension authors read it first); the rest are first-party feature extensions (`extension-sitl`, `extension-map`, `extension-flight-overlay`, `extension-vehicle-status`, and others).
 - `libs/` — generic libraries that know nothing about gcscode: `dockview-svelte` (the shell lays out its views with it) and `map-gl-svelte` (a standalone MapLibre binding no package uses yet).
+- `tools/` — what gcscode is developed and tested against, reached only over the protocols a real system uses: `sitl` (ArduCopter SITL, MAVProxy and mavlink2rest; see its README).
 
 Shared tooling at the root: ESLint flat config, Prettier, `tsconfig.base.json`, which each package extends. `svelte.config.js` and `vite.config.ts` live in `packages/shell/`. `.claude/` holds the reviewer registry, agents, skills, scripts, rules and commands.
 
