@@ -10,37 +10,39 @@ PX4 has **no built-in flight dynamics** the way ArduPilot SITL does.
 ArduPilot's `arducopter` binary simulates the airframe itself; PX4 expects an
 external simulator to connect on **TCP 4560** and feed it sensor data.
 
-So `make px4_sitl none_iris` is *not* "headless PX4" — `none` literally means
+So `make px4_sitl none_iris` is _not_ "headless PX4" — `none` literally means
 "start PX4 with no simulator, I'll bring my own". Nothing flies, no sensor
 data arrives, the EKF never initialises, arming is refused. Dead end unless
 we write our own sim.
 
 ## 2. The three real backends
 
-| Backend | Target | Deps | Dynamics | Cameras/video |
-|---|---|---|---|---|
-| **SIH** | `make px4_sitl sihsim_quadx` | none beyond PX4 toolchain | yes, built into PX4 | no |
-| **jMAVSim** | `make px4_sitl jmavsim` (`HEADLESS=1`) | Java + ant | yes, simple | no |
-| **Gazebo (gz)** | `make px4_sitl gz_x500` (`HEADLESS=1`) | pixi/conda-forge + XQuartz, multi-GB | yes, full physics | **yes** |
+| Backend         | Target                                 | Deps                                 | Dynamics            | Cameras/video |
+| --------------- | -------------------------------------- | ------------------------------------ | ------------------- | ------------- |
+| **SIH**         | `make px4_sitl sihsim_quadx`           | none beyond PX4 toolchain            | yes, built into PX4 | no            |
+| **jMAVSim**     | `make px4_sitl jmavsim` (`HEADLESS=1`) | Java + ant                           | yes, simple         | no            |
+| **Gazebo (gz)** | `make px4_sitl gz_x500` (`HEADLESS=1`) | pixi/conda-forge + XQuartz, multi-GB | yes, full physics   | **yes**       |
 
 ### SIH (Simulation-In-Hardware, run as SITL)
+
 Closest thing to the ArduPilot experience: dynamics compiled into PX4, no
 external process, no Java, no Gazebo. Since PX4 v1.14 it runs as plain SITL
 with no flight-controller hardware. Models: quadx, hex (v1.17+), airplane,
-xvert tailsitter, standard_vtol. Airframe tuned via `SIH_*` params.
+xvert tailsitter, standard*vtol. Airframe tuned via `SIH*\*` params.
 Caveat: community-supported; docs say "may not work with current PX4
 versions, known to work with v1.14". Needs a smoke test on v1.17.0 before
 committing to it.
 **This is the pick if the goal stays telemetry-only.**
 
 ### jMAVSim
-Light, works headless (`HEADLESS=1` appends `-no-gui`), talks to PX4 over TCP
-4560. **Removed from PX4 main** — `make px4_sitl jmavsim` now fails with
+
+Light, works headless (`HEADLESS=1` appends `-no-gui`), talks to PX4 over TCP 4560. **Removed from PX4 main** — `make px4_sitl jmavsim` now fails with
 `ninja: error: unknown target 'jmavsim'`. Submodule still present in the
 v1.17.0 and v1.16.2 tags, so it'd mean pinning the clone to a tag. Given SIH
 exists and needs no Java, jMAVSim is probably the worst of the three for us.
 
 ### Gazebo (gz Harmonic)
+
 The only officially supported path on main, and the only one with camera
 sensors. Heavy: PX4's `Tools/setup/macos.sh --sim-tools` installs Gazebo from
 a locked conda-forge env via **pixi** (not brew) plus **XQuartz** (may need a
@@ -73,12 +75,12 @@ If video is in scope, the backend question answers itself: Gazebo, and the
 PX4 SITL's MAVLink links (from `ROMFS/px4fmu_common/init.d-posix/px4-rc.mavlink`,
 v1.17.0; `i` = instance number, 0 for us):
 
-| Link | Local UDP | Remote UDP |
-|---|---|---|
-| GCS | 18570 + i | 14550 + i |
-| Offboard / onboard API | 14580 + i | 14540 + i |
-| Camera payload | 14280 + i | 14030 + i |
-| Gimbal | 13030 + i | 13280 + i |
+| Link                   | Local UDP | Remote UDP |
+| ---------------------- | --------- | ---------- |
+| GCS                    | 18570 + i | 14550 + i  |
+| Offboard / onboard API | 14580 + i | 14540 + i  |
+| Camera payload         | 14280 + i | 14030 + i  |
+| Gimbal                 | 13030 + i | 13280 + i  |
 
 Proposed mirror of the ArduPilot topology:
 
@@ -101,7 +103,7 @@ Open question: whether to reuse `run_sitl.sh`'s mavlink2rest block verbatim
 - Add `ulimit -S -n 2048` to `~/.zshrc` before building — the macOS default of
   256 file descriptors causes `LD: too many open files` partway through.
 - `Tools/setup/macos.sh` creates a `.venv` in the PX4 repo root. That's a
-  *second* venv alongside this project's existing `venv/` — keep them straight,
+  _second_ venv alongside this project's existing `venv/` — keep them straight,
   or have the PX4 script activate the right one explicitly.
 
 ## 7. Sources

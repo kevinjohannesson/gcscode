@@ -254,6 +254,8 @@ importers:
         specifier: ^7.3.0
         version: 7.3.0
 
+  tools/sitl: {}
+
 packages:
 
   '@adobe/css-tools@4.4.4':
