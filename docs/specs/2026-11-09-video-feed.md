@@ -247,6 +247,11 @@ These land when the iteration ships, in the feat PR, after master is merged into
 - **Latency is not measured.** camera-sim's burned-in UTC time can be read against a clock during the demo. No target is set.
 - **H.264 decoding.** camera-sim's encoder sends H.264, and the browser running gcscode must decode it. Chrome and Safari do; other browsers are unverified. A browser that cannot would most likely fail at the offer (MediaMTX refusing an offer with no codec in common), which the panel shows as "refused".
 
+**Left for the plan by review**, each a checklist item there:
+
+- **PR #45 RT-9** (partly resolved at the loop's end): the VS Code alignment table's "A feature publishes a contract that providers fill" row still gives the contract's trigger as "a stream tied to a vehicle". Out-of-scope row 1's wording, "a second vehicle whose video an operator needs", is the one that counts; the plan uses it wherever the trigger is copied, including the ledger.
+- **PR #45 RT-15**: Validation 6's assertion pins only Video before Map, but Map being the front tab at load also needs Map to stay the last entry that registers a view, or the next extension appended with a view takes the landing tab while the test still passes. The plan's bundling task pins that property itself (for example, that only `gcscode.flight-overlay` follows `gcscode.map`) and says so in Map's entry comment in `bundled-extensions.ts`.
+
 ## Post-merge implementation
 
 Code, so a `feat/video-feed` branch through the subagent-driven pipeline, reviewed per the `review-loop` skill. The plan lists the Known unknowns above as checklist items. camera-sim is not edited; if the feature needs anything from it, the controller session is told. ADR-0014's follow-up PRs rename `extension-sitl` and `extension-flight-overlay`, so a trivial conflict in `bundled-extensions.ts` is expected, and the feat branch starts from master after the rename lands. The repo-state claims here (the shell's view host passes no props, dockview's default renderer, `getDockviewContext()` reaching extension views, the panel-sync effect in `app.svelte`, `gcscode.sitl.connectionUrl` as the only other setting) were checked while writing; the implementer re-checks rather than trusting them.
