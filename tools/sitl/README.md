@@ -41,17 +41,21 @@ The repo holds only scripts. Everything else lives outside it, in `GCSCODE_SITL_
 
 SITL's own output goes to `/tmp/ArduCopter-sitl.log`, mavlink2rest's to `/tmp/mavlink2rest.log`.
 
-## Python client
+## Flying it
 
-Small scripts for poking at SITL without the GCS. From `tools/sitl`, with SITL running:
+With SITL running, from the repo root:
 
 ```sh
-source "${GCSCODE_SITL_HOME:-$HOME/.gcscode/sitl}/venv/bin/activate"
-python client/connect.py       # first heartbeat, then exit
-python client/telemetry.py     # live attitude and position
-python client/arm_takeoff.py   # arm, take off to 10 m, land
-python client/fly_circle.py    # fly a circle around home, then RTL
+pnpm fly-sitl                # list what it can do
+pnpm fly-sitl --circle 3     # fly three circles around home, then RTL
+pnpm fly-sitl --takeoff 25   # arm, take off to 25 m, hover, land
+pnpm fly-sitl --connect      # wait for one heartbeat; the drone does not move
+pnpm fly-sitl --telemetry    # live attitude and position until Ctrl-C; the drone does not move
 ```
+
+Arguments after the action go to the script that carries it out (`pnpm fly-sitl --circle 3 --radius 50`), and `pnpm fly-sitl --circle --help` lists that script's options. Inside a package folder pnpm looks for the script in that package, so use `pnpm -w fly-sitl` there.
+
+`fly-sitl` runs `fly.sh`, which starts `client/fly.py` with the venv's Python, so there is nothing to activate; if the venv or its pymavlink is missing, it says to run setup. `fly.py` hands each action to one of the small Python scripts beside it, which talk MAVLink to SITL over UDP 14550. Starting SITL never moves the drone: only `--circle` and `--takeoff` do.
 
 ## PX4
 

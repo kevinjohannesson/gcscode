@@ -4,13 +4,13 @@
 Connects to SITL, prints the first heartbeat, then exits. Use this to confirm
 your network plumbing is right before running anything more interesting.
 
-  $ python client/connect.py
-  $ python client/connect.py udp:127.0.0.1:14551    # custom endpoint
+  $ pnpm fly-sitl --connect
+  $ pnpm fly-sitl --connect udp:127.0.0.1:14551    # custom endpoint
 """
 import os
 import sys
 
-# Allow running as `python client/connect.py` from project root.
+# Find mav_helpers whatever the working directory.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from mav_helpers import DEFAULT_ENDPOINT, connect

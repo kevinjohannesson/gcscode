@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """End-to-end mission: connect, GUIDED, arm, takeoff, hover, land, disarm.
 
-  $ python client/arm_takeoff.py                    # 10 m takeoff, 5 s hover
-  $ python client/arm_takeoff.py --altitude 25      # 25 m takeoff
-  $ python client/arm_takeoff.py --hover 15         # hover 15 s
+  $ pnpm fly-sitl --takeoff                  # 10 m takeoff, 5 s hover
+  $ pnpm fly-sitl --takeoff 25               # 25 m takeoff
+  $ pnpm fly-sitl --takeoff --hover 15       # hover 15 s
 """
 import argparse
 import os

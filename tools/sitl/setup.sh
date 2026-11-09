@@ -7,6 +7,7 @@
 # every worktree: GCSCODE_SITL_HOME, default ~/.gcscode/sitl.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SITL_HOME="${GCSCODE_SITL_HOME:-${HOME}/.gcscode/sitl}"
 ARDUPILOT_DIR="${SITL_HOME}/ardupilot"
 VENV_DIR="${SITL_HOME}/venv"
@@ -117,6 +118,9 @@ pip install --quiet \
   "MAVProxy" \
   "gnureadline"
 
+log "Installing the Python client's requirements (client/requirements.txt)"
+pip install --quiet -r "${SCRIPT_DIR}/client/requirements.txt"
+
 # ---------------------------------------------------------------------------
 # 5. mavlink2rest (the REST/WebSocket bridge the GCS reads telemetry from)
 # ---------------------------------------------------------------------------
@@ -178,13 +182,14 @@ Setup complete.
   Venv      : ${VENV_DIR}
   Binary    : ${SITL_BIN}
 
-Run a flight in two terminals, from tools/sitl:
+Run a flight in two terminals, from the repo root:
 
-  Terminal A:   ./run_sitl.sh
+  Terminal A:   pnpm --filter sitl start
 
-  Terminal B:   source "${VENV_DIR}/bin/activate"
-                python client/connect.py        # heartbeat sanity check
-                python client/telemetry.py      # live attitude/GPS stream
-                python client/arm_takeoff.py    # arm, takeoff 10m, land
+  Terminal B:   pnpm fly-sitl --connect         # heartbeat sanity check
+                pnpm fly-sitl --telemetry       # live attitude/GPS stream
+                pnpm fly-sitl --takeoff         # arm, takeoff 10m, land
+                pnpm fly-sitl --circle 3        # three circles, then RTL
+                pnpm fly-sitl                   # everything it can do
 
 DONE
