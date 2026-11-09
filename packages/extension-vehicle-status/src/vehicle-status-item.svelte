@@ -1,17 +1,17 @@
 <script lang="ts">
-  import type { SitlExports } from '@gcscode/extension-sitl';
+  import type { MavlinkExports } from '@gcscode/extension-mavlink';
 
-  import { getSitlExports } from './index';
+  import { getMavlinkExports } from './index';
 
   function fmtCoord(n: number | null): string {
     return n === null ? '—' : `${n.toFixed(2)}°`;
   }
 
-  function formatSummary(exports: SitlExports | undefined): string {
-    if (exports === undefined) return 'SITL: —';
+  function formatSummary(exports: MavlinkExports | undefined): string {
+    if (exports === undefined) return 'MAVLink: —';
     const t = exports.telemetry;
-    if (t.connection === 'connecting') return 'SITL: connecting…';
-    if (t.connection === 'disconnected') return 'SITL: disconnected';
+    if (t.connection === 'connecting') return 'MAVLink: connecting…';
+    if (t.connection === 'disconnected') return 'MAVLink: disconnected';
 
     const parts: string[] = [t.mode ?? '—'];
     if (t.lat !== null && t.lng !== null) {
@@ -20,11 +20,11 @@
     if (t.batteryRemaining !== null) {
       parts.push(`${t.batteryRemaining}%`);
     }
-    return `SITL: ${parts.join(' • ')}`;
+    return `MAVLink: ${parts.join(' • ')}`;
   }
 
-  const sitl = $derived(getSitlExports());
-  const summary = $derived(formatSummary(sitl));
+  const mavlink = $derived(getMavlinkExports());
+  const summary = $derived(formatSummary(mavlink));
 </script>
 
 <span>{summary}</span>

@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@gcscode/extension-api": "workspace:*",
-    "@gcscode/extension-sitl": "workspace:*"
+    "@gcscode/extension-mavlink": "workspace:*"
   },
   "peerDependencies": {
     "svelte": "^5.0.0"

@@ -29,7 +29,7 @@
 
 <section>
   <header>
-    <h2>SITL Telemetry</h2>
+    <h2>MAVLink Telemetry</h2>
     <span class="status {telemetryState.connection}">
       {telemetryState.connection}
     </span>

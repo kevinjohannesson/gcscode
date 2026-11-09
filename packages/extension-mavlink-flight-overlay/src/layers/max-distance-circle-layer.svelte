@@ -8,8 +8,8 @@
   const MAPLIBRE_CONTEXT_KEY = 'gcscode.map.maplibre';
   const getMaplibre = getContext<() => maplibregl.Map | null>(MAPLIBRE_CONTEXT_KEY);
 
-  const SOURCE_ID = 'gcscode.flight-overlay.max-distance.source';
-  const LAYER_ID = 'gcscode.flight-overlay.max-distance.layer';
+  const SOURCE_ID = 'gcscode.mavlink-flight-overlay.max-distance.source';
+  const LAYER_ID = 'gcscode.mavlink-flight-overlay.max-distance.layer';
 
   let installed = false;
 

@@ -3,7 +3,7 @@ import type { AssetsApi } from '@gcscode/extension-assets';
 
 import { createAssetAdapter } from './asset-adapter';
 import { createMavlinkClient, type MavlinkClient } from './mavlink-client';
-import SitlView from './sitl-view.svelte';
+import MavlinkView from './mavlink-view.svelte';
 import {
   applyMessage,
   reset,
@@ -13,9 +13,9 @@ import {
 } from './telemetry-store.svelte';
 
 /**
- * Cross-extension exports for the SITL extension. Consumers `import type` this
- * from `@gcscode/extension-sitl` and look up the live value via
- * `host.extensions.getExtension<SitlExports>('gcscode.sitl')?.exports`.
+ * Cross-extension exports for the MAVLink extension. Consumers `import type` this
+ * from `@gcscode/extension-mavlink` and look up the live value via
+ * `host.extensions.getExtension<MavlinkExports>('gcscode.mavlink')?.exports`.
  *
  * `telemetry` is the live `$state` proxy from `telemetry-store.svelte.ts` —
  * field reads in `$derived` / template contexts auto-track. Typed `Readonly`
@@ -23,7 +23,7 @@ import {
  * readonly is convention + lint, not a hard wall (see ADR-0005's known
  * limitations).
  */
-export interface SitlExports {
+export interface MavlinkExports {
   telemetry: Readonly<TelemetryState>;
 }
 
@@ -51,18 +51,18 @@ async function closeClient(): Promise<void> {
   }
 }
 
-export const sitlExtension: Extension = {
+export const mavlinkExtension: Extension = {
   manifest: {
-    id: 'gcscode.sitl',
-    displayName: 'SITL Telemetry',
+    id: 'gcscode.mavlink',
+    displayName: 'MAVLink',
     version: '0.0.0',
     description:
       'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export.',
   },
-  activate(context): SitlExports {
+  activate(context): MavlinkExports {
     context.subscriptions.push(
       context.host.configuration.registerConfiguration({
-        key: 'gcscode.sitl.connectionUrl',
+        key: 'gcscode.mavlink.connectionUrl',
         schema: {
           type: 'string',
           format: 'uri',
@@ -73,7 +73,7 @@ export const sitlExtension: Extension = {
       }),
     );
 
-    const cfg = context.host.configuration.getConfiguration('gcscode.sitl');
+    const cfg = context.host.configuration.getConfiguration('gcscode.mavlink');
 
     // Resolved per message rather than here: the assets service may activate
     // after this one, and that lazy resolution is exactly why the bundling
@@ -97,9 +97,9 @@ export const sitlExtension: Extension = {
 
     context.subscriptions.push(
       context.host.configuration.onDidChangeConfiguration((e) => {
-        if (!e.affectsConfiguration('gcscode.sitl.connectionUrl')) return;
+        if (!e.affectsConfiguration('gcscode.mavlink.connectionUrl')) return;
         const newBase = context.host.configuration
-          .getConfiguration('gcscode.sitl')
+          .getConfiguration('gcscode.mavlink')
           .get<string>('connectionUrl', DEFAULT_BASE_URL);
         // Fire-and-forget reconnect; errors propagate via the WebSocket's
         // onerror/onclose pathway already handled by createMavlinkClient.
@@ -109,17 +109,17 @@ export const sitlExtension: Extension = {
 
     context.subscriptions.push(
       context.host.window.registerView({
-        id: 'gcscode.sitl.location',
-        component: SitlView,
-        title: 'SITL',
+        id: 'gcscode.mavlink.location',
+        component: MavlinkView,
+        title: 'MAVLink',
       }),
       context.host.commands.registerCommand({
-        id: 'gcscode.sitl.getLocation',
+        id: 'gcscode.mavlink.getLocation',
         title: 'Get Location',
-        category: 'SITL',
+        category: 'MAVLink',
         run: () => {
           if (telemetryState.lat === null || telemetryState.lng === null) {
-            console.log('SITL location: (no fix yet)');
+            console.log('MAVLink location: (no fix yet)');
             return null;
           }
           const loc = {
@@ -127,13 +127,13 @@ export const sitlExtension: Extension = {
             lng: telemetryState.lng,
             alt: telemetryState.alt,
           };
-          console.log('SITL location:', loc);
+          console.log('MAVLink location:', loc);
           return loc;
         },
       }),
       context.host.keybindings.registerKeybinding({
         key: 'Alt+Shift+L',
-        command: 'gcscode.sitl.getLocation',
+        command: 'gcscode.mavlink.getLocation',
       }),
     );
 

@@ -12,7 +12,7 @@ ARDUPILOT_DIR="${SITL_HOME}/ardupilot"
 VENV_DIR="${SITL_HOME}/venv"
 BIN_DIR="${SITL_HOME}/bin"
 SITL_BIN="${ARDUPILOT_DIR}/build/sitl/bin/arducopter"
-# The mavlink2rest release the gcscode SITL extension was built and tested
+# The mavlink2rest release the gcscode MAVLink extension was built and tested
 # against, with the sha256 digests GitHub publishes for its macOS binaries.
 M2R_PINNED_VERSION="1.0.2"
 M2R_SHA256_AARCH64="d6b6ddd19785a2bca7593932f75bb3a36f94863813c5fd13438e4d85e5b6c574"

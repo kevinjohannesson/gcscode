@@ -20,9 +20,9 @@
 
   $effect(() => {
     const map = getMaplibre();
-    const sitl = flightOverlayState.sitlExports;
-    const lat = sitl?.telemetry.lat ?? null;
-    const lng = sitl?.telemetry.lng ?? null;
+    const mavlink = flightOverlayState.mavlinkExports;
+    const lat = mavlink?.telemetry.lat ?? null;
+    const lng = mavlink?.telemetry.lng ?? null;
 
     if (!map || lat === null || lng === null) {
       marker?.remove();
@@ -58,8 +58,8 @@
       marker.setLngLat([lng, lat]);
     }
 
-    const heading = sitl?.telemetry.heading;
-    const armed = sitl?.telemetry.armed === true;
+    const heading = mavlink?.telemetry.heading;
+    const armed = mavlink?.telemetry.armed === true;
     const visible = armed && heading !== null && heading !== undefined;
     // display: none when hidden — cheaper than detach/reattach the
     // maplibre marker on every arm/disarm transition.

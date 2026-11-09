@@ -250,8 +250,8 @@ export type ConfigurationTarget = (typeof ConfigurationTarget)[keyof typeof Conf
 /**
  * A configuration contribution registers a single setting key with its JSON
  * Schema and (optional) default value. The full `key` must start with the
- * registering extension's id (e.g. extension `gcscode.sitl` may register
- * `gcscode.sitl.connectionUrl`). Registration is enforced exactly-once:
+ * registering extension's id (e.g. extension `gcscode.mavlink` may register
+ * `gcscode.mavlink.connectionUrl`). Registration is enforced exactly-once:
  * a second `registerConfiguration` for the same key throws synchronously.
  */
 export interface ConfigurationContribution<T = unknown> {
@@ -276,8 +276,8 @@ export interface ConfigurationChangeEvent {
 /**
  * Section-scoped reader/writer. Returned by `host.configuration.getConfiguration(section?)`.
  * With a section, keys are implicitly prefixed (e.g.
- * `getConfiguration('gcscode.sitl').get('connectionUrl')` reads the full
- * key `'gcscode.sitl.connectionUrl'`).
+ * `getConfiguration('gcscode.mavlink').get('connectionUrl')` reads the full
+ * key `'gcscode.mavlink.connectionUrl'`).
  *
  * Cross-section / cross-extension reads are permitted: any extension can
  * read or write any registered key. Registration enforces the prefix; post-

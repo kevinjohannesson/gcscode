@@ -118,7 +118,7 @@ export function createExtensionManager(
       // clause makes `setEnabled(id, true)` on a failed record re-enter
       // `activate()` — the in-place retry the spec forbids (Architecture,
       // "There is no in-place retry"; Non-goals). Extensions are module
-      // singletons: `extension-sitl` reassigns its module-level `client`
+      // singletons: `extension-mavlink` reassigns its module-level `client`
       // without closing the previous socket, so a second `activate()` leaks a
       // WebSocket. Reload, which gives fresh module state, is the retry
       // mechanism.

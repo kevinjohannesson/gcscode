@@ -3,7 +3,7 @@
  *
  * The first test in this iteration that wires the real pieces together: the
  * real host registry and manager, the real `@gcscode/extension-assets`
- * service, and the real `@gcscode/extension-sitl` adapter. Every earlier test
+ * service, and the real `@gcscode/extension-mavlink` adapter. Every earlier test
  * in the iteration is within one package, because the boundary rule forbids an
  * extension package from importing a sibling at runtime — only the shell may,
  * and only in files allowlisted in `eslint.config.ts`, this one among them — so
@@ -13,7 +13,7 @@
  *
  * Heartbeats arrive through the extension's own message path — a stubbed
  * global `WebSocket`, the seam `mavlink-client.test.ts` and `index.test.ts`
- * already use. Nothing here reaches into `extension-sitl`'s internals, and no
+ * already use. Nothing here reaches into `extension-mavlink`'s internals, and no
  * production export exists for the benefit of this file.
  */
 
@@ -21,18 +21,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Extension, ExtensionHost, ViewContribution } from '@gcscode/extension-api';
 import { assetsExtension, type AssetsApi, type RegisteredAsset } from '@gcscode/extension-assets';
-import { sitlExtension } from '@gcscode/extension-sitl';
+import { mavlinkExtension } from '@gcscode/extension-mavlink';
 
 import { createExtensionManager, type ExtensionManager } from './extension-manager';
 import { createRegistry } from './registry';
 
 // ---------------------------------------------------------------------------
-// MockWebSocket — a third variant of the two in `extension-sitl`'s tests, and
+// MockWebSocket — a third variant of the two in `extension-mavlink`'s tests, and
 // local on purpose. That package's header note ("if a third test file ever
 // needs a WebSocket mock, extracting a shared helper becomes the right call")
 // was written about a third file inside that package. Sharing it across the
 // package boundary would mean either exporting a test double from
-// `@gcscode/extension-sitl`'s entry point — production API added for a test —
+// `@gcscode/extension-mavlink`'s entry point — production API added for a test —
 // or a new workspace package to hold twenty lines. Both cost more than the
 // copy.
 //
@@ -87,7 +87,7 @@ function deliver(frame: unknown): void {
 }
 
 /** The live frame, measured 2026-10-21 against mavlink2rest. The same literal
- *  as `extension-sitl`'s own tests carry — `mavtype` is a nested object, which
+ *  as `extension-mavlink`'s own tests carry — `mavtype` is a nested object, which
  *  is the shape no fixture would have guessed. */
 const HEARTBEAT_FRAME = {
   header: { system_id: 1, component_id: 1, sequence: 166 },
@@ -106,11 +106,11 @@ const HEARTBEAT_FRAME = {
  *  Same stand-in `registry.test.ts` uses. */
 const fakeComponent = {} as ViewContribution['component'];
 
-const SITL_ASSET = {
+const MAVLINK_ASSET = {
   localId: '1',
   airframe: { kind: 'multirotor' },
-  sourceId: 'gcscode.sitl',
-  sourceLabel: 'SITL',
+  sourceId: 'gcscode.mavlink',
+  sourceLabel: 'MAVLink',
   // Opaque by decision (case 9): its existence and stability are asserted,
   // never its format.
   key: expect.any(String),
@@ -151,8 +151,8 @@ function resolveAssets(host: ExtensionHost): AssetsApi {
 
 /** Only what the MAVLink adapter asserted, so a case about *its* assets cannot
  *  be satisfied — or broken — by another source's. */
-function sitlAssets(api: AssetsApi): readonly RegisteredAsset[] {
-  return api.getAssets().filter((asset) => asset.sourceId === 'gcscode.sitl');
+function mavlinkAssets(api: AssetsApi): readonly RegisteredAsset[] {
+  return api.getAssets().filter((asset) => asset.sourceId === 'gcscode.mavlink');
 }
 
 function failureMessageOf(manager: ExtensionManager, id: string): string | undefined {
@@ -200,10 +200,10 @@ describe('teardown across the adapter boundary', () => {
 
   afterEach(async () => {
     // Both extensions hold module-level state that outlives a host registry:
-    // `extension-sitl`'s WebSocket client and `extension-assets`' registry.
+    // `extension-mavlink`'s WebSocket client and `extension-assets`' registry.
     // Tearing both down keeps a test that left one active from leaking an open
     // socket, or a live registry, into the next.
-    await sitlExtension.deactivate?.();
+    await mavlinkExtension.deactivate?.();
     assetsExtension.deactivate?.();
     vi.unstubAllGlobals();
   });
@@ -214,7 +214,7 @@ describe('teardown across the adapter boundary', () => {
     const { manager } = wire([
       probe.extension,
       assetsExtension,
-      sitlExtension,
+      mavlinkExtension,
       makeBystanderSource(),
     ]);
     const api = resolveAssets(probe.host());
@@ -225,11 +225,11 @@ describe('teardown across the adapter boundary', () => {
     // hold just as well against an adapter that never registered anything —
     // which is exactly what dropping `assetAdapter.onMessage(json)` from the
     // extension's message path produces.
-    expect(sitlAssets(api)).toEqual([SITL_ASSET]);
+    expect(mavlinkAssets(api)).toEqual([MAVLINK_ASSET]);
 
-    await manager.setEnabled('gcscode.sitl', false);
+    await manager.setEnabled('gcscode.mavlink', false);
 
-    expect(sitlAssets(api)).toEqual([]);
+    expect(mavlinkAssets(api)).toEqual([]);
     // Scoped: the service is still live and the bystander's asset is
     // untouched. One extension being disabled is not a registry teardown.
     expect(api.getAssets().map((asset) => asset.localId)).toEqual(['b1']);
@@ -237,7 +237,7 @@ describe('teardown across the adapter boundary', () => {
 
   // Case 32, first half: what was already registered is gone.
   //
-  // A fixture adapter rather than `sitlExtension`, because the real adapter
+  // A fixture adapter rather than `mavlinkExtension`, because the real adapter
   // cannot reach the state this case describes: it claims lazily on an inbound
   // frame, and no frame can arrive synchronously inside `activate`. Every
   // eager claimant can reach it, which is the shape the spec's wording
@@ -279,17 +279,17 @@ describe('teardown across the adapter boundary', () => {
   // containment had just removed.
   it('registers nothing on the heartbeats that keep arriving after the real adapter fails to activate', () => {
     const probe = makeHostProbe();
-    // Owns the view id `extension-sitl` registers. A genuine host guard then
-    // fails sitl's real `activate` — at the step after its adapter was pushed
-    // to `subscriptions` and after its socket was opened, which is what makes
-    // this the failed-activation-with-a-live-socket case rather than a
-    // failure before any of it ran.
+    // Owns the view id `extension-mavlink` registers. A genuine host guard then
+    // fails the MAVLink extension's real `activate` — at the step after its
+    // adapter was pushed to `subscriptions` and after its socket was opened,
+    // which is what makes this the failed-activation-with-a-live-socket case
+    // rather than a failure before any of it ran.
     const viewSquatter: Extension = {
       manifest: { id: 'test.view-squatter', displayName: 'View squatter', version: '0.0.0' },
       activate(context) {
         context.subscriptions.push(
           context.host.window.registerView({
-            id: 'gcscode.sitl.location',
+            id: 'gcscode.mavlink.location',
             component: fakeComponent,
             title: 'Squatter',
           }),
@@ -297,10 +297,10 @@ describe('teardown across the adapter boundary', () => {
       },
     };
 
-    const { manager } = wire([probe.extension, assetsExtension, viewSquatter, sitlExtension]);
+    const { manager } = wire([probe.extension, assetsExtension, viewSquatter, mavlinkExtension]);
     const api = resolveAssets(probe.host());
 
-    expect(failureMessageOf(manager, 'gcscode.sitl')).toMatch(/is already registered/);
+    expect(failureMessageOf(manager, 'gcscode.mavlink')).toMatch(/is already registered/);
     // The premise the terminal disposal rests on, asserted rather than
     // assumed: nothing closed this socket. A future containment that also ran
     // `deactivate` would surface here instead of silently making the case
@@ -317,14 +317,14 @@ describe('teardown across the adapter boundary', () => {
   // *within* one activation, while a fresh `activate` builds a fresh adapter.
   it('re-claims and re-registers when the adapter is re-enabled', async () => {
     const probe = makeHostProbe();
-    const { manager } = wire([probe.extension, assetsExtension, sitlExtension]);
+    const { manager } = wire([probe.extension, assetsExtension, mavlinkExtension]);
     const api = resolveAssets(probe.host());
 
     deliver(HEARTBEAT_FRAME);
-    const before = sitlAssets(api);
-    expect(before).toEqual([SITL_ASSET]);
+    const before = mavlinkAssets(api);
+    expect(before).toEqual([MAVLINK_ASSET]);
 
-    await manager.setEnabled('gcscode.sitl', false);
+    await manager.setEnabled('gcscode.mavlink', false);
     // Not decoration: without this, everything below would hold for an asset
     // the disable failed to remove, and the case would pass for the opposite
     // of the reason it exists.
@@ -332,20 +332,20 @@ describe('teardown across the adapter boundary', () => {
     // The id is claimable again — what "released" means, observed from the
     // outside. Claimed and released immediately so the re-enabled adapter can
     // take it.
-    api.createSource('gcscode.sitl', 'interim').dispose();
+    api.createSource('gcscode.mavlink', 'interim').dispose();
 
-    await manager.setEnabled('gcscode.sitl', true);
+    await manager.setEnabled('gcscode.mavlink', true);
     // The re-enabled extension opened its own socket, so the frame below goes
     // to the new activation rather than to the closed one `lastMock()` would
     // otherwise still be pointing at.
     expect(mockInstances).toHaveLength(2);
     deliver(HEARTBEAT_FRAME);
 
-    const after = sitlAssets(api);
-    expect(after).toEqual([SITL_ASSET]);
+    const after = mavlinkAssets(api);
+    expect(after).toEqual([MAVLINK_ASSET]);
     // A fresh registration, not a survivor: a different entry object, and the
     // source id is claimed again rather than still free.
     expect(after[0]).not.toBe(before[0]);
-    expect(() => api.createSource('gcscode.sitl', 'interim')).toThrow(/already claimed/);
+    expect(() => api.createSource('gcscode.mavlink', 'interim')).toThrow(/already claimed/);
   });
 });

@@ -199,8 +199,8 @@ export function systemIdOf(json: unknown): string | undefined {
 /** The id this adapter claims, and the label a consumer renders. `sourceId` is
  *  a comparison token and never displayed; `sourceLabel` is the operator-facing
  *  name, which is why they are not the same string (ADR-0011). */
-const SOURCE_ID = 'gcscode.sitl';
-const SOURCE_LABEL = 'SITL';
+const SOURCE_ID = 'gcscode.mavlink';
+const SOURCE_LABEL = 'MAVLink';
 
 /** What the adapter remembers per MAVLink system. */
 interface TrackedAsset {
@@ -269,7 +269,7 @@ export function createAssetAdapter(resolve: () => AssetsApi | undefined): Mavlin
       if (!warnedAboutClaim) {
         warnedAboutClaim = true;
         console.warn(
-          'gcscode.sitl: could not claim an asset source; not registering assets.',
+          'gcscode.mavlink: could not claim an asset source; not registering assets.',
           error,
         );
       }
@@ -312,7 +312,9 @@ export function createAssetAdapter(resolve: () => AssetsApi | undefined): Mavlin
         // otherwise see nothing the second time.
         if (!warnedAboutAbsence) {
           warnedAboutAbsence = true;
-          console.warn('gcscode.sitl: the assets service is not active; not registering assets.');
+          console.warn(
+            'gcscode.mavlink: the assets service is not active; not registering assets.',
+          );
         }
         return;
       }

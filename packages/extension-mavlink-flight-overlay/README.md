@@ -1,18 +1,20 @@
-# @gcscode/extension-flight-overlay
+# @gcscode/extension-mavlink-flight-overlay
 
-First consumer of the `@gcscode/extension-map` contribution API. Registers four layers on the map:
+First consumer of the `@gcscode/extension-map` contribution API. Registers four layers on the map, drawn from the MAVLink extension's telemetry:
 
-- **Drone icon** — inline-SVG chevron at SITL's live position, rotated by `telemetry.heading`. Filled green (`#22c55e`) when armed, outlined gray (`#6b7280`) when disarmed.
+- **Drone icon** — inline-SVG chevron at the vehicle's live position, rotated by `telemetry.heading`. Filled green (`#22c55e`) when armed, outlined gray (`#6b7280`) when disarmed.
 - **Heading line** — 400px screen-space green stroke extending from the drone in the heading direction. Hidden when disarmed.
 - **Home location** — point geometry, hardcoded coordinates in `flight-overlay-config.ts`.
 - **Max-distance circle** — polygon approximation of a geodesic circle around the home location, hardcoded radius.
+
+Formerly `@gcscode/extension-flight-overlay`, with the id `gcscode.flight-overlay`. It carries the protocol's name because it is an add-on built on one protocol's data ([ADR-0014](../../docs/decisions/ADR-0014-protocols-as-languages.md) Decision 3). At startup the host moves what it saved under the old id to the new one; see `previousIds` in `packages/shell/src/extension-host/bundled-extensions.ts`.
 
 Layers render no visible DOM themselves; each is a Svelte component that calls maplibre APIs imperatively from `$effect` and cleans up on `onDestroy`.
 
 ## Cross-extension dependencies
 
 - **`@gcscode/extension-map`** — type-only. Imports `MapApi` via `import type`. Runtime lookup is via `host.extensions.getExtension<MapApi>('gcscode.map')`. Map absence is handled gracefully: activation logs once and registers nothing, so the map renders without the overlay (ADR-0012's observability discriminator).
-- **`@gcscode/extension-sitl`** — type-only. Imports `SitlExports` via `import type`. Runtime lookup is via `host.extensions.getExtension<SitlExports>('gcscode.sitl')`. SITL absence is handled gracefully (drone icon and heading line not rendered).
+- **`@gcscode/extension-mavlink`** — type-only. Imports `MavlinkExports` via `import type`. Runtime lookup is via `host.extensions.getExtension<MavlinkExports>('gcscode.mavlink')`. Its absence is handled gracefully (drone icon and heading line not rendered).
 
 ## Configuration
 
@@ -31,7 +33,7 @@ Layer components are mounted as children of the map view — when the map extens
 
 ## Recenter command + control
 
-`gcscode.flight-overlay.recenter` is a palette-discoverable command (`Flight Overlay: Recenter on Drone`) that writes `map.camera.center` to the live SITL drone position. If SITL has no fix yet, it falls back to `homeLocation` from `flight-overlay-config.ts` so the operator gets a sensible "go back to where the drone should be" result rather than a silent no-op.
+`gcscode.mavlink-flight-overlay.recenter` is a palette-discoverable command (`Flight Overlay: Recenter on Drone`) that writes `map.camera.center` to the live drone position. If there is no fix yet, it falls back to `homeLocation` from `flight-overlay-config.ts` so the operator gets a sensible "go back to where the drone should be" result rather than a silent no-op.
 
 The command is also wired to a top-right map control button (crosshair icon) registered via `MapApi.registerControl`. The button and the palette entry route through the same command — either path executes the same recenter logic.
 

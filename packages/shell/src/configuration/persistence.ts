@@ -39,3 +39,33 @@ export function loadConfigurationBlob(storage: Storage = localStorage): Configur
 export function writeConfigurationBlob(storage: Storage, blob: ConfigurationBlob): void {
   storage.setItem(STORAGE_KEY, JSON.stringify(blob));
 }
+
+/**
+ * Moves every key saved under `<fromSection>.` to the same key under
+ * `<toSection>.`, for an extension whose id was renamed. A value already saved
+ * under the new key wins, and the old key is removed either way. Writes only
+ * when a key moved. A blob that cannot be read is left as it is, and a failed
+ * write leaves the old keys for the next start to move.
+ */
+export function moveConfigurationSection(
+  storage: Storage,
+  fromSection: string,
+  toSection: string,
+): void {
+  const blob = loadConfigurationBlob(storage);
+  const prefix = `${fromSection}.`;
+  let moved = false;
+  for (const key of Object.keys(blob)) {
+    if (!key.startsWith(prefix)) continue;
+    const newKey = `${toSection}.${key.slice(prefix.length)}`;
+    if (!Object.hasOwn(blob, newKey)) blob[newKey] = blob[key];
+    delete blob[key];
+    moved = true;
+  }
+  if (!moved) return;
+  try {
+    writeConfigurationBlob(storage, blob);
+  } catch {
+    // Quota exceeded or storage disabled: nothing was written.
+  }
+}

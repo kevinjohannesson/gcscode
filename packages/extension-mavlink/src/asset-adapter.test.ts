@@ -414,9 +414,9 @@ describe('createAssetAdapter', () => {
     expect(registered).toHaveLength(1);
     expect(registered[0].localId).toBe('1');
     expect(registered[0].airframe).toEqual({ kind: 'multirotor' });
-    expect(registered[0].sourceId).toBe('gcscode.sitl');
+    expect(registered[0].sourceId).toBe('gcscode.mavlink');
     // What `assets-demo` renders, per the spec's consumer goal.
-    expect(registered[0].sourceLabel).toBe('SITL');
+    expect(registered[0].sourceLabel).toBe('MAVLink');
   });
 
   // Case 25, at the adapter's own seam. The extension-level half — that
@@ -430,7 +430,7 @@ describe('createAssetAdapter', () => {
 
     adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
     expect(createSource).toHaveBeenCalledTimes(1);
-    expect(createSource).toHaveBeenCalledWith('gcscode.sitl', 'SITL');
+    expect(createSource).toHaveBeenCalledWith('gcscode.mavlink', 'MAVLink');
   });
 
   // Case 16.
@@ -679,7 +679,7 @@ describe('createAssetAdapter', () => {
     const adapter = createAssetAdapter(() => assets);
 
     // Episode one: the id is held by someone else.
-    const firstSquatter = assets.createSource('gcscode.sitl', 'Someone else');
+    const firstSquatter = assets.createSource('gcscode.mavlink', 'Someone else');
     adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
     expect(warn).toHaveBeenCalledTimes(1);
 
@@ -692,7 +692,7 @@ describe('createAssetAdapter', () => {
     // re-claim — a second episode, which must warn again.
     const claimed = createSource.mock.results.at(-1)?.value as AssetSource;
     claimed.dispose();
-    const secondSquatter = assets.createSource('gcscode.sitl', 'Someone else again');
+    const secondSquatter = assets.createSource('gcscode.mavlink', 'Someone else again');
     adapter.onMessage(heartbeat(1, 'MAV_TYPE_QUADROTOR'));
 
     expect(warn).toHaveBeenCalledTimes(2);
@@ -796,7 +796,7 @@ describe('createAssetAdapter', () => {
   it('degrades and recovers when the claim throws', () => {
     const assets = createFakeAssets();
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const squatter = assets.createSource('gcscode.sitl', 'Someone else');
+    const squatter = assets.createSource('gcscode.mavlink', 'Someone else');
     const adapter = createAssetAdapter(() => assets);
 
     expect(() => {

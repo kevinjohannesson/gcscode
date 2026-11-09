@@ -3,7 +3,7 @@
   import maplibregl from 'maplibre-gl';
   import { onDestroy, onMount } from 'svelte';
 
-  import { getSitlExports } from './index';
+  import { getMavlinkExports } from './index';
 
   let container: HTMLDivElement | undefined = $state();
   let map: maplibregl.Map | null = null;
@@ -24,9 +24,9 @@
   // OpenFreeMap has actual streets/buildings/labels.)
   const TILE_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 
-  // Reactive read of SITL telemetry. When SITL is not active, exports is
+  // Reactive read of MAVLink telemetry. When MAVLink is not active, exports is
   // undefined; when active but no fix yet, lat/lng are null.
-  const telemetry = $derived(getSitlExports()?.telemetry);
+  const telemetry = $derived(getMavlinkExports()?.telemetry);
 
   onMount(() => {
     if (!container) return;
@@ -65,7 +65,7 @@
     if (!map) return;
     const t = telemetry;
     if (!t || t.lat === null || t.lng === null) {
-      // No fix or SITL inactive — remove the marker if it was placed.
+      // No fix or MAVLink inactive — remove the marker if it was placed.
       if (marker) {
         marker.remove();
         marker = null;

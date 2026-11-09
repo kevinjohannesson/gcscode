@@ -33,7 +33,7 @@ export const assetsDemoExtension: Extension = {
     host = context.host;
     // Deliberately nothing else: no resolution, no claim, no snapshot. A
     // consumer that resolved the service here would still be correct about
-    // *resolution* — extension-flight-overlay does exactly that — but a label
+    // *resolution* — extension-mavlink-flight-overlay does exactly that — but a label
     // built from a snapshot taken here never updates again.
     context.subscriptions.push(
       context.host.window.registerStatusBarItem({

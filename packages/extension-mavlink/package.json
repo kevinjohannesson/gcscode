@@ -1,5 +1,5 @@
 {
-  "name": "@gcscode/extension-flight-overlay",
+  "name": "@gcscode/extension-mavlink",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -17,9 +17,7 @@
   },
   "dependencies": {
     "@gcscode/extension-api": "workspace:*",
-    "@gcscode/extension-map": "workspace:*",
-    "@gcscode/extension-sitl": "workspace:*",
-    "maplibre-gl": "^5.24.0"
+    "@gcscode/extension-assets": "workspace:*"
   },
   "peerDependencies": {
     "svelte": "^5.0.0"

@@ -8,7 +8,7 @@ gcscode is a VS Code–style ground control station (GCS): a Svelte 5 SPA whose 
 
 One pnpm workspace at the git root:
 
-- `packages/` — gcscode itself, in three roles: `@gcscode/shell` (the app — owns bootstrapping and the extension registry), `@gcscode/extension-api` (the **only** import path for extensions — types and contracts), and the extension packages. The canonical worked-example extension is `@gcscode/extension-example` (new extension authors read it first); the rest are first-party feature extensions (`extension-sitl`, `extension-map`, `extension-flight-overlay`, `extension-vehicle-status`, and others).
+- `packages/` — gcscode itself, in three roles: `@gcscode/shell` (the app — owns bootstrapping and the extension registry), `@gcscode/extension-api` (the **only** import path for extensions — types and contracts), and the extension packages. The canonical worked-example extension is `@gcscode/extension-example` (new extension authors read it first); the rest are first-party feature extensions (`extension-mavlink`, `extension-map`, `extension-mavlink-flight-overlay`, `extension-vehicle-status`, and others).
 - `libs/` — generic libraries that know nothing about gcscode: `dockview-svelte` (the shell lays out its views with it) and `map-gl-svelte` (a standalone MapLibre binding no package uses yet).
 - `tools/` — what gcscode is developed and tested against, reached only over the protocols a real system uses: `sitl` (ArduCopter SITL, MAVProxy and mavlink2rest; see its README).
 

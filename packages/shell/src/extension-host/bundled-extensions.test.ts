@@ -25,8 +25,20 @@ describe('bundledExtensions', () => {
     // anything here.
     const ids = bundledExtensions.map((entry) => entry.id);
     const mapIndex = ids.indexOf('gcscode.map');
-    const flightOverlayIndex = ids.indexOf('gcscode.flight-overlay');
+    const flightOverlayIndex = ids.indexOf('gcscode.mavlink-flight-overlay');
     expect(mapIndex).toBeGreaterThanOrEqual(0);
     expect(flightOverlayIndex).toBeGreaterThan(mapIndex);
+  });
+
+  it('lists the ids the two MAVLink extensions had before ADR-0014 renamed them', () => {
+    const previousIds = Object.fromEntries(
+      bundledExtensions
+        .filter((entry) => entry.previousIds !== undefined)
+        .map((entry) => [entry.id, entry.previousIds]),
+    );
+    expect(previousIds).toEqual({
+      'gcscode.mavlink': ['gcscode.sitl'],
+      'gcscode.mavlink-flight-overlay': ['gcscode.flight-overlay'],
+    });
   });
 });

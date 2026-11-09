@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Disposable, ExtensionHost } from '@gcscode/extension-api';
 import type { MapApi } from '@gcscode/extension-map';
-import type { SitlExports } from '@gcscode/extension-sitl';
+import type { MavlinkExports } from '@gcscode/extension-mavlink';
 
-import { flightOverlayExtension } from './index';
+import { mavlinkFlightOverlayExtension } from './index';
 import { flightOverlayState } from './state';
 
 function makeFakeHost(opts: {
@@ -51,7 +51,7 @@ function makeFakeMapExports(): MapApi {
   };
 }
 
-describe('flightOverlayExtension', () => {
+describe('mavlinkFlightOverlayExtension', () => {
   // Unconditional teardown of the module singleton. Tests used to clear it in
   // their own tails, which a thrown assertion skips — leaking the captured
   // host into the next test, where it surfaces as a confusing failure far
@@ -63,9 +63,9 @@ describe('flightOverlayExtension', () => {
   });
 
   it('declares stable identity metadata', () => {
-    expect(flightOverlayExtension.manifest.id).toBe('gcscode.flight-overlay');
-    expect(flightOverlayExtension.manifest.displayName).toBe('Flight Overlay');
-    expect(typeof flightOverlayExtension.manifest.version).toBe('string');
+    expect(mavlinkFlightOverlayExtension.manifest.id).toBe('gcscode.mavlink-flight-overlay');
+    expect(mavlinkFlightOverlayExtension.manifest.displayName).toBe('Flight Overlay');
+    expect(typeof mavlinkFlightOverlayExtension.manifest.version).toBe('string');
   });
 
   it('activate registers four layers when map is active', () => {
@@ -77,13 +77,13 @@ describe('flightOverlayExtension', () => {
     });
     const subscriptions: Disposable[] = [];
 
-    flightOverlayExtension.activate({
+    mavlinkFlightOverlayExtension.activate({
       host,
       subscriptions,
       extension: {
-        id: flightOverlayExtension.manifest.id,
-        displayName: flightOverlayExtension.manifest.displayName,
-        version: flightOverlayExtension.manifest.version,
+        id: mavlinkFlightOverlayExtension.manifest.id,
+        displayName: mavlinkFlightOverlayExtension.manifest.displayName,
+        version: mavlinkFlightOverlayExtension.manifest.version,
       },
     });
 
@@ -93,25 +93,25 @@ describe('flightOverlayExtension', () => {
 
   it('degrades when gcscode.map is not active: activates, registers nothing, logs once', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    // SITL resolves, map does not. Resolving SITL is what makes the host
-    // capture observable below: had `setHost` run, `sitlExports` would reach
+    // MAVLink resolves, map does not. Resolving MAVLink is what makes the host
+    // capture observable below: had `setHost` run, `mavlinkExports` would reach
     // this sentinel through the captured host.
-    const sitlSentinel = {} as SitlExports;
+    const mavlinkSentinel = {} as MavlinkExports;
     const host = makeFakeHost({
       getExtension: vi.fn((id: string) =>
-        id === 'gcscode.sitl' ? { id, exports: sitlSentinel as unknown } : undefined,
+        id === 'gcscode.mavlink' ? { id, exports: mavlinkSentinel as unknown } : undefined,
       ) as ExtensionHost['extensions']['getExtension'],
     });
     const subscriptions: Disposable[] = [];
 
     expect(() =>
-      flightOverlayExtension.activate({
+      mavlinkFlightOverlayExtension.activate({
         host,
         subscriptions,
         extension: {
-          id: flightOverlayExtension.manifest.id,
-          displayName: flightOverlayExtension.manifest.displayName,
-          version: flightOverlayExtension.manifest.version,
+          id: mavlinkFlightOverlayExtension.manifest.id,
+          displayName: mavlinkFlightOverlayExtension.manifest.displayName,
+          version: mavlinkFlightOverlayExtension.manifest.version,
         },
       }),
     ).not.toThrow();
@@ -125,15 +125,15 @@ describe('flightOverlayExtension', () => {
     expect(subscriptions).toHaveLength(0);
     // The module singleton stays clean: the early return precedes `setHost`,
     // so a layer mounted later cannot read through a host captured here.
-    expect(flightOverlayState.sitlExports).toBeUndefined();
+    expect(flightOverlayState.mavlinkExports).toBeUndefined();
     expect(warn).toHaveBeenCalledTimes(1);
 
     warn.mockRestore();
   });
 
-  it('flightOverlayState exposes mapExports and sitlExports through the captured host', () => {
+  it('flightOverlayState exposes mapExports and mavlinkExports through the captured host', () => {
     const fakeMap = makeFakeMapExports();
-    const fakeSitl: SitlExports = {
+    const fakeMavlink: MavlinkExports = {
       telemetry: {
         mode: 'GUIDED',
         armed: true,
@@ -153,30 +153,30 @@ describe('flightOverlayExtension', () => {
     const host = makeFakeHost({
       getExtension: vi.fn((id: string) => {
         if (id === 'gcscode.map') return { id, exports: fakeMap as unknown };
-        if (id === 'gcscode.sitl') return { id, exports: fakeSitl as unknown };
+        if (id === 'gcscode.mavlink') return { id, exports: fakeMavlink as unknown };
         return undefined;
       }) as ExtensionHost['extensions']['getExtension'],
     });
 
-    flightOverlayExtension.activate({
+    mavlinkFlightOverlayExtension.activate({
       host,
       subscriptions: [],
       extension: {
-        id: flightOverlayExtension.manifest.id,
-        displayName: flightOverlayExtension.manifest.displayName,
-        version: flightOverlayExtension.manifest.version,
+        id: mavlinkFlightOverlayExtension.manifest.id,
+        displayName: mavlinkFlightOverlayExtension.manifest.displayName,
+        version: mavlinkFlightOverlayExtension.manifest.version,
       },
     });
 
     expect(flightOverlayState.mapExports).toBe(fakeMap);
-    expect(flightOverlayState.sitlExports).toBe(fakeSitl);
+    expect(flightOverlayState.mavlinkExports).toBe(fakeMavlink);
 
-    flightOverlayExtension.deactivate?.();
+    mavlinkFlightOverlayExtension.deactivate?.();
     expect(flightOverlayState.mapExports).toBeUndefined();
-    expect(flightOverlayState.sitlExports).toBeUndefined();
+    expect(flightOverlayState.mavlinkExports).toBeUndefined();
   });
 
-  it('activate registers the gcscode.flight-overlay.recenter command', () => {
+  it('activate registers the gcscode.mavlink-flight-overlay.recenter command', () => {
     const fakeMap = makeFakeMapExports();
     const host = makeFakeHost({
       getExtension: vi.fn((id: string) =>
@@ -184,19 +184,19 @@ describe('flightOverlayExtension', () => {
       ) as ExtensionHost['extensions']['getExtension'],
     });
 
-    flightOverlayExtension.activate({
+    mavlinkFlightOverlayExtension.activate({
       host,
       subscriptions: [],
       extension: {
-        id: flightOverlayExtension.manifest.id,
-        displayName: flightOverlayExtension.manifest.displayName,
-        version: flightOverlayExtension.manifest.version,
+        id: mavlinkFlightOverlayExtension.manifest.id,
+        displayName: mavlinkFlightOverlayExtension.manifest.displayName,
+        version: mavlinkFlightOverlayExtension.manifest.version,
       },
     });
 
     expect(host.commands.registerCommand).toHaveBeenCalledTimes(1);
     const [cmd] = (host.commands.registerCommand as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(cmd.id).toBe('gcscode.flight-overlay.recenter');
+    expect(cmd.id).toBe('gcscode.mavlink-flight-overlay.recenter');
     expect(cmd.title).toBe('Recenter on Drone');
     expect(cmd.category).toBe('Flight Overlay');
     expect(typeof cmd.run).toBe('function');
@@ -210,29 +210,29 @@ describe('flightOverlayExtension', () => {
       ) as ExtensionHost['extensions']['getExtension'],
     });
 
-    flightOverlayExtension.activate({
+    mavlinkFlightOverlayExtension.activate({
       host,
       subscriptions: [],
       extension: {
-        id: flightOverlayExtension.manifest.id,
-        displayName: flightOverlayExtension.manifest.displayName,
-        version: flightOverlayExtension.manifest.version,
+        id: mavlinkFlightOverlayExtension.manifest.id,
+        displayName: mavlinkFlightOverlayExtension.manifest.displayName,
+        version: mavlinkFlightOverlayExtension.manifest.version,
       },
     });
 
     expect(fakeMap.registerControl).toHaveBeenCalledTimes(1);
     const [reg] = (fakeMap.registerControl as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(reg.id).toBe('gcscode.flight-overlay.recenter');
+    expect(reg.id).toBe('gcscode.mavlink-flight-overlay.recenter');
     expect(reg.position).toBe('top-right');
-    expect(reg.commandId).toBe('gcscode.flight-overlay.recenter');
+    expect(reg.commandId).toBe('gcscode.mavlink-flight-overlay.recenter');
     expect(reg.icon).toEqual({ kind: 'lucide', name: 'crosshair' });
     expect(typeof reg.tooltip).toBe('string');
     expect(reg.tooltip.length).toBeGreaterThan(0);
   });
 
-  it('recenter command writes map.camera.center to the SITL position when telemetry has a fix', () => {
+  it('recenter command writes map.camera.center to the vehicle position when telemetry has a fix', () => {
     const fakeMap = makeFakeMapExports();
-    const fakeSitl: SitlExports = {
+    const fakeMavlink: MavlinkExports = {
       telemetry: {
         mode: 'GUIDED',
         armed: true,
@@ -252,18 +252,18 @@ describe('flightOverlayExtension', () => {
     const host = makeFakeHost({
       getExtension: vi.fn((id: string) => {
         if (id === 'gcscode.map') return { id, exports: fakeMap as unknown };
-        if (id === 'gcscode.sitl') return { id, exports: fakeSitl as unknown };
+        if (id === 'gcscode.mavlink') return { id, exports: fakeMavlink as unknown };
         return undefined;
       }) as ExtensionHost['extensions']['getExtension'],
     });
 
-    flightOverlayExtension.activate({
+    mavlinkFlightOverlayExtension.activate({
       host,
       subscriptions: [],
       extension: {
-        id: flightOverlayExtension.manifest.id,
-        displayName: flightOverlayExtension.manifest.displayName,
-        version: flightOverlayExtension.manifest.version,
+        id: mavlinkFlightOverlayExtension.manifest.id,
+        displayName: mavlinkFlightOverlayExtension.manifest.displayName,
+        version: mavlinkFlightOverlayExtension.manifest.version,
       },
     });
 
@@ -273,9 +273,9 @@ describe('flightOverlayExtension', () => {
     expect(fakeMap.camera.center).toEqual([149.2, -35.5]);
   });
 
-  it('recenter command falls back to homeLocation when SITL telemetry has no fix', () => {
+  it('recenter command falls back to homeLocation when MAVLink telemetry has no fix', () => {
     const fakeMap = makeFakeMapExports();
-    const fakeSitl: SitlExports = {
+    const fakeMavlink: MavlinkExports = {
       telemetry: {
         mode: null,
         armed: null,
@@ -295,18 +295,18 @@ describe('flightOverlayExtension', () => {
     const host = makeFakeHost({
       getExtension: vi.fn((id: string) => {
         if (id === 'gcscode.map') return { id, exports: fakeMap as unknown };
-        if (id === 'gcscode.sitl') return { id, exports: fakeSitl as unknown };
+        if (id === 'gcscode.mavlink') return { id, exports: fakeMavlink as unknown };
         return undefined;
       }) as ExtensionHost['extensions']['getExtension'],
     });
 
-    flightOverlayExtension.activate({
+    mavlinkFlightOverlayExtension.activate({
       host,
       subscriptions: [],
       extension: {
-        id: flightOverlayExtension.manifest.id,
-        displayName: flightOverlayExtension.manifest.displayName,
-        version: flightOverlayExtension.manifest.version,
+        id: mavlinkFlightOverlayExtension.manifest.id,
+        displayName: mavlinkFlightOverlayExtension.manifest.displayName,
+        version: mavlinkFlightOverlayExtension.manifest.version,
       },
     });
 
