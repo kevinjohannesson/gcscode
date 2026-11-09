@@ -155,15 +155,17 @@ test('--help alone lists what it can do and flies nothing', () => {
   for (const action of ACTIONS) assert.ok(stdout.includes(action), `${action} missing:\n${stdout}`);
 });
 
+// argparse refuses a command line with exit 2; a crash would exit 1.
 test('refuses two actions at once', () => {
-  const { status, reached } = fly(['--circle', '1', '--takeoff']);
-  assert.notEqual(status, 0);
+  const { status, stderr, reached } = fly(['--circle', '1', '--takeoff']);
+  assert.equal(status, 2, stderr);
   assert.equal(reached, undefined);
+  assert.match(stderr, /--takeoff: not allowed with argument --circle/);
 });
 
 test('refuses script options without an action', () => {
   const { status, stderr, reached } = fly(['--turns', '3']);
-  assert.notEqual(status, 0);
+  assert.equal(status, 2, stderr);
   assert.equal(reached, undefined);
   for (const action of ACTIONS) assert.ok(stderr.includes(action), `${action} missing:\n${stderr}`);
 });

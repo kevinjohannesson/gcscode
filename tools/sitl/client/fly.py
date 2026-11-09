@@ -71,6 +71,7 @@ def main(argv: list[str]) -> int:
     value = getattr(args, name)
     script_args = [option, value] if option and value != WITHOUT_VALUE else []
     path = os.path.join(HERE, script)
+    # The script replaces this process, so main() never returns from here.
     os.execv(sys.executable, [sys.executable, path, *script_args, *rest])
 
 

@@ -22,7 +22,7 @@ def main() -> int:
         connect(endpoint)
     except TimeoutError as e:
         print(f"FAILED: {e}", file=sys.stderr)
-        print("  Is SITL running?  ./run_sitl.sh", file=sys.stderr)
+        print("  Is SITL running?  pnpm --filter sitl start", file=sys.stderr)
         return 1
     print("OK — SITL is reachable.")
     return 0
