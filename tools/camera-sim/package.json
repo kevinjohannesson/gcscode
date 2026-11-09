@@ -1,0 +1,20 @@
+{
+  "name": "camera-sim",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Fake camera payload for gcscode: renders a drone's camera view from SITL telemetry and streams it like a real camera.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.187.0"
+  }
+}

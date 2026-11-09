@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>camera-sim</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 13px;
+        background: #111418;
+        color: #d8dde3;
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+      }
+      h1 {
+        font-size: 15px;
+        margin: 0 0 8px;
+      }
+      pre {
+        margin: 0 0 12px;
+        white-space: pre-wrap;
+      }
+      #warnings {
+        color: #ffb340;
+      }
+      #vehicles {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+        gap: 16px;
+      }
+      figure {
+        margin: 0;
+      }
+      figure canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        background: #000;
+      }
+      figcaption {
+        white-space: pre-wrap;
+        padding-top: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>camera-sim</h1>
+    <pre id="status"></pre>
+    <pre id="warnings" hidden></pre>
+    <main id="vehicles"></main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
