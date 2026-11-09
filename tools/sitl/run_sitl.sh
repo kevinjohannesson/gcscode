@@ -51,8 +51,7 @@ source "${VENV_DIR}/bin/activate"
 # shebang on whitespace). We launch MAVProxy via `python -m` below.
 if ! python -c "import MAVProxy" >/dev/null 2>&1; then
   echo "ERROR: MAVProxy not installed in venv. Reinstall with:" >&2
-  echo "    source \"${VENV_DIR}/bin/activate\""                 >&2
-  echo "    pip install --force-reinstall MAVProxy"             >&2
+  echo "    \"${VENV_DIR}/bin/python\" -m pip install --force-reinstall MAVProxy" >&2
   exit 1
 fi
 

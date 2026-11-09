@@ -7,6 +7,7 @@
     "dev": "pnpm --filter @gcscode/shell dev",
     "build": "pnpm -r build",
     "preview": "pnpm --filter @gcscode/shell preview",
+    "fly-sitl": "tools/sitl/fly.sh",
     "check": "pnpm -r check",
     "test": "pnpm -r test && pnpm test:scripts",
     "test:scripts": "node --test 'scripts/*.test.mjs' '.claude/scripts/*.test.mjs' eslint.config.test.mjs",

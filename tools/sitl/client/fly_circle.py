@@ -5,9 +5,9 @@ Designed to exercise lat/lng change in your GCS — the drone will trace a
 configurable-radius circle at a fixed altitude, hitting N waypoints around the
 ring before returning to launch.
 
-  $ python client/fly_circle.py
-  $ python client/fly_circle.py --radius 50 --points 16 --turns 2
-  $ python client/fly_circle.py --altitude 30 --turns 3
+  $ pnpm fly-sitl --circle
+  $ pnpm fly-sitl --circle 2 --radius 50 --points 16
+  $ pnpm fly-sitl --circle 3 --altitude 30
 """
 import argparse
 import math
