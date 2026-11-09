@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CMAC, mavlinkSubscriptionUrl, readConfig, streamName } from './config';
+import { CMAC, mavlinkSubscriptionUrl, readConfig, streamName, whipEndpoint } from './config';
 
 describe('readConfig', () => {
   it('defaults to everything on localhost, SITL’s CMAC home with terrain, camera straight down', () => {
@@ -115,6 +115,13 @@ describe('readConfig', () => {
 describe('streamName', () => {
   it('names a vehicle’s stream after its system id', () => {
     expect(streamName(1)).toBe('drone-1');
+  });
+});
+
+describe('whipEndpoint', () => {
+  it('publishes vehicle 1 by default where gcscode’s Video panel plays', () => {
+    // gcscode.video.whepUrl defaults to http://localhost:8889/drone-1/whep: the same MediaMTX path.
+    expect(whipEndpoint(readConfig('').mediaUrl, 1)).toBe('http://localhost:8889/drone-1/whip');
   });
 });
 

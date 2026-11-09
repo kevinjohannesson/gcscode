@@ -16,7 +16,7 @@ SITL is a fake autopilot; camera-sim is a fake camera. The GCS should not be abl
 - **H.264 over WebRTC (WHIP)** to MediaMTX as `drone-<sysid>`, readable as RTSP, at a fixed resolution.
 - **Ground markers** to check the video against the GCS map.
 
-Next, roughly in order: link-quality impairments, gimbal and zoom through SITL's simulated gimbals, scenarios, thermal and night modes, per-frame KLV metadata. See the roadmap entry.
+What comes next is on the [roadmap](../../docs/roadmap.md#tools--coming-committed--will-ship), in the entry "Camera sim, after v0".
 
 ## Running it (all on one machine)
 
@@ -45,7 +45,7 @@ Next, roughly in order: link-quality impairments, gimbal and zoom through SITL's
 
    Open <http://localhost:5174>. The status page should list the terrain file, for example `S36E149.DAT (9 blocks with data)`. Keep the window visible: browsers slow down hidden tabs, which freezes the video.
 
-5. **Fly** (MAVProxy): `mode guided`, `arm throttle`, `takeoff 50`. A view appears as soon as the vehicle reports its position. Before you arm, the ground check should already say OK.
+5. **Fly** (MAVProxy): `mode guided`, `arm throttle`, `takeoff 50`. A view appears as soon as the vehicle reports its position. Before you arm, the ground check should already say OK. In SITL's first seconds, before it has a position, ArduPilot reports the vehicle at 0°, 0°: until the real position arrives, the view is empty and the check may say MISMATCH.
 
 6. **Watch the stream** like any camera: `vlc rtsp://localhost:8554/drone-1`. In gcscode (`pnpm dev`), the Video panel plays vehicle 1's stream by default: its `gcscode.video.whepUrl` setting is `http://localhost:8889/drone-1/whep` (see [`extension-video`](../../packages/extension-video/README.md)).
 
@@ -70,7 +70,7 @@ A landed drone sits exactly on SITL's ground, so its height above the rendered g
 
 ## Settings
 
-Everything is set from the page URL, so pointing the sim somewhere else is a link, not a rebuild. Bad values are ignored with a warning on the page.
+Everything is set from the page URL, so pointing the sim somewhere else is a link, not a rebuild. A bad number, coordinate or `terrain` value is ignored with a warning on the page; addresses, the imagery template and its credit line are used as given.
 
 | Parameter                | Default                             | Meaning                                                                         |
 | ------------------------ | ----------------------------------- | ------------------------------------------------------------------------------- |
@@ -92,9 +92,9 @@ Example: `http://localhost:5174/?pitch=-45&hfov=90`.
 
 ### Imagery terms
 
-The default imagery is Esri World Imagery. Esri allows free use only with attribution (camera-sim burns it into every frame), a free ArcGIS account, no revenue, and no use for the benefit of a business or government agency. That fits a personal hobby project. For anything else, switch providers with `imagery` and `attribution`. Never commit an API key: this repository is public.
+The default imagery is Esri World Imagery. Esri allows free use only with attribution (camera-sim burns it into every frame), a free ArcGIS account, no revenue, and no use for the benefit of a business or government agency. That fits a personal hobby project. For anything else, switch providers with `imagery` and `attribution`, and set both: with `imagery` alone, Esri's credit line stays in the frames. Never commit an API key: this repository is public.
 
-Where tiles can't be loaded, the ground shows a grey grid instead, and the status page counts the failures.
+Where tiles can't be loaded, the ground shows a grey grid instead, and the status page counts the failures. A failed tile is not retried while it stays loaded: reload the page once the network is back.
 
 ## Running it across machines
 
@@ -113,6 +113,9 @@ The sim can run on a stronger machine than SITL and the GCS:
 - **SITL's terrain grid is 100 m,** so the ground is smoother than the imagery suggests. That's accurate to SITL, which is the point.
 - **Each vehicle has its own WebGL renderer,** so imagery uploads once per vehicle. Fine for a handful of drones.
 - **The browser's WebRTC encoder sets the bitrate;** resolution is held constant.
+- **The window must stay visible.** Browsers slow down hidden tabs, which freezes the video.
+- **The frame rate follows the display.** Frames are drawn on the browser's animation frames, so a rate that doesn't divide the display's refresh rate comes out lower: `fps=25` on a 60 Hz display gives 20.
+- **One page per vehicle.** MediaMTX lets a new publisher take over a stream path, and a page that loses its path reconnects, so two pages publishing the same system ID take `drone-<sysid>` from each other in turn.
 
 ## Layout
 

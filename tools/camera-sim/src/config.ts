@@ -51,7 +51,11 @@ export interface SimConfig {
   readonly warnings: readonly string[];
 }
 
-/** SITL's default home (ArduPilot `locations.txt`, CMAC). */
+/**
+ * SITL's default home: CMAC, as SITL's float32 `SIM_OPOS_LAT`/`SIM_OPOS_LNG`
+ * hold it. ArduPilot's `locations.txt` says -35.363261,149.165230; float32
+ * rounds that to these values, which is where SITL actually starts.
+ */
 export const CMAC: GeoPoint = { lat: -35.363262, lon: 149.165237 };
 export const CMAC_ALT_M = 584;
 
@@ -185,6 +189,11 @@ function defaultRtspUrl(mediaUrl: string): string {
 /** The stream path for one vehicle. A convention for people and config only. */
 export function streamName(systemId: number): string {
   return `drone-${systemId}`;
+}
+
+/** Where a vehicle's stream is published: MediaMTX's WHIP endpoint for its path. */
+export function whipEndpoint(mediaUrl: string, systemId: number): string {
+  return `${mediaUrl}/${streamName(systemId)}/whip`;
 }
 
 /** The mavlink2rest URL with camera-sim's message filter appended. */

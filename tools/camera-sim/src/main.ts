@@ -1,4 +1,4 @@
-import { mavlinkSubscriptionUrl, readConfig, streamName } from './config';
+import { mavlinkSubscriptionUrl, readConfig, streamName, whipEndpoint } from './config';
 import { LocalFrame } from './geo/local-frame';
 import { CameraView } from './output/camera-view';
 import { WhipPublisher } from './output/whip-publisher';
@@ -49,7 +49,7 @@ async function start(): Promise<void> {
   function addVehicle(track: VehicleTrack): void {
     const view = new CameraView(track, world, config.camera, config.imagery.attribution);
     const name = streamName(track.systemId);
-    const whipUrl = `${config.mediaUrl}/${name}/whip`;
+    const whipUrl = whipEndpoint(config.mediaUrl, track.systemId);
     const rtspUrl = `${config.rtspUrl}/${name}`;
     const publisher = new WhipPublisher({
       endpointUrl: whipUrl,
