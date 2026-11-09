@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Disposable, ExtensionHost, StatusBarItemContribution } from '@gcscode/extension-api';
-import type { SitlExports } from '@gcscode/extension-sitl';
+import type { MavlinkExports } from '@gcscode/extension-mavlink';
 
-import { getSitlExports, vehicleStatusExtension } from './index';
+import { getMavlinkExports, vehicleStatusExtension } from './index';
 
 function makeFakeHost(opts: {
   getExtension?: ExtensionHost['extensions']['getExtension'];
@@ -69,13 +69,13 @@ describe('vehicleStatusExtension', () => {
     expect(captured[0].alignment).toBe('left');
     expect(subscriptions).toHaveLength(1);
 
-    // After deactivate, the helper should no longer find SITL.
+    // After deactivate, the helper should no longer find MAVLink.
     vehicleStatusExtension.deactivate?.();
-    expect(getSitlExports()).toBeUndefined();
+    expect(getMavlinkExports()).toBeUndefined();
   });
 
-  it('getSitlExports returns SITL exports when SITL is active and undefined when SITL is missing', () => {
-    const fakeSitlExports: SitlExports = {
+  it('getMavlinkExports returns MAVLink exports when MAVLink is active and undefined when MAVLink is missing', () => {
+    const fakeMavlinkExports: MavlinkExports = {
       telemetry: {
         mode: 'GUIDED',
         armed: true,
@@ -97,7 +97,7 @@ describe('vehicleStatusExtension', () => {
     {
       const host = makeFakeHost({
         getExtension: vi.fn((id: string) =>
-          id === 'gcscode.sitl' ? { id, exports: fakeSitlExports as unknown } : undefined,
+          id === 'gcscode.mavlink' ? { id, exports: fakeMavlinkExports as unknown } : undefined,
         ) as ExtensionHost['extensions']['getExtension'],
       });
       vehicleStatusExtension.activate({
@@ -109,7 +109,7 @@ describe('vehicleStatusExtension', () => {
           version: vehicleStatusExtension.manifest.version,
         },
       });
-      expect(getSitlExports()).toBe(fakeSitlExports);
+      expect(getMavlinkExports()).toBe(fakeMavlinkExports);
       vehicleStatusExtension.deactivate?.();
     }
 
@@ -127,7 +127,7 @@ describe('vehicleStatusExtension', () => {
           version: vehicleStatusExtension.manifest.version,
         },
       });
-      expect(getSitlExports()).toBeUndefined();
+      expect(getMavlinkExports()).toBeUndefined();
       vehicleStatusExtension.deactivate?.();
     }
   });

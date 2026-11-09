@@ -8,9 +8,9 @@ import HomeLocationLayer from './layers/home-location-layer.svelte';
 import MaxDistanceCircleLayer from './layers/max-distance-circle-layer.svelte';
 import { flightOverlayState } from './state';
 
-export const flightOverlayExtension: Extension = {
+export const mavlinkFlightOverlayExtension: Extension = {
   manifest: {
-    id: 'gcscode.flight-overlay',
+    id: 'gcscode.mavlink-flight-overlay',
     displayName: 'Flight Overlay',
     version: '0.0.0',
     description:
@@ -28,7 +28,7 @@ export const flightOverlayExtension: Extension = {
       // without the overlay), so failing activation would cost more than it
       // tells the operator. Per ADR-0012's discriminator.
       console.warn(
-        'gcscode.flight-overlay: gcscode.map is not active; skipping overlay registration.',
+        'gcscode.mavlink-flight-overlay: gcscode.map is not active; skipping overlay registration.',
       );
       return;
     }
@@ -46,13 +46,13 @@ export const flightOverlayExtension: Extension = {
       // top-right map control button and the palette entry; either path
       // routes through executeCommand.
       context.host.commands.registerCommand({
-        id: 'gcscode.flight-overlay.recenter',
+        id: 'gcscode.mavlink-flight-overlay.recenter',
         title: 'Recenter on Drone',
         category: 'Flight Overlay',
         run: () => {
-          const sitl = flightOverlayState.sitlExports;
-          const lat = sitl?.telemetry.lat ?? null;
-          const lng = sitl?.telemetry.lng ?? null;
+          const mavlink = flightOverlayState.mavlinkExports;
+          const lat = mavlink?.telemetry.lat ?? null;
+          const lng = mavlink?.telemetry.lng ?? null;
           // Explicit null-checks (not truthiness) so lat/lng = 0 (null island,
           // Gulf of Guinea — a valid GPS coordinate) still triggers the write
           // path rather than the homeLocation fallback. Don't simplify to
@@ -60,7 +60,7 @@ export const flightOverlayExtension: Extension = {
           if (lat !== null && lng !== null) {
             map.camera.center = [lng, lat];
           } else {
-            // SITL has no fix yet — fall back to homeLocation so the operator
+            // No fix yet — fall back to homeLocation so the operator
             // gets a sensible "go back to where the drone should be" result
             // rather than a silent no-op.
             map.camera.center = homeLocation;
@@ -79,11 +79,11 @@ export const flightOverlayExtension: Extension = {
       // map-tool ecosystem convention (Mapbox, Leaflet, browser zoom controls
       // all use sentence-case tooltips on map controls).
       map.registerControl({
-        id: 'gcscode.flight-overlay.recenter',
+        id: 'gcscode.mavlink-flight-overlay.recenter',
         position: 'top-right',
         icon: { kind: 'lucide', name: 'crosshair' },
         tooltip: 'Recenter on drone',
-        commandId: 'gcscode.flight-overlay.recenter',
+        commandId: 'gcscode.mavlink-flight-overlay.recenter',
       }),
     );
   },

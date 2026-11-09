@@ -14,8 +14,8 @@ It knows nothing about MAVLink. That is the point — if this package needed to,
 
 ## What it renders
 
-- **An asset with an asserted airframe** — `SITL · multirotor`.
-- **An asset with no `airframe`** — `SITL · —`. Absent means nobody asserted an airframe; it is deliberately **not** rendered as `unknown`, which means an adapter saw something gcscode has no word for. Collapsing the two would discard the distinction the vocabulary rests on ([ADR-0011](../../docs/decisions/ADR-0011-asset-vocabulary-and-registry.md)).
+- **An asset with an asserted airframe** — `MAVLink · multirotor`.
+- **An asset with no `airframe`** — `MAVLink · —`. Absent means nobody asserted an airframe; it is deliberately **not** rendered as `unknown`, which means an adapter saw something gcscode has no word for. Collapsing the two would discard the distinction the vocabulary rests on ([ADR-0011](../../docs/decisions/ADR-0011-asset-vocabulary-and-registry.md)).
 - **No assets, or no assets service** — nothing at all. The demo invents no placeholder for a state it could not explain to an operator.
 
 `localId` is never rendered: it is a per-source address, opaque to consumers.
@@ -24,7 +24,7 @@ It knows nothing about MAVLink. That is the point — if this package needed to,
 
 `getAssetsApi()` resolves the service through the host on **every** render, and the component reads `getAssets()` inside a `$derived`. Both hops are reactive — the host's exports map and the registry's asset map are each a `SvelteMap` — so the label picks up the assets service activating, every later registration, and an airframe replaced in place, with no change event and no remount.
 
-The alternative idiom, resolving once in `activate()` and keeping the result, is what [`@gcscode/extension-flight-overlay`](../extension-flight-overlay/README.md) does. It is correct for _resolution_ and wrong here: the label would render once and then go quietly stale. Validation case 29 in [the spec](../../docs/specs/2026-10-21-asset-abstraction-v0.md) pins the difference, and it does fail for the caching version.
+The alternative idiom, resolving once in `activate()` and keeping the result, is what [`@gcscode/extension-mavlink-flight-overlay`](../extension-mavlink-flight-overlay/README.md) does. It is correct for _resolution_ and wrong here: the label would render once and then go quietly stale. Validation case 29 in [the spec](../../docs/specs/2026-10-21-asset-abstraction-v0.md) pins the difference, and it does fail for the caching version.
 
 ## Lifecycle
 

@@ -25,7 +25,7 @@ describe('bundledExtensions', () => {
     // anything here.
     const ids = bundledExtensions.map((entry) => entry.id);
     const mapIndex = ids.indexOf('gcscode.map');
-    const flightOverlayIndex = ids.indexOf('gcscode.flight-overlay');
+    const flightOverlayIndex = ids.indexOf('gcscode.mavlink-flight-overlay');
     expect(mapIndex).toBeGreaterThanOrEqual(0);
     expect(flightOverlayIndex).toBeGreaterThan(mapIndex);
   });

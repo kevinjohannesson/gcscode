@@ -1,5 +1,5 @@
 {
-  "name": "@gcscode/extension-sitl",
+  "name": "@gcscode/extension-mavlink",
   "private": true,
   "version": "0.0.0",
   "type": "module",

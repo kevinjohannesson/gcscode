@@ -113,7 +113,7 @@ describe('bootstrap', () => {
 
     // Insertion order is the only cross-extension activation guarantee
     // (ADR-0005), and `bundled-extensions.ts` leans on it: vehicle-status and
-    // map-demo read SITL's exports, flight-overlay reads map's. `bootstrap` is
+    // map-demo read MAVLink's exports, flight-overlay reads map's. `bootstrap` is
     // now the only thing that honours that order, so assert it here.
     //
     // That the order is complete by the time `bootstrap` returns is the other

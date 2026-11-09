@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Disposable, ExtensionHost } from '@gcscode/extension-api';
 
-import { getSitlExports, mapDemoExtension } from './index';
+import { getMavlinkExports, mapDemoExtension } from './index';
 
 function makeFakeHost(opts?: {
   registerView?: ExtensionHost['window']['registerView'];
@@ -68,11 +68,11 @@ describe('mapDemoExtension', () => {
     expect(subscriptions).toHaveLength(1);
   });
 
-  it('getSitlExports returns SITL exports when host is active and SITL is registered', () => {
-    const sitlExports = { telemetry: { lat: -35.36, lng: 149.17 } };
+  it('getMavlinkExports returns MAVLink exports when host is active and MAVLink is registered', () => {
+    const mavlinkExports = { telemetry: { lat: -35.36, lng: 149.17 } };
     const host = makeFakeHost({
       getExtension: vi.fn((id: string) =>
-        id === 'gcscode.sitl' ? { id, exports: sitlExports as unknown } : undefined,
+        id === 'gcscode.mavlink' ? { id, exports: mavlinkExports as unknown } : undefined,
       ) as ExtensionHost['extensions']['getExtension'],
     });
     mapDemoExtension.activate({
@@ -81,14 +81,14 @@ describe('mapDemoExtension', () => {
       extension: { id: 'gcscode.map-demo', displayName: 'Map (demo)', version: '0.0.0' },
     });
 
-    expect(getSitlExports()).toBe(sitlExports);
+    expect(getMavlinkExports()).toBe(mavlinkExports);
   });
 
-  it('deactivate clears the module-level host so subsequent getSitlExports returns undefined', () => {
-    const sitlExports = { telemetry: { lat: -35.36, lng: 149.17 } };
+  it('deactivate clears the module-level host so subsequent getMavlinkExports returns undefined', () => {
+    const mavlinkExports = { telemetry: { lat: -35.36, lng: 149.17 } };
     const host = makeFakeHost({
       getExtension: vi.fn((id: string) =>
-        id === 'gcscode.sitl' ? { id, exports: sitlExports as unknown } : undefined,
+        id === 'gcscode.mavlink' ? { id, exports: mavlinkExports as unknown } : undefined,
       ) as ExtensionHost['extensions']['getExtension'],
     });
     mapDemoExtension.activate({
@@ -96,10 +96,10 @@ describe('mapDemoExtension', () => {
       subscriptions: [],
       extension: { id: 'gcscode.map-demo', displayName: 'Map (demo)', version: '0.0.0' },
     });
-    expect(getSitlExports()).toBe(sitlExports);
+    expect(getMavlinkExports()).toBe(mavlinkExports);
 
     mapDemoExtension.deactivate?.();
 
-    expect(getSitlExports()).toBeUndefined();
+    expect(getMavlinkExports()).toBeUndefined();
   });
 });

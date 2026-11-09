@@ -20,9 +20,9 @@
 
   $effect(() => {
     const map = getMaplibre();
-    const sitl = flightOverlayState.sitlExports;
-    const lat = sitl?.telemetry.lat ?? null;
-    const lng = sitl?.telemetry.lng ?? null;
+    const mavlink = flightOverlayState.mavlinkExports;
+    const lat = mavlink?.telemetry.lat ?? null;
+    const lng = mavlink?.telemetry.lng ?? null;
 
     if (!map || lat === null || lng === null) {
       marker?.remove();
@@ -47,8 +47,8 @@
       marker.setLngLat([lng, lat]);
     }
 
-    const heading = sitl?.telemetry.heading ?? 0;
-    const armed = sitl?.telemetry.armed === true;
+    const heading = mavlink?.telemetry.heading ?? 0;
+    const armed = mavlink?.telemetry.armed === true;
     // No `transition: transform` — wraparound from 359°→0° would spin
     // the long way around the circle.
     rotor!.style.transform = `rotate(${heading}deg)`;

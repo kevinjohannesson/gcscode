@@ -31,7 +31,7 @@ test('shell code may not import an extension package, at runtime or for types', 
     [PACKAGE],
   );
   assert.deepEqual(
-    await restrictions(file, "export { sitlExtension } from '@gcscode/extension-sitl';"),
+    await restrictions(file, "export { mavlinkExtension } from '@gcscode/extension-mavlink';"),
     [PACKAGE],
   );
   assert.deepEqual(

@@ -122,4 +122,4 @@ The getter form is intentional — children mount before the parent's `onMount` 
 
 - [ADR-0005](../../docs/decisions/ADR-0005-extension-boundaries.md) — extension boundaries (cross-extension exports + type-only sibling imports)
 - [Spec 2026-05-03-map-and-flight-overlay](../../docs/specs/2026-05-03-map-and-flight-overlay.md) — this iteration
-- [`@gcscode/extension-flight-overlay`](../extension-flight-overlay/README.md) — first consumer
+- [`@gcscode/extension-mavlink-flight-overlay`](../extension-mavlink-flight-overlay/README.md) — first consumer

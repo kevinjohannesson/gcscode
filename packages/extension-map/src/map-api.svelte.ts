@@ -50,7 +50,7 @@ export type ControlIcon = { kind: 'lucide'; name: string } | { kind: 'svg'; svg:
  */
 export interface MapControlContribution {
   /** Opaque, qualified id, conventionally `<extensionId>.<slug>` (e.g.
-   * `'gcscode.flight-overlay.recenter'`). Used as the registry key and
+   * `'gcscode.mavlink-flight-overlay.recenter'`). Used as the registry key and
    * surfaced in collision error messages. */
   id: string;
   position: ControlPosition;

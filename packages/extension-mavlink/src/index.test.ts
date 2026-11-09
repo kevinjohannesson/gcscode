@@ -3,8 +3,8 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { Disposable, ExtensionContext, ExtensionHost } from '@gcscode/extension-api';
 import type { AssetDescription, AssetSource, AssetsApi } from '@gcscode/extension-assets';
 
-import { sitlExtension, type SitlExports } from './index';
-import SitlView from './sitl-view.svelte';
+import { mavlinkExtension, type MavlinkExports } from './index';
+import MavlinkView from './mavlink-view.svelte';
 import { applyMessage, reset, telemetryState } from './telemetry-store.svelte';
 
 // ---------------------------------------------------------------------------
@@ -12,7 +12,7 @@ import { applyMessage, reset, telemetryState } from './telemetry-store.svelte';
 //
 // VARIANT (not duplicate) of the MockWebSocket in mavlink-client.test.ts.
 // The divergence is in close(): this variant AUTO-FIRES the onclose callback
-// synchronously inside close(), so `await sitlExtension.deactivate?.()`
+// synchronously inside close(), so `await mavlinkExtension.deactivate?.()`
 // (which awaits client.close() internally) resolves without manual driving.
 // The mavlink-client.test.ts mock keeps close() inert and uses _fireClose()
 // to test pending-close timing — that distinction does not matter here, where
@@ -97,9 +97,9 @@ function makeContext(opts: { getExtension?: ExtensionHost['extensions']['getExte
     },
     subscriptions,
     extension: {
-      id: sitlExtension.manifest.id,
-      displayName: sitlExtension.manifest.displayName,
-      version: sitlExtension.manifest.version,
+      id: mavlinkExtension.manifest.id,
+      displayName: mavlinkExtension.manifest.displayName,
+      version: mavlinkExtension.manifest.version,
     },
   };
 
@@ -176,7 +176,7 @@ function deliver(frame: unknown): void {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('sitlExtension', () => {
+describe('mavlinkExtension', () => {
   beforeEach(() => {
     mockInstances.length = 0;
     vi.stubGlobal('WebSocket', MockWebSocket);
@@ -184,36 +184,36 @@ describe('sitlExtension', () => {
   });
 
   afterEach(async () => {
-    await sitlExtension.deactivate?.();
+    await mavlinkExtension.deactivate?.();
     vi.unstubAllGlobals();
   });
 
   it('declares stable identity metadata', () => {
-    expect(sitlExtension.manifest.id).toBe('gcscode.sitl');
-    expect(sitlExtension.manifest.displayName).toBe('SITL Telemetry');
-    expect(typeof sitlExtension.manifest.version).toBe('string');
+    expect(mavlinkExtension.manifest.id).toBe('gcscode.mavlink');
+    expect(mavlinkExtension.manifest.displayName).toBe('MAVLink');
+    expect(typeof mavlinkExtension.manifest.version).toBe('string');
   });
 
   it('registers a view, a command, a keybinding, a configuration + change-listener, and the asset adapter; pushes all six disposables', () => {
     const { context, registerView, registerCommand, registerKeybinding } = makeContext();
     const { subscriptions } = context;
 
-    sitlExtension.activate(context);
+    mavlinkExtension.activate(context);
 
     expect(registerView).toHaveBeenCalledWith({
-      id: 'gcscode.sitl.location',
-      component: SitlView,
-      title: 'SITL',
+      id: 'gcscode.mavlink.location',
+      component: MavlinkView,
+      title: 'MAVLink',
     });
     expect(registerCommand).toHaveBeenCalledWith({
-      id: 'gcscode.sitl.getLocation',
+      id: 'gcscode.mavlink.getLocation',
       title: 'Get Location',
-      category: 'SITL',
+      category: 'MAVLink',
       run: expect.any(Function),
     });
     expect(registerKeybinding).toHaveBeenCalledWith({
       key: 'Alt+Shift+L',
-      command: 'gcscode.sitl.getLocation',
+      command: 'gcscode.mavlink.getLocation',
     });
     expect(subscriptions).toHaveLength(6);
   });
@@ -223,13 +223,13 @@ describe('sitlExtension', () => {
 
     try {
       const { context, registerCommand } = makeContext();
-      sitlExtension.activate(context);
+      mavlinkExtension.activate(context);
 
       const locationContribution = registerCommand.mock.calls[0][0];
 
       // No fix yet — should return null
       expect(locationContribution.run()).toBeNull();
-      expect(consoleLogSpy).toHaveBeenCalledWith('SITL location: (no fix yet)');
+      expect(consoleLogSpy).toHaveBeenCalledWith('MAVLink location: (no fix yet)');
 
       consoleLogSpy.mockClear();
 
@@ -250,7 +250,7 @@ describe('sitlExtension', () => {
         lng: 149.16523,
         alt: 5.4,
       });
-      expect(consoleLogSpy).toHaveBeenCalledWith('SITL location:', {
+      expect(consoleLogSpy).toHaveBeenCalledWith('MAVLink location:', {
         lat: -35.363261,
         lng: 149.16523,
         alt: 5.4,
@@ -261,21 +261,21 @@ describe('sitlExtension', () => {
   });
 
   it('defines a deactivate hook that returns a promise', () => {
-    expect(typeof sitlExtension.deactivate).toBe('function');
+    expect(typeof mavlinkExtension.deactivate).toBe('function');
     const { context } = makeContext();
-    sitlExtension.activate(context);
-    const result = sitlExtension.deactivate?.();
+    mavlinkExtension.activate(context);
+    const result = mavlinkExtension.deactivate?.();
     expect(result).toBeInstanceOf(Promise);
   });
 
   it('deactivate awaits the WebSocket close and transitions connection to disconnected', async () => {
     const { context } = makeContext();
-    sitlExtension.activate(context);
+    mavlinkExtension.activate(context);
 
     const mock = lastMock();
     expect(mock).toBeDefined();
 
-    await sitlExtension.deactivate?.();
+    await mavlinkExtension.deactivate?.();
 
     // close() should have been called with code 1000
     expect(mock.closeArgs).not.toBeNull();
@@ -288,7 +288,7 @@ describe('sitlExtension', () => {
 
   it('deactivate clears stale telemetry state', async () => {
     const { context } = makeContext();
-    sitlExtension.activate(context);
+    mavlinkExtension.activate(context);
 
     // Populate the store
     applyMessage({
@@ -303,7 +303,7 @@ describe('sitlExtension', () => {
 
     expect(telemetryState.lat).not.toBeNull();
 
-    await sitlExtension.deactivate?.();
+    await mavlinkExtension.deactivate?.();
 
     expect(telemetryState.lat).toBeNull();
     expect(telemetryState.lng).toBeNull();
@@ -311,13 +311,13 @@ describe('sitlExtension', () => {
     expect(telemetryState.heading).toBeNull();
   });
 
-  it('registers gcscode.sitl.connectionUrl with the expected schema + default', () => {
+  it('registers gcscode.mavlink.connectionUrl with the expected schema + default', () => {
     const { context, registerConfiguration } = makeContext();
-    sitlExtension.activate(context);
+    mavlinkExtension.activate(context);
 
     expect(registerConfiguration).toHaveBeenCalledWith(
       expect.objectContaining({
-        key: 'gcscode.sitl.connectionUrl',
+        key: 'gcscode.mavlink.connectionUrl',
         default: 'ws://localhost:8088/v1/ws/mavlink',
         schema: expect.objectContaining({ type: 'string', format: 'uri' }),
       }),
@@ -326,15 +326,15 @@ describe('sitlExtension', () => {
 
   it('composes the WebSocket URL from the configured base URL + compile-time FILTER', () => {
     const { context } = makeContext();
-    sitlExtension.activate(context);
+    mavlinkExtension.activate(context);
 
     const mock = lastMock();
     expect(mock.url).toMatch(/^ws:\/\/localhost:8088\/v1\/ws\/mavlink\?filter=/);
   });
 
-  it('reconnects when gcscode.sitl.connectionUrl changes', async () => {
+  it('reconnects when gcscode.mavlink.connectionUrl changes', async () => {
     const { context, getConfiguration, onDidChangeConfiguration } = makeContext();
-    sitlExtension.activate(context);
+    mavlinkExtension.activate(context);
 
     // Grab the listener registered by activate().
     const listener = onDidChangeConfiguration.mock.calls[0][0];
@@ -349,7 +349,7 @@ describe('sitlExtension', () => {
     });
 
     // Fire the event.
-    listener({ affectsConfiguration: (s: string) => s === 'gcscode.sitl.connectionUrl' });
+    listener({ affectsConfiguration: (s: string) => s === 'gcscode.mavlink.connectionUrl' });
 
     // Allow the reconnect microtask chain to settle:
     // closeClient() is async (one tick) → .then(() => openClient()) is a second tick.
@@ -372,7 +372,7 @@ describe('sitlExtension', () => {
       ) as ExtensionHost['extensions']['getExtension'],
     });
 
-    sitlExtension.activate(context);
+    mavlinkExtension.activate(context);
     expect(assets.createSource).not.toHaveBeenCalled();
 
     deliver(HEARTBEAT_FRAME);
@@ -389,7 +389,7 @@ describe('sitlExtension', () => {
 
     try {
       const { context } = makeContext();
-      sitlExtension.activate(context);
+      mavlinkExtension.activate(context);
 
       expect(() => {
         deliver(HEARTBEAT_FRAME);
@@ -408,7 +408,7 @@ describe('sitlExtension', () => {
     }
   });
 
-  it('activate returns SitlExports with the live telemetry store', () => {
+  it('activate returns MavlinkExports with the live telemetry store', () => {
     // Stub WebSocket so activate() doesn't open a real connection.
     vi.stubGlobal(
       'WebSocket',
@@ -454,15 +454,15 @@ describe('sitlExtension', () => {
           onDidChangeConfiguration: vi.fn(() => ({ dispose: () => {} })),
         },
       } as unknown as ExtensionHost;
-      const exports = sitlExtension.activate({
+      const exports = mavlinkExtension.activate({
         host: fakeHost,
         subscriptions,
         extension: {
-          id: sitlExtension.manifest.id,
-          displayName: sitlExtension.manifest.displayName,
-          version: sitlExtension.manifest.version,
+          id: mavlinkExtension.manifest.id,
+          displayName: mavlinkExtension.manifest.displayName,
+          version: mavlinkExtension.manifest.version,
         },
-      }) as SitlExports;
+      }) as MavlinkExports;
 
       expect(exports).toBeDefined();
       expect(exports.telemetry).toBeDefined();
@@ -471,7 +471,7 @@ describe('sitlExtension', () => {
     } finally {
       vi.unstubAllGlobals();
       // Clean up — the activate() opened a (mock) WebSocket; close it.
-      void sitlExtension.deactivate?.();
+      void mavlinkExtension.deactivate?.();
     }
   });
 });
