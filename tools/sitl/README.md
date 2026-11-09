@@ -7,7 +7,7 @@ ArduCopter SITL (software in the loop): a simulated drone to develop and test gc
 ```
 arducopter (TCP 5760) <-> MAVProxy --> UDP 14550 --> Python client (client/)
                                    --> UDP 14551 --> mavlink2rest --> ws://localhost:8088/v1/ws/mavlink
-                                                                      (gcscode's SITL extension)
+                                                                      (gcscode's MAVLink extension)
 ```
 
 ## Setup (macOS)
