@@ -247,6 +247,9 @@ importers:
       '@gcscode/extension-vehicle-status':
         specifier: workspace:*
         version: link:../extension-vehicle-status
+      '@gcscode/extension-video':
+        specifier: workspace:*
+        version: link:../extension-video
       ajv:
         specifier: ^8.17.1
         version: 8.20.0
