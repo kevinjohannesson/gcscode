@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createExtensionPersistence } from './extension-persistence';
+import { createExtensionPersistence, moveDisabledId } from './extension-persistence';
 
 // MemoryStorage: in-memory implementation of the Storage interface for tests.
 class MemoryStorage implements Storage {
@@ -118,5 +118,60 @@ describe('createExtensionPersistence', () => {
     expect(() => persistence.recordEnabledChange('ext.a', false)).not.toThrow();
     // In-memory state should still reflect the disable even if storage write failed
     expect(persistence.isInitiallyEnabled('ext.a', true)).toBe(false);
+  });
+});
+
+describe('moveDisabledId', () => {
+  let storage: MemoryStorage;
+
+  beforeEach(() => {
+    storage = new MemoryStorage();
+  });
+
+  it('replaces a disabled old id with the new id', () => {
+    storage.setItem(STORAGE_KEY, JSON.stringify(['ext.old', 'ext.other']));
+
+    moveDisabledId(storage, 'ext.old', 'ext.new');
+
+    expect(JSON.parse(storage.getItem(STORAGE_KEY)!)).toEqual(['ext.other', 'ext.new']);
+    expect(createExtensionPersistence(storage).isInitiallyEnabled('ext.new', true)).toBe(false);
+  });
+
+  it('keeps an extension re-enabled under its new id enabled on the next start', () => {
+    storage.setItem(STORAGE_KEY, JSON.stringify(['ext.old']));
+    moveDisabledId(storage, 'ext.old', 'ext.new');
+    createExtensionPersistence(storage).recordEnabledChange('ext.new', true);
+
+    moveDisabledId(storage, 'ext.old', 'ext.new');
+
+    expect(createExtensionPersistence(storage).isInitiallyEnabled('ext.new', true)).toBe(true);
+  });
+
+  it('writes nothing when the old id is not disabled', () => {
+    storage.setItem(STORAGE_KEY, JSON.stringify(['ext.other']));
+    const setItem = vi.spyOn(storage, 'setItem');
+
+    moveDisabledId(storage, 'ext.old', 'ext.new');
+
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it('writes nothing when nothing is saved', () => {
+    moveDisabledId(storage, 'ext.old', 'ext.new');
+    expect(storage.length).toBe(0);
+  });
+
+  it('leaves malformed storage as it is', () => {
+    storage.setItem(STORAGE_KEY, 'not-valid-json{{');
+    moveDisabledId(storage, 'ext.old', 'ext.new');
+    expect(storage.getItem(STORAGE_KEY)).toBe('not-valid-json{{');
+  });
+
+  it('does not throw when storage cannot be read or written', () => {
+    storage.setItem(STORAGE_KEY, JSON.stringify(['ext.old']));
+    storage.failNextRead = true;
+    expect(() => moveDisabledId(storage, 'ext.old', 'ext.new')).not.toThrow();
+    storage.failOnWrite = true;
+    expect(() => moveDisabledId(storage, 'ext.old', 'ext.new')).not.toThrow();
   });
 });

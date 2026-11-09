@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 
-import { loadConfigurationBlob, writeConfigurationBlob, STORAGE_KEY } from './persistence';
+import {
+  loadConfigurationBlob,
+  moveConfigurationSection,
+  writeConfigurationBlob,
+  STORAGE_KEY,
+} from './persistence';
 
 function makeStorage(initial: Record<string, string> = {}): Storage {
   const data: Record<string, string> = { ...initial };
@@ -63,5 +68,72 @@ describe('persistence', () => {
       },
     } as unknown as Storage;
     expect(() => writeConfigurationBlob(broken, { 'a.b': 1 })).toThrow(/QuotaExceededError/);
+  });
+});
+
+describe('moveConfigurationSection', () => {
+  const saved = (blob: Record<string, unknown>) =>
+    makeStorage({ [STORAGE_KEY]: JSON.stringify(blob) });
+
+  it('moves every key under the old section to the new one', () => {
+    const storage = saved({
+      'ext.old.url': 'ws://vehicle.test:8088',
+      'ext.old.nested.depth': 3,
+      'ext.other.flag': true,
+    });
+
+    moveConfigurationSection(storage, 'ext.old', 'ext.new');
+
+    expect(loadConfigurationBlob(storage)).toEqual({
+      'ext.new.url': 'ws://vehicle.test:8088',
+      'ext.new.nested.depth': 3,
+      'ext.other.flag': true,
+    });
+  });
+
+  it('keeps a value already saved under the new key and drops the old one', () => {
+    const storage = saved({ 'ext.old.url': 'ws://old.test', 'ext.new.url': 'ws://new.test' });
+
+    moveConfigurationSection(storage, 'ext.old', 'ext.new');
+
+    expect(loadConfigurationBlob(storage)).toEqual({ 'ext.new.url': 'ws://new.test' });
+  });
+
+  it('leaves keys that only start with the old id, without its dot', () => {
+    const raw = JSON.stringify({ 'ext.oldish.url': 1, 'ext.old': 2 });
+    const storage = makeStorage({ [STORAGE_KEY]: raw });
+    const setItem = vi.spyOn(storage, 'setItem');
+
+    moveConfigurationSection(storage, 'ext.old', 'ext.new');
+
+    expect(setItem).not.toHaveBeenCalled();
+    expect(storage.getItem(STORAGE_KEY)).toBe(raw);
+  });
+
+  it('writes nothing when nothing is saved', () => {
+    const storage = makeStorage();
+    moveConfigurationSection(storage, 'ext.old', 'ext.new');
+    expect(storage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('leaves a corrupted blob as it is', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const storage = makeStorage({ [STORAGE_KEY]: '{not json' });
+
+    moveConfigurationSection(storage, 'ext.old', 'ext.new');
+
+    expect(storage.getItem(STORAGE_KEY)).toBe('{not json');
+    warn.mockRestore();
+  });
+
+  it('does not throw when the write fails, and the old keys stay', () => {
+    const raw = JSON.stringify({ 'ext.old.url': 'ws://vehicle.test:8088' });
+    const storage = makeStorage({ [STORAGE_KEY]: raw });
+    storage.setItem = () => {
+      throw new Error('QuotaExceededError');
+    };
+
+    expect(() => moveConfigurationSection(storage, 'ext.old', 'ext.new')).not.toThrow();
+    expect(storage.getItem(STORAGE_KEY)).toBe(raw);
   });
 });

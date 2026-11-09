@@ -8,8 +8,14 @@ import { bootstrap } from './extension-host/bootstrap';
 import { createExtensionManager } from './extension-host/extension-manager';
 import { bundledExtensions } from './extension-host/bundled-extensions';
 import { createExtensionPersistence } from './extension-host/extension-persistence';
+import { moveSavedStateFromPreviousIds } from './extension-host/previous-ids';
 import { createRegistry } from './extension-host/registry';
 import { createWorkbenchExtension } from './built-in/workbench';
+
+// First: the registry's configuration store and the disabled set read what is
+// saved when they are created, so a renamed extension's saved state has to be
+// under its current id by then.
+moveSavedStateFromPreviousIds(bundledExtensions);
 
 const registry = createRegistry();
 const persistence = createExtensionPersistence();

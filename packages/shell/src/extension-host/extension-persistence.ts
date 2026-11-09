@@ -42,3 +42,17 @@ function saveDisabled(storage: Storage, disabled: Set<string>): void {
     // calls; we just lose persistence across reload.
   }
 }
+
+/**
+ * Moves a renamed extension's entry in the disabled set from its old id to its
+ * new one, so an extension the operator turned off stays off. The old entry is
+ * removed, so re-enabling the extension under its new id holds on the next
+ * start. Writes only when the old id was in the set; storage that cannot be
+ * read, or holds no array, is left as it is.
+ */
+export function moveDisabledId(storage: Storage, fromId: string, toId: string): void {
+  const disabled = new Set<string>(loadDisabled(storage));
+  if (!disabled.delete(fromId)) return;
+  disabled.add(toId);
+  saveDisabled(storage, disabled);
+}
