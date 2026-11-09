@@ -42,11 +42,25 @@ export class FakePeerConnection extends EventTarget {
     this.transceivers.push({ kind, init });
   }
 
+  private localOffer: string | undefined;
+
   async createOffer(): Promise<{ type: 'offer'; sdp: string }> {
     return { type: 'offer', sdp: 'fake-offer-sdp' };
   }
 
-  async setLocalDescription(): Promise<void> {}
+  async setLocalDescription(description: { sdp?: string }): Promise<void> {
+    this.localOffer = description.sdp ?? '';
+  }
+
+  /**
+   * As in a browser: the offer `createOffer()` returned carries no candidates;
+   * the local description gains them once gathering completes.
+   */
+  get localDescription(): { type: 'offer'; sdp: string } | null {
+    if (this.localOffer === undefined) return null;
+    const candidates = this.iceGatheringState === 'complete' ? '\r\na=candidate:fake' : '';
+    return { type: 'offer', sdp: this.localOffer + candidates };
+  }
 
   async setRemoteDescription(description: unknown): Promise<void> {
     this.touch();

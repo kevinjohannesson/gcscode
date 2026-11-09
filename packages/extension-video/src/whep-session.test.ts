@@ -23,6 +23,8 @@ function setup(
   return { stub, reports, env, open, pc, posts, deletes };
 }
 
+const gatheredOffer = 'fake-offer-sdp\r\na=candidate:fake';
+
 const settle = () => vi.advanceTimersByTimeAsync(0);
 
 beforeEach(() => {
@@ -55,6 +57,23 @@ describe('offer and answer', () => {
     t.pc().setGatheringState('complete');
     await settle();
     expect(t.posts()).toHaveLength(1);
+    expect(t.posts()[0]!.init.body).toBe(gatheredOffer);
+  });
+
+  it('sends no POST and reports nothing when closed while still gathering', async () => {
+    const t = setup();
+    class Gathering extends FakePeerConnection {
+      override iceGatheringState: RTCIceGatheringState = 'gathering';
+    }
+    t.env.RTCPeerConnection = Gathering as unknown as new () => RTCPeerConnection;
+    const session = t.open();
+    await settle();
+    session.close();
+    t.pc().setGatheringState('complete');
+    await settle();
+    expect(t.posts()).toHaveLength(0);
+    expect(t.reports).toEqual([]);
+    expect(t.pc().callsAfterClose).toBe(0);
   });
 
   it('posts the offer as application/sdp and applies the answer', async () => {
@@ -66,7 +85,7 @@ describe('offer and answer', () => {
       init: {
         method: 'POST',
         headers: { 'Content-Type': 'application/sdp' },
-        body: 'fake-offer-sdp',
+        body: gatheredOffer,
       },
     });
     expect(t.pc().remoteDescriptions).toEqual([{ type: 'answer', sdp: 'fake-answer-sdp' }]);
@@ -158,6 +177,21 @@ describe('failures', () => {
     expect(t.reports).toEqual([{ kind: 'unsupported', label: url }]);
   });
 
+  it('reports unsupported, after a microtask, when createOffer throws synchronously', async () => {
+    const t = setup();
+    class Throwing extends FakePeerConnection {
+      override createOffer(): Promise<{ type: 'offer'; sdp: string }> {
+        throw new Error('no offer');
+      }
+    }
+    t.env.RTCPeerConnection = Throwing as unknown as new () => RTCPeerConnection;
+    t.open();
+    expect(t.reports).toEqual([]);
+    await Promise.resolve();
+    expect(t.reports).toEqual([{ kind: 'unsupported', label: url }]);
+    expect(t.posts()).toHaveLength(0);
+  });
+
   it('reports unsupported, after a microtask, when the constructor throws', async () => {
     const t = setup();
     t.env.RTCPeerConnection = class {
@@ -241,10 +275,21 @@ describe('close', () => {
     await settle();
     expect(t.deletes()).toHaveLength(1);
     expect(t.pc().closeCalls).toBe(1);
+    expect(t.pc().callsAfterClose).toBe(0);
   });
 
   it('sends no DELETE without a Location but still closes the peer connection', async () => {
     const t = setup(answer('fake-answer-sdp', 201));
+    const session = t.open();
+    await settle();
+    session.close();
+    await settle();
+    expect(t.deletes()).toHaveLength(0);
+    expect(t.pc().closeCalls).toBe(1);
+  });
+
+  it('sends no DELETE for a non-2xx response that carries a Location', async () => {
+    const t = setup(answer('', 404, { Location: '/drone-1/whep/nope' }));
     const session = t.open();
     await settle();
     session.close();
@@ -284,6 +329,7 @@ describe('close', () => {
     const calls = t.pc().getStatsCalls;
     await vi.advanceTimersByTimeAsync(5000);
     expect(t.pc().getStatsCalls).toBe(calls);
+    expect(t.pc().callsAfterClose).toBe(0);
   });
 
   it('cancels a disconnected grace that began before close', async () => {
@@ -296,6 +342,7 @@ describe('close', () => {
     session.close();
     await vi.advanceTimersByTimeAsync(5000);
     expect(t.reports).toEqual([]);
+    expect(t.pc().callsAfterClose).toBe(0);
   });
 });
 
@@ -324,6 +371,7 @@ describe('close before the answer', () => {
       { url: 'http://localhost:8889/drone-1/whep/late', init: { method: 'DELETE' } },
     ]);
     expect(t.pc().closeCalls).toBe(1);
+    expect(t.pc().callsAfterClose).toBe(0);
   });
 
   it('ignores an answer whose body is still being read when close() is called', async () => {

@@ -6,7 +6,16 @@ The **Video** panel: it plays a drone camera's live stream. While it has no pict
 
 `gcscode.video.whepUrl` is the address of the camera's stream (a WHEP endpoint, as served by MediaMTX). The default is `http://localhost:8889/drone-1/whep`.
 
-The panel reads the setting once, when the extension activates, so a change takes effect after a reload. Until the settings editor can write it, change it from the browser's devtools (set the value through the configuration store), then reload the page.
+The panel reads the setting once, when the extension activates, so a change takes effect after a reload. There is no settings editor yet. Until there is, change it from the browser's devtools: edit the `gcscode.configuration` entry in `localStorage` and reload, as described in [Operator UX in v1](../extension-api/README.md#operator-ux-in-v1):
+
+```js
+const cfg = JSON.parse(localStorage.getItem('gcscode.configuration') ?? '{}');
+cfg['gcscode.video.whepUrl'] = 'http://localhost:8889/drone-2/whep';
+localStorage.setItem('gcscode.configuration', JSON.stringify(cfg));
+location.reload();
+```
+
+A value that fails the setting's schema is ignored on reload and the default applies, with no message in the UI.
 
 ## The seam
 
@@ -16,4 +25,4 @@ The panel does not know what carries the picture. `src/video-source.ts` defines 
 
 ## What this package does not do
 
-It never builds, parses or interprets a stream path, and never derives one from a vehicle or system ID. The address is an opaque string the operator configures; `drone-1` appears only inside the default value. Tying a stream to a vehicle is a separate decision (see the protocols-as-languages ADR) and is not made here.
+It never builds, parses or interprets a stream path, and never derives one from a vehicle or system ID. The address is an opaque string the operator configures; `drone-1` appears only inside the default value. Tying a stream to a vehicle is a separate decision (see [ADR-0014](../../docs/decisions/ADR-0014-protocols-as-languages.md)) and is not made here.

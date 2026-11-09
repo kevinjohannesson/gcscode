@@ -171,9 +171,11 @@ export function openWhepSession(
       const description = await conn.createOffer();
       await conn.setLocalDescription(description);
       await waitForGathering(conn);
-      offer = description.sdp ?? '';
+      // The offer `createOffer()` returned has no candidates; the local
+      // description, read after gathering, does.
+      offer = conn.localDescription?.sdp ?? description.sdp ?? '';
     } catch {
-      report({ kind: 'unsupported', label: url });
+      reportLater({ kind: 'unsupported', label: url });
       return;
     }
     if (closed) return;
@@ -190,17 +192,19 @@ export function openWhepSession(
       return;
     }
 
-    location = resolveLocation(response);
+    const accepted = response.status >= 200 && response.status < 300;
+    // Only an accepted session has a resource to delete.
+    if (accepted) location = resolveLocation(response);
     if (closed) {
       // Closed while the POST was in flight: leave no reader behind.
-      if (response.status >= 200 && response.status < 300 && location) sendDelete(location);
+      if (location) sendDelete(location);
       return;
     }
     if (response.status === 404) {
       report({ kind: 'no-stream', label: url });
       return;
     }
-    if (response.status < 200 || response.status >= 300) {
+    if (!accepted) {
       report({ kind: 'refused', label: url, detail: String(response.status) });
       return;
     }
@@ -239,6 +243,10 @@ export function openWhepSession(
       if (closed) return;
       closed = true;
       stopTimers();
+      // `DELETE` and `pc.close()` race: MediaMTX drops the session as soon as the
+      // peer connection closes, so the CORS-preflighted `DELETE` usually gets a
+      // 404. The session ends either way (measured live: `DELETE` before close
+      // answers 200, after close 404).
       try {
         pc?.close();
       } catch {
