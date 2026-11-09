@@ -6,11 +6,10 @@
  * unit tests in `extension-host/previous-ids.test.ts` cannot see that order.
  *
  * `mount`, the root component and dockview's stylesheet are stubbed, so no UI
- * renders. The bundled
- * extensions activate for real; `WebSocket` is stubbed to record the URL the
- * MAVLink extension dials.
+ * renders. The bundled extensions activate for real; `WebSocket` is stubbed to
+ * record the URL the MAVLink extension dials.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('svelte', async (importOriginal) => ({
   ...(await importOriginal<typeof import('svelte')>()),
@@ -42,10 +41,16 @@ async function bootWith(saved: Record<string, unknown>): Promise<void> {
   await import('./main');
 }
 
-// The first boot transforms the whole app, about 3 s on its own and more under
-// a full parallel run. A boot that outlived the default 5 s timeout would keep
-// running into the next test's boot.
-describe('main.ts at boot', { timeout: 30_000 }, () => {
+describe('main.ts at boot', () => {
+  // The first import of the app transforms every module: about 3 s alone, and
+  // nearly 20 s while other suites run. Doing it once here keeps that out of
+  // the tests, whose boots then re-evaluate every module (`vi.resetModules()`
+  // below) from cached transforms. A boot that outlived its test's timeout
+  // would keep running into the next test's boot.
+  beforeAll(async () => {
+    await import('./extension-host/bundled-extensions');
+  }, 60_000);
+
   beforeEach(() => {
     vi.resetModules();
     localStorage.clear();
