@@ -12,6 +12,7 @@ import { mapExtension } from '@gcscode/extension-map';
 import { mapDemoExtension } from '@gcscode/extension-map-demo';
 import { mavlinkExtension } from '@gcscode/extension-mavlink';
 import { vehicleStatusExtension } from '@gcscode/extension-vehicle-status';
+import { videoExtension } from '@gcscode/extension-video';
 
 export interface BundledExtensionEntry {
   id: string;
@@ -51,8 +52,16 @@ export const bundledExtensions: readonly BundledExtensionEntry[] = [
   // Same as vehicle-status, and documentation for the same reason: map-demo
   // reads MAVLink exports lazily per use (getMavlinkExports() inside a $derived).
   { id: mapDemoExtension.manifest.id, extension: mapDemoExtension },
+  // Video sits before Map so that Map stays the front tab at load: the shell
+  // adds panels in registration order, the last one added is in front, and
+  // layout is not saved. NOT an activation constraint: Video reads no
+  // extension's exports and publishes none.
+  { id: videoExtension.manifest.id, extension: videoExtension },
   // Map exposes a contribution API consumed by flight-overlay; it must
   // activate before flight-overlay. No ordering requirement vs. mavlink.
+  // It must also stay the last entry that registers a view: the last view
+  // registered is the tab every load opens on, so only the overlay, which
+  // registers none, may follow it.
   { id: mapExtension.manifest.id, extension: mapExtension },
   // Must come after mapExtension — flight-overlay reads map exports during
   // its activate(). Degrades (registers no overlay, warns once) if map is not

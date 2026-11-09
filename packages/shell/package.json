@@ -20,6 +20,7 @@
     "@gcscode/extension-map-demo": "workspace:*",
     "@gcscode/extension-mavlink": "workspace:*",
     "@gcscode/extension-vehicle-status": "workspace:*",
+    "@gcscode/extension-video": "workspace:*",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "dockview-core": "^6.0.1",

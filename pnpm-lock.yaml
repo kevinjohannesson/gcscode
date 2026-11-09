@@ -209,6 +209,15 @@ importers:
         specifier: ^5.0.0
         version: 5.55.5(@typescript-eslint/types@8.59.0)
 
+  packages/extension-video:
+    dependencies:
+      '@gcscode/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
+      svelte:
+        specifier: ^5.0.0
+        version: 5.55.5(@typescript-eslint/types@8.59.0)
+
   packages/shell:
     dependencies:
       '@gcscode/extension-api':
@@ -238,6 +247,9 @@ importers:
       '@gcscode/extension-vehicle-status':
         specifier: workspace:*
         version: link:../extension-vehicle-status
+      '@gcscode/extension-video':
+        specifier: workspace:*
+        version: link:../extension-video
       ajv:
         specifier: ^8.17.1
         version: 8.20.0
