@@ -56,7 +56,11 @@ describe('selectTiles', () => {
     const leaves = selectTiles(frame, roots, [{ east: 0, north: 0, up: 50 }], settings);
     const area = leaves.reduce((sum, t) => sum + 4 ** (13 - t.z), 0);
     expect(area).toBeCloseTo(roots.length, 12);
-    for (const a of leaves) for (const b of leaves) if (a !== b) expect(contains(a, b)).toBe(false);
+    // One expect for all ~440² pairs: an expect per pair takes seconds.
+    const nested = leaves.flatMap((a) =>
+      leaves.filter((b) => a !== b && contains(a, b)).map((b) => `${tileKey(a)} ⊇ ${tileKey(b)}`),
+    );
+    expect(nested).toEqual([]);
   });
 
   it('refines around every camera, so two drones 3 km apart both get fine imagery', () => {
