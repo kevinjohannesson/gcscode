@@ -19,14 +19,14 @@ State each rule once, in the file it belongs to, and point to it. A summary that
 ## Feature PRs (`feat/*`)
 
 1. Execute the plan with `superpowers:subagent-driven-development` in a worktree. Open a draft PR after the first task commit (template below).
-2. After each task: spec-compliance review, then code-quality review once spec-compliance passes. At the end of the iteration: `gh pr ready <n>`, then the final cross-cutting review.
-3. These roles run superpowers' prompts, so every dispatch carries:
+2. After each task, one task review: a single dispatch of the prompt both per-task roles name, which judges spec compliance and code quality in one pass and posts twice. Its spec-compliance verdict and findings post as spec-compliance, `--request-changes` on ❌; the rest (strengths, issues, task-quality verdict) as code-quality, `--request-changes` on any Critical or Important issue. At the end of the iteration: `gh pr ready <n>`, then the final cross-cutting review.
+3. These roles run superpowers' prompts, so every dispatch carries the following (a task review carries both per-task roles' token steps, verdicts and headers):
    - the PR number;
    - the token step, in the same command as the post and by a path that works from any directory: `GH_TOKEN=$("$(git rev-parse --show-toplevel)/.claude/scripts/gh-app-token-reviewer" <role>) gh pr review <n> ...` (an empty token makes `gh` post as the owner);
    - the role's `verdicts`, `header` and `reReviewHeader` from the registry, with `<model>` explained as `Claude ` plus the model its system prompt names;
    - "repo-relative paths only";
    - **final review only:** confirm every per-task `--request-changes` on the PR was addressed before approving — `feat/*` auto-merge reads this role alone — and verify each item of the plan's checklist of spec findings.
-4. **On `--request-changes`,** the same implementer fixes it in a `Code-review-followup:` commit (never an amend), and the dispatch carries the first two rules of "Fixing findings" below. The same role re-reviews, posting a new review. A per-task role cannot clear its own block — it may not `--approve`, and GitHub clears `CHANGES_REQUESTED` only on a later approval or a dismissal — so when its re-review comes back `--comment`, the controller dismisses the earlier block. "Clean" is the re-review's own verdict, not the controller's reading of it. The dismissal stays in the timeline.
+4. **On `--request-changes`,** the same implementer fixes it in a `Code-review-followup:` commit (never an amend), and the dispatch carries the first two rules of "Fixing findings" below. The same role re-reviews, posting a new review. A task's re-review is one dispatch of superpowers' scoped re-review prompt: it posts as each per-task role that blocked, with that role's findings, and new breakage in the fix diff posts as code-quality. A per-task role cannot clear its own block — it may not `--approve`, and GitHub clears `CHANGES_REQUESTED` only on a later approval or a dismissal — so when its re-review comes back `--comment`, the controller dismisses the earlier block. "Clean" is the re-review's own verdict, not the controller's reading of it. The dismissal stays in the timeline.
 
    ```bash
    gh api "repos/{owner}/{repo}/pulls/<PR>/reviews" \
