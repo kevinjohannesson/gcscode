@@ -94,7 +94,7 @@ Example: `http://localhost:5174/?pitch=-45&hfov=90`.
 
 The default imagery is Esri World Imagery. Esri allows free use only with attribution (camera-sim burns it into every frame), a free ArcGIS account, no revenue, and no use for the benefit of a business or government agency. That fits a personal hobby project. For anything else, switch providers with `imagery` and `attribution`, and set both: with `imagery` alone, Esri's credit line stays in the frames. Never commit an API key: this repository is public.
 
-Where tiles can't be loaded, the ground shows a grey grid instead, and the status page counts the failures. A failed tile is not retried while it stays loaded: reload the page once the network is back.
+Where tiles can't be loaded, the ground shows a grey grid instead, and the status page counts the failures. A failed tile is not retried while it stays cached, and the coarsest tiles always stay: reload the page once the network is back.
 
 ## Running it across machines
 
@@ -115,7 +115,7 @@ The sim can run on a stronger machine than SITL and the GCS:
 - **The browser's WebRTC encoder sets the bitrate;** resolution is held constant.
 - **The window must stay visible.** Browsers slow down hidden tabs, which freezes the video.
 - **The frame rate follows the display.** Frames are drawn on the browser's animation frames, so a rate that doesn't divide the display's refresh rate comes out lower: `fps=25` on a 60 Hz display gives 20.
-- **One page per vehicle.** MediaMTX lets a new publisher take over a stream path, and a page that loses its path reconnects, so two pages publishing the same system ID take `drone-<sysid>` from each other in turn.
+- **One camera-sim page at a time.** A page publishes every vehicle it hears from. MediaMTX lets a new publisher take over a stream path, and a page that loses its path reconnects, so two pages hearing the same vehicle take `drone-<sysid>` from each other in turn.
 
 ## Layout
 
