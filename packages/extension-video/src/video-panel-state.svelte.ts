@@ -1,5 +1,3 @@
-// Side-effect import: loads Svelte's ambient rune types ($state) for tsc.
-import 'svelte';
 import type { OpenVideoSession, SessionReport, VideoSession } from './video-source';
 
 export const CONNECT_TIMEOUT_MS = 15000;
