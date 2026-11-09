@@ -1,7 +1,7 @@
 # ADR-0011: Asset vocabulary — our own words, standards as adapters, one registry for every kind
 
 **Date:** 2026-10-16
-**Status:** Accepted
+**Status:** Superseded by [ADR-0014 (Protocols are like languages)](ADR-0014-protocols-as-languages.md), which keeps the registry of Decisions 3 and 4 and withdraws the vocabulary
 
 ## Context
 

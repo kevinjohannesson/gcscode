@@ -87,7 +87,7 @@ One controller session per PR or iteration. When the worktree already exists, st
 ## Where to look
 
 - `docs/roadmap.md` — where we are and what's next. `docs/out-of-scope.md` — what is deliberately not built yet; check it before building anything new. `docs/vs-code-alignment.md` — the cumulative ledger of alignments with VS Code and divergences from it.
-- `docs/decisions/` — ADRs. Read [ADR-0011](docs/decisions/ADR-0011-asset-vocabulary-and-registry.md) before adding any asset-facing type, and [ADR-0012](docs/decisions/ADR-0012-service-extensions-vs-host-namespaces.md) before adding a capability.
+- `docs/decisions/` — ADRs. Read [ADR-0014](docs/decisions/ADR-0014-protocols-as-languages.md) before adding anything about vehicles or protocols, and [ADR-0012](docs/decisions/ADR-0012-service-extensions-vs-host-namespaces.md) before adding a capability.
 - `docs/architecture/` — dated notes on established patterns: background, not decisions.
 - `packages/extension-api/README.md` and `packages/extension-example/README.md` — how to write an extension.
 - `/housekeeping` (`.claude/commands/housekeeping.md`) — a drift sweep to run every 2–3 iterations, not during feature work.
