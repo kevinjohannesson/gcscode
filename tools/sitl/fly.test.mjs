@@ -170,6 +170,18 @@ test('refuses script options without an action', () => {
   for (const action of ACTIONS) assert.ok(stderr.includes(action), `${action} missing:\n${stderr}`);
 });
 
+// The drone moves only when --circle or --takeoff is named in full.
+test('a shortened action name flies nothing', () => {
+  for (const args of [
+    ['--ta', '25'],
+    ['--ci', '1'],
+  ]) {
+    const { status, stderr, reached } = fly(args);
+    assert.equal(status, 2, `${args.join(' ')}: ${stderr}`);
+    assert.equal(reached, undefined, `${args.join(' ')} reached ${reached?.script}`);
+  }
+});
+
 // Where it runs, and with which venv
 
 test('runs in INIT_CWD, the folder pnpm was started from', () => {

@@ -36,12 +36,15 @@ WITHOUT_VALUE = ""
 
 def build_parser() -> argparse.ArgumentParser:
     # Without add_help, a --help after an action reaches that action's script.
+    # Without allow_abbrev, the drone moves only on --circle or --takeoff in
+    # full (never on --ta), and a script option is never read as an action.
     p = argparse.ArgumentParser(
         prog="pnpm fly-sitl",
         description=__doc__,
         epilog="Without a value, --circle and --takeoff use the script's default.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
+        allow_abbrev=False,
     )
     group = p.add_argument_group("actions").add_mutually_exclusive_group()
     for name, (_script, option, metavar, help_text) in ACTIONS.items():
