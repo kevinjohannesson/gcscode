@@ -167,11 +167,16 @@ describe('moveDisabledId', () => {
     expect(storage.getItem(STORAGE_KEY)).toBe('not-valid-json{{');
   });
 
-  it('does not throw when storage cannot be read or written', () => {
-    storage.setItem(STORAGE_KEY, JSON.stringify(['ext.old']));
+  it('leaves storage as it is, without throwing, when it cannot be read or written', () => {
+    const saved = JSON.stringify(['ext.old']);
+    storage.setItem(STORAGE_KEY, saved);
+
     storage.failNextRead = true;
     expect(() => moveDisabledId(storage, 'ext.old', 'ext.new')).not.toThrow();
+    expect(storage.getItem(STORAGE_KEY)).toBe(saved);
+
     storage.failOnWrite = true;
     expect(() => moveDisabledId(storage, 'ext.old', 'ext.new')).not.toThrow();
+    expect(storage.getItem(STORAGE_KEY)).toBe(saved);
   });
 });
