@@ -2,7 +2,7 @@
  * Reads GLOBAL_POSITION_INT out of a mavlink2rest WebSocket envelope:
  * `{ header: { system_id, component_id, sequence }, message: { type, ... } }`.
  *
- * Same shape `extension-sitl` reads, parsed independently: camera-sim never
+ * Same shape `extension-mavlink` reads, parsed independently: camera-sim never
  * imports GCS packages.
  */
 

@@ -14,7 +14,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /**
  * HEARTBEAT.base_mode as mavlink2rest may send it: a pipe-separated string of
- * flag names (what `extension-sitl` sees live), a number, or `{ bits: n }`.
+ * flag names (what `extension-mavlink` sees live), a number, or `{ bits: n }`.
  * Returns undefined when it can't tell.
  */
 function armedFrom(baseMode: unknown): boolean | undefined {

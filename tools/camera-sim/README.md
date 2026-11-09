@@ -47,7 +47,7 @@ Next, roughly in order: link-quality impairments, gimbal and zoom through SITL's
 
 5. **Fly** (MAVProxy): `mode guided`, `arm throttle`, `takeoff 50`. A view appears as soon as the vehicle reports its position. Before you arm, the ground check should already say OK.
 
-6. **Watch the stream** like any camera: `vlc rtsp://localhost:8554/drone-1`.
+6. **Watch the stream** like any camera: `vlc rtsp://localhost:8554/drone-1`. In gcscode (`pnpm dev`), the Video panel plays vehicle 1's stream by default: its `gcscode.video.whepUrl` setting is `http://localhost:8889/drone-1/whep` (see [`extension-video`](../../packages/extension-video/README.md)).
 
 ### The marker check
 
