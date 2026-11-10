@@ -1,0 +1,9 @@
+# Unset keys keep MediaMTX's defaults. camera-sim publishes (WHIP) and the
+# Video panel reads (WHEP) over WebRTC on 8889, ICE on UDP 8189; RTSP on 8554
+# serves players such as VLC.
+rtmp: false
+hls: false
+srt: false
+moq: false
+paths:
+  all_others:

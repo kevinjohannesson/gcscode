@@ -34,7 +34,13 @@ What comes next is on the [roadmap](../../docs/roadmap.md#tools--coming-committe
    CAMERA_SIM_TERRAIN_DIR="/path/to/home/.gcscode/sitl/ardupilot/terrain"
    ```
 
-3. **MediaMTX.** Download the binary for your platform from the [MediaMTX releases](https://github.com/bluenviron/mediamtx/releases) and run `./mediamtx`. The defaults are what camera-sim expects: WebRTC (WHIP) on 8889, RTSP on 8554, any stream path allowed.
+3. **MediaMTX** ([`tools/mediamtx`](../mediamtx/README.md)). From the repo root, install it once with `pnpm --filter mediamtx run setup`, then start it:
+
+   ```sh
+   pnpm --filter mediamtx start
+   ```
+
+   Its config is what camera-sim expects: WebRTC (WHIP) on 8889, RTSP on 8554, any stream path allowed.
 
 4. **camera-sim.** From the repo root:
 
