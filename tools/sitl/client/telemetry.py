@@ -4,8 +4,8 @@
 Connects, asks SITL to push attitude/position/status streams, and prints the
 current state on a single self-refreshing line at ~4 Hz.
 
-  $ python client/telemetry.py
-  $ python client/telemetry.py udp:127.0.0.1:14551
+  $ pnpm fly-sitl --telemetry
+  $ pnpm fly-sitl --telemetry udp:127.0.0.1:14551
 """
 import os
 import sys

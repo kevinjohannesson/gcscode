@@ -5,6 +5,7 @@
   "description": "ArduCopter SITL, MAVProxy and mavlink2rest for developing and testing gcscode against a simulated vehicle.",
   "scripts": {
     "setup": "./setup.sh",
-    "start": "./run_sitl.sh"
+    "start": "./run_sitl.sh",
+    "test": "node --test fly.test.mjs"
   }
 }
