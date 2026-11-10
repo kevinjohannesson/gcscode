@@ -18,7 +18,7 @@ or `./setup.sh` from this folder. It downloads MediaMTX v1.21.3 for this Mac's p
 pnpm --filter mediamtx start
 ```
 
-or `./run.sh` from this folder. It runs the installed binary with this folder's `mediamtx.yml`, and Ctrl-C stops it. If setup hasn't run, it says so and names the command.
+or `./run.sh` from this folder. It runs the installed binary with this folder's `mediamtx.yml`, and Ctrl-C stops it. `pnpm dev:sitl` at the repo root runs it with SITL and the dev server. If setup hasn't run, it says so and names the command.
 
 The config keeps MediaMTX's defaults and turns off the servers nothing uses (RTMP, HLS, SRT and MoQ). What stays on:
 

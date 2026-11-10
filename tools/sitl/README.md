@@ -26,9 +26,9 @@ or `./setup.sh` from this folder. The first run clones ArduPilot (about 1.5 GB w
 pnpm --filter sitl start
 ```
 
-or `./run_sitl.sh` from this folder, which forwards its arguments to MAVProxy (`./run_sitl.sh --console`). Ctrl-C stops SITL, MAVProxy and mavlink2rest together. In a second terminal, start gcscode with `pnpm dev` from the repo root.
+or `./run_sitl.sh` from this folder, which forwards its arguments to MAVProxy (`./run_sitl.sh --console`). Ctrl-C stops SITL, MAVProxy and mavlink2rest together. In a second terminal, start gcscode with `pnpm dev` from the repo root. `pnpm dev:sitl` at the repo root runs this, MediaMTX and the dev server together.
 
-Environment overrides: `SITL_MODEL` (frame, default `+`), `SITL_DEFAULTS` (parameter file) and `PRIMARY_OUT` (the Python client's UDP output). The ports gcscode depends on are fixed: SITL instance 0 on TCP 5760, mavlink2rest on UDP 14551 and HTTP 8088. The launcher stops if 5760 or 8088 is already taken.
+Environment overrides: `SITL_MODEL` (frame, default `+`), `SITL_DEFAULTS` (parameter file) and `PRIMARY_OUT` (the Python client's UDP output). The ports gcscode depends on are fixed: SITL instance 0 on TCP 5760, mavlink2rest on UDP 14551 and HTTP 8088. `run_sitl.sh` stops if 5760 or 8088 is already taken.
 
 ## Where things live
 
