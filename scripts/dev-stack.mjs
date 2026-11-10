@@ -475,10 +475,6 @@ export function readiness(sysStatus, ekfStatus) {
   };
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  process.exit(await runStack({ services: SERVICES, mavlink2rest: MAVLINK2REST }));
-}
-
 /** Resolves once `promise` has, or after `ms`, whichever comes first. */
 async function atMost(ms, promise) {
   let timer;
@@ -543,3 +539,8 @@ function say(line) {
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Last, so every top-level const above is initialized before runStack runs.
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  process.exit(await runStack({ services: SERVICES, mavlink2rest: MAVLINK2REST }));
+}

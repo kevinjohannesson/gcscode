@@ -565,6 +565,19 @@ test('the root script runs the launcher', () => {
   assert.equal(pkg.scripts['dev:sitl'], 'node scripts/dev-stack.mjs');
 });
 
+// Run as `node scripts/dev-stack.mjs`, the module awaits runStack where the
+// entry point stands, so a top-level const below it is not yet initialized
+// when runStack reaches it. The tests import the module whole and never see
+// that, so this pins the entry point as the module's last statement.
+test('the entry point is the last top-level statement', () => {
+  const source = readFileSync(join(ROOT, 'scripts/dev-stack.mjs'), 'utf8');
+  const topLevel = source.split('\n').filter((line) => /^[^\s/*]/.test(line));
+  assert.deepEqual(topLevel.slice(-2), [
+    'if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {',
+    '}',
+  ]);
+});
+
 // Ports for the port tests: held by this process, so lsof names its PID.
 const closers = [];
 test.afterEach(async () => {
