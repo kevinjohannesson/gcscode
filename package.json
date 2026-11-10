@@ -7,6 +7,7 @@
     "dev": "pnpm --filter @gcscode/shell dev",
     "build": "pnpm -r build",
     "preview": "pnpm --filter @gcscode/shell preview",
+    "dev:sitl": "node scripts/dev-stack.mjs",
     "fly-sitl": "tools/sitl/fly.sh",
     "check": "pnpm -r check",
     "test": "pnpm -r test && pnpm test:scripts",

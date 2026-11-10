@@ -2,14 +2,29 @@
 // its own, and stops every group on a signal or a failure. These tests run it
 // in a child process against stub services: small node scripts whose
 // behaviour comes from their arguments. They start no SITL, MediaMTX or Vite
-// and use no ports. Every process a test starts is killed by its recorded PID
+// and, apart from the port tests, use no ports; those use ephemeral ones, never
+// the stack's own. Every process a test starts is killed by its recorded PID
 // after the test, whether it passed or not.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { createSocket } from 'node:dgram';
+import {
+  accessSync,
+  constants,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+} from 'node:fs';
+import { createServer } from 'node:http';
+import { connect, createServer as createTcpServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { MAVLINK2REST, ROOT, SERVICES, checkPorts, hasHeartbeat } from './dev-stack.mjs';
 
 const LAUNCHER = new URL('dev-stack.mjs', import.meta.url).href;
 const FAST = { upPollMs: 50, signalWindowMs: 300, killGraceMs: 1500 };
@@ -473,3 +488,229 @@ test('an uncaught error in the launcher takes its services down with it', TIMEOU
   assert.ok(run.err().includes('a bug in the launcher'), transcript(run));
   await assertNoSurvivors(run.dir);
 });
+
+test("SERVICES is the spec's table", () => {
+  assert.equal(ROOT, dirname(dirname(fileURLToPath(import.meta.url))));
+  assert.equal(MAVLINK2REST, 'http://127.0.0.1:8088');
+  const table = SERVICES.map(({ name, command, args, cwd, ports, upWithinMs }) => ({
+    name,
+    command,
+    args,
+    cwd,
+    ports,
+    upWithinMs,
+  }));
+  assert.deepEqual(table, [
+    {
+      name: 'sitl',
+      command: join(ROOT, 'tools/sitl/run_sitl.sh'),
+      args: ['--non-interactive', '--streamrate', '25'],
+      cwd: ROOT,
+      ports: [
+        { proto: 'tcp', port: 5760 },
+        { proto: 'tcp', port: 8088 },
+        { proto: 'udp', port: 14551 },
+      ],
+      upWithinMs: 60000,
+    },
+    {
+      name: 'mediamtx',
+      command: join(ROOT, 'tools/mediamtx/run.sh'),
+      args: [],
+      cwd: ROOT,
+      ports: [
+        { proto: 'tcp', port: 8554 },
+        { proto: 'tcp', port: 8889 },
+        { proto: 'udp', port: 8000 },
+        { proto: 'udp', port: 8001 },
+        { proto: 'udp', port: 8189 },
+      ],
+      upWithinMs: 10000,
+    },
+    {
+      name: 'gcscode',
+      command: 'pnpm',
+      args: ['--silent', '--filter', '@gcscode/shell', 'dev', '--port', '5173', '--strictPort'],
+      cwd: ROOT,
+      ports: [{ proto: 'tcp', port: 5173 }],
+      upWithinMs: 30000,
+    },
+  ]);
+  assert.deepEqual(
+    SERVICES.map((s) => s.addresses),
+    [
+      [['MAVLink WebSocket', 'ws://localhost:8088/v1/ws/mavlink']],
+      [
+        ['WHEP', 'http://localhost:8889/drone-1/whep'],
+        ['RTSP', 'rtsp://localhost:8554/drone-1'],
+      ],
+      [['gcscode', 'http://localhost:5173/']],
+    ],
+  );
+  for (const service of SERVICES.slice(0, 2)) {
+    accessSync(service.command, constants.X_OK);
+  }
+});
+
+test('the root script runs the launcher', () => {
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  assert.equal(pkg.scripts['dev:sitl'], 'node scripts/dev-stack.mjs');
+});
+
+// Ports for the port tests: held by this process, so lsof names its PID.
+const closers = [];
+test.afterEach(async () => {
+  while (closers.length > 0) await closers.pop()();
+});
+
+/** Listens on `host` (port 0), IPv6-only for `::1`; returns the port. */
+async function holdTcp(host) {
+  const server = createTcpServer();
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen({ port: 0, host, ipv6Only: host === '::1' }, resolve);
+  });
+  closers.push(() => new Promise((resolve) => server.close(resolve)));
+  return server.address().port;
+}
+
+async function holdUdp(host) {
+  const socket = createSocket({ type: host === '::1' ? 'udp6' : 'udp4', ipv6Only: host === '::1' });
+  await new Promise((resolve, reject) => {
+    socket.once('error', reject);
+    socket.bind(0, host, resolve);
+  });
+  closers.push(() => new Promise((resolve) => socket.close(resolve)));
+  return socket.address().port;
+}
+
+/** A port nobody holds: bound on both families, then released. */
+async function freePort(proto) {
+  const hold = proto === 'tcp' ? holdTcp : holdUdp;
+  const port = await hold('127.0.0.1');
+  await closers.pop()();
+  return port;
+}
+
+const portsOf = (proto, ...ports) => ({
+  name: 'svc',
+  ports: ports.map((port) => ({ proto, port })),
+});
+
+for (const [proto, hold] of [
+  ['tcp', holdTcp],
+  ['udp', holdUdp],
+]) {
+  for (const host of ['127.0.0.1', '::1']) {
+    test(`checkPorts finds a ${proto.toUpperCase()} port held ${host === '::1' ? 'only on ::1' : 'on 127.0.0.1'}`, async () => {
+      const held = await hold(host);
+      const free = await freePort(proto);
+      const found = await checkPorts([portsOf(proto, free, held)]);
+      assert.equal(found.length, 1, JSON.stringify(found));
+      assert.equal(found[0].service, 'svc');
+      assert.equal(found[0].proto, proto);
+      assert.equal(found[0].port, held);
+      assert.ok(found[0].holder?.includes(`PID ${process.pid}`), JSON.stringify(found));
+    });
+  }
+}
+
+test('a process only talking to a UDP port is not its holder', async () => {
+  const held = await holdUdp('127.0.0.1');
+  // Another process with a socket connected to the held port: lsof lists it
+  // under -iUDP:<port> too, with the held port as its remote end.
+  const talker = spawn(
+    process.execPath,
+    [
+      '-e',
+      `const s = require('node:dgram').createSocket('udp4');
+       s.connect(${held}, '127.0.0.1', () => console.log('connected'));
+       setInterval(() => {}, 60000);`,
+    ],
+    { stdio: ['ignore', 'pipe', 'inherit'] },
+  );
+  closers.push(async () => talker.kill('SIGKILL'));
+  await new Promise((resolve) => talker.stdout.once('data', resolve));
+  const [found] = await checkPorts([portsOf('udp', held)]);
+  assert.ok(found.holder.includes(`PID ${process.pid}`), found.holder);
+  assert.ok(!found.holder.includes(`PID ${talker.pid}`), found.holder);
+});
+
+/** A server answering every request with `body`; returns its base URL. */
+async function serve(body) {
+  const server = createServer((request, response) => {
+    seen.push(request.url);
+    response.end(body);
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  closers.push(() => new Promise((resolve) => server.close(resolve)));
+  return `http://127.0.0.1:${server.address().port}`;
+}
+const seen = [];
+
+test('hasHeartbeat is true for a HEARTBEAT message', async () => {
+  const base = await serve(JSON.stringify({ message: { type: 'HEARTBEAT', mavlink_version: 3 } }));
+  assert.equal(await hasHeartbeat(base), true);
+  assert.ok(seen.at(-1).endsWith('/v1/mavlink/vehicles/1/components/1/messages/HEARTBEAT'));
+});
+
+test('hasHeartbeat is false for a message not seen yet', async () => {
+  assert.equal(await hasHeartbeat(await serve('None')), false);
+});
+
+test('hasHeartbeat is false for another message type', async () => {
+  const base = await serve(JSON.stringify({ message: { type: 'SYS_STATUS' } }));
+  assert.equal(await hasHeartbeat(base), false);
+});
+
+test('hasHeartbeat is false when nothing listens', async () => {
+  const port = await freePort('tcp');
+  assert.equal(await hasHeartbeat(`http://127.0.0.1:${port}`), false);
+});
+
+test('a port in use stops the launch before anything starts', TIMEOUT, async (t) => {
+  const held = await holdTcp('127.0.0.1');
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'dev-stack-test-')));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const marker = (name) => join(dir, `${name}.pid`);
+  const script = `
+    import { runStack } from ${JSON.stringify(LAUNCHER)};
+    const stub = (name, ports) => ({
+      name,
+      command: process.execPath,
+      args: ['-e', 'require("fs").writeFileSync(' + JSON.stringify(${JSON.stringify(dir)} + '/' + name + '.pid') + ', "x")'],
+      cwd: ${JSON.stringify(dir)},
+      ports,
+      up: () => false,
+      upWithinMs: 5000,
+      addresses: [],
+    });
+    process.exit(await runStack({
+      services: [stub('free', []), stub('taken', [{ proto: 'tcp', port: ${held} }])],
+    }));
+  `;
+  const run = launch(script);
+  t.after(() => killGroup(run.child.pid));
+  const { code } = await exitWithin(run);
+  assert.equal(code, 1, transcript(run));
+  assert.ok(run.out().includes(`TCP ${held} (taken)`), transcript(run));
+  assert.ok(run.out().includes(`PID ${process.pid}`), transcript(run));
+  assert.match(
+    run.out(),
+    /^==> Not starting: these ports are in use\. Nothing was started or stopped\.\n/,
+  );
+  assert.match(run.out(), /\n==> Stop what holds them, then run pnpm dev:sitl again\.\n$/);
+  assert.doesNotMatch(run.out(), /Starting|Stopping/);
+  assert.equal(existsSync(marker('free')), false);
+  assert.equal(existsSync(marker('taken')), false);
+  // The held server still accepts.
+  assert.equal(await tcpOpen(held), true);
+});
+
+function tcpOpen(port) {
+  return new Promise((resolve) => {
+    const socket = connect({ port, host: '127.0.0.1' });
+    socket.once('connect', () => (socket.destroy(), resolve(true)));
+    socket.once('error', () => resolve(false));
+  });
+}

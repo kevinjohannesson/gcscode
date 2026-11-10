@@ -7,7 +7,11 @@
 //
 // Spec: docs/specs/2026-11-10-dev-stack.md (§ The launcher).
 
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { createSocket } from 'node:dgram';
+import { connect } from 'node:net';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /** @typedef {{ proto: 'tcp' | 'udp', port: number }} Port */
 /**
@@ -31,6 +35,58 @@ import { spawn } from 'node:child_process';
  * @property {Promise<unknown>} closed its process exited and its output ended
  * @property {NodeJS.Timeout} [deadline]
  */
+
+/** The checkout this file is in, without a trailing slash. */
+export const ROOT = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
+export const MAVLINK2REST = 'http://127.0.0.1:8088';
+
+/** @type {Service[]} */
+export const SERVICES = [
+  {
+    name: 'sitl',
+    command: join(ROOT, 'tools/sitl/run_sitl.sh'),
+    args: ['--non-interactive', '--streamrate', '25'],
+    cwd: ROOT,
+    ports: [
+      { proto: 'tcp', port: 5760 },
+      { proto: 'tcp', port: 8088 },
+      { proto: 'udp', port: 14551 },
+    ],
+    up: () => hasHeartbeat(MAVLINK2REST),
+    upWithinMs: 60000,
+    addresses: [['MAVLink WebSocket', 'ws://localhost:8088/v1/ws/mavlink']],
+  },
+  {
+    name: 'mediamtx',
+    command: join(ROOT, 'tools/mediamtx/run.sh'),
+    args: [],
+    cwd: ROOT,
+    ports: [
+      { proto: 'tcp', port: 8554 },
+      { proto: 'tcp', port: 8889 },
+      { proto: 'udp', port: 8000 },
+      { proto: 'udp', port: 8001 },
+      { proto: 'udp', port: 8189 },
+    ],
+    up: () => tcpAccepts(8889),
+    upWithinMs: 10000,
+    addresses: [
+      ['WHEP', 'http://localhost:8889/drone-1/whep'],
+      ['RTSP', 'rtsp://localhost:8554/drone-1'],
+    ],
+  },
+  {
+    name: 'gcscode',
+    // --silent: without it pnpm reports every stop as a failed command.
+    command: 'pnpm',
+    args: ['--silent', '--filter', '@gcscode/shell', 'dev', '--port', '5173', '--strictPort'],
+    cwd: ROOT,
+    ports: [{ proto: 'tcp', port: 5173 }],
+    up: () => tcpAccepts(5173),
+    upWithinMs: 30000,
+    addresses: [['gcscode', 'http://localhost:5173/']],
+  },
+];
 
 /** The launcher's waits, in milliseconds. `runStack({ timings })` overrides them. */
 export const TIMINGS = {
@@ -72,6 +128,12 @@ export async function runStack({ services, timings }) {
   let stopBegan = () => {};
   const stopBegins = new Promise((resolve) => (stopBegan = resolve));
   // No more "is up" once a failure arrived, even before the stop begins.
+  // The port check runs before anything starts, so a signal then has nothing
+  // to stop: it just ends the launch.
+  let checking = true;
+  /** @type {() => void} */
+  let interrupt = () => {};
+  const interrupted = new Promise((resolve) => (interrupt = () => resolve('interrupted')));
   const ending = () => stopping !== undefined || failed.length > 0;
 
   const killAlive = () => {
@@ -80,7 +142,8 @@ export async function runStack({ services, timings }) {
   // Under pnpm one Ctrl-C arrives twice, so signals within the window of the
   // stop's start are the same Ctrl-C. A later one is a second Ctrl-C.
   const onSignal = () => {
-    if (!stopping) stop();
+    if (checking) interrupt();
+    else if (!stopping) stop();
     else if (Date.now() - stopBeganAt > t.signalWindowMs) killAlive();
   };
   for (const signal of SIGNALS) process.on(signal, onSignal);
@@ -130,6 +193,23 @@ export async function runStack({ services, timings }) {
     say(message);
     failed.push(r);
     if (failed.length === 1) setTimeout(stop, FAILURE_GATHER_MS);
+  }
+
+  const inUse = await Promise.race([checkPorts(services), interrupted]);
+  checking = false;
+  if (inUse === 'interrupted') {
+    await finish();
+    return 0;
+  }
+  if (inUse.length > 0) {
+    say('Not starting: these ports are in use. Nothing was started or stopped.');
+    for (const { service, proto, port, holder } of inUse) {
+      const line = `${proto.toUpperCase()} ${port} (${service})`;
+      process.stdout.write(`    ${line}${holder ? `: ${holder}` : ''}\n`);
+    }
+    say('Stop what holds them, then run pnpm dev:sitl again.');
+    await finish();
+    return 1;
   }
 
   say(`Starting ${services.map((s) => s.name).join(', ')}`);
@@ -190,18 +270,135 @@ export async function runStack({ services, timings }) {
   await stopBegins;
   await stopping;
 
-  for (const signal of SIGNALS) process.off(signal, onSignal);
-  process.off('exit', killAlive);
   for (const r of failed) {
     if (r.lastLines.length === 0) continue;
     say(`Last lines from ${r.service.name}:`);
     for (const line of r.lastLines) process.stdout.write(`    ${line}\n`);
   }
-  // process.exit() drops what is still queued for a pipe.
-  await Promise.all(
-    [process.stdout, process.stderr].map((out) => new Promise((done) => out.write('', done))),
-  );
+  await finish();
   return failed.length > 0 ? 1 : 0;
+
+  /** Removes the handlers and flushes: process.exit() drops what is queued for a pipe. */
+  async function finish() {
+    for (const signal of SIGNALS) process.off(signal, onSignal);
+    process.off('exit', killAlive);
+    await Promise.all(
+      [process.stdout, process.stderr].map((out) => new Promise((done) => out.write('', done))),
+    );
+  }
+}
+
+const PROBE_MS = 1000;
+const LSOF_MS = 2000;
+
+/** True when something accepts TCP connections on `port`, on 127.0.0.1 or ::1. */
+export async function tcpAccepts(port) {
+  const results = await Promise.all(
+    ['127.0.0.1', '::1'].map(
+      (host) =>
+        new Promise((resolve) => {
+          const socket = connect({ port, host });
+          socket.setTimeout(PROBE_MS, () => socket.destroy());
+          socket.once('connect', () => (socket.destroy(), resolve(true)));
+          socket.once('error', () => resolve(false));
+          socket.once('close', () => resolve(false));
+        }),
+    ),
+  );
+  return results.some(Boolean);
+}
+
+/**
+ * True when a UDP bind to `host` on `port` fails with EADDRINUSE. Another
+ * error (no IPv6 here, say) is not a holder.
+ */
+function udpBindFails(options, host, port) {
+  return new Promise((resolve) => {
+    const socket = createSocket(options);
+    socket.once('error', (error) => {
+      socket.close();
+      resolve(error.code === 'EADDRINUSE');
+    });
+    socket.bind(port, host, () => socket.close(() => resolve(false)));
+  });
+}
+
+/**
+ * Whether something holds `port`. For UDP a dual-stack `::` bind sees a holder
+ * on 127.0.0.1, on `::` and on `::1`; `0.0.0.0` covers a machine without IPv6.
+ */
+export async function portInUse(proto, port) {
+  if (proto === 'tcp') return tcpAccepts(port);
+  const results = await Promise.all([
+    udpBindFails({ type: 'udp6', ipv6Only: false }, '::', port),
+    udpBindFails({ type: 'udp4' }, '0.0.0.0', port),
+  ]);
+  return results.some(Boolean);
+}
+
+/** The commands and PIDs holding `port`, as `<command>, PID <pid>`; empty when lsof cannot say. */
+async function holdersOf(proto, port) {
+  const args =
+    proto === 'tcp'
+      ? ['-nP', '-Fpcn', `-iTCP:${port}`, '-sTCP:LISTEN']
+      : ['-nP', '-Fpcn', `-iUDP:${port}`];
+  const output = await new Promise((resolve) => {
+    // lsof exits 1 when it finds nothing; any output it did give is still used.
+    execFile('lsof', args, { timeout: LSOF_MS }, (_error, stdout) => resolve(stdout ?? ''));
+  });
+  /** @type {Map<string, string>} */
+  const holders = new Map();
+  let pid = '';
+  let command = '';
+  for (const line of output.split('\n')) {
+    const field = line.slice(1);
+    if (line.startsWith('p')) pid = field;
+    else if (line.startsWith('c')) command = field;
+    else if (line.startsWith('n')) {
+      // A UDP socket can show a remote end: only its local address counts.
+      if (proto === 'udp' && !field.split('->')[0].endsWith(`:${port}`)) continue;
+      holders.set(pid, `${command}, PID ${pid}`);
+    }
+  }
+  return [...holders.values()];
+}
+
+/**
+ * The ports of `services` that something holds, in table order. The check
+ * kills nothing.
+ *
+ * @param {Pick<Service, 'name' | 'ports'>[]} services
+ * @returns {Promise<{ service: string, proto: 'tcp' | 'udp', port: number, holder?: string }[]>}
+ */
+export async function checkPorts(services) {
+  const checks = services.flatMap((service) =>
+    service.ports.map(async ({ proto, port }) => {
+      if (!(await portInUse(proto, port))) return undefined;
+      const holder = (await holdersOf(proto, port)).join('; ');
+      return { service: service.name, proto, port, ...(holder && { holder }) };
+    }),
+  );
+  return (await Promise.all(checks)).filter((found) => found !== undefined);
+}
+
+/** True when mavlink2rest at `baseUrl` has seen a HEARTBEAT from vehicle 1, component 1. */
+export async function hasHeartbeat(baseUrl) {
+  try {
+    const response = await fetch(
+      `${baseUrl}/v1/mavlink/vehicles/1/components/1/messages/HEARTBEAT`,
+      {
+        signal: AbortSignal.timeout(PROBE_MS * 2),
+      },
+    );
+    // A message not seen yet is the body `None`, which is not JSON.
+    return JSON.parse(await response.text())?.message?.type === 'HEARTBEAT';
+  } catch {
+    return false;
+  }
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  process.exit(await runStack({ services: SERVICES, mavlink2rest: MAVLINK2REST }));
 }
 
 /** Resolves once `promise` has, or after `ms`, whichever comes first. */
