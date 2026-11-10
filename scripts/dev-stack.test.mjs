@@ -3,8 +3,8 @@
 // in a child process against stub services: small node scripts whose
 // behaviour comes from their arguments. They start no SITL, MediaMTX or Vite
 // and use only ephemeral ports, never the stack's own, held by the port tests
-// and by the stub mavlink2rest. Every process a test starts is killed by its recorded PID
-// after the test, whether it passed or not.
+// and by the stub mavlink2rest. Every process a test starts is killed by its
+// recorded PID after the test, whether it passed or not.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
