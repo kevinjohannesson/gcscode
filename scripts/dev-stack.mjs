@@ -44,6 +44,12 @@ export const TIMINGS = {
 const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'];
 const LAST_LINES = 20;
 const GONE_POLL_MS = 100;
+// A failure stops the stack this long after it, so that every service failing
+// at about the same time (on a fresh checkout, each setup not run) is reported.
+const FAILURE_GATHER_MS = 250;
+// How long the stop waits for the services' output to end once every group is
+// gone. A process that left its group can hold a pipe open for ever.
+const CLOSE_WAIT_MS = 2000;
 
 /**
  * Starts every service at once, says when each is up, and stops them all on a
@@ -56,16 +62,17 @@ export async function runStack({ services, timings }) {
   const t = { ...TIMINGS, ...timings };
   /** @type {Running[]} */
   const running = [];
-  /** @type {Running[]} the services whose last lines a failure shows */
+  /** @type {Running[]} the services that failed, in order: a failure shows their last lines */
   const failed = [];
   let allUp = false;
   /** @type {Promise<void> | undefined} the stop, once one began */
   let stopping;
   let stopBeganAt = 0;
-  let exitCode = 0;
   /** @type {() => void} */
   let stopBegan = () => {};
   const stopBegins = new Promise((resolve) => (stopBegan = resolve));
+  // No more "is up" once a failure arrived, even before the stop begins.
+  const ending = () => stopping !== undefined || failed.length > 0;
 
   const killAlive = () => {
     for (const r of running) if (!r.gone) signalGroup(r.pid, 'SIGKILL');
@@ -73,18 +80,21 @@ export async function runStack({ services, timings }) {
   // Under pnpm one Ctrl-C arrives twice, so signals within the window of the
   // stop's start are the same Ctrl-C. A later one is a second Ctrl-C.
   const onSignal = () => {
-    if (!stopping) stop(0);
+    if (!stopping) stop();
     else if (Date.now() - stopBeganAt > t.signalWindowMs) killAlive();
   };
   for (const signal of SIGNALS) process.on(signal, onSignal);
   // The safety net: a launcher dying of an error takes its services with it.
   process.on('exit', killAlive);
+  // With the terminal gone (SIGHUP), writes fail with EIO or EPIPE. Ignoring
+  // them lets the stop run its course instead of crashing into the safety
+  // net. Left installed, since a write can still fail after runStack returns.
+  for (const out of [process.stdout, process.stderr]) out.on('error', ignore);
 
   /** Begins the stop, once; later calls do nothing. */
-  function stop(code) {
+  function stop() {
     if (stopping) return;
     stopBeganAt = Date.now();
-    exitCode = code;
     stopping = stopAll();
     stopBegan();
   }
@@ -96,8 +106,9 @@ export async function runStack({ services, timings }) {
     // The exited ones too: their leader is gone, but not always their group.
     for (const r of groups) signalGroup(r.pid, 'SIGTERM');
     await Promise.all(groups.map(waitGone));
-    // Every child's output has ended, so nothing prints after "Stopped."
-    await Promise.all(running.map((r) => r.closed));
+    // Every child's output has normally ended by now, so nothing prints after
+    // "Stopped." What still holds a pipe open is outside the groups.
+    await atMost(CLOSE_WAIT_MS, Promise.all(running.map((r) => r.closed)));
     say('Stopped.');
   }
 
@@ -113,11 +124,12 @@ export async function runStack({ services, timings }) {
     r.gone = true;
   }
 
+  /** Reports a failure; the first one begins the stop FAILURE_GATHER_MS later. */
   function fail(r, message) {
     if (stopping) return;
     say(message);
     failed.push(r);
-    stop(1);
+    if (failed.length === 1) setTimeout(stop, FAILURE_GATHER_MS);
   }
 
   say(`Starting ${services.map((s) => s.name).join(', ')}`);
@@ -158,9 +170,9 @@ export async function runStack({ services, timings }) {
   }
 
   async function waitUntilUp(r) {
-    while (!stopping) {
+    while (!ending()) {
       if (await isUp(r.service)) {
-        if (stopping) return;
+        if (ending()) return;
         clearTimeout(r.deadline);
         say(`${r.service.name} is up (${((Date.now() - launchedAt) / 1000).toFixed(1)} s)`);
         return;
@@ -171,7 +183,7 @@ export async function runStack({ services, timings }) {
 
   for (const service of services) running.push(start(service));
   await Promise.race([Promise.all(running.map(waitUntilUp)), stopBegins]);
-  if (!stopping) {
+  if (!ending()) {
     allUp = true;
     say('All up.');
   }
@@ -189,8 +201,17 @@ export async function runStack({ services, timings }) {
   await Promise.all(
     [process.stdout, process.stderr].map((out) => new Promise((done) => out.write('', done))),
   );
-  return exitCode;
+  return failed.length > 0 ? 1 : 0;
 }
+
+/** Resolves once `promise` has, or after `ms`, whichever comes first. */
+async function atMost(ms, promise) {
+  let timer;
+  await Promise.race([promise, new Promise((resolve) => (timer = setTimeout(resolve, ms)))]);
+  clearTimeout(timer);
+}
+
+function ignore() {}
 
 /** Writes each line of `from` to `to` behind `prefix`, keeping the last few. */
 function relay(from, to, prefix, lastLines) {

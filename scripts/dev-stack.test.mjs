@@ -21,9 +21,12 @@ const TIMEOUT = { timeout: 20000 };
 //                          <dir>/<name>.ready once set up
 //   stdout, stderr         text to write once started
 //   grandchild             start a child in its process group, print its PID
+//   escapee                start a child in a process group of its own that
+//                          shares its output, write its PID to <name>-escapee.pid
 //   exitAfterMs, exitCode  exit by itself
 //   ignoreSignals          ignore SIGINT, SIGTERM and SIGHUP
 //   stopMs                 on a signal, wait this long, record `graceful`, exit
+//   stderrOnSignal         text to write to stderr on a signal
 function stub() {
   const { appendFileSync, writeFileSync, writeSync } = process.getBuiltinModule('node:fs');
   const { spawn } = process.getBuiltinModule('node:child_process');
@@ -33,6 +36,7 @@ function stub() {
   for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
     process.on(signal, () => {
       appendFileSync(file('.signals'), `${signal}\n`);
+      if (o.stderrOnSignal) writeSync(2, o.stderrOnSignal);
       if (o.ignoreSignals) return;
       setTimeout(() => {
         appendFileSync(file('.signals'), 'graceful\n');
@@ -47,6 +51,13 @@ function stub() {
       stdio: 'inherit',
     });
     writeSync(1, `grandchild ${child.pid}\n`);
+  }
+  if (o.escapee) {
+    const escapee = spawn(process.execPath, ['-e', 'setInterval(() => {}, 60000)', o.dir], {
+      detached: true,
+      stdio: 'inherit',
+    });
+    writeFileSync(file('-escapee.pid'), String(escapee.pid));
   }
   // Synchronous writes, so an exit right after cannot drop them.
   if (o.stdout) writeSync(1, o.stdout);
@@ -80,8 +91,9 @@ function launch(script, env = process.env) {
  * The script that runs runStack over stub services in `dir`. Each service is
  * `{ name, stub?, command?, up?, upWithinMs? }`: `stub` is the stub's options,
  * `command` a command to run instead of a stub, and `up` the source of the
- * service's up(), in which `ready(name)` says whether that stub is set up. By
- * default a service is up once its own stub is.
+ * service's up(), in which `ready(name)` says whether that stub is set up and
+ * `exited(name)` whether it has exited and been reaped. By default a service is
+ * up once its own stub is.
  */
 function stackScript(dir, services, timings) {
   const entries = services.map(
@@ -97,9 +109,17 @@ function stackScript(dir, services, timings) {
     }`,
   );
   return `
-    import { existsSync } from 'node:fs';
+    import { existsSync, readFileSync } from 'node:fs';
     import { runStack } from ${JSON.stringify(LAUNCHER)};
     const ready = (name) => existsSync(${JSON.stringify(dir)} + '/' + name + '.ready');
+    const exited = (name) => {
+      try {
+        process.kill(Number(readFileSync(${JSON.stringify(dir)} + '/' + name + '.pid', 'utf8')), 0);
+        return false;
+      } catch (error) {
+        return error.code === 'ESRCH';
+      }
+    };
     const services = [${entries.join(', ')}];
     process.exit(await runStack({ services, timings: ${JSON.stringify(timings)} }));
   `;
@@ -295,6 +315,22 @@ test('a service that ignores SIGTERM is killed after the grace', TIMEOUT, async 
   await assertNoSurvivors(run.dir);
 });
 
+test(
+  'output held open from outside the groups delays the stop by at most 2 s',
+  TIMEOUT,
+  async (t) => {
+    const run = startStack(t, [{ name: 'a', stub: { escapee: true } }]);
+    await printed(run, '==> All up.');
+    const first = Date.now();
+    ctrlC(run);
+    assert.equal((await exitWithin(run)).code, 0, transcript(run));
+    const took = Date.now() - first;
+    // killGraceMs, the 2000 ms wait for the output, and a margin.
+    assert.ok(took < FAST.killGraceMs + 2000 + 1500, `exited ${took} ms after the Ctrl-C`);
+    assert.match(run.out(), /^==> Stopped\.\n/m);
+  },
+);
+
 for (const signal of ['SIGTERM', 'SIGHUP']) {
   test(`${signal} stops it like Ctrl-C`, TIMEOUT, async (t) => {
     const run = startStack(t, [{ name: 'a' }, { name: 'b' }]);
@@ -305,6 +341,18 @@ for (const signal of ['SIGTERM', 'SIGHUP']) {
     await assertNoSurvivors(run.dir);
   });
 }
+
+test('with the terminal gone, SIGHUP still stops the services with SIGTERM', TIMEOUT, async (t) => {
+  const run = startStack(t, [{ name: 'a', stub: { stopMs: 300, stderrOnSignal: 'bye\n' } }]);
+  await printed(run, '==> All up.');
+  // Nothing reads the launcher's output any more, so its writes fail (EPIPE).
+  run.child.stdout.destroy();
+  run.child.stderr.destroy();
+  process.kill(run.child.pid, 'SIGHUP');
+  assert.equal((await exitWithin(run)).code, 0);
+  assert.equal(signalsOf(run, 'a'), 'SIGTERM\ngraceful\n');
+  await assertNoSurvivors(run.dir);
+});
 
 test('a service that exits during startup fails the launch', TIMEOUT, async (t) => {
   const error = 'ERROR: venv missing. Create it with:  pnpm --filter sitl run setup';
@@ -317,6 +365,47 @@ test('a service that exits during startup fails the launch', TIMEOUT, async (t) 
   const stopped = run.out().indexOf('==> Stopped.\n');
   const lastLines = run.out().indexOf(`==> Last lines from bad:\n    ${error}\n`);
   assert.ok(stopped !== -1 && lastLines > stopped, transcript(run));
+  await assertNoSurvivors(run.dir);
+});
+
+test('every service that fails at about the same time shows its last lines', TIMEOUT, async (t) => {
+  const run = startStack(t, [
+    {
+      name: 'first',
+      stub: { stderr: 'ERROR: first\n', exitAfterMs: 0, exitCode: 1 },
+      up: '() => false',
+    },
+    {
+      name: 'second',
+      stub: { stderr: 'ERROR: second\n', exitAfterMs: 100, exitCode: 1 },
+      up: '() => false',
+    },
+    { name: 'long' },
+  ]);
+  assert.equal((await exitWithin(run)).code, 1, transcript(run));
+  assert.ok(run.out().includes('==> first exited with code 1 during startup.\n'), transcript(run));
+  assert.ok(run.out().includes('==> second exited with code 1 during startup.\n'), transcript(run));
+  const closing = run.out().slice(run.out().indexOf('==> Stopped.\n'));
+  assert.equal(
+    closing,
+    '==> Stopped.\n' +
+      '==> Last lines from first:\n    ERROR: first\n' +
+      '==> Last lines from second:\n    ERROR: second\n',
+    transcript(run),
+  );
+  await assertNoSurvivors(run.dir);
+});
+
+test('once a service has failed, no other is reported up', TIMEOUT, async (t) => {
+  // other's up() passes only once bad is reaped, which is when the launcher
+  // learns that bad exited: always after the failure.
+  const run = startStack(t, [
+    { name: 'bad', stub: { exitAfterMs: 0, exitCode: 1 }, up: '() => false' },
+    { name: 'other', up: "() => exited('bad')" },
+  ]);
+  assert.equal((await exitWithin(run)).code, 1, transcript(run));
+  assert.ok(run.out().includes('==> bad exited with code 1 during startup.\n'), transcript(run));
+  assert.doesNotMatch(run.out(), /other is up|All up/);
   await assertNoSurvivors(run.dir);
 });
 
