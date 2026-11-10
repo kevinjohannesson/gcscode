@@ -275,21 +275,21 @@ export async function runStack({ services, mavlink2rest, timings }) {
       if (ending()) return;
       const { prearm, position } = readiness(sysStatus, ekfStatus);
       if (prearm && position) {
-        sayReadyToFly((Date.now() - startedAt) / 1000);
+        sayReadyToFly((Date.now() - launchedAt) / 1000);
         return;
       }
       if (Date.now() - startedAt >= t.readyWarnMs) {
-        const after = `==> Not ready to fly after ${t.readyWarnMs / 1000} s:`;
+        const after = `Not ready to fly after ${t.readyWarnMs / 1000} s:`;
         if (!prearm && !warned.prearm) {
           warned.prearm = true;
-          process.stdout.write(
-            `${after} the pre-arm checks still fail; MAVProxy's PreArm lines above say why. Still waiting.\n`,
+          say(
+            `${after} the pre-arm checks still fail; MAVProxy's PreArm lines above say why. Still waiting.`,
           );
         }
         if (!position && !warned.position) {
           warned.position = true;
-          process.stdout.write(
-            `${after} no position yet; the EKF is not using GPS (no "EKF3 IMU0 is using GPS" line above). Still waiting.\n`,
+          say(
+            `${after} no position yet; the EKF is not using GPS (no "EKF3 IMU0 is using GPS" line above). Still waiting.`,
           );
         }
       }
@@ -313,7 +313,13 @@ export async function runStack({ services, mavlink2rest, timings }) {
   if (!ending()) {
     allUp = true;
     say('All up.');
-    watchReadiness();
+    // A throw in it is a failure of the launcher itself: report it and stop.
+    watchReadiness().catch((error) =>
+      fail(
+        { service: { name: 'launcher' }, lastLines: [] },
+        `Could not watch readiness: ${error.message}`,
+      ),
+    );
   }
   await stopBegins;
   await stopping;

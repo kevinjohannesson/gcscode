@@ -882,6 +882,34 @@ test('it does not poll until every service is up', TIMEOUT, async (t) => {
   await exitWithin(run);
 });
 
+test('the banner counts from launch, like the is-up lines', TIMEOUT, async (t) => {
+  const api = await mavlink2rest();
+  api.answers.SYS_STATUS = SYS_STATUS;
+  api.answers.EKF_STATUS_REPORT = ekf(EKF_POSITION);
+  const services = [
+    { name: 'one', addresses: [] },
+    { name: 'late', addresses: [], up: '() => Date.now() - (globalThis.t0 ??= Date.now()) > 600' },
+  ];
+  const run = startStack(t, services, READY_TIMINGS, api.url);
+  await printed(run, '==> ready to fly (');
+  const seconds = Number(run.out().match(/ready to fly \((\d+\.\d) s\)/)[1]);
+  assert.ok(seconds >= 0.6, `${seconds} s: counted from the start of polling`);
+  ctrlC(run);
+  await exitWithin(run);
+});
+
+test('a throw while watching readiness fails the stack and stops it', TIMEOUT, async (t) => {
+  const api = await mavlink2rest();
+  api.answers.SYS_STATUS = SYS_STATUS;
+  api.answers.EKF_STATUS_REPORT = ekf(EKF_POSITION);
+  // An address that is not a [label, url] pair makes the banner throw.
+  const run = startStack(t, [{ name: 'one', addresses: [5] }], READY_TIMINGS, api.url);
+  const { code } = await exitWithin(run);
+  assert.equal(code, 1, transcript(run));
+  assert.match(run.out(), /==> Could not watch readiness: /);
+  assert.ok(run.out().endsWith('==> Stopped.\n'), transcript(run));
+});
+
 test(
   'a Ctrl-C while waiting for ready to fly stops promptly, with nothing after Stopped',
   TIMEOUT,
