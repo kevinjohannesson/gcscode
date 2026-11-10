@@ -1,11 +1,12 @@
 // setup.sh installs the pinned MediaMTX into GCSCODE_MEDIAMTX_HOME. These tests
 // put a fake `uname` and a fake `curl` first on PATH, so they never download
 // anything: the fake curl records the URL it was asked for and writes bytes
-// that cannot match the pinned sha256, or, to test the install itself, serves
-// a small archive with a stand-in binary. That archive cannot match the pinned
-// sha256 either, so those tests also put a fake `shasum` on PATH, which records
-// the digest setup.sh checked against and accepts it. A real install is checked
-// by hand.
+// that cannot match the pinned sha256, or serves a small archive with a
+// stand-in binary. That archive cannot match the pinned sha256 either: the
+// tests of the install itself also put a fake `shasum` on PATH, which records
+// the digest setup.sh checked against and accepts it, and one test gives the
+// archive to the real `shasum` to show a well-formed archive that fails its
+// sha256 is not unpacked. A real install is checked by hand.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync, execFileSync } from 'node:child_process';
@@ -95,22 +96,24 @@ after(() => rmSync(scratch, { recursive: true, force: true }));
 // Runs setup.sh with an environment built from scratch, so a
 // GCSCODE_MEDIAMTX_HOME inherited from the shell cannot leak in. `urls` lists
 // what the fake curl was asked to download. With `serveArchive`, curl serves
-// the stand-in archive and the fake shasum accepts it; `checked` is then what
-// setup.sh asked shasum to check, as [digest, file], or undefined if it never
-// asked. With `downloadFails`, curl fails.
+// the stand-in archive. With `trustShasum` (by default when serving it), the
+// fake shasum accepts any archive; `checked` is then what setup.sh asked it to
+// check, as [digest, file], or undefined if it never asked. With
+// `downloadFails`, curl fails.
 function setup({
   home,
   userHome = join(scratch, 'user'),
   os = 'Darwin',
   arch = 'x86_64',
   serveArchive = false,
+  trustShasum = serveArchive,
   downloadFails = false,
 }) {
   const run = ++runs;
   const curlLog = join(scratch, `curl-${run}.log`);
   const shasumLog = join(scratch, `shasum-${run}.log`);
   const env = {
-    PATH: `${fakeBin}:${serveArchive ? `${trustingBin}:` : ''}${process.env.PATH}`,
+    PATH: `${fakeBin}:${trustShasum ? `${trustingBin}:` : ''}${process.env.PATH}`,
     HOME: userHome,
     FAKE_UNAME_S: os,
     FAKE_UNAME_M: arch,
@@ -198,7 +201,7 @@ test('an Apple Silicon Mac checks the archive against the darwin_arm64 sha256 an
 
 test('a failed download names the URL and installs nothing', () => {
   const home = join(scratch, 'offline home');
-  const run = setup({ home, serveArchive: true, downloadFails: true });
+  const run = setup({ home, trustShasum: true, downloadFails: true });
   assert.equal(run.status, 1);
   assert.ok(
     run.stderr.includes(`Download failed: ${RELEASE}/mediamtx_v1.21.3_darwin_amd64.tar.gz`),
@@ -224,13 +227,19 @@ test('the pinned version already installed is kept and nothing is downloaded', (
   assert.deepEqual(run.urls, []);
 });
 
-test('another installed version is downloaded over, and kept when the download fails its sha256', () => {
+test('another installed version is downloaded over, and kept when a well-formed archive fails its sha256', () => {
   const home = join(scratch, 'stale home');
   fakeMediamtx(home, 'v1.20.0');
   const before = readFileSync(join(home, 'mediamtx'), 'utf8');
-  const run = setup({ home });
+  // An archive tar could unpack, checked by the real shasum.
+  const run = setup({ home, serveArchive: true, trustShasum: false });
   assert.equal(run.status, 1);
   assert.deepEqual(run.urls, [`${RELEASE}/mediamtx_v1.21.3_darwin_amd64.tar.gz`]);
+  assert.match(
+    run.stderr,
+    /mediamtx_v1\.21\.3_darwin_amd64\.tar\.gz does not match its published sha256; not installed\./,
+  );
+  assert.doesNotMatch(run.stdout, /Setup complete/);
   assert.deepEqual(readdirSync(home), ['mediamtx']);
   assert.equal(readFileSync(join(home, 'mediamtx'), 'utf8'), before);
 });
