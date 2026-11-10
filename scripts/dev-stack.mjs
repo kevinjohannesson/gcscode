@@ -111,10 +111,11 @@ const CLOSE_WAIT_MS = 2000;
  * Starts every service at once, says when each is up, and stops them all on a
  * signal or a failure.
  *
- * @param {{ services: Service[], timings?: Partial<typeof TIMINGS> }} options
+ * @param {{ services: Service[], mavlink2rest: string, timings?: Partial<typeof TIMINGS> }} options
+ *   `mavlink2rest` is its base URL, polled for "ready to fly" once every service is up
  * @returns {Promise<number>} the exit code: 0 after a stop a signal asked for, 1 after a failure
  */
-export async function runStack({ services, timings }) {
+export async function runStack({ services, mavlink2rest, timings }) {
   const t = { ...TIMINGS, ...timings };
   /** @type {Running[]} */
   const running = [];
@@ -261,11 +262,58 @@ export async function runStack({ services, timings }) {
     }
   }
 
+  /** Says when the vehicle can arm, and warns if it takes long. Stops with the stack. */
+  async function watchReadiness() {
+    say('Waiting until the vehicle is ready to fly.');
+    const startedAt = Date.now();
+    const warned = { prearm: false, position: false };
+    while (!ending()) {
+      const [sysStatus, ekfStatus] = await Promise.all([
+        fetchMessage(mavlink2rest, 'SYS_STATUS'),
+        fetchMessage(mavlink2rest, 'EKF_STATUS_REPORT'),
+      ]);
+      if (ending()) return;
+      const { prearm, position } = readiness(sysStatus, ekfStatus);
+      if (prearm && position) {
+        sayReadyToFly((Date.now() - startedAt) / 1000);
+        return;
+      }
+      if (Date.now() - startedAt >= t.readyWarnMs) {
+        const after = `==> Not ready to fly after ${t.readyWarnMs / 1000} s:`;
+        if (!prearm && !warned.prearm) {
+          warned.prearm = true;
+          process.stdout.write(
+            `${after} the pre-arm checks still fail; MAVProxy's PreArm lines above say why. Still waiting.\n`,
+          );
+        }
+        if (!position && !warned.position) {
+          warned.position = true;
+          process.stdout.write(
+            `${after} no position yet; the EKF is not using GPS (no "EKF3 IMU0 is using GPS" line above). Still waiting.\n`,
+          );
+        }
+      }
+      await sleep(t.readyPollMs);
+    }
+  }
+
+  function sayReadyToFly(seconds) {
+    const addresses = services.flatMap((s) => s.addresses);
+    const width = Math.max(...addresses.map(([label]) => label.length));
+    say(`ready to fly (${seconds.toFixed(1)} s)`);
+    for (const [label, url] of addresses) {
+      process.stdout.write(`    ${label.padEnd(width)}  ${url}\n`);
+    }
+    process.stdout.write('    Fly it from another terminal:  pnpm fly-sitl --circle 3\n');
+    process.stdout.write('    Ctrl-C stops everything.\n');
+  }
+
   for (const service of services) running.push(start(service));
   await Promise.race([Promise.all(running.map(waitUntilUp)), stopBegins]);
   if (!ending()) {
     allUp = true;
     say('All up.');
+    watchReadiness();
   }
   await stopBegins;
   await stopping;
@@ -381,20 +429,44 @@ export async function checkPorts(services) {
   return (await Promise.all(checks)).filter((found) => found !== undefined);
 }
 
+/**
+ * The message object mavlink2rest at `baseUrl` last saw of type `name` from
+ * vehicle 1, component 1, or undefined. A message not seen yet is the body
+ * `None`, which is not JSON; a non-JSON body and a network error are the same.
+ */
+export async function fetchMessage(baseUrl, name) {
+  try {
+    const response = await fetch(`${baseUrl}/v1/mavlink/vehicles/1/components/1/messages/${name}`, {
+      signal: AbortSignal.timeout(PROBE_MS * 2),
+    });
+    return JSON.parse(await response.text())?.message ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** True when mavlink2rest at `baseUrl` has seen a HEARTBEAT from vehicle 1, component 1. */
 export async function hasHeartbeat(baseUrl) {
-  try {
-    const response = await fetch(
-      `${baseUrl}/v1/mavlink/vehicles/1/components/1/messages/HEARTBEAT`,
-      {
-        signal: AbortSignal.timeout(PROBE_MS * 2),
-      },
-    );
-    // A message not seen yet is the body `None`, which is not JSON.
-    return JSON.parse(await response.text())?.message?.type === 'HEARTBEAT';
-  } catch {
-    return false;
-  }
+  return (await fetchMessage(baseUrl, 'HEARTBEAT'))?.type === 'HEARTBEAT';
+}
+
+/** The names in a field mavlink2rest renders as `A | B | C`. */
+const flagsOf = (field) =>
+  typeof field === 'string' ? field.split('|').map((flag) => flag.trim()) : [];
+
+/**
+ * What the vehicle reports about arming: the pre-arm checks pass, and the EKF
+ * has an absolute horizontal position. Either message may be undefined.
+ *
+ * @returns {{ prearm: boolean, position: boolean }}
+ */
+export function readiness(sysStatus, ekfStatus) {
+  return {
+    prearm: flagsOf(sysStatus?.onboard_control_sensors_health).includes(
+      'MAV_SYS_STATUS_PREARM_CHECK',
+    ),
+    position: flagsOf(ekfStatus?.flags).includes('EKF_POS_HORIZ_ABS'),
+  };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

@@ -24,7 +24,15 @@ import { connect, createServer as createTcpServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MAVLINK2REST, ROOT, SERVICES, checkPorts, hasHeartbeat } from './dev-stack.mjs';
+import {
+  MAVLINK2REST,
+  ROOT,
+  SERVICES,
+  checkPorts,
+  fetchMessage,
+  hasHeartbeat,
+  readiness,
+} from './dev-stack.mjs';
 
 const LAUNCHER = new URL('dev-stack.mjs', import.meta.url).href;
 const FAST = { upPollMs: 50, signalWindowMs: 300, killGraceMs: 1500 };
@@ -110,9 +118,9 @@ function launch(script, env = process.env) {
  * `exited(name)` whether it has exited and been reaped. By default a service is
  * up once its own stub is.
  */
-function stackScript(dir, services, timings) {
+function stackScript(dir, services, timings, mavlink2rest) {
   const entries = services.map(
-    ({ name, stub: options = {}, command, up, upWithinMs = 10000 }) => `{
+    ({ name, stub: options = {}, command, up, upWithinMs = 10000, addresses = [] }) => `{
       name: ${JSON.stringify(name)},
       command: ${JSON.stringify(command ?? process.execPath)},
       args: ${JSON.stringify(command ? [] : ['-e', STUB, JSON.stringify({ dir, name, ...options })])},
@@ -120,7 +128,7 @@ function stackScript(dir, services, timings) {
       ports: [],
       up: ${up ?? `() => ready(${JSON.stringify(name)})`},
       upWithinMs: ${upWithinMs},
-      addresses: [],
+      addresses: ${JSON.stringify(addresses)},
     }`,
   );
   return `
@@ -136,7 +144,7 @@ function stackScript(dir, services, timings) {
       }
     };
     const services = [${entries.join(', ')}];
-    process.exit(await runStack({ services, timings: ${JSON.stringify(timings)} }));
+    process.exit(await runStack({ services, mavlink2rest: ${JSON.stringify(mavlink2rest)}, timings: ${JSON.stringify(timings)} }));
   `;
 }
 
@@ -145,9 +153,9 @@ function stackScript(dir, services, timings) {
  * in a fresh folder. After the test, it kills the launcher's group and every
  * stub's group by the PIDs they recorded.
  */
-function startStack(t, services, timings = {}) {
+function startStack(t, services, timings = {}, mavlink2rest = 'http://127.0.0.1:1') {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'dev-stack-test-')));
-  const run = launch(stackScript(dir, services, { ...FAST, ...timings }));
+  const run = launch(stackScript(dir, services, { ...FAST, ...timings }, mavlink2rest));
   t.after(() => {
     killGroup(run.child.pid);
     for (const name of readdirSync(dir).filter((file) => file.endsWith('.pid'))) {
@@ -584,7 +592,7 @@ async function holdUdp(host) {
   return socket.address().port;
 }
 
-/** A port nobody holds: bound on both families, then released. */
+/** A port nobody holds: bound on 127.0.0.1, then released. */
 async function freePort(proto) {
   const hold = proto === 'tcp' ? holdTcp : holdUdp;
   const port = await hold('127.0.0.1');
@@ -636,6 +644,8 @@ test('a process only talking to a UDP port is not its holder', async () => {
   assert.ok(!found.holder.includes(`PID ${talker.pid}`), found.holder);
 });
 
+const seen = [];
+
 /** A server answering every request with `body`; returns its base URL. */
 async function serve(body) {
   const server = createServer((request, response) => {
@@ -646,7 +656,6 @@ async function serve(body) {
   closers.push(() => new Promise((resolve) => server.close(resolve)));
   return `http://127.0.0.1:${server.address().port}`;
 }
-const seen = [];
 
 test('hasHeartbeat is true for a HEARTBEAT message', async () => {
   const base = await serve(JSON.stringify({ message: { type: 'HEARTBEAT', mavlink_version: 3 } }));
@@ -667,6 +676,228 @@ test('hasHeartbeat is false when nothing listens', async () => {
   const port = await freePort('tcp');
   assert.equal(await hasHeartbeat(`http://127.0.0.1:${port}`), false);
 });
+
+const SYS_STATUS = {
+  message: {
+    type: 'SYS_STATUS',
+    onboard_control_sensors_health:
+      'MAV_SYS_STATUS_SENSOR_3D_GYRO | MAV_SYS_STATUS_PREARM_CHECK | MAV_SYS_STATUS_SENSOR_PROPULSION',
+  },
+};
+const SYS_STATUS_NO_PREARM = {
+  message: {
+    type: 'SYS_STATUS',
+    onboard_control_sensors_health:
+      'MAV_SYS_STATUS_SENSOR_3D_GYRO | MAV_SYS_STATUS_SENSOR_PROPULSION',
+  },
+};
+const ekf = (flags) => ({ message: { type: 'EKF_STATUS_REPORT', flags } });
+const EKF_POSITION =
+  'EKF_ATTITUDE | EKF_VELOCITY_HORIZ | EKF_POS_HORIZ_REL | EKF_POS_HORIZ_ABS | EKF_PRED_POS_HORIZ_ABS';
+
+test('readiness needs the pre-arm bit and the absolute position', () => {
+  assert.deepEqual(readiness(SYS_STATUS.message, ekf(EKF_POSITION).message), {
+    prearm: true,
+    position: true,
+  });
+});
+
+test('readiness: health without the pre-arm bit is not pre-armed', () => {
+  assert.equal(readiness(SYS_STATUS_NO_PREARM.message, ekf(EKF_POSITION).message).prearm, false);
+});
+
+test('readiness: a look-alike flag is not a position', () => {
+  const flags = 'EKF_ATTITUDE | EKF_PRED_POS_HORIZ_ABS';
+  assert.equal(readiness(SYS_STATUS.message, ekf(flags).message).position, false);
+});
+
+test('readiness: a flag that only contains the name does not count', () => {
+  const health = { onboard_control_sensors_health: 'MAV_SYS_STATUS_PREARM_CHECK_2' };
+  const flags = { flags: 'EKF_POS_HORIZ_ABS_2 | EKF_PRED_POS_HORIZ_ABS' };
+  assert.deepEqual(readiness(health, flags), { prearm: false, position: false });
+});
+
+test('readiness: no messages yet is neither', () => {
+  assert.deepEqual(readiness(undefined, undefined), { prearm: false, position: false });
+});
+
+test('readiness: empty flags are not a position', () => {
+  assert.equal(readiness(SYS_STATUS.message, ekf('').message).position, false);
+});
+
+test('fetchMessage returns the message object of a JSON body', async () => {
+  const base = await serve(JSON.stringify(SYS_STATUS));
+  assert.deepEqual(await fetchMessage(base, 'SYS_STATUS'), SYS_STATUS.message);
+  assert.ok(seen.at(-1).endsWith('/v1/mavlink/vehicles/1/components/1/messages/SYS_STATUS'));
+});
+
+test('fetchMessage is undefined for a message not seen yet', async () => {
+  assert.equal(await fetchMessage(await serve('None'), 'SYS_STATUS'), undefined);
+});
+
+test('fetchMessage is undefined when nothing listens', async () => {
+  const port = await freePort('tcp');
+  assert.equal(await fetchMessage(`http://127.0.0.1:${port}`, 'SYS_STATUS'), undefined);
+});
+
+/**
+ * A stand-in mavlink2rest on an ephemeral port. `answers` maps a message name
+ * to what it replies with (an object, or the string `None`); the test changes
+ * it while the launcher polls. `requests` records each request's time and name.
+ */
+async function mavlink2rest() {
+  const answers = {};
+  const requests = [];
+  const server = createServer((request, response) => {
+    const name = request.url.split('/').at(-1);
+    requests.push({ at: Date.now(), name, method: request.method });
+    const answer = answers[name] ?? 'None';
+    response.end(typeof answer === 'string' ? answer : JSON.stringify(answer));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  closers.push(() => new Promise((resolve) => server.close(resolve)));
+  return { url: `http://127.0.0.1:${server.address().port}`, answers, requests };
+}
+
+const READY_SERVICES = [
+  { name: 'one', addresses: [['Alpha', 'ws://alpha.test/ws']] },
+  {
+    name: 'two',
+    addresses: [
+      ['Beta', 'http://beta.test/whep'],
+      ['Gamma longer', 'rtsp://gamma.test/x'],
+    ],
+  },
+];
+const READY_TIMINGS = { readyPollMs: 100, readyWarnMs: 800 };
+const count = (text, part) => text.split(part).length - 1;
+
+test('it prints ready to fly only once both signals are set', TIMEOUT, async (t) => {
+  const api = await mavlink2rest();
+  const run = startStack(t, READY_SERVICES, READY_TIMINGS, api.url);
+  await printed(run, 'Waiting until the vehicle is ready to fly.');
+  await sleep(300);
+  assert.doesNotMatch(run.out(), /ready to fly \(/, 'both messages are still None');
+  api.answers.SYS_STATUS = SYS_STATUS;
+  await sleep(300);
+  assert.doesNotMatch(run.out(), /ready to fly \(/, 'pre-arm alone');
+  api.answers.EKF_STATUS_REPORT = ekf(EKF_POSITION);
+  await printed(run, '==> ready to fly (');
+  await sleep(400);
+  ctrlC(run);
+  await exitWithin(run);
+  const out = run.out();
+  assert.equal(count(out, 'ready to fly ('), 1, transcript(run));
+  assert.match(out, /==> All up\.\n==> Waiting until the vehicle is ready to fly\.\n/);
+  assert.match(out, /==> ready to fly \(\d+\.\d s\)\n/);
+  assert.ok(
+    out.includes(
+      [
+        '    Alpha         ws://alpha.test/ws',
+        '    Beta          http://beta.test/whep',
+        '    Gamma longer  rtsp://gamma.test/x',
+      ].join('\n') + '\n',
+    ),
+    transcript(run),
+  );
+  assert.ok(out.includes('    Fly it from another terminal:  pnpm fly-sitl --circle 3\n'));
+  assert.ok(out.includes('    Ctrl-C stops everything.\n'));
+  assert.ok(out.indexOf('ready to fly (') < out.indexOf('==> Stopping'), transcript(run));
+  assert.doesNotMatch(out, /Not ready to fly/);
+  assert.ok(api.requests.every((r) => r.method === 'GET'));
+});
+
+test('polling stops after ready to fly', TIMEOUT, async (t) => {
+  const api = await mavlink2rest();
+  api.answers.SYS_STATUS = SYS_STATUS;
+  api.answers.EKF_STATUS_REPORT = ekf(EKF_POSITION);
+  const run = startStack(t, READY_SERVICES, READY_TIMINGS, api.url);
+  await printed(run, '==> ready to fly (');
+  await sleep(200);
+  const before = api.requests.length;
+  await sleep(500);
+  assert.equal(api.requests.length, before);
+  ctrlC(run);
+  await exitWithin(run);
+});
+
+test(
+  'it warns once about the missing position after readyWarnMs, then still reports ready',
+  TIMEOUT,
+  async (t) => {
+    const api = await mavlink2rest();
+    api.answers.SYS_STATUS = SYS_STATUS;
+    api.answers.EKF_STATUS_REPORT = ekf('EKF_ATTITUDE | EKF_PRED_POS_HORIZ_ABS');
+    const run = startStack(t, READY_SERVICES, READY_TIMINGS, api.url);
+    await printed(run, 'Waiting until the vehicle is ready to fly.');
+    await sleep(2000);
+    const position = 'no position yet; the EKF is not using GPS';
+    assert.equal(count(run.out(), `==> Not ready to fly after 0.8 s: ${position}`), 1);
+    assert.ok(
+      run.out().includes(`(no "EKF3 IMU0 is using GPS" line above). Still waiting.\n`),
+      transcript(run),
+    );
+    assert.doesNotMatch(run.out(), /pre-arm checks still fail/);
+    assert.doesNotMatch(run.out(), /ready to fly \(/);
+    api.answers.EKF_STATUS_REPORT = ekf(EKF_POSITION);
+    await printed(run, '==> ready to fly (');
+    assert.equal(count(run.out(), 'Not ready to fly after'), 1);
+    ctrlC(run);
+    await exitWithin(run);
+  },
+);
+
+test('it warns about failing pre-arm checks', TIMEOUT, async (t) => {
+  const api = await mavlink2rest();
+  api.answers.SYS_STATUS = SYS_STATUS_NO_PREARM;
+  api.answers.EKF_STATUS_REPORT = ekf(EKF_POSITION);
+  const run = startStack(t, READY_SERVICES, READY_TIMINGS, api.url);
+  await printed(run, 'Not ready to fly after');
+  await sleep(600);
+  const prearm =
+    "==> Not ready to fly after 0.8 s: the pre-arm checks still fail; MAVProxy's PreArm lines above say why. Still waiting.\n";
+  assert.equal(count(run.out(), prearm), 1, transcript(run));
+  assert.doesNotMatch(run.out(), /no position yet/);
+  ctrlC(run);
+  await exitWithin(run);
+});
+
+test('it does not poll until every service is up', TIMEOUT, async (t) => {
+  const api = await mavlink2rest();
+  const services = [
+    { name: 'one', addresses: [] },
+    // Up 600 ms after its first check.
+    { name: 'late', addresses: [], up: '() => Date.now() - (globalThis.t0 ??= Date.now()) > 600' },
+  ];
+  const startedAt = Date.now();
+  const run = startStack(t, services, READY_TIMINGS, api.url);
+  await sleep(500);
+  assert.equal(api.requests.length, 0, 'no request while a service is still down');
+  await printed(run, '==> All up.');
+  await printed(run, 'Waiting until the vehicle is ready to fly.');
+  await sleep(300);
+  assert.ok(api.requests.length > 0, 'polling started');
+  assert.ok(api.requests[0].at - startedAt >= 600, 'first request after the last service is up');
+  ctrlC(run);
+  await exitWithin(run);
+});
+
+test(
+  'a Ctrl-C while waiting for ready to fly stops promptly, with nothing after Stopped',
+  TIMEOUT,
+  async (t) => {
+    const api = await mavlink2rest();
+    const run = startStack(t, READY_SERVICES, READY_TIMINGS, api.url);
+    await printed(run, 'Waiting until the vehicle is ready to fly.');
+    ctrlC(run);
+    const { code } = await exitWithin(run);
+    assert.equal(code, 0, transcript(run));
+    assert.ok(run.out().endsWith('==> Stopped.\n'), transcript(run));
+    const requests = api.requests.length;
+    await sleep(300);
+    assert.equal(api.requests.length, requests);
+  },
+);
 
 test('a port in use stops the launch before anything starts', TIMEOUT, async (t) => {
   const held = await holdTcp('127.0.0.1');
