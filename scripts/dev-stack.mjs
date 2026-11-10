@@ -383,11 +383,10 @@ function udpBindFails(options, host, port) {
  */
 export async function portInUse(proto, port) {
   if (proto === 'tcp') return tcpAccepts(port);
-  const results = await Promise.all([
-    udpBindFails({ type: 'udp6', ipv6Only: false }, '::', port),
-    udpBindFails({ type: 'udp4' }, '0.0.0.0', port),
-  ]);
-  return results.some(Boolean);
+  // One after the other: on macOS a 0.0.0.0 bind fails while a dual-stack ::
+  // bind holds the port, so the second probe must start after the first closed.
+  if (await udpBindFails({ type: 'udp6', ipv6Only: false }, '::', port)) return true;
+  return udpBindFails({ type: 'udp4' }, '0.0.0.0', port);
 }
 
 /** The commands and PIDs holding `port`, as `<command>, PID <pid>`; empty when lsof cannot say. */
