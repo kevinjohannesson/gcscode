@@ -1,0 +1,11 @@
+{
+  "name": "mediamtx",
+  "private": true,
+  "version": "0.0.0",
+  "description": "MediaMTX, the media server camera-sim publishes to and gcscode's Video panel reads from, pinned and configured for development.",
+  "scripts": {
+    "setup": "./setup.sh",
+    "start": "./run.sh",
+    "test": "node --test setup.test.mjs run.test.mjs"
+  }
+}
