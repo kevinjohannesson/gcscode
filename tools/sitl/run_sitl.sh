@@ -33,11 +33,11 @@ M2R_BIN="${SITL_HOME}/bin/mavlink2rest"   # the pinned copy setup.sh installs
 
 [[ "${SITL_HOME}" == /* ]] || { echo "ERROR: GCSCODE_SITL_HOME must be an absolute path, got: ${SITL_HOME}" >&2; exit 1; }
 
-[[ -x "${SITL_BIN}" ]]  || { echo "ERROR: SITL binary missing: ${SITL_BIN}"  >&2; exit 1; }
-[[ -d "${VENV_DIR}" ]] || { echo "ERROR: venv missing. Run ./setup.sh."     >&2; exit 1; }
+[[ -x "${SITL_BIN}" ]]  || { echo "ERROR: SITL binary missing: ${SITL_BIN}. Build it from the repo root with:  pnpm --filter sitl run setup" >&2; exit 1; }
+[[ -d "${VENV_DIR}" ]] || { echo "ERROR: venv missing: ${VENV_DIR}. Create it from the repo root with:  pnpm --filter sitl run setup" >&2; exit 1; }
 
 if [[ ! -x "${M2R_BIN}" ]]; then
-  echo "ERROR: mavlink2rest missing from ${SITL_HOME}/bin. Run ./setup.sh, which installs it." >&2
+  echo "ERROR: mavlink2rest missing: ${M2R_BIN}. Install it from the repo root with:  pnpm --filter sitl run setup" >&2
   exit 1
 fi
 mkdir -p "${LOG_DIR}"

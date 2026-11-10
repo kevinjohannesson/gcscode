@@ -6,6 +6,6 @@
   "scripts": {
     "setup": "./setup.sh",
     "start": "./run_sitl.sh",
-    "test": "node --test fly.test.mjs"
+    "test": "node --test fly.test.mjs run_sitl.test.mjs"
   }
 }
