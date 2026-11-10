@@ -18,6 +18,8 @@ pnpm install
 pnpm dev
 ```
 
+`pnpm dev:sitl` runs the whole stack instead: SITL with MAVProxy and mavlink2rest, MediaMTX, and the dev server. It prints "ready to fly" once the vehicle can arm, and the addresses to open. Fly it from another terminal with `pnpm fly-sitl --circle 3`. One Ctrl-C stops everything. If a port it needs is already in use, it says which port and who holds it and starts nothing. Each tool's setup must have run once first: `pnpm --filter sitl run setup` and `pnpm --filter mediamtx run setup`.
+
 `pnpm test`, `pnpm check` and `pnpm lint` run the tests, type checks and linters across the workspace.
 
 ## More
