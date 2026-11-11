@@ -45,16 +45,21 @@ The spec leaves these open. _Measured_ facts were checked on this Mac on 2026-11
 
 1. **A start script in camera-sim's folder: `tools/camera-sim/run.sh`,** run as `pnpm --filter camera-sim start` or by the launcher. In order, it:
    1. checks Chrome;
-   2. makes the profile;
-   3. starts Vite as `pnpm --silent exec vite --port "$PORT" --strictPort`, from its own folder;
-   4. waits until `nc -z localhost "$PORT"` succeeds;
-   5. starts Chrome;
-   6. polls `kill -0` on both PIDs every 0.5 s.
+   2. checks the port. If `nc -z localhost "$PORT"` already succeeds, it prints exactly this to stderr and exits 1:
+
+      `ERROR: something already listens on TCP <port> (another camera-sim?). Stop it first, or set CAMERA_SIM_PORT to another port.`
+
+   3. makes the profile;
+   4. starts Vite as `pnpm --silent exec vite --port "$PORT" --strictPort`, from its own folder. `--strictPort` covers the race between the port check and Vite's bind;
+   5. waits until `nc -z localhost "$PORT"` succeeds;
+   6. starts Chrome;
+   7. polls `kill -0` on both PIDs every 0.5 s.
    - **Either one exiting by itself** prints `ERROR: <Chrome | camera-sim's dev server> exited (code N).` to stderr. The script then exits 1.
    - **SIGINT, SIGTERM or SIGHUP** make it exit as well.
    - **On every exit,** an `EXIT` trap sends SIGTERM to the PIDs it started, waits for them, and removes the profile.
    - _Measured:_
      - Vite binds `localhost` as `[::1]` only, so 127.0.0.1 never answers, and `nc -z localhost` does.
+     - `nc -z localhost` answers for any holder of the port, so the wait cannot tell it from Vite. Vite's `--strictPort` fails only about 1 s later, after Chrome has started. Hence the port check.
      - SIGTERM to `pnpm exec`'s PID stops Vite too.
      - `$!` after `chrome … 2> >(sed …) &` is Chrome's own PID.
 
@@ -105,7 +110,7 @@ The spec leaves these open. _Measured_ facts were checked on this Mac on 2026-11
 Inputs the spec implies but no step above names, each pinned by a test in the task named:
 
 1. **Chrome exits by itself** (a crash, or quit from Activity Monitor): `run.sh` stops Vite, removes the profile and exits 1 (Task 1).
-2. **5174 is taken when camera-sim runs alone:** Vite's `--strictPort` fails, so `run.sh` exits 1 without starting Chrome, and no profile is left (Task 1).
+2. **5174 is taken when camera-sim runs alone:** the port check prints its message and exits 1, before the profile, Vite or Chrome (Task 1).
 3. **A stop before the page is served:** Ctrl-C while Vite is still starting leaves no process and no profile (Task 1).
 4. **`drone-1` listed but not ready** (a publisher still connecting), or only `drone-2` ready: not up (Task 2).
 5. **MediaMTX's API not answering, or answering an error or non-JSON:** not up, and no throw (Task 2).
@@ -133,6 +138,7 @@ Inputs the spec implies but no step above names, each pinned by a test in the ta
 
 - Produces `tools/camera-sim/run.sh`, executable, with no arguments. It reads `CAMERA_SIM_CHROME`, `CAMERA_SIM_PORT` and `TMPDIR`. Its exits:
   - 1 with the decision-2 message when Chrome is missing;
+  - 1 with the decision-1 message when the port is in use;
   - 1 when Chrome or Vite exits by itself;
   - non-zero after a signal.
 - Produces `pnpm --filter camera-sim start`, which runs `./run.sh`.
@@ -174,8 +180,9 @@ Inputs the spec implies but no step above names, each pinned by a test in the ta
     - exit code 1;
     - stderr has `ERROR: Chrome exited (code 3).`;
     - the port is free and `TMPDIR` is empty.
-  - `a dev server that cannot start exits 1 without starting Chrome` (the test holds the port on `::1`):
+  - `a port already in use stops it before anything starts` (the test holds the port on `::1`):
     - exit code 1;
+    - stderr is exactly the decision-1 message with the port;
     - no stub PID file;
     - `TMPDIR` is empty.
   - `a missing Chrome stops it before anything starts` (`CAMERA_SIM_CHROME` names a path that does not exist):
@@ -195,6 +202,7 @@ Inputs the spec implies but no step above names, each pinned by a test in the ta
   - In `main.ts`, the three `console.info` lines of decision 5: through `MavlinkSocket`'s `onStateChange`, once after the terrain loads, and through `WhipPublisher`'s `onStateChange`, using `describeWhip(state, detail)`.
 - [ ] **Step 5: Run `pnpm --filter camera-sim test` and `pnpm --filter camera-sim check`;** both pass. Then mutate each branch of `run.sh`, watch the named test fail, and restore. The branches:
   - the Chrome check;
+  - the port check;
   - the wait for the port;
   - the exit poll;
   - the trap's kill;

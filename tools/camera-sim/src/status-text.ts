@@ -1,3 +1,4 @@
+import type { PublisherState } from './output/whip-publisher';
 import type { TerrainLoadResult } from './terrain/terrain-loader';
 import type { GroundCheck } from './vehicles/vehicle-track';
 import type { ImageryStatus } from './world/imagery-lod';
@@ -39,4 +40,9 @@ export function describeGroundCheck(check: GroundCheck): string {
     `Ground check: MISMATCH, landed ${Math.abs(height).toFixed(1)} m ${height > 0 ? 'above' : 'below'} ` +
     'the rendered ground. Check terrain=on/off against SITL’s SIM_TERRAIN, and the origin against SIM_OPOS_*.'
   );
+}
+
+/** A vehicle's WHIP state, with the reason while it has one: for the status page and the console. */
+export function describeWhip(state: PublisherState, error: string | undefined): string {
+  return `WHIP ${state}${error ? ` (${error})` : ''}`;
 }
