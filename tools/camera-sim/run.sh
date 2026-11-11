@@ -69,7 +69,7 @@ done
 # Only the page's console lines and Chrome's fatal errors get through.
 "${CHROME}" --headless=new --user-data-dir="${PROFILE}" \
   --enable-logging=stderr --log-level=0 \
-  "http://localhost:${PORT}/" \
+  "http://localhost:${PORT}/?publisher=headless" \
   2> >(sed -l -n -e 's/^\[[^]]*:CONSOLE[^]]*\] "\(.*\)", source: .*/page: \1/p' -e '/:FATAL:/p' >&2) &
 CHROME_PID=$!
 

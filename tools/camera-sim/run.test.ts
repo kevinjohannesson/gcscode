@@ -197,7 +197,7 @@ describe('run.sh', { timeout: TIMEOUT_MS }, () => {
     const profile = profiles[0]!.slice('--user-data-dir='.length);
     expect(dirname(profile)).toBe(run.tmp);
     expect(statSync(profile).isDirectory()).toBe(true);
-    expect(args.at(-1)).toBe(`http://localhost:${run.port}/`);
+    expect(args.at(-1)).toBe(`http://localhost:${run.port}/?publisher=headless`);
     expect(readFileSync(stubFile(run, 'status'), 'utf8')).toBe('200');
   });
 

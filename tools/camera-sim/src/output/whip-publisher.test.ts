@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   preferH264,
   WhipPublisher,
+  type DtlsTransportLike,
   type PeerConnectionLike,
   type PublisherState,
 } from './whip-publisher';
@@ -44,6 +45,27 @@ describe('preferH264', () => {
   });
 });
 
+class FakeTransport implements DtlsTransportLike {
+  public state: RTCDtlsTransportState = 'connected';
+  private readonly _listeners = new Set<() => void>();
+
+  public addEventListener(_type: 'statechange', listener: () => void): void {
+    this._listeners.add(listener);
+  }
+  public removeEventListener(_type: 'statechange', listener: () => void): void {
+    this._listeners.delete(listener);
+  }
+  public change(state: RTCDtlsTransportState): void {
+    this.state = state;
+    for (const l of this._listeners) l();
+  }
+  /** What MediaMTX closing the session does to the page's transport. */
+  public close(): void {
+    this.state = 'closed';
+    for (const l of this._listeners) l();
+  }
+}
+
 class FakePeer implements PeerConnectionLike {
   public localDescription: { sdp: string } | null = null;
   public iceGatheringState: RTCIceGatheringState = 'new';
@@ -52,8 +74,12 @@ class FakePeer implements PeerConnectionLike {
   public codecPreferences: RTCRtpCodec[][] = [];
   public directions: (RTCRtpTransceiverDirection | undefined)[] = [];
   public closed = false;
+  public readonly transport = new FakeTransport();
   private readonly _listeners = new Map<string, Set<() => void>>();
 
+  public getSenders(): readonly { readonly transport: DtlsTransportLike | null }[] {
+    return [{ transport: this.transport }];
+  }
   public addTransceiver(_track: MediaStreamTrack, init: RTCRtpTransceiverInit) {
     this.directions.push(init.direction);
     return { setCodecPreferences: (c: RTCRtpCodec[]) => void this.codecPreferences.push(c) };
@@ -96,13 +122,18 @@ interface Call {
   method: string;
   contentType?: string;
   body?: string;
+  keepalive?: boolean;
 }
+
+/** How the fake media server answers a DELETE: a status, or a network failure. */
+type DeleteAnswer = { status: number; statusText?: string } | Error;
 
 describe('WhipPublisher', () => {
   let peers: FakePeer[];
   let calls: Call[];
   let states: PublisherState[];
   let respond: () => Response;
+  let answerDelete: DeleteAnswer;
   let publisher: WhipPublisher;
   const track = { kind: 'video' } as MediaStreamTrack;
 
@@ -111,6 +142,7 @@ describe('WhipPublisher', () => {
     peers = [];
     calls = [];
     states = [];
+    answerDelete = { status: 200 };
     respond = () =>
       new Response('v=0 answer', { status: 201, headers: { Location: '/drone-1/whip/abc' } });
     publisher = new WhipPublisher({
@@ -130,8 +162,11 @@ describe('WhipPublisher', () => {
           method: init?.method ?? 'GET',
           contentType: headers.get('Content-Type') ?? undefined,
           body: typeof init?.body === 'string' ? init.body : undefined,
+          keepalive: init?.keepalive,
         });
-        return init?.method === 'DELETE' ? new Response(null, { status: 200 }) : respond();
+        if (init?.method !== 'DELETE') return respond();
+        if (answerDelete instanceof Error) throw answerDelete;
+        return new Response(null, answerDelete);
       },
     });
   });
@@ -168,6 +203,7 @@ describe('WhipPublisher', () => {
   });
 
   it('retries after 1 s when the media server is not there, then 2 s', async () => {
+    answerDelete = { status: 200 };
     respond = () => new Response('', { status: 404, statusText: 'Not Found' });
     publisher.start();
     await vi.advanceTimersByTimeAsync(10);
@@ -223,7 +259,138 @@ describe('WhipPublisher', () => {
       method: 'DELETE',
       contentType: undefined,
       body: undefined,
+      keepalive: true,
     });
     expect(publisher.state).toBe('stopped');
+  });
+
+  describe('when MediaMTX refuses a second publisher', () => {
+    async function connectedFor(ms: number): Promise<void> {
+      publisher.start();
+      await vi.runAllTimersAsync();
+      peers[0]!.connect('connected');
+      await vi.advanceTimersByTimeAsync(ms);
+    }
+
+    it('stops as taken when MediaMTX closes the session right after it connects', async () => {
+      await connectedFor(20);
+      peers[0]!.transport.close();
+      expect(states).toEqual(['connecting', 'publishing', 'taken']);
+      expect(publisher.lastError).toBe('another publisher already has this stream');
+      expect(peers[0]!.closed).toBe(true);
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(peers).toHaveLength(1);
+      expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1);
+    });
+
+    it('counts a close at 2999 ms as taken', async () => {
+      await connectedFor(2999);
+      peers[0]!.transport.close();
+      expect(publisher.state).toBe('taken');
+    });
+
+    it('retries after a close at 3000 ms', async () => {
+      await connectedFor(3000);
+      peers[0]!.transport.close();
+      expect(publisher.state).toBe('retrying');
+      expect(publisher.lastError).toBe('MediaMTX closed the session');
+      await vi.advanceTimersByTimeAsync(1010);
+      expect(peers).toHaveLength(2);
+    });
+
+    it('retries when the session closes before the connection came up', async () => {
+      publisher.start();
+      await vi.runAllTimersAsync();
+      peers[0]!.transport.close();
+      expect(publisher.state).toBe('retrying');
+      expect(publisher.lastError).toBe('MediaMTX closed the session');
+    });
+
+    it('ignores a transport change that is not a close', async () => {
+      await connectedFor(20);
+      peers[0]!.transport.change('connecting');
+      expect(publisher.state).toBe('publishing');
+    });
+
+    it('ignores its own close', async () => {
+      await connectedFor(20);
+      publisher.stop();
+      peers[0]!.transport.close();
+      expect(states).toEqual(['connecting', 'publishing', 'stopped']);
+    });
+
+    it('can be started again after it was taken', async () => {
+      await connectedFor(20);
+      peers[0]!.transport.close();
+      publisher.start();
+      await vi.runAllTimersAsync();
+      expect(peers).toHaveLength(2);
+    });
+  });
+
+  describe('ending the previous session', () => {
+    async function failedConnection(): Promise<void> {
+      publisher.start();
+      await vi.runAllTimersAsync();
+      peers[0]!.connect('connected');
+      peers[0]!.connect('failed');
+    }
+    const methods = () => calls.map((c) => c.method);
+
+    it('ends the previous session right before publishing again', async () => {
+      await failedConnection();
+      expect(methods()).toEqual(['POST']);
+      await vi.advanceTimersByTimeAsync(1010);
+      expect(methods()).toEqual(['POST', 'DELETE', 'POST']);
+      expect(calls[1]!.url).toBe('http://media:8889/drone-1/whip/abc');
+    });
+
+    it('does not publish while the previous session cannot be ended', async () => {
+      answerDelete = new TypeError('Failed to fetch');
+      await failedConnection();
+      await vi.advanceTimersByTimeAsync(1010);
+      expect(methods()).toEqual(['POST', 'DELETE']);
+      expect(publisher.state).toBe('retrying');
+      expect(publisher.lastError).toBe('Failed to fetch');
+
+      answerDelete = { status: 200 };
+      await vi.advanceTimersByTimeAsync(2010);
+      expect(methods()).toEqual(['POST', 'DELETE', 'DELETE', 'POST']);
+    });
+
+    it('takes a 404 for the previous session as already ended', async () => {
+      answerDelete = { status: 404 };
+      await failedConnection();
+      await vi.advanceTimersByTimeAsync(1010);
+      expect(methods()).toEqual(['POST', 'DELETE', 'POST']);
+    });
+
+    it('retries when ending the previous session answers an error', async () => {
+      answerDelete = { status: 500, statusText: 'Internal Server Error' };
+      await failedConnection();
+      await vi.advanceTimersByTimeAsync(1010);
+      expect(publisher.state).toBe('retrying');
+      expect(publisher.lastError).toBe(
+        'Could not end the previous WHIP session: 500 Internal Server Error',
+      );
+      expect(methods()).toEqual(['POST', 'DELETE']);
+    });
+
+    it('ends a session it still holds when stopped during the retry delay', async () => {
+      await failedConnection();
+      await vi.advanceTimersByTimeAsync(500);
+      publisher.stop();
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(calls.filter((c) => c.method === 'DELETE')).toEqual([
+        {
+          url: 'http://media:8889/drone-1/whip/abc',
+          method: 'DELETE',
+          contentType: undefined,
+          body: undefined,
+          keepalive: true,
+        },
+      ]);
+      expect(methods()).toEqual(['POST', 'DELETE']);
+    });
   });
 });
