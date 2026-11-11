@@ -2,7 +2,7 @@ import { mavlinkSubscriptionUrl, readConfig, streamName, whipEndpoint } from './
 import { LocalFrame } from './geo/local-frame';
 import { CameraView } from './output/camera-view';
 import { WhipPublisher } from './output/whip-publisher';
-import { describeGroundCheck, describeImagery, describeTerrain } from './status-text';
+import { describeGroundCheck, describeImagery, describeTerrain, describeWhip } from './status-text';
 import { MavlinkSocket } from './telemetry/mavlink-socket';
 import { FLAT_GROUND, SitlGround, type GroundModel } from './terrain/sitl-ground';
 import { loadTerrain } from './terrain/terrain-loader';
@@ -42,6 +42,8 @@ async function start(): Promise<void> {
     terrain === undefined ? undefined : new SitlGround(terrain.database, config.origin);
   const ground: GroundModel = sitlGround ?? FLAT_GROUND;
   const terrainLine = describeTerrain(config.terrain, terrain, sitlGround?.hasHomeTerrain ?? false);
+  // Headless, the console is the only status there is: run.sh prints these lines.
+  console.info(`Terrain ${terrainLine}`);
 
   const world = new SimWorld(frame, config, ground);
   const outputs = new Map<number, VehicleOutput>();
@@ -54,6 +56,8 @@ async function start(): Promise<void> {
     const publisher = new WhipPublisher({
       endpointUrl: whipUrl,
       tracks: view.captureStream().getVideoTracks(),
+      onStateChange: (state, detail) =>
+        console.info(`${name} ${describeWhip(state, detail)}  ${whipUrl}`),
     });
 
     const figure = document.createElement('figure');
@@ -69,6 +73,7 @@ async function start(): Promise<void> {
   const socket = new MavlinkSocket({
     url: mavlinkSubscriptionUrl(config.mavlinkUrl),
     onMessage: (json, receivedAtMs) => registry.applyMessage(json, receivedAtMs),
+    onStateChange: (state) => console.info(`Telemetry ${state}  ${config.mavlinkUrl}`),
   });
   socket.start();
 
@@ -109,11 +114,10 @@ async function start(): Promise<void> {
       const track = output.view.track;
       const pose = track.predict(now);
       const age = pose === undefined ? '-' : `${(pose.ageMs / 1000).toFixed(1)} s`;
-      const error = output.publisher.lastError;
       output.caption.textContent = [
         `${streamName(track.systemId)}  position age ${age}  frame ${output.view.frameNumber}`,
         describeGroundCheck(track.checkGround(groundAt)),
-        `WHIP ${output.publisher.state}${error ? ` (${error})` : ''}  ${output.whipUrl}`,
+        `${describeWhip(output.publisher.state, output.publisher.lastError)}  ${output.whipUrl}`,
         `Watch: vlc ${output.rtspUrl}`,
       ].join('\n');
     }

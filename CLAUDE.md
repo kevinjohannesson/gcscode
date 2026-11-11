@@ -77,7 +77,7 @@ One controller session per PR or iteration. When the worktree already exists, st
 ## Commands
 
 - `pnpm dev` — run the shell's dev server
-- `pnpm dev:sitl` — run SITL, MediaMTX and the dev server together, until one Ctrl-C (`scripts/dev-stack.mjs`)
+- `pnpm dev:sitl` — run SITL, MediaMTX, camera-sim and the dev server together, until one Ctrl-C (`scripts/dev-stack.mjs`)
 - `pnpm build` — build all packages
 - `pnpm test` — all package tests, then the root tooling tests (`pnpm test:scripts`)
 - `pnpm check` — svelte-check + tsc across all packages

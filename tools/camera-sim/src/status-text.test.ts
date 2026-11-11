@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { describeGroundCheck, describeImagery, describeTerrain } from './status-text';
+import { describeGroundCheck, describeImagery, describeTerrain, describeWhip } from './status-text';
 import { TerrainDatabase } from './terrain/ap-terrain';
 
 const database = new TerrainDatabase();
@@ -87,5 +87,15 @@ describe('describeGroundCheck', () => {
     expect(describeGroundCheck({ state: 'mismatch', heightAboveGroundM: 2 })).toContain(
       '2.0 m above',
     );
+  });
+});
+
+describe('describeWhip', () => {
+  it('names the state', () => {
+    expect(describeWhip('publishing', undefined)).toBe('WHIP publishing');
+  });
+
+  it('adds the error in brackets', () => {
+    expect(describeWhip('retrying', 'connection failed')).toBe('WHIP retrying (connection failed)');
   });
 });

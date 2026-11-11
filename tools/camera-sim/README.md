@@ -20,6 +20,8 @@ What comes next is on the [roadmap](../../docs/roadmap.md#tools--coming-committe
 
 ## Running it (all on one machine)
 
+`pnpm dev:sitl`, from the repo root, starts camera-sim with the rest of the stack, headless. To run the parts by hand:
+
 1. **SITL** ([`tools/sitl`](../sitl/README.md)). Raise the telemetry rate from MAVProxy's default 4 Hz so the video moves smoothly. From `tools/sitl`:
 
    ```sh
@@ -28,10 +30,10 @@ What comes next is on the [roadmap](../../docs/roadmap.md#tools--coming-committe
 
    Keep `SIM_TERRAIN` at 1, ArduPilot's default (if you set it to 0 for the spike, type `param set SIM_TERRAIN 1` at the MAVProxy prompt: the terminal where `run_sitl.sh` runs).
 
-2. **Point camera-sim at SITL's terrain folder.** Create `tools/camera-sim/.env.local` (gitignored) with the folder that holds SITL's `.DAT` files:
+2. **Optional: another terrain folder.** camera-sim serves SITL's own terrain folder, `<GCSCODE_SITL_HOME>/ardupilot/terrain`, with `GCSCODE_SITL_HOME` defaulting to `~/.gcscode/sitl` as in `run_sitl.sh`. Only for another folder, create `tools/camera-sim/.env.local` (gitignored) with the folder that holds SITL's `.DAT` files:
 
    ```sh
-   CAMERA_SIM_TERRAIN_DIR="/path/to/home/.gcscode/sitl/ardupilot/terrain"
+   CAMERA_SIM_TERRAIN_DIR="/path/to/terrain"
    ```
 
 3. **MediaMTX** ([`tools/mediamtx`](../mediamtx/README.md)). From the repo root, install it once with `pnpm --filter mediamtx run setup`, then start it:
@@ -42,14 +44,11 @@ What comes next is on the [roadmap](../../docs/roadmap.md#tools--coming-committe
 
    Its config is what camera-sim expects: WebRTC (WHIP) on 8889, RTSP on 8554, any stream path allowed.
 
-4. **camera-sim.** From the repo root:
+4. **camera-sim**, after `pnpm install`, from the repo root. Either:
+   - **Headless:** `pnpm --filter camera-sim start`. It needs Google Chrome, and runs the dev server and a headless Chrome until Ctrl-C. The page's console lines print as `page: …`: telemetry's state, the terrain line, and each stream's WHIP state.
+   - **In a visible tab,** the way to see the status page and the ground check: `pnpm --filter camera-sim dev`, then open <http://localhost:5174>. The status page should list the terrain file, for example `S36E149.DAT (9 blocks with data)`. Keep the window visible: browsers slow down hidden tabs, which freezes the video.
 
-   ```sh
-   pnpm install
-   pnpm --filter camera-sim dev
-   ```
-
-   Open <http://localhost:5174>. The status page should list the terrain file, for example `S36E149.DAT (9 blocks with data)`. Keep the window visible: browsers slow down hidden tabs, which freezes the video.
+   Never open the page while a headless camera-sim runs: two pages take `drone-1` from each other in turn.
 
 5. **Fly** (MAVProxy): `mode guided`, `arm throttle`, `takeoff 50`. A view appears as soon as the vehicle reports its position. Before you arm, the ground check should already say OK. In SITL's first seconds, before it has a position, ArduPilot reports the vehicle at 0°, 0°: until the real position arrives, the view is empty and the check may say MISMATCH.
 
@@ -96,6 +95,14 @@ Everything is set from the page URL, so pointing the sim somewhere else is a lin
 
 Example: `http://localhost:5174/?pitch=-45&hfov=90`.
 
+The dev server and `pnpm --filter camera-sim start` read the environment:
+
+| Variable                 | Default                                                        | Meaning                                                                                                                                 |
+| ------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `CAMERA_SIM_TERRAIN_DIR` | `<GCSCODE_SITL_HOME>/ardupilot/terrain`                        | The folder of SITL's `.DAT` files. `GCSCODE_SITL_HOME` defaults to `~/.gcscode/sitl`. `.env.local` can set it too; the environment wins |
+| `CAMERA_SIM_CHROME`      | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` | The Chrome that `start` runs headless                                                                                                   |
+| `CAMERA_SIM_PORT`        | `5174`                                                         | The port `start` serves the page on, to run it beside something else on 5174                                                            |
+
 ### Imagery terms
 
 The default imagery is Esri World Imagery. Esri allows free use only with attribution (camera-sim burns it into every frame), a free ArcGIS account, no revenue, and no use for the benefit of a business or government agency. That fits a personal hobby project. For anything else, switch providers with `imagery` and `attribution`, and set both: with `imagery` alone, Esri's credit line stays in the frames. Never commit an API key: this repository is public.
@@ -119,21 +126,23 @@ The sim can run on a stronger machine than SITL and the GCS:
 - **SITL's terrain grid is 100 m,** so the ground is smoother than the imagery suggests. That's accurate to SITL, which is the point.
 - **Each vehicle has its own WebGL renderer,** so imagery uploads once per vehicle. Fine for a handful of drones.
 - **The browser's WebRTC encoder sets the bitrate;** resolution is held constant.
-- **The window must stay visible.** Browsers slow down hidden tabs, which freezes the video.
+- **A visible tab must stay visible.** Browsers slow down hidden tabs, which freezes the video. Headless holds 30 fps.
+- **Headless costs about 55% of one core and 500 MB,** measured on an Intel Mac whose GPU (UHD 630) ran the WebGL.
 - **The frame rate follows the display.** Frames are drawn on the browser's animation frames, so a rate that doesn't divide the display's refresh rate comes out lower: `fps=25` on a 60 Hz display gives 20.
 - **One camera-sim page at a time.** A page publishes every vehicle it hears from. MediaMTX lets a new publisher take over a stream path, and a page that loses its path reconnects, so two pages hearing the same vehicle take `drone-<sysid>` from each other in turn.
 
 ## Layout
 
-| Path                          | What it does                                                         |
-| ----------------------------- | -------------------------------------------------------------------- |
-| `src/main.ts`                 | Wires everything together and draws the status page                  |
-| `src/config.ts`               | Defaults and URL overrides                                           |
-| `src/status-text.ts`          | The status page's terrain, imagery and ground-check lines            |
-| `src/geo/`                    | Lat/lon ↔ metres (ArduPilot's convention), imagery tile arithmetic   |
-| `src/terrain/`                | SITL's terrain files: reading them, SITL's ground, serving, loading  |
-| `src/telemetry/`              | mavlink2rest socket, GLOBAL_POSITION_INT and HEARTBEAT parsing       |
-| `src/vehicles/`               | One track per system ID; pose prediction; the ground check           |
-| `src/camera/gimbal-camera.ts` | Where the camera is and which way it points                          |
-| `src/world/`                  | The scene: imagery detail levels, terrain-shaped tiles, markers, sky |
-| `src/output/`                 | Per-vehicle rendering, burned-in overlay, WHIP publishing            |
+| Path                          | What it does                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| `run.sh`                      | Runs the dev server and a headless Chrome (`pnpm --filter camera-sim start`) |
+| `src/main.ts`                 | Wires everything together, draws the status page, logs its state             |
+| `src/config.ts`               | Defaults and URL overrides                                                   |
+| `src/status-text.ts`          | The status page's terrain, imagery, ground-check and WHIP lines              |
+| `src/geo/`                    | Lat/lon ↔ metres (ArduPilot's convention), imagery tile arithmetic           |
+| `src/terrain/`                | SITL's terrain files: reading them, SITL's ground, serving, loading          |
+| `src/telemetry/`              | mavlink2rest socket, GLOBAL_POSITION_INT and HEARTBEAT parsing               |
+| `src/vehicles/`               | One track per system ID; pose prediction; the ground check                   |
+| `src/camera/gimbal-camera.ts` | Where the camera is and which way it points                                  |
+| `src/world/`                  | The scene: imagery detail levels, terrain-shaped tiles, markers, sky         |
+| `src/output/`                 | Per-vehicle rendering, burned-in overlay, WHIP publishing                    |

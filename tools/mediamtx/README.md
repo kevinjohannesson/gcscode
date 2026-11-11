@@ -28,6 +28,7 @@ The config keeps MediaMTX's defaults and turns off the servers nothing uses (RTM
 | UDP 8189       | WebRTC's media (ICE)                                                         |
 | TCP 8554       | RTSP, for players such as VLC: `vlc rtsp://localhost:8554/drone-1`           |
 | UDP 8000, 8001 | RTSP over UDP (RTP and RTCP)                                                 |
+| TCP 9997       | API, on 127.0.0.1 only: `GET /v3/paths/list`, which the launcher polls       |
 
 camera-sim publishes vehicle N's view as `drone-N`, and the Video panel reads `http://localhost:8889/drone-1/whep` by default. Any path can be published or read, by anyone who can reach this machine: it listens on all interfaces, with no passwords. That suits simulated streams on a home network; don't run it as is on an untrusted one.
 
@@ -36,6 +37,7 @@ To run a second MediaMTX beside one already on these ports, move it with MediaMT
 ```sh
 MTX_RTSPADDRESS=:18554 MTX_RTPADDRESS=:18000 MTX_RTCPADDRESS=:18001 \
   MTX_WEBRTCADDRESS=:18889 MTX_WEBRTCLOCALUDPADDRESS=:18189 \
+  MTX_APIADDRESS=127.0.0.1:19997 \
   pnpm --filter mediamtx start
 ```
 

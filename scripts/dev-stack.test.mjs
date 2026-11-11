@@ -26,12 +26,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   MAVLINK2REST,
+  MEDIAMTX_API,
   ROOT,
   SERVICES,
   checkPorts,
   fetchMessage,
   hasHeartbeat,
   readiness,
+  streamReady,
 } from './dev-stack.mjs';
 
 const LAUNCHER = new URL('dev-stack.mjs', import.meta.url).href;
@@ -529,6 +531,7 @@ test("SERVICES is the spec's table", () => {
       ports: [
         { proto: 'tcp', port: 8554 },
         { proto: 'tcp', port: 8889 },
+        { proto: 'tcp', port: 9997 },
         { proto: 'udp', port: 8000 },
         { proto: 'udp', port: 8001 },
         { proto: 'udp', port: 8189 },
@@ -543,6 +546,14 @@ test("SERVICES is the spec's table", () => {
       ports: [{ proto: 'tcp', port: 5173 }],
       upWithinMs: 30000,
     },
+    {
+      name: 'camera-sim',
+      command: join(ROOT, 'tools/camera-sim/run.sh'),
+      args: [],
+      cwd: ROOT,
+      ports: [{ proto: 'tcp', port: 5174 }],
+      upWithinMs: 90000,
+    },
   ]);
   assert.deepEqual(
     SERVICES.map((s) => s.addresses),
@@ -553,11 +564,19 @@ test("SERVICES is the spec's table", () => {
         ['RTSP', 'rtsp://localhost:8554/drone-1'],
       ],
       [['gcscode', 'http://localhost:5173/']],
+      [],
     ],
   );
-  for (const service of SERVICES.slice(0, 2)) {
+  assert.equal(MEDIAMTX_API, 'http://127.0.0.1:9997');
+  for (const service of [SERVICES[0], SERVICES[1], SERVICES[3]]) {
     accessSync(service.command, constants.X_OK);
   }
+});
+
+test("MediaMTX's config serves the API the launcher reads", () => {
+  const config = readFileSync(join(ROOT, 'tools/mediamtx/mediamtx.yml'), 'utf8').split('\n');
+  assert.ok(config.includes('api: true'), 'api: true');
+  assert.ok(config.includes(`apiAddress: ${new URL(MEDIAMTX_API).host}`), 'apiAddress');
 });
 
 test('the root script runs the launcher', () => {
@@ -688,6 +707,52 @@ test('hasHeartbeat is false for another message type', async () => {
 test('hasHeartbeat is false when nothing listens', async () => {
   const port = await freePort('tcp');
   assert.equal(await hasHeartbeat(`http://127.0.0.1:${port}`), false);
+});
+
+const list = (...items) => JSON.stringify({ itemCount: items.length, pageCount: 1, items });
+
+test('streamReady is true when MediaMTX lists the path as ready', async () => {
+  const base = await serve(list({ name: 'drone-1', ready: true, tracks: ['H264'] }));
+  assert.equal(await streamReady(base, 'drone-1'), true);
+  assert.ok(seen.at(-1).endsWith('/v3/paths/list'));
+});
+
+test('streamReady is false for a path listed but not ready', async () => {
+  assert.equal(
+    await streamReady(await serve(list({ name: 'drone-1', ready: false })), 'drone-1'),
+    false,
+  );
+});
+
+test('streamReady is false when only another path is ready', async () => {
+  assert.equal(
+    await streamReady(await serve(list({ name: 'drone-2', ready: true })), 'drone-1'),
+    false,
+  );
+});
+
+test('streamReady is false for an empty list', async () => {
+  assert.equal(await streamReady(await serve(list()), 'drone-1'), false);
+});
+
+test('streamReady is false for a body that is not JSON', async () => {
+  assert.equal(await streamReady(await serve('None'), 'drone-1'), false);
+});
+
+test('streamReady is false for an error status', async () => {
+  const server = createServer((_request, response) => {
+    response.statusCode = 500;
+    response.end(list({ name: 'drone-1', ready: true }));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  closers.push(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  assert.equal(await streamReady(base, 'drone-1'), false);
+});
+
+test('streamReady is false when nothing listens', async () => {
+  const port = await freePort('tcp');
+  assert.equal(await streamReady(`http://127.0.0.1:${port}`, 'drone-1'), false);
 });
 
 const SYS_STATUS = {
