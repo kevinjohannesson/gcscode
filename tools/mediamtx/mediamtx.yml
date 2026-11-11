@@ -1,6 +1,9 @@
 # Unset keys keep MediaMTX's defaults. camera-sim publishes (WHIP) and the
 # Video panel reads (WHEP) over WebRTC on 8889, ICE on UDP 8189; RTSP on 8554
-# serves players such as VLC.
+# serves players such as VLC. The API, on loopback only, is what the launcher
+# (scripts/dev-stack.mjs) reads the path list from, at 127.0.0.1:9997.
+api: true
+apiAddress: 127.0.0.1:9997
 rtmp: false
 hls: false
 srt: false

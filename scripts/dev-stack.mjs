@@ -39,6 +39,7 @@ import { fileURLToPath } from 'node:url';
 /** The checkout this file is in, without a trailing slash. */
 export const ROOT = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
 export const MAVLINK2REST = 'http://127.0.0.1:8088';
+export const MEDIAMTX_API = 'http://127.0.0.1:9997';
 
 /** @type {Service[]} */
 export const SERVICES = [
@@ -64,6 +65,7 @@ export const SERVICES = [
     ports: [
       { proto: 'tcp', port: 8554 },
       { proto: 'tcp', port: 8889 },
+      { proto: 'tcp', port: 9997 },
       { proto: 'udp', port: 8000 },
       { proto: 'udp', port: 8001 },
       { proto: 'udp', port: 8189 },
@@ -85,6 +87,19 @@ export const SERVICES = [
     up: () => tcpAccepts(5173),
     upWithinMs: 30000,
     addresses: [['gcscode', 'http://localhost:5173/']],
+  },
+  {
+    // Up when MediaMTX lists drone-1 as ready: the page loaded, drew, got
+    // telemetry and published. Its page would be a second publisher, and the
+    // stream's addresses are mediamtx's, so it has none of its own.
+    name: 'camera-sim',
+    command: join(ROOT, 'tools/camera-sim/run.sh'),
+    args: [],
+    cwd: ROOT,
+    ports: [{ proto: 'tcp', port: 5174 }],
+    up: () => streamReady(MEDIAMTX_API, 'drone-1'),
+    upWithinMs: 90000,
+    addresses: [],
   },
 ];
 
@@ -453,6 +468,23 @@ export async function fetchMessage(baseUrl, name) {
 /** True when mavlink2rest at `baseUrl` has seen a HEARTBEAT from vehicle 1, component 1. */
 export async function hasHeartbeat(baseUrl) {
   return (await fetchMessage(baseUrl, 'HEARTBEAT'))?.type === 'HEARTBEAT';
+}
+
+/**
+ * True when MediaMTX at `baseUrl` lists the path `name` as ready (it has a
+ * publisher). An error status, a non-JSON body and a network error are false.
+ */
+export async function streamReady(baseUrl, name) {
+  try {
+    const response = await fetch(`${baseUrl}/v3/paths/list`, {
+      signal: AbortSignal.timeout(PROBE_MS * 2),
+    });
+    if (!response.ok) return false;
+    const { items } = JSON.parse(await response.text());
+    return items.some((item) => item.name === name && item.ready === true);
+  } catch {
+    return false;
+  }
 }
 
 /** The names in a field mavlink2rest renders as `A | B | C`. */
