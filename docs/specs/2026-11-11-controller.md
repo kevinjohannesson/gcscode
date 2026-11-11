@@ -53,7 +53,7 @@ Decisions marked _(Owner.)_ were made by the owner in the brainstorm. _(My call.
 - **Worker:** a session that runs one PR, or a sequence of PRs on one area, in its own worktree, whether a controller or the owner started it.
 - **Subagent:** what a worker dispatches: implementers and reviewers.
 
-Superpowers' `subagent-driven-development` calls the session that dispatches subagents "the controller". In gcscode that session is a worker; superpowers' wording stays as it is. `CLAUDE.md`, the `review-loop` skill and the two agent files say "worker" (or "the session that dispatched you") where they mean the PR's session. _(My call.)_
+Superpowers' `subagent-driven-development` calls the session that dispatches subagents "the controller". In gcscode that session is a worker; superpowers' wording stays as it is. `CLAUDE.md`, the `review-loop` skill and the two agent files say "worker" (or "the session that dispatched you") where they mean the PR's session. _(Owner.)_
 
 ### The skill
 
