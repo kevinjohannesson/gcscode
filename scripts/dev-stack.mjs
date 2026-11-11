@@ -21,7 +21,8 @@ import { fileURLToPath } from 'node:url';
  * @property {string[]} args
  * @property {string} cwd
  * @property {Port[]} ports
- * @property {() => Promise<boolean>} up a throw counts as false
+ * @property {() => Promise<boolean | { failure: string }>} up truthy: up; falsy or a throw:
+ *   not yet; `{ failure }`: fails the service at once with that message
  * @property {number} upWithinMs counted from launch
  * @property {[label: string, url: string][]} addresses
  */
@@ -89,15 +90,15 @@ export const SERVICES = [
     addresses: [['gcscode', 'http://localhost:5173/']],
   },
   {
-    // Up when MediaMTX lists drone-1 as ready: the page loaded, drew, got
-    // telemetry and published. Its page would be a second publisher, and the
-    // stream's addresses are mediamtx's, so it has none of its own.
+    // Up when drone-1's publisher is the page run.sh marked (publisher=headless):
+    // it loaded, drew, got telemetry and published. Any other publisher fails
+    // the launch. The stream's addresses are mediamtx's, so it has none of its own.
     name: 'camera-sim',
     command: join(ROOT, 'tools/camera-sim/run.sh'),
     args: [],
     cwd: ROOT,
     ports: [{ proto: 'tcp', port: 5174 }],
-    up: () => streamReady(MEDIAMTX_API, 'drone-1'),
+    up: () => cameraSimUp(MEDIAMTX_API),
     upWithinMs: 90000,
     addresses: [],
   },
@@ -267,7 +268,14 @@ export async function runStack({ services, mavlink2rest, timings }) {
 
   async function waitUntilUp(r) {
     while (!ending()) {
-      if (await isUp(r.service)) {
+      const result = await isUp(r.service);
+      if (result && typeof result === 'object') {
+        if (ending()) return;
+        clearTimeout(r.deadline);
+        fail(r, result.failure);
+        return;
+      }
+      if (result) {
         if (ending()) return;
         clearTimeout(r.deadline);
         say(`${r.service.name} is up (${((Date.now() - launchedAt) / 1000).toFixed(1)} s)`);
@@ -470,21 +478,41 @@ export async function hasHeartbeat(baseUrl) {
   return (await fetchMessage(baseUrl, 'HEARTBEAT'))?.type === 'HEARTBEAT';
 }
 
-/**
- * True when MediaMTX at `baseUrl` lists the path `name` as ready (it has a
- * publisher). An error status, a non-JSON body and a network error are false.
- */
-export async function streamReady(baseUrl, name) {
+const CAMERA_SIM_TAKEN =
+  "drone-1 is already being published by something other than camera-sim's headless page, " +
+  'most likely a camera-sim tab left open. Close it, then run pnpm dev:sitl again.';
+
+/** The parsed JSON of `baseUrl` + `path`, or undefined on an error status, a non-JSON body or a network error. */
+async function getJson(baseUrl, path) {
   try {
-    const response = await fetch(`${baseUrl}/v3/paths/list`, {
+    const response = await fetch(`${baseUrl}${path}`, {
       signal: AbortSignal.timeout(PROBE_MS * 2),
     });
-    if (!response.ok) return false;
-    const { items } = JSON.parse(await response.text());
-    return items.some((item) => item.name === name && item.ready === true);
+    if (!response.ok) return undefined;
+    return JSON.parse(await response.text());
   } catch {
-    return false;
+    return undefined;
   }
+}
+
+/**
+ * Whether camera-sim's headless page is publishing `drone-1` to MediaMTX at
+ * `baseUrl`: true when it is, false when not yet (the path is not listed or not
+ * ready, the session is not listed, or the API gave an error), and
+ * `{ failure }` when anything else publishes it. Never throws.
+ *
+ * @returns {Promise<boolean | { failure: string }>}
+ */
+export async function cameraSimUp(baseUrl) {
+  const paths = await getJson(baseUrl, '/v3/paths/list');
+  const path = paths?.items?.find((item) => item.name === 'drone-1' && item.ready === true);
+  if (!path) return false;
+  if (path.source?.type !== 'webRTCSession') return { failure: CAMERA_SIM_TAKEN };
+  const sessions = await getJson(baseUrl, '/v3/webrtcsessions/list');
+  const session = sessions?.items?.find((item) => item.id === path.source.id);
+  if (!session) return false;
+  const marked = new URLSearchParams(session.query).get('publisher') === 'headless';
+  return marked || { failure: CAMERA_SIM_TAKEN };
 }
 
 /** The names in a field mavlink2rest renders as `A | B | C`. */
@@ -536,7 +564,7 @@ function relay(from, to, prefix, lastLines) {
 
 async function isUp(service) {
   try {
-    return Boolean(await service.up());
+    return await service.up();
   } catch {
     return false;
   }

@@ -20,7 +20,7 @@ pnpm --filter mediamtx start
 
 or `./run.sh` from this folder. It runs the installed binary with this folder's `mediamtx.yml`, and Ctrl-C stops it. `pnpm dev:sitl` at the repo root runs it with SITL and the dev server. If setup hasn't run, it says so and names the command.
 
-The config keeps MediaMTX's defaults and turns off the servers nothing uses (RTMP, HLS, SRT and MoQ). What stays on:
+The config keeps MediaMTX's defaults and turns off the servers nothing uses (RTMP, HLS, SRT and MoQ), and changes one default: a path keeps its first publisher, so a second publisher of `drone-1` is refused instead of taking it over, and MediaMTX drops a publisher gone silent after about 30 s, which frees its path. What stays on:
 
 | Port           | Serves                                                                       |
 | -------------- | ---------------------------------------------------------------------------- |
