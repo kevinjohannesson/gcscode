@@ -55,7 +55,7 @@ Decisions marked _(Owner.)_ were made by the owner in the brainstorm. _(My call.
 
 Superpowers' `subagent-driven-development` calls the session that dispatches subagents "the controller". In gcscode that session is a worker; superpowers' wording stays as it is. `CLAUDE.md`, the `review-loop` skill and the two agent files say "worker" (or "the session that dispatched you") where they mean the PR's session. _(Owner.)_
 
-Besides those four, two living files use "controller" for the PR's session: `.claude/agent-config.json`'s `$comment` and `docs/out-of-scope.md` ([Changes to existing files](#changes-to-existing-files)). Earlier ADRs, specs and plans keep their wording as the historical record (`.claude/rules/docs.md`), so in them, as in superpowers, "the controller" is the worker. `subagent-driven-development` also keeps a ledger of its own, which is the worker's, not the controller's [ledger](#ledger).
+Besides those four, three living files use "controller" for the PR's session: `.claude/agent-config.json`'s `$comment`, `docs/out-of-scope.md` and the comment above `.claude/handoffs/` in `.gitignore` ([Changes to existing files](#changes-to-existing-files)). Earlier ADRs, specs and plans keep their wording as the historical record (`.claude/rules/docs.md`), as do the shipped entries in `docs/roadmap.md`, so in them, as in superpowers, "the controller" is the worker. `subagent-driven-development` also keeps a ledger of its own, which is the worker's, not the controller's [ledger](#ledger).
 
 ### The skill
 
@@ -134,16 +134,16 @@ After handling a worker's report, the controller marks that session's sidebar do
 The brief template is the original's, with these changes:
 
 - The worker may talk to the owner.
-- Under HOW TO WORK, the brief names the skills (`superpowers:writing-plans`, `superpowers:subagent-driven-development`, the `review-loop` skill) and the branch prefix (`feat/`, `spec/`, `adr/`). It restates `CLAUDE.md`'s three worktree rules, which that file requires of any dispatch that commits in a worktree.
+- Under HOW TO WORK, the brief names the skills (`superpowers:writing-plans`, `superpowers:subagent-driven-development`, the `review-loop` skill) and the branch prefix (`feat/`, `spec/`, `adr/`). It restates `CLAUDE.md`'s three worktree rules, which that file requires of any dispatch that commits in a worktree, and says that in superpowers and in earlier documents "the controller" means the worker ([Names](#names)).
 - Under WHEN STUCK, it adds "a first-of-its-kind decision the brief does not settle, or a cost, licence or terms question".
 - The brief lists the spec's Known unknowns and deferred review findings that the PR carries, which the worker's plan lists as checklist items (`.claude/rules/docs.md`).
-- A brief for a spec or ADR's review loop says that a finding which would change one of the document's decisions is not fixed: the worker keeps it with a `kept:` line and reports it as a QUESTION. That is the route by which [Merging](#merging) sends such a review to the owner.
+- A brief for a spec or ADR's review loop says that a finding which would change one of the document's decisions is not fixed: the worker keeps it with a `kept:` line and reports it as a QUESTION. That is the route by which [Merging](#merging) sends such a review to the owner. The test: the loop fixes wording, accuracy, consistency, broken links and anchors, and claims about the repo it checks with a command; a fix that would change anything the owner approved is a decision, whether the spec marks it as the owner's, as the writing session's or not at all, and so is a fix the worker is unsure about.
 
 The report format is the original's. When a worker ends a turn, the app forwards about the first 400 characters of its report to the controller, so STATUS, the PR and any QUESTION come first. The controller reads the worker's transcript only when that is not enough.
 
 ### Ledger
 
-One ledger per initiative is the controller's memory across compaction, in the original's shape: parameters, the owner's decisions, the workers table, open questions (numbered as above), parked items and follow-ups, and a log. It lives beside the handoff notes in the main checkout's `.claude/handoffs/` (gitignored), unless [Known unknown 3](#known-unknowns) finds the controller cannot write there. The controller updates it after every event.
+One ledger per initiative is the controller's memory across compaction, in the original's shape: parameters, the owner's decisions, the workers table, open questions (numbered as above), parked items and follow-ups, and a log. It lives beside the handoff notes in the main checkout's `.claude/handoffs/` (gitignored), unless [Known unknown 3](#known-unknowns) finds the controller cannot write there. Its file name marks it as a ledger, and `CLAUDE.md` § Sessions' "start from the latest note" skips ledgers, so no session starts from the controller's ledger. The controller updates it after every event.
 
 ### Cost
 
@@ -151,10 +151,11 @@ The final report states the initiative's tokens per session (the controller, and
 
 ### Changes to existing files
 
-- **`CLAUDE.md`** (currently 10.9k characters, over the 10k target): § Sessions says one controller per initiative and points to the skill; "controller" becomes "worker" where it means a PR's session; § Branching and merging names the controller's merge rule; § Sessions' "When working unattended, don't ask questions" makes an exception for a worker that a controller started, which asks it the questions [Precedent](#precedent) and its brief send there. The net change in size must be zero or less.
+- **`CLAUDE.md`** (currently 10.9k characters, over the 10k target): § Sessions says one controller per initiative and points to the skill; "controller" becomes "worker" where it means a PR's session; § Branching and merging names the controller's merge rule; § Sessions' "When working unattended, don't ask questions" makes an exception for a worker that a controller started, which asks it the questions [Precedent](#precedent) and its brief send there; § Sessions' "start from the latest note" skips ledgers ([Ledger](#ledger)). The net change in size must be zero or less.
 - **`.claude/skills/review-loop/SKILL.md`:** "controller" becomes "worker" where it means the PR's session; Merging points to the controller's rule; the End-of-PR report says that a worker a controller started reports to it in the brief's format, STATUS, the PR and any QUESTION first ([Briefs and reports](#briefs-and-reports)).
 - **`.claude/agents/*.md`:** "Return to the controller" becomes "Return to the session that dispatched you".
 - **`.claude/agent-config.json`:** in the `$comment`, "the controller's dispatch" becomes "the worker's dispatch".
+- **`.gitignore`:** the comment "Controller handoff notes between sessions" becomes "Handoff notes between sessions".
 - **`docs/out-of-scope.md`:** the three agentic-team deferrals that say "the controller" for the PR's session (enforcing reviewer auto-dispatch, enforcing repo-relative paths, enforcing the routing heuristic) say "the worker".
 - **`docs/specs/2026-10-22-review-loop-v2.md`:** a one-line breadcrumb at PR 2's "Session hygiene" ("One controller session per PR or iteration") pointing to this spec (`.claude/rules/docs.md`).
 - **Outside the repo:** the owner's memory that lets the controller merge points to the skill instead of holding the rule.
