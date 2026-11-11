@@ -8,6 +8,8 @@
 # `page: …`) and Chrome's fatal errors are printed.
 #
 # macOS's bash 3.2: no `wait -n`, so the script polls its two PIDs instead.
+# The polls' sleeps send bash's stderr to /dev/null: when a stop signal kills
+# one, bash would print `Terminated: 15` there on every stop.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -61,7 +63,7 @@ VITE_PID=$!
 # Vite binds `localhost` as ::1 only, which 127.0.0.1 never reaches.
 until nc -z localhost "${PORT}" 2>/dev/null; do
   kill -0 "${VITE_PID}" 2>/dev/null || exited "camera-sim's dev server" "${VITE_PID}"
-  sleep 0.5
+  { sleep 0.5; } 2>/dev/null
 done
 
 # Only the page's console lines and Chrome's fatal errors get through.
@@ -74,5 +76,5 @@ CHROME_PID=$!
 while true; do
   kill -0 "${CHROME_PID}" 2>/dev/null || exited Chrome "${CHROME_PID}"
   kill -0 "${VITE_PID}" 2>/dev/null || exited "camera-sim's dev server" "${VITE_PID}"
-  sleep 0.5
+  { sleep 0.5; } 2>/dev/null
 done

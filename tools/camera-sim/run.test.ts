@@ -130,6 +130,8 @@ async function within<T>(ms: number, promise: Promise<T>): Promise<T> {
 interface StartOptions {
   readonly chromeExitCode?: number;
   readonly chrome?: (dir: string) => string;
+  /** A port to use instead of a free one. */
+  readonly port?: number;
   readonly beforeStart?: (port: number) => Promise<void>;
 }
 
@@ -141,7 +143,7 @@ async function start(options: StartOptions = {}): Promise<Run> {
   const stub = join(dir, 'chrome');
   writeFileSync(stub, stubChrome(options.chromeExitCode));
   chmodSync(stub, 0o755);
-  const port = await freePort();
+  const port = options.port ?? (await freePort());
   await options.beforeStart?.(port);
 
   const child = spawn(RUN_SH, [], {
@@ -219,6 +221,8 @@ describe('run.sh', { timeout: TIMEOUT_MS }, () => {
       const { code } = await within(5000, run.exited);
 
       expect(code).not.toBe(0);
+      // Bash's notice for a foreground job a signal killed would show on every stop.
+      expect(run.err()).not.toMatch(/Terminated|Hangup/);
       expect(alive(chromePid)).toBe(false);
       expect(await accepts(run.port)).toBe(false);
       expect(readdirSync(run.tmp)).toEqual([]);
@@ -243,6 +247,18 @@ describe('run.sh', { timeout: TIMEOUT_MS }, () => {
     expect(run.err()).toBe(
       `ERROR: something already listens on TCP ${run.port} (another camera-sim?). Stop it first, or set CAMERA_SIM_PORT to another port.\n`,
     );
+    expect(existsSync(stubFile(run, 'pid'))).toBe(false);
+    expect(readdirSync(run.tmp)).toEqual([]);
+  });
+
+  it('a dev server that exits while starting stops it before Chrome starts', async () => {
+    // nc rejects port 99999, so the port check passes, and Vite cannot listen
+    // there: it exits during the wait for it.
+    const run = await start({ port: 99999 });
+    const { code } = await run.exited;
+
+    expect(code).toBe(1);
+    expect(run.err()).toContain("ERROR: camera-sim's dev server exited (code ");
     expect(existsSync(stubFile(run, 'pid'))).toBe(false);
     expect(readdirSync(run.tmp)).toEqual([]);
   });

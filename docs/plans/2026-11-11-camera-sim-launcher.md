@@ -333,11 +333,16 @@ Each item with why, and what brings it back.
   - **A fix would only fix the "up" line.** A marker in the headless page's WHIP address, read back through MediaMTX's API, would make the "up" line accurate. The two pages would still fight over the path.
   - **MediaMTX's `overridePublisher: no` is the lever for the fight.** It keeps the path with the first publisher.
   - **Revisit when** a forgotten tab costs time again under the launcher, or when two publishers of one path are expected (camera-sim on several machines).
+- **Vite's banner prints the page's address** (`➜ Local: http://localhost:5174/`) under `camera-sim |`. Decision 9 leaves that address out, because opening it starts a second publisher. `--logLevel warn` would hide the banner, but also Vite's info lines, such as the dependency re-optimization that explained a slow first load. Revisit when someone opens the page from that line and starts a second publisher.
 - **`drone-1` going offline after "All up" goes unnoticed,** as arducopter dying does (PR #53's deferrals). Revisit with that one.
 - **A SIGKILL leaves the Chrome profile in `TMPDIR`** (decision 4). Revisit if the folders pile up.
+- **Run alone, `run.sh` has no deadline for Vite's bind.** If Vite lives but never answers on its port, the wait loop polls forever. Under the launcher, camera-sim's 90 s deadline (decision 8) covers it. Revisit when a hand-run `pnpm --filter camera-sim start` hangs without Chrome starting.
+- **One stop took over 5 s, and did not recur.** It was a stop while Vite started, with a mutation applied, right after `vite.config.ts` changed. Later runs, with the mutation and without it, never repeated it. The likely cause is Vite re-optimizing its dependencies after the config change. Under the launcher, a stop that slow ends in its SIGKILL, which leaves the profile behind. Revisit when `run.test.ts`'s stop tests time out on a local run.
+- **A signal in the first milliseconds can leave a Vite or a profile behind.** Between `pnpm … &` and `VITE_PID=$!`, or inside `$(mktemp)` once the folder exists, the trap runs before the script has recorded what to stop. Under the launcher, the group signal stops Vite anyway. Closing the gap needs traps that only set a flag, which the loops check. Revisit when a stop leaves a Vite or a profile folder behind.
 - **`CAMERA_SIM_PORT` set in the shell** makes camera-sim listen elsewhere while the launcher checks 5174. Revisit if anyone sets it for good.
 - **Untested:**
   - a locked screen or a sleeping display;
   - runs longer than H2;
   - Apple Silicon;
-  - several vehicles.
+  - several vehicles;
+  - the camera-sim entry's `up`, `() => streamReady(MEDIAMTX_API, 'drone-1')`. A test would need port 9997 or a seam, and H1 exercised it. Revisit when the entry's up check changes.

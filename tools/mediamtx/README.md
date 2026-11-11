@@ -37,6 +37,7 @@ To run a second MediaMTX beside one already on these ports, move it with MediaMT
 ```sh
 MTX_RTSPADDRESS=:18554 MTX_RTPADDRESS=:18000 MTX_RTCPADDRESS=:18001 \
   MTX_WEBRTCADDRESS=:18889 MTX_WEBRTCLOCALUDPADDRESS=:18189 \
+  MTX_APIADDRESS=127.0.0.1:19997 \
   pnpm --filter mediamtx start
 ```
 
