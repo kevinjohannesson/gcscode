@@ -55,6 +55,8 @@ Decisions marked _(Owner.)_ were made by the owner in the brainstorm. _(My call.
 
 Superpowers' `subagent-driven-development` calls the session that dispatches subagents "the controller". In gcscode that session is a worker; superpowers' wording stays as it is. `CLAUDE.md`, the `review-loop` skill and the two agent files say "worker" (or "the session that dispatched you") where they mean the PR's session. _(Owner.)_
 
+Besides those four, two living files use "controller" for the PR's session: `.claude/agent-config.json`'s `$comment` and `docs/out-of-scope.md` ([Changes to existing files](#changes-to-existing-files)). Earlier ADRs, specs and plans keep their wording as the historical record (`.claude/rules/docs.md`), so in them, as in superpowers, "the controller" is the worker. `subagent-driven-development` also keeps a ledger of its own, which is the worker's, not the controller's [ledger](#ledger).
+
 ### The skill
 
 `.claude/skills/controller/SKILL.md`, a project skill. The owner invokes it at the start of a fresh session. It holds everything in this Design section that the controller must do. It is adapted from the owner's original, whose text goes to the builder with the implementation brief. The original keeps:
@@ -76,9 +78,9 @@ The terminal mode (`claude --bg`, `claude agents`, `claude logs`) and the agent-
 4. **Merge the spec,** per [Merging](#merging).
 5. **Dispatch.** The controller writes the dispatch plan into its ledger and starts the workers, at most three at a time. _(My call.)_ It shows the owner the plan first only when the plan holds a first-of-its-kind decision the brainstorm did not settle. Otherwise it dispatches straight away. _(My call, from the owner's "a high degree of ownership".)_ Each worker's worktree is cut from master, or from the branch it builds on. Workers run on the controller's model, or a cheaper one for mechanical work. Brainstorming's step after approval is `superpowers:writing-plans`. In gcscode each worker runs it for its own PR, and the controller writes no superpowers plan itself.
 6. **Build.** Each worker runs `superpowers:writing-plans`, then `superpowers:subagent-driven-development`, then the `review-loop` skill, and opens its draft PR. Its questions go to the controller first. The owner may open any worker and talk to it directly. _(Owner.)_
-7. **Check the report.** Every acceptance criterion needs evidence (command and result), and `git diff --stat <base>..<branch>` must stay within the files the worker owns, or explain why not. The controller reads reports and stats, never the diffs. The review loop is the independent review. Gaps go back to the same worker; after three rounds the controller starts a fresh worker or asks the owner.
-8. **Merge** each PR, per [Merging](#merging). After a merge, the controller tells the workers that depend on it to merge master into their branch. That is a merge, not a rebase, because a PR branch that has reviews is never force-pushed (`CLAUDE.md`).
-9. **Close.** The controller offers once to archive the initiative's finished sessions and remove their worktrees. _(Owner.)_ Its final report gives what merged, the commands that start it, what was run to check it works (for UI work, a screenshot), the [cost](#cost), the decisions it took for the owner, and follow-ups. It promotes decisions per [Memory](#memory-where-decisions-go), writes the handoff note and copies the workers' notes in (`CLAUDE.md` § Sessions).
+7. **Check the report.** Every acceptance criterion needs evidence (command and result), and `git diff --stat origin/<base>...<branch>`, after a fetch, must stay within the files the worker owns, or explain why not. The three dots give the branch's own changes since it left its base; two dots would compare the trees and list every PR merged since. The controller reads reports and stats, never the diffs. The review loop is the independent review. Gaps go back to the same worker; after three rounds the controller starts a fresh worker or asks the owner.
+8. **Merge** each PR, per [Merging](#merging). After a merge, the controller fast-forwards master in the main checkout (`git pull --ff-only` there, as is done after each merge today), because the app cuts a new worker's worktree from a local branch. Then it tells the workers that depend on it to merge master into their branch. That is a merge, not a rebase, because a PR branch that has reviews is never force-pushed (`CLAUDE.md`).
+9. **Close.** The controller offers once to archive the initiative's finished sessions and remove their worktrees. _(Owner.)_ Its final report gives what merged, the commands that start it, what was run to check it works (for UI work, a screenshot), the [cost](#cost), the decisions it took for the owner, and follow-ups. It promotes decisions per [Memory](#memory-where-decisions-go), writes the handoff note and copies the workers' notes into the main checkout's `.claude/handoffs/` from the app's side-session notes folder, where the workers leave them ([Known unknown 3](#known-unknowns)).
 
 **Delegated brainstorms are an experiment.** When a sub-topic needs its own design, the controller may give it to a worker that runs `superpowers:brainstorming` with the controller in the owner's place. The controller answers from what the owner agreed and passes first-of-its-kind decisions up. _(My call; the owner: "we'll have to see".)_
 
@@ -111,7 +113,7 @@ A decision lives where it binds, and the strongest place available wins:
 2. **The repo's docs:** an ADR for a decision with reasoning behind it, a path-scoped rule in `.claude/rules/` that loads when a session works on those files, or the spec.
 3. **The controller's ledger:** calls not yet written into the repo, and the owner's preferences for this initiative.
 
-At close, the controller has workers move ledger decisions that bind future work up to 1 or 2. Its consistent "personality" is its skill: the same instructions and the same written decisions lead to the same conclusions. The owner's auto-memory keeps holding their preferences across initiatives. _(Owner: consistency across sessions; my call: the ladder.)_
+At close, the controller has workers move ledger decisions that bind future work up to 1 or 2. Its consistent "personality" is its skill: the same instructions and the same written decisions lead to the same conclusions. The owner's auto-memory keeps holding their preferences across initiatives. _(Owner: consistency across sessions; my call: the ladder.)_ A spec that has merged takes them only through a successor spec, because a merged spec is the historical record (`.claude/rules/docs.md`).
 
 ### Merging
 
@@ -134,12 +136,14 @@ The brief template is the original's, with these changes:
 - The worker may talk to the owner.
 - Under HOW TO WORK, the brief names the skills (`superpowers:writing-plans`, `superpowers:subagent-driven-development`, the `review-loop` skill) and the branch prefix (`feat/`, `spec/`, `adr/`). It restates `CLAUDE.md`'s three worktree rules, which that file requires of any dispatch that commits in a worktree.
 - Under WHEN STUCK, it adds "a first-of-its-kind decision the brief does not settle, or a cost, licence or terms question".
+- The brief lists the spec's Known unknowns and deferred review findings that the PR carries, which the worker's plan lists as checklist items (`.claude/rules/docs.md`).
+- A brief for a spec or ADR's review loop says that a finding which would change one of the document's decisions is not fixed: the worker keeps it with a `kept:` line and reports it as a QUESTION. That is the route by which [Merging](#merging) sends such a review to the owner.
 
 The report format is the original's. When a worker ends a turn, the app forwards about the first 400 characters of its report to the controller, so STATUS, the PR and any QUESTION come first. The controller reads the worker's transcript only when that is not enough.
 
 ### Ledger
 
-One ledger per initiative is the controller's memory across compaction, in the original's shape: parameters, the owner's decisions, the workers table, open questions (numbered as above), parked items and follow-ups, and a log. It lives beside the handoff notes in the main checkout's `.claude/handoffs/` (gitignored). The controller updates it after every event.
+One ledger per initiative is the controller's memory across compaction, in the original's shape: parameters, the owner's decisions, the workers table, open questions (numbered as above), parked items and follow-ups, and a log. It lives beside the handoff notes in the main checkout's `.claude/handoffs/` (gitignored), unless [Known unknown 3](#known-unknowns) finds the controller cannot write there. The controller updates it after every event.
 
 ### Cost
 
@@ -147,9 +151,12 @@ The final report states the initiative's tokens per session (the controller, and
 
 ### Changes to existing files
 
-- **`CLAUDE.md`** (currently 10.9k characters, over the 10k target): § Sessions says one controller per initiative and points to the skill; "controller" becomes "worker" where it means a PR's session; § Branching and merging names the controller's merge rule. The net change in size must be zero or less.
-- **`.claude/skills/review-loop/SKILL.md`:** "controller" becomes "worker" where it means the PR's session; Merging points to the controller's rule.
+- **`CLAUDE.md`** (currently 10.9k characters, over the 10k target): § Sessions says one controller per initiative and points to the skill; "controller" becomes "worker" where it means a PR's session; § Branching and merging names the controller's merge rule; § Sessions' "When working unattended, don't ask questions" makes an exception for a worker that a controller started, which asks it the questions [Precedent](#precedent) and its brief send there. The net change in size must be zero or less.
+- **`.claude/skills/review-loop/SKILL.md`:** "controller" becomes "worker" where it means the PR's session; Merging points to the controller's rule; the End-of-PR report says that a worker a controller started reports to it in the brief's format, STATUS, the PR and any QUESTION first ([Briefs and reports](#briefs-and-reports)).
 - **`.claude/agents/*.md`:** "Return to the controller" becomes "Return to the session that dispatched you".
+- **`.claude/agent-config.json`:** in the `$comment`, "the controller's dispatch" becomes "the worker's dispatch".
+- **`docs/out-of-scope.md`:** the three agentic-team deferrals that say "the controller" for the PR's session (enforcing reviewer auto-dispatch, enforcing repo-relative paths, enforcing the routing heuristic) say "the worker".
+- **`docs/specs/2026-10-22-review-loop-v2.md`:** a one-line breadcrumb at PR 2's "Session hygiene" ("One controller session per PR or iteration") pointing to this spec (`.claude/rules/docs.md`).
 - **Outside the repo:** the owner's memory that lets the controller merge points to the skill instead of holding the rule.
 
 ## Validation
@@ -171,15 +178,20 @@ Not applicable: an agentic-process change with no effect on the extension API or
 
 Under the agentic-team deferrals, add: **Agent teams.** Implementation runs in app sessions with their own worktrees. Agent teams share one checkout and cannot be resumed. Trigger to revisit: reviews move off GitHub, or agent teams gain per-teammate worktrees and resumption.
 
+Under the same heading, add: **A PR shepherd on a timer.** Nothing keeps open PRs up to date with master, retries flaky tests or merges when checks are green. Trigger to revisit: CI exists.
+
 ## `docs/roadmap.md` propagation
 
-Under Agentic team architecture, add **Controller role**, linking this spec, as queued. It moves to shipped when the skill lands.
+- Under Agentic team architecture, add **Controller role**, linking this spec, as queued. It moves to shipped when the skill lands.
+- Under the same heading, as queued, add the two projects the [non-goals](#non-goals) leave for later: **Reviews off GitHub** and **CI and acceptance checks against SITL**.
+- Under Feature extensions, as coming, add **UI baseline**: shadcn, removing the spike and proof-of-concept extensions, and a basic app shell. It is the next initiative and the controller's first real use ([Validation](#validation)).
 
 ## Known unknowns
 
 1. **Two `controller` skills.** The owner's claude.ai account syncs the original skill into every session as `anthropic-skills:controller`, with the same description as the new project skill, so either could fire. Resolved: the project skill keeps the name `controller`, and once it lands the owner removes the original from their claude.ai skills. The builder takes the original's text from the implementation brief, not from the synced copy. _(Owner.)_
 2. **Merging specs and ADRs.** Merging one approves a design, and the owner's standing rule asked first. Resolved: see [Merging](#merging). _(Owner.)_
-3. **Where the ledger can be written.** The desktop app refuses Write and Edit calls from a `.claude/worktrees/` session into the main checkout's `.claude/`. The owner's memory says Bash writes there went through. The builder verifies this and picks a location that works.
+3. **Where the ledger can be written.** The desktop app refuses Write and Edit calls from a `.claude/worktrees/` session into the main checkout's `.claude/`. The owner's memory says Bash writes there went through. Those get around the app's guard rather than being allowed by it, so they may stop working. The builder verifies this and picks a location that works. Workers in `.claude/worktrees/` meet the same guard, so they leave their handoff notes in the app's side-session notes folder, where the refusal points them, and the controller copies them in at the close ([work cycle](#the-work-cycle), step 9).
 4. **Measuring cost.** The app's usage tool reports plan limits and context fill, not per-session token totals. The 2026-11-10 analysis measured from session transcripts. The builder picks the method: a small script over the transcripts, or the plan-limit percentage from start to close as a rough fallback.
 5. **The forwarded report.** About 400 characters may be too few for the controller to act on without reading the worker's transcript, which costs context. The look back reports how often it had to.
 6. **A detached controller checkout in the app.** The app shows each session's branch and PR. Whether a detached head confuses that display is unchecked.
+7. **The app's question box and sidebar tools** (PR #56 RT-5). [Questions to the owner](#questions-to-the-owner) and [The sidebar](#the-sidebar) rest on app behaviour this spec did not check: the end-of-turn question holds at most 100 characters; the app's end-of-turn instructions tell a session not to repeat an offer the owner passed over unless what it acts on has changed; and marking another session's dot read or completed asks the owner first in the default permission mode. How the controller meets "repeated word for word" and problem 1 under these limits is open, and both sections stand as the owner decided them until the owner rules.
