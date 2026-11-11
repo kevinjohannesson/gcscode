@@ -94,6 +94,7 @@ The spec leaves these open. _Measured_ facts were checked on this Mac on 2026-11
    A default that `run.sh` exported would beat a user's `.env.local`, and the launcher sets no per-service environment. The config is the one place where `.env.local` still wins. The default also serves `pnpm --filter camera-sim dev`. This is what the roadmap's "that launch can also default `CAMERA_SIM_TERRAIN_DIR`" asked for.
 
 7. **Camera-sim is up when MediaMTX lists `drone-1` as ready.** The check is `GET http://127.0.0.1:9997/v3/paths/list`: an item with `name` `drone-1` and `ready` `true`.
+   - Since PR #55, only the marked page counts as up ([plan](2026-11-11-camera-sim-single-publisher.md), decision 5).
    - It sees the whole chain: page loaded, WebGL, telemetry and WHIP. So "All up." means the Video panel has a stream, which a check of 5174 cannot say.
    - `tools/mediamtx/mediamtx.yml` turns MediaMTX's API on, on loopback only: `api: true`, `apiAddress: 127.0.0.1:9997`. TCP 9997 joins mediamtx's port check.
    - _Measured:_
@@ -328,12 +329,13 @@ Each item with why, and what brings it back.
 
 - **Imagery status and the ground check stay on the status page only.** The output carries page errors, telemetry, terrain and WHIP state (decision 5). Revisit when a ground MISMATCH or failing imagery goes unseen under the launcher.
 - **Another camera-sim page publishing `drone-1`** (a visible tab left open) also satisfies the up check, and the two pages take the path from each other. The README says never to open the page while a headless one runs.
+  - **Fixed in PR #55** ([plan](2026-11-11-camera-sim-single-publisher.md)). MediaMTX keeps `drone-1` with its first publisher, and the launcher counts only the marked headless page as camera-sim. The owner asked for the fix after #54 merged, which fired the trigger below.
   - **It happened** in the first cold start of the hand checks. A tab left open in the desktop app's browser pane published first, and the launcher counted it as camera-sim being up.
   - **Kept deferred** on the controller's recommendation, which the owner left standing.
   - **A fix would only fix the "up" line.** A marker in the headless page's WHIP address, read back through MediaMTX's API, would make the "up" line accurate. The two pages would still fight over the path.
   - **MediaMTX's `overridePublisher: no` is the lever for the fight.** It keeps the path with the first publisher.
   - **Revisit when** a forgotten tab costs time again under the launcher, or when two publishers of one path are expected (camera-sim on several machines).
-- **Vite's banner prints the page's address** (`➜ Local: http://localhost:5174/`) under `camera-sim |`. Decision 9 leaves that address out, because opening it starts a second publisher. `--logLevel warn` would hide the banner, but also Vite's info lines, such as the dependency re-optimization that explained a slow first load. Revisit when someone opens the page from that line and starts a second publisher.
+- **Vite's banner prints the page's address** (`➜ Local: http://localhost:5174/`) under `camera-sim |`. Decision 9 leaves that address out, because opening it starts a second publisher. `--logLevel warn` would hide the banner, but also Vite's info lines, such as the dependency re-optimization that explained a slow first load. Revisit when someone opens the page from that line and starts a second publisher. Since PR #55, a page opened from that line is refused and does no harm.
 - **`drone-1` going offline after "All up" goes unnoticed,** as arducopter dying does (PR #53's deferrals). Revisit with that one.
 - **A SIGKILL leaves the Chrome profile in `TMPDIR`** (decision 4). Revisit if the folders pile up.
 - **Run alone, `run.sh` has no deadline for Vite's bind.** If Vite lives but never answers on its port, the wait loop polls forever. Under the launcher, camera-sim's 90 s deadline (decision 8) covers it. Revisit when a hand-run `pnpm --filter camera-sim start` hangs without Chrome starting.
