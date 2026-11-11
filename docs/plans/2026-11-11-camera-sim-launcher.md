@@ -327,7 +327,12 @@ The final cross-cutting review verifies each item.
 Each item with why, and what brings it back.
 
 - **Imagery status and the ground check stay on the status page only.** The output carries page errors, telemetry, terrain and WHIP state (decision 5). Revisit when a ground MISMATCH or failing imagery goes unseen under the launcher.
-- **Another camera-sim page publishing `drone-1`** (a visible tab left open) also satisfies the up check, and the two pages take the path from each other. The README says never to open the page while a headless one runs. Revisit if it happens: the up check could then compare the publisher's session with the headless page's.
+- **Another camera-sim page publishing `drone-1`** (a visible tab left open) also satisfies the up check, and the two pages take the path from each other. The README says never to open the page while a headless one runs.
+  - **It happened** in the first cold start of the hand checks. A tab left open in the desktop app's browser pane published first, and the launcher counted it as camera-sim being up.
+  - **Kept deferred** on the controller's recommendation, which the owner left standing.
+  - **A fix would only fix the "up" line.** A marker in the headless page's WHIP address, read back through MediaMTX's API, would make the "up" line accurate. The two pages would still fight over the path.
+  - **MediaMTX's `overridePublisher: no` is the lever for the fight.** It keeps the path with the first publisher.
+  - **Revisit when** a forgotten tab costs time again under the launcher, or when two publishers of one path are expected (camera-sim on several machines).
 - **`drone-1` going offline after "All up" goes unnoticed,** as arducopter dying does (PR #53's deferrals). Revisit with that one.
 - **A SIGKILL leaves the Chrome profile in `TMPDIR`** (decision 4). Revisit if the folders pile up.
 - **`CAMERA_SIM_PORT` set in the shell** makes camera-sim listen elsewhere while the launcher checks 5174. Revisit if anyone sets it for good.
