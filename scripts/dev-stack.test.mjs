@@ -801,7 +801,15 @@ test('cameraSimUp is false for an empty list', async () => {
 });
 
 test('cameraSimUp is false for a body of an unexpected shape', async () => {
-  const sessionsBodies = ['{"items": null}', '{"items": {}}', '{"items": 3}', '[]', 'null', '7'];
+  const sessionsBodies = [
+    '{"items": null}',
+    '{"items": {}}',
+    '{"items": 3}',
+    '{"items": [null]}',
+    '[]',
+    'null',
+    '7',
+  ];
   for (const body of ['{"items": null}', '{"items": {}}', '[]', 'null', '7', '"text"']) {
     const base = await serve({ '/v3/paths/list': body });
     assert.equal(await cameraSimUp(base), false, `paths body ${body}`);
@@ -812,6 +820,16 @@ test('cameraSimUp is false for a body of an unexpected shape', async () => {
   }
   const odd = await serve({ '/v3/paths/list': '{"items": [null, 3, "x"]}' });
   assert.equal(await cameraSimUp(odd), false, 'paths items that are not objects');
+});
+
+test('cameraSimUp fails for a session whose query is not a string', async () => {
+  for (const session of [{ id: 's1', query: [1] }, { id: 's1', query: 5 }, { id: 's1' }]) {
+    const base = await serve({
+      '/v3/paths/list': list(PATH),
+      '/v3/webrtcsessions/list': list(session),
+    });
+    assert.deepEqual(await cameraSimUp(base), { failure: CAMERA_SIM_TAKEN });
+  }
 });
 
 test('cameraSimUp is false for a body that is not JSON', async () => {

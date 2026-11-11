@@ -500,10 +500,13 @@ const itemsOf = (body) => (Array.isArray(body?.items) ? body.items : []);
 
 /**
  * Whether camera-sim's headless page is publishing `drone-1` to MediaMTX at
- * `baseUrl`: true when it is, false when not yet (the path is not listed or not
- * ready, the session is not listed, or the API gave an error), and
- * `{ failure }` when anything else publishes it. Never throws: a body of an
- * unexpected shape counts as not up yet.
+ * `baseUrl`: true when it is, false when not yet, and `{ failure }` when anything
+ * else publishes it. Never throws. Not yet: the API does not answer, gives an
+ * error status or a body that is not JSON; a list body has no `items` array or
+ * items that are not objects; the path is not listed or not ready; the session
+ * is not listed. A failure: a ready `drone-1` whose source is not a WebRTC
+ * session, or whose session does not carry the marker (a `query` that is
+ * missing or not a string included).
  *
  * @returns {Promise<boolean | { failure: string }>}
  */
@@ -515,7 +518,8 @@ export async function cameraSimUp(baseUrl) {
   const sessions = await getJson(baseUrl, '/v3/webrtcsessions/list');
   const session = itemsOf(sessions).find((item) => item?.id === path.source.id);
   if (!session) return false;
-  const marked = new URLSearchParams(session.query).get('publisher') === 'headless';
+  const query = typeof session.query === 'string' ? session.query : '';
+  const marked = new URLSearchParams(query).get('publisher') === 'headless';
   return marked || { failure: CAMERA_SIM_TAKEN };
 }
 

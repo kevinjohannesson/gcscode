@@ -310,4 +310,4 @@ Each item with why, and what brings it back.
 - **`waitUntilUp` takes any truthy object as a failure** (PR #55 DM-5), so `{}` would fail a service with the message `undefined`. Only `cameraSimUp` returns objects, and the typedef states the contract. Revisit when a second service's `up()` returns an object.
 - **Untested** (PR #55 DM-2, DM-7):
   - The null-transport path (DM-2), where the publisher makes no refusal check. Revisit when camera-sim runs in a browser without `RTCRtpSender.transport`.
-  - A 500 on the paths request (DM-7). It shares `getJson` with the sessions request, and the sessions-500 test covers that.
+  - A 500 on the paths request (DM-7). It shares `getJson` with the sessions request, and the sessions-500 test covers that. Revisit when the two requests stop sharing `getJson`.
