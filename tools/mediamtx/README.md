@@ -20,15 +20,15 @@ pnpm --filter mediamtx start
 
 or `./run.sh` from this folder. It runs the installed binary with this folder's `mediamtx.yml`, and Ctrl-C stops it. `pnpm dev:sitl` at the repo root runs it with SITL and the dev server. If setup hasn't run, it says so and names the command.
 
-The config keeps MediaMTX's defaults and turns off the servers nothing uses (RTMP, HLS, SRT and MoQ), and changes one default: a path keeps its first publisher, so a second publisher of `drone-1` is refused instead of taking it over, and MediaMTX drops a publisher gone silent after about 30 s, which frees its path. What stays on:
+The config keeps MediaMTX's defaults and turns off the servers nothing uses (RTMP, HLS, SRT and MoQ), and changes defaults: a path keeps its first publisher, so a second publisher of `drone-1` is refused instead of taking it over, and MediaMTX drops a publisher gone silent after about 30 s, which frees its path. What stays on:
 
-| Port           | Serves                                                                       |
-| -------------- | ---------------------------------------------------------------------------- |
-| TCP 8889       | WebRTC: publish to `http://localhost:8889/<path>/whip`, read from `.../whep` |
-| UDP 8189       | WebRTC's media (ICE)                                                         |
-| TCP 8554       | RTSP, for players such as VLC: `vlc rtsp://localhost:8554/drone-1`           |
-| UDP 8000, 8001 | RTSP over UDP (RTP and RTCP)                                                 |
-| TCP 9997       | API, on 127.0.0.1 only: `GET /v3/paths/list`, which the launcher polls       |
+| Port           | Serves                                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------- |
+| TCP 8889       | WebRTC: publish to `http://localhost:8889/<path>/whip`, read from `.../whep`                             |
+| UDP 8189       | WebRTC's media (ICE)                                                                                     |
+| TCP 8554       | RTSP, for players such as VLC: `vlc rtsp://localhost:8554/drone-1`                                       |
+| UDP 8000, 8001 | RTSP over UDP (RTP and RTCP)                                                                             |
+| TCP 9997       | API, on 127.0.0.1 only: `GET /v3/paths/list` and `GET /v3/webrtcsessions/list`, which the launcher polls |
 
 camera-sim publishes vehicle N's view as `drone-N`, and the Video panel reads `http://localhost:8889/drone-1/whep` by default. Any path can be published or read, by anyone who can reach this machine: it listens on all interfaces, with no passwords. That suits simulated streams on a home network; don't run it as is on an untrusted one.
 

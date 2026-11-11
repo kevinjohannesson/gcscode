@@ -495,21 +495,25 @@ async function getJson(baseUrl, path) {
   }
 }
 
+/** The `items` of a MediaMTX list body, or none when the body has another shape. */
+const itemsOf = (body) => (Array.isArray(body?.items) ? body.items : []);
+
 /**
  * Whether camera-sim's headless page is publishing `drone-1` to MediaMTX at
  * `baseUrl`: true when it is, false when not yet (the path is not listed or not
  * ready, the session is not listed, or the API gave an error), and
- * `{ failure }` when anything else publishes it. Never throws.
+ * `{ failure }` when anything else publishes it. Never throws: a body of an
+ * unexpected shape counts as not up yet.
  *
  * @returns {Promise<boolean | { failure: string }>}
  */
 export async function cameraSimUp(baseUrl) {
   const paths = await getJson(baseUrl, '/v3/paths/list');
-  const path = paths?.items?.find((item) => item.name === 'drone-1' && item.ready === true);
+  const path = itemsOf(paths).find((item) => item?.name === 'drone-1' && item.ready === true);
   if (!path) return false;
   if (path.source?.type !== 'webRTCSession') return { failure: CAMERA_SIM_TAKEN };
   const sessions = await getJson(baseUrl, '/v3/webrtcsessions/list');
-  const session = sessions?.items?.find((item) => item.id === path.source.id);
+  const session = itemsOf(sessions).find((item) => item?.id === path.source.id);
   if (!session) return false;
   const marked = new URLSearchParams(session.query).get('publisher') === 'headless';
   return marked || { failure: CAMERA_SIM_TAKEN };

@@ -64,12 +64,12 @@ Measured on this Mac with Chrome 157 and MediaMTX v1.21.3, run on spare ports. A
 
    `drone-1 is already being published by something other than camera-sim's headless page, most likely a camera-sim tab left open. Close it, then run pnpm dev:sitl again.`
 
-   The headless page has stopped by then (decision 3), so waiting cannot help. Stopping the launch matches the owner's rule for a port in use. The rest is treated as not up yet, not as a failure:
+   MediaMTX refuses the headless page whenever it arrives, and a refused page stops (decision 3), so waiting cannot help. Stopping the launch matches the owner's rule for a port in use. The rest is treated as not up yet, not as a failure:
    - the path not listed or not ready;
    - the session missing from the list, closed between the two requests;
    - an API error, an error status or a non-JSON body.
 
-6. **A service's `up()` can now report a failure.** It resolves to a truthy value (up), a falsy value (not yet), or `{ failure: string }`. A failure fails the service at once with that message, as an exit during startup does, so the stack stops and shows the service's last lines. Camera-sim's last lines then include `page: drone-1 WHIP taken (another publisher already has this stream)`. A throw still counts as not up yet.
+6. **A service's `up()` can now report a failure.** It resolves to a truthy value (up), a falsy value (not yet), or `{ failure: string }`. A failure fails the service at once with that message, as an exit during startup does, so the stack stops and shows the service's last lines. That line appears among camera-sim's last lines only if the headless page was refused before the launcher saw the other publisher: `page: drone-1 WHIP taken (another publisher already has this stream)`. When the other publisher is first, the launcher usually fails before the page loads. A throw still counts as not up yet.
 7. **Kept from PR #54:** camera-sim has no address in the "ready to fly" list (its decision 9). Opening the page is harmless now, but listing its status page is a separate change (below, "Not in this PR").
 
 ## Review focus
@@ -242,7 +242,7 @@ Inputs no task names but this change meets, each pinned by a test in the task na
   - **The entry's comment** says up means `drone-1` published by the page `run.sh` marked, and that another publisher fails the launch.
   - **`Service.up`'s typedef** describes the three outcomes.
   - **`mediamtx.yml`:** add `pathDefaults:` with `overridePublisher: false`. Its comment gains: a path keeps its first publisher, so a camera-sim tab cannot take a stream the headless page publishes.
-  - **`tools/mediamtx/README.md`:** after "turns off the servers nothing uses", say the config changes one default: a path keeps its first publisher, so a second publisher of `drone-1` is refused instead of taking it over, and MediaMTX drops a publisher gone silent after about 30 s, which frees its path.
+  - **`tools/mediamtx/README.md`:** after "turns off the servers nothing uses", say the config changes defaults: a path keeps its first publisher, so a second publisher of `drone-1` is refused instead of taking it over, and MediaMTX drops a publisher gone silent after about 30 s, which frees its path.
 - [ ] **Step 4: Run `pnpm test:scripts`; it passes.** Mutate each branch, watch the named test fail, and restore:
   - the `{ failure }` branch;
   - the ready check;
@@ -304,5 +304,10 @@ Each item with why, and what brings it back.
 - **Camera-sim's status page in the "ready to fly" list.** Opening it is harmless now (decision 7). Revisit when someone wants the link there.
 - **A close for another reason within 3 s of connecting reads as `taken`.** For example, MediaMTX stopping just then. The page then stops until reloaded. Under the launcher MediaMTX stops only with the whole stack. Revisit when a page says `taken` with no other publisher.
 - **A tab opened with `?publisher=headless` by hand counts as the launcher's page.** Revisit if anyone does that other than on purpose.
-- **A MediaMTX upgrade may move the refusal into the WHIP answer.** It would then reach the page as an HTTP error status, which it retries with backoff, not as `taken`. Revisit when `tools/mediamtx/setup.sh`'s pinned version changes; facts 2–5 are the probes to repeat.
+- **A MediaMTX upgrade may move the refusal into the WHIP answer.** It would then reach the page as an HTTP error status, which it retries with backoff, not as `taken`. Revisit when `tools/mediamtx/setup.sh`'s pinned version changes; facts 1–5 are the probes to repeat.
 - **`drone-1` lost after "All up" still goes unnoticed** (PR #54's deferral, unchanged).
+- **Ending the old session has no timeout** (PR #55 DM-1). A DELETE that hangs leaves the publisher in `connecting`, and it never retries. A hung POST does the same today. Revisit when a page stays in `connecting`.
+- **`waitUntilUp` takes any truthy object as a failure** (PR #55 DM-5), so `{}` would fail a service with the message `undefined`. Only `cameraSimUp` returns objects, and the typedef states the contract. Revisit when a second service's `up()` returns an object.
+- **Untested** (PR #55 DM-2, DM-7):
+  - The null-transport path (DM-2), where the publisher makes no refusal check. Revisit when camera-sim runs in a browser without `RTCRtpSender.transport`.
+  - A 500 on the paths request (DM-7). It shares `getJson` with the sessions request, and the sessions-500 test covers that.

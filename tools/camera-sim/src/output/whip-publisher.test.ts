@@ -203,7 +203,6 @@ describe('WhipPublisher', () => {
   });
 
   it('retries after 1 s when the media server is not there, then 2 s', async () => {
-    answerDelete = { status: 200 };
     respond = () => new Response('', { status: 404, statusText: 'Not Found' });
     publisher.start();
     await vi.advanceTimersByTimeAsync(10);
@@ -338,11 +337,21 @@ describe('WhipPublisher', () => {
     const methods = () => calls.map((c) => c.method);
 
     it('ends the previous session right before publishing again', async () => {
+      let posts = 0;
+      respond = () =>
+        new Response('v=0 answer', {
+          status: 201,
+          headers: { Location: posts++ === 0 ? '/drone-1/whip/abc' : '/drone-1/whip/def' },
+        });
       await failedConnection();
       expect(methods()).toEqual(['POST']);
       await vi.advanceTimersByTimeAsync(1010);
       expect(methods()).toEqual(['POST', 'DELETE', 'POST']);
       expect(calls[1]!.url).toBe('http://media:8889/drone-1/whip/abc');
+
+      publisher.stop();
+      expect(methods()).toEqual(['POST', 'DELETE', 'POST', 'DELETE']);
+      expect(calls[3]!.url).toBe('http://media:8889/drone-1/whip/def');
     });
 
     it('does not publish while the previous session cannot be ended', async () => {

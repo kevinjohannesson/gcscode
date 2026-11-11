@@ -131,7 +131,7 @@ The sim can run on a stronger machine than SITL and the GCS:
 - **Headless costs about 55% of one core and 500 MB,** measured on an Intel Mac whose GPU (UHD 630) ran the WebGL.
 - **The frame rate follows the display.** Frames are drawn on the browser's animation frames, so a rate that doesn't divide the display's refresh rate comes out lower: `fps=25` on a 60 Hz display gives 20.
 - **A stream keeps its first publisher.** MediaMTX refuses a second page publishing the same `drone-<sysid>`. That page's WHIP line says `taken`, and it stops publishing that stream. To publish from it, close the other page, then reload this one.
-- A page reloaded at a moment when its old session cannot be ended (the network cut just then) finds the stream taken by that session. MediaMTX drops it after about 30 s; reload again after that.
+  - A page reloaded at a moment when its old session cannot be ended (the network cut just then) finds the stream taken by that session. MediaMTX drops it after about 30 s; reload again after that.
 
 ## Layout
 

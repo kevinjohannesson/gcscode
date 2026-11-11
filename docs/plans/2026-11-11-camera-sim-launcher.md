@@ -73,6 +73,7 @@ The spec leaves these open. _Measured_ facts were checked on this Mac on 2026-11
 4. **Profile:** `mktemp -d "${TMPDIR:-/tmp}/camera-sim-chrome.XXXXXX"`, made fresh on every start and removed on every exit the script handles. A SIGKILL, such as the launcher's after its 5 s grace, leaves it behind in `TMPDIR`, which macOS clears of old files.
 5. **Camera-sim's status reaches the launcher's output: page errors and publish state.** This was the PR's open choice.
    - Headless hides the status page. Opening the page to see it starts a second publisher, which takes `drone-1` in turn (README § Known limits). Without this, the output would be the only place left, and a camera-sim that is not up within its deadline would show only Vite's banner as its last lines.
+   - Since PR #55, opening the page shows its status and does not take `drone-1`: a second page is refused ([plan](2026-11-11-camera-sim-single-publisher.md), decision 3).
    - Chrome runs with `--enable-logging=stderr --log-level=0`, its stderr through `sed -l`:
      - each `…:CONSOLE…] "<message>", source: …` line prints as `page: <message>`;
      - lines with `:FATAL:` pass as they are;
@@ -105,6 +106,7 @@ The spec leaves these open. _Measured_ facts were checked on this Mac on 2026-11
      - with SITL already running, headless camera-sim published `drone-1` 5.3 s after Chrome started, and the list showed it `ready` with `tracks: ['H264']`.
 8. **Deadline: 90 s.** Camera-sim can publish only after SITL's first `HEARTBEAT` (SITL's own deadline is 60 s), then the page's telemetry reconnect (backoff up to 10 s), then a WHIP connect (ICE gathering up to 2 s). A slow SITL is then reported as SITL's failure, not camera-sim's. PR #53 measured the first `HEARTBEAT` at 3.1 s from a cold start.
 9. **Table order and addresses.** camera-sim is the last entry, with no `addresses`. Its page would be a second publisher, and the stream's WHEP and RTSP addresses are already in mediamtx's entry.
+   - Since PR #55, a second page is refused and harmless. The address stays out of the list ([plan](2026-11-11-camera-sim-single-publisher.md), decision 7).
 
 ## Review focus
 
@@ -349,3 +351,4 @@ Each item with why, and what brings it back.
   - Apple Silicon;
   - several vehicles;
   - the camera-sim entry's `up`, `() => streamReady(MEDIAMTX_API, 'drone-1')`. A test would need port 9997 or a seam, and H1 exercised it. Revisit when the entry's up check changes.
+    - Since PR #55, `cameraSimUp(baseUrl)` takes the API's base URL and is tested. Its trigger fired ([plan](2026-11-11-camera-sim-single-publisher.md)).

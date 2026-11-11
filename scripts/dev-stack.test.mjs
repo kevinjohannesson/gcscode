@@ -800,6 +800,20 @@ test('cameraSimUp is false for an empty list', async () => {
   assert.equal(await cameraSimUp(await mediamtx([], [])), false);
 });
 
+test('cameraSimUp is false for a body of an unexpected shape', async () => {
+  const sessionsBodies = ['{"items": null}', '{"items": {}}', '{"items": 3}', '[]', 'null', '7'];
+  for (const body of ['{"items": null}', '{"items": {}}', '[]', 'null', '7', '"text"']) {
+    const base = await serve({ '/v3/paths/list': body });
+    assert.equal(await cameraSimUp(base), false, `paths body ${body}`);
+  }
+  for (const body of sessionsBodies) {
+    const base = await serve({ '/v3/paths/list': list(PATH), '/v3/webrtcsessions/list': body });
+    assert.equal(await cameraSimUp(base), false, `sessions body ${body}`);
+  }
+  const odd = await serve({ '/v3/paths/list': '{"items": [null, 3, "x"]}' });
+  assert.equal(await cameraSimUp(odd), false, 'paths items that are not objects');
+});
+
 test('cameraSimUp is false for a body that is not JSON', async () => {
   assert.equal(await cameraSimUp(await serve('None')), false);
 });
