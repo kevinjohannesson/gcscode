@@ -1,8 +1,9 @@
 // run.sh starts camera-sim's dev server, then a headless Chrome on the page,
 // and stops both on a signal or when either exits. These tests run it against
 // a stub Chrome, a sh script that records how it was started, on an ephemeral
-// port: never the real Chrome, never 5174. Each run is in a process group of
-// its own, killed with SIGKILL after the test, whether it passed or not.
+// port: never the real Chrome, never 5174. One test uses port 99999 instead,
+// which is never bound: it is invalid, so Vite exits. Each run is in a process
+// group of its own, killed with SIGKILL after the test, whether it passed or not.
 import { spawn } from 'node:child_process';
 import {
   chmodSync,
@@ -258,7 +259,7 @@ describe('run.sh', { timeout: TIMEOUT_MS }, () => {
     const { code } = await run.exited;
 
     expect(code).toBe(1);
-    expect(run.err()).toContain("ERROR: camera-sim's dev server exited (code ");
+    expect(run.err()).toMatch(/^ERROR: camera-sim's dev server exited \(code 1\)\.$/m);
     expect(existsSync(stubFile(run, 'pid'))).toBe(false);
     expect(readdirSync(run.tmp)).toEqual([]);
   });

@@ -31,7 +31,7 @@ It used `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headle
 - **Each service's config stays in its own `tools/` folder** (spec decision 6). How camera-sim starts lives in `tools/camera-sim/`, and the launcher only names the script.
 - **Never kill by name or pattern.** `run.sh` signals only PIDs it recorded when it started them; the launcher only the groups it recorded at spawn.
 - **bash 3.2.** macOS's `/bin/bash` is 3.2.57 and is the only bash on this Mac. It has no `wait -n`, and under `set -u` an empty array's `"${a[@]}"` fails.
-- **Tests never use the stack's fixed ports** (5173, 5174, 5760, 8000, 8001, 8088, 8189, 8554, 8889, 9997, 14551). They use ephemeral ports only. Every process a test starts is stopped by its PID or process group in an `after` hook, whether the test passed or not.
+- **Tests never use the stack's fixed ports** (5173, 5174, 5760, 8000, 8001, 8088, 8189, 8554, 8889, 9997, 14551). They use ephemeral ports only, except 99999: an invalid port, never bound, which makes Vite exit. Every process a test starts is stopped by its PID or process group in an `after` hook, whether the test passed or not.
 - **Every new test is seen failing before it passes.** Each task's report lists the mutations it ran and any that survived (`CLAUDE.md` § Tests).
 - **Worktree discipline.**
   - Prefix every command with `cd <worktree> &&`.
@@ -339,6 +339,7 @@ Each item with why, and what brings it back.
 - **Run alone, `run.sh` has no deadline for Vite's bind.** If Vite lives but never answers on its port, the wait loop polls forever. Under the launcher, camera-sim's 90 s deadline (decision 8) covers it. Revisit when a hand-run `pnpm --filter camera-sim start` hangs without Chrome starting.
 - **One stop took over 5 s, and did not recur.** It was a stop while Vite started, with a mutation applied, right after `vite.config.ts` changed. Later runs, with the mutation and without it, never repeated it. The likely cause is Vite re-optimizing its dependencies after the config change. Under the launcher, a stop that slow ends in its SIGKILL, which leaves the profile behind. Revisit when `run.test.ts`'s stop tests time out on a local run.
 - **A signal in the first milliseconds can leave a Vite or a profile behind.** Between `pnpm … &` and `VITE_PID=$!`, or inside `$(mktemp)` once the folder exists, the trap runs before the script has recorded what to stop. Under the launcher, the group signal stops Vite anyway. Closing the gap needs traps that only set a flag, which the loops check. Revisit when a stop leaves a Vite or a profile folder behind.
+- **A stop during the wait's `nc -z` still prints `Terminated: 15` or `Hangup: 1`.** The probe runs in the foreground, so bash reports it when the stop signal kills it, as it did for the poll's `sleep`. The window is milliseconds per probe, and only before Vite binds. The port check's `nc -z` cannot print it: it runs before the traps exist, so a signal there stops bash outright. The fix is the sleep's: `{ nc -z …; } 2>/dev/null`. No test can land a signal in that window. Revisit when a `Terminated` or `Hangup` line shows up under `camera-sim |` on a stop.
 - **`CAMERA_SIM_PORT` set in the shell** makes camera-sim listen elsewhere while the launcher checks 5174. Revisit if anyone sets it for good.
 - **Untested:**
   - a locked screen or a sleeping display;
