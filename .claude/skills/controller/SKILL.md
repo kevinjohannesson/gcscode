@@ -86,13 +86,14 @@ Workers run on your model, or a cheaper one for mechanical work. Each worker's w
 
 Start each worker with the app's `start_session`:
 
+- `initiation: "user_asked"`: the owner starting you for this initiative and approving its spec is their request for the work;
 - `context: "fresh"` and `use_worktree: true`, so it gets its own worktree and none of this conversation;
 - `source_branch`: `master`, or the branch it builds on;
 - `name`: the worker's name from the dispatch plan;
 - `prompt`: its brief ([Briefs and reports](#briefs-and-reports)); `background`: the initiative's goal, the decisions that bind it, and how this piece fits;
 - `model`: left out for your model, or a cheaper one for mechanical work.
 
-Where the app refuses a start (it does on a turn that another session's message started), it offers a card instead: propose the session there and tell the owner in one line.
+Where the app refuses the start (it does on a turn that another session's message started), call `start_session` again with `initiation: "own_initiative"`, which shows the owner a card, and tell the owner in one line.
 
 Record each worker in the ledger: name, session id, branch, base commit, PRs and start time.
 
@@ -357,7 +358,7 @@ EOF
 printf -- '- %s merged #63 (vehicle-status)\n' "$(date '+%F %H:%M')" >> "$LEDGER"
 ```
 
-**Fallback.** If a Bash write there is refused too, the ledger goes to your own worktree's `.claude/handoffs/` (gitignored; the app allows Write and Edit there). Tell the owner once, and copy it to the main checkout at the close, before any worktree is removed.
+**Fallback.** If a Bash write there is refused too, the ledger goes to your own worktree's `.claude/handoffs/`. Probed 2026-11-12: Write and Edit into a `.claude/worktrees/` session's own `.claude/handoffs/` went through, and `.gitignore`'s `.claude/handoffs/` line keeps that folder out of git in every worktree. Tell the owner once, and copy it to the main checkout at the close, before any worktree is removed.
 
 **Template.**
 
