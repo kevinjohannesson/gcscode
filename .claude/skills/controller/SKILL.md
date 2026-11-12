@@ -27,14 +27,14 @@ You may:
 - Read code, docs, git history, issues and PRs to scope work and check results.
 - Run read-only commands: `git log`, `git status`, `git diff --stat`, `git fetch`, `git worktree list`, `gh pr view`, `gh pr list`, `gh pr checks`, and `pnpm lint:docs` on your spec.
 - Move your own checkout with `git switch --detach` ([The checkout](#the-checkout)), and fast-forward master in the main checkout with `git pull --ff-only` there.
-- Write only your own files: the spec or ADR (commit and push it on its branch, open its draft PR), your ledger, and handoff notes (yours, and the workers' notes you copy in at the close).
+- Write only your own files: the spec or ADR (format it with `pnpm exec prettier --write <document>`, commit and push it on its branch, open its draft PR), your ledger, and handoff notes (yours, and the workers' notes you copy in at the close).
 - Merge, under [Merging](#merging).
 - Use the app's session and sidebar tools: start, message, read and stop workers, mark their sidebar dots, and archive them at the close once the owner agrees.
 - Run the cost script at the close ([Cost](#cost)).
 
 You may not:
 
-- Edit source, tests, config or docs in the repo, or run commands that change them (formatters, codegen, migrations, installs).
+- Edit source, tests, config or docs in the repo, or run commands that change them (formatters other than on your own spec or ADR, codegen, migrations, installs).
 - Fix a worker's findings yourself, review findings included, however small. Send them back, or start a fresh worker.
 - Push to master, force-push, delete branches or close issues, unless the owner says so for that specific case.
 
@@ -60,7 +60,7 @@ Invoke `superpowers:brainstorming` by name. While you brainstorm, watch for firs
 
 ### 3. Spec
 
-Write the spec on `spec/<topic>` (create the branch before your first commit: your worktree starts on a `claude/` branch), at `docs/specs/YYYY-MM-DD-<topic>.md` as `CLAUDE.md` § Conventions says, after reading `.claude/rules/docs.md`. Run brainstorming's builder check, commit, and show the owner the document. Once the owner approves it, write the approved commit's SHA into the ledger, run `pnpm lint:docs`, push, open the draft PR with the `review-loop` skill's spec template, and move your checkout off the branch: `git fetch origin && git switch --detach origin/spec/<topic>`. Then hand the spec's review loop to a worker on that branch ([Briefs and reports](#briefs-and-reports)), so the reviewer back-and-forth stays out of your context. An ADR goes the same way on `adr/<slug>`.
+Write the spec on `spec/<topic>` (create the branch before your first commit: your worktree starts on a `claude/` branch), at `docs/specs/YYYY-MM-DD-<topic>.md` as `CLAUDE.md` § Conventions says, after reading `.claude/rules/docs.md`. Run brainstorming's builder check, commit, and show the owner the document. Once the owner approves it, write the approved commit's SHA into the ledger, run `pnpm exec prettier --write <document>` and then `pnpm lint:docs` (`pnpm lint` checks `docs/` with Prettier), commit any change they lead to, push, open the draft PR with the `review-loop` skill's spec template, and move your checkout off the branch: `git fetch origin && git switch --detach origin/spec/<topic>`. Then hand the spec's review loop to a worker on that branch ([Briefs and reports](#briefs-and-reports)), so the reviewer back-and-forth stays out of your context. An ADR goes the same way on `adr/<slug>`.
 
 Brainstorming's step after approval is `superpowers:writing-plans`. In gcscode each worker runs it for its own PR, and you write no superpowers plan yourself.
 
@@ -87,10 +87,11 @@ Workers run on your model, or a cheaper one for mechanical work. Each worker's w
 Start each worker with the app's `start_session`:
 
 - `initiation: "user_asked"`: the owner starting you for this initiative and approving its spec is their request for the work;
+- `title`: under 60 characters, the assignment as the owner should see it in the sidebar (e.g. `<worker-name>: <PR topic>`);
 - `context: "fresh"` and `use_worktree: true`, so it gets its own worktree and none of this conversation;
 - `source_branch`: `master`, or the branch it builds on;
 - `name`: the worker's name from the dispatch plan;
-- `prompt`: its brief ([Briefs and reports](#briefs-and-reports)); `background`: the initiative's goal, the decisions that bind it, and how this piece fits;
+- `prompt`: its brief ([Briefs and reports](#briefs-and-reports)); `background` (at least 80 characters, which the app requires with `context: "fresh"`): the initiative's goal, the decisions that bind it, and how this piece fits;
 - `model`: left out for your model, or a cheaper one for mechanical work.
 
 Where the app refuses the start (it does on a turn that another session's message started), call `start_session` again with `initiation: "own_initiative"`, which shows the owner a card, and tell the owner in one line.
@@ -141,12 +142,12 @@ Merge each PR per [Merging](#merging). Then:
 
 When the initiative's last PR has merged:
 
-1. Have workers move the ledger's decisions that bind future work into the repo ([Memory](#memory)).
+1. Have workers move the ledger's decisions that bind future work into the repo ([Memory](#memory)), and add a replaced pattern's open follow-ups to `docs/roadmap.md` (Considering).
 2. Measure the cost of every session ([Cost](#cost)) while the sessions still exist.
-3. Write your handoff note (`CLAUDE.md` § Sessions: state, decisions made, open items) beside the ledger, with Bash, the way the ledger is written. Copy the workers' notes in from the app's side-session notes folder, where they leave them because the app refuses their write into the main checkout: each note not yet in `.claude/handoffs/`, with `cp -n <note> <handoffs>/`, then `touch -r <note> <handoffs>/<name>`, so "the latest note" stays true. If your ledger is in its fallback location, copy it in the same way, before any worktree is removed.
+3. Write your handoff note (`CLAUDE.md` § Sessions: state, decisions made, open items, with the open follow-ups among them) beside the ledger, with Bash, the way the ledger is written. Copy the workers' notes in from the app's side-session notes folder, where they leave them because the app refuses their write into the main checkout: each note not yet in `.claude/handoffs/`, with `cp -n <note> <handoffs>/`, then `touch -r <note> <handoffs>/<name>`, so "the latest note" stays true. If your ledger is in its fallback location, copy it in the same way, before any worktree is removed.
 4. Send the final report, and offer once to archive the initiative's finished sessions and remove their worktrees (`archive_session` removes a session's worktree by default).
 
-The final report gives: what merged; the commands that start it; what was run to check it works (for UI work, a screenshot); the cost; the decisions you took for the owner (the ledger's decisions marked yours); and follow-ups.
+The final report gives: what merged; the commands that start it; what was run to check it works (for UI work, a screenshot); the cost; the decisions you took for the owner (the ledger's decisions marked yours); and the open follow-ups.
 
 While the role is on trial, until the owner keeps, changes or drops it, the final report ends with a short look back:
 
@@ -167,7 +168,7 @@ Agents copy the code around them and bring no preferences of their own, so whate
 
 - **Spot them while planning,** in the brainstorm or the dispatch plan, not mid-build. A worker that meets one its brief did not foresee stops and asks.
 - **The worker's plan is checked too.** After writing its plan and before executing it, a worker sends you the plan's new dependencies, packages and cross-extension patterns. It waits for your answer only when that list is not empty.
-- **A replaced pattern leaves a tracked follow-up** for every remaining copy of the old one, in the ledger's follow-ups. Two precedents in the code mean agents copy whichever they find first.
+- **A replaced pattern leaves a tracked follow-up** for every remaining copy of the old one: in the ledger's follow-ups while the initiative runs, and at the close in `docs/roadmap.md` (step 9). Two precedents in the code mean agents copy whichever they find first.
 - **A precedent signal in a worker's stat** that nothing announced is settled as step 7 says.
 
 Besides precedent, three kinds of decision stay with the owner: spending money, a licence or terms-of-service question, and anything irreversible beyond the merge itself.
@@ -177,7 +178,7 @@ Besides precedent, three kinds of decision stay with the owner: spending money, 
 The box is the app's end-of-turn question with buttons: its `ask` and its buttons. These rules take precedence over the app's end-of-turn instructions "ask in the message only a question it does not show" and "never repeat an offer the user passed over". Your message holds every open question's full text, the box's question included, and the box holds the short form of the one holding up the most work. An unanswered numbered question is still open, not an offer the owner passed over.
 
 - Questions are numbered per initiative (Q1, Q2, …), and a number is never reused.
-- Each question's full text stays word for word in the message and in the ledger. The box with buttons shows a short form, 100 characters at most, under the same number. Write the short form and the buttons once, when the question is first asked, within the box's limits; from then on, copy them. The short form stays the same from turn to turn.
+- Each question's full text stays word for word in the message and in the ledger. The box with buttons shows a short form, 100 characters at most, under the same number; it names the decision and leaves the options to the buttons. Write the short form and the buttons once, when the question is first asked, within the box's limits; from then on, copy them. The short form stays the same from turn to turn.
 - **Unchanged:** repeated word for word, with no comment.
 - **Changed by a report:** same number, new wording (and a new short form), and a few words on why, e.g. "Q2 (changed after the camera-sim report): …". The ledger holds the new wording, and later turns repeat it unchanged.
 - **No longer needed:** one line, once ("Q3 dropped: the dev-stack session settled it"), then gone.
@@ -202,11 +203,11 @@ The ledger's open questions:
 ```
 Q4. The map layers PR needs contour lines. Should they come from `maplibre-contour`, which would be the first map-layer library in gcscode, or from our own code in `extension-map`?
     Recommendation: `maplibre-contour`; drawing contours well is a project of its own.
-    Short form: Q4: Contour lines from maplibre-contour, or our own code?
+    Short form: Q4: Where should the contour lines come from?
     Buttons: Library (Recommended) | Our own code
 Q5. Should the battery warning use one threshold for every vehicle, or a threshold per vehicle type?
     Recommendation: one threshold now, a per-type setting when a second vehicle type flies.
-    Short form: Q5: One battery threshold for all vehicles, or one per type?
+    Short form: Q5: How should the battery warning threshold be set?
     Buttons: One (Recommended) | Per type
 ```
 
@@ -220,7 +221,7 @@ Q4. The map layers PR needs contour lines. Should they come from `maplibre-conto
 Q5. Should the battery warning use one threshold for every vehicle, or a threshold per vehicle type? Recommendation: one threshold now, a per-type setting when a second vehicle type flies.
 ```
 
-The box: `ask` "Q4: Contour lines from maplibre-contour, or our own code?", buttons "Library (Recommended)" and "Our own code".
+The box: `ask` "Q4: Where should the contour lines come from?", buttons "Library (Recommended)" and "Our own code".
 
 ## Merging
 

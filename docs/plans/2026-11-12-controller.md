@@ -37,10 +37,19 @@ The final cross-cutting review verifies each item.
 - [ ] **Known unknown 5:** the skill has the controller log each time it reads a worker's transcript because the forwarded report was not enough, and the look back counts them.
 - [ ] **Known unknown 6:** the skill states what the app showed after a detach and asks the look back to report confusion.
 - [ ] **PR #56 RT-14:** the skill says its question rules take precedence over the app's end-of-turn instruction "ask in the message only a question it does not show": every open question's full text goes in the message, and the one holding up the most work also goes in the box as its short form.
-- [ ] **PR #56 RT-15:** open with the owner (the controller's Q6: drop `package.json` from step 7's signals, and have the controller ask the worker about a signal the plan check did not announce). The signal list is built as the spec has it now. If the owner's answer arrives before the final review, apply it in the skill and record it here.
+- [ ] **PR #56 RT-15:** open with the owner for its first half: whether to drop `package.json` from step 7's signals. Until the owner answers, the signal list is built as the spec has it now. Its second half, asking the worker about a signal nobody announced, is in the skill's step 7 settle order, from scenario S3's RED run and spec step 7's "Gaps go back to the same worker"; the owner may confirm or revert it. If the owner's answer arrives before the final review, apply it in the skill and record it here.
 - [ ] **PR #56 RT-16:** Known unknown 3's "on 2026-11-12" reads "on 2026-11-11", in a `fix(spec):` commit with a one-sentence reason.
 
 Outside this PR, after it merges: the owner's memory that lets the controller merge is changed to point to the skill (the controller does it), and the owner removes the original skill from claude.ai (Known unknown 1).
+
+## Follow-ups
+
+Left for later, each with why:
+
+- **`docs/out-of-scope.md`, "Automated enforcement of repo-relative paths".** After the rename it says the worker scans reviewer output "before applying the `auto-merge` label", a step workers don't take. Reword it when that deferral is next touched: the spec asked for the rename only. Source: final review 5867613355.
+- **`.claude/scripts/session-cost.mjs`.** Its usage line shows a direct run, but the file is not executable, and a relative path gives "No transcripts folder for .". Resolve the path, or say it must be absolute. Left because the skill's command passes `get_session`'s absolute `worktreePath` through `node`. Source: final review 5867613355.
+- **`.claude/scripts/session-cost.test.mjs`.** The `sessionCost` test pins neither `startedAt` nor the oldest-first order, and nothing tests entries without a message id or the CLI's argument parsing. Left as minor in Task 1's review. Source: Task 1 review, final review 5867613355.
+- **The skill's look back** names "the reorganization initiative (PR #42 onward)". Name its controller session and the sessions it started instead, next time the skill is touched; the look back first runs at the UI baseline's close. Source: final review 5867613355.
 
 ## Review Focus
 
