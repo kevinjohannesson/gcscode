@@ -27,14 +27,14 @@ You may:
 - Read code, docs, git history, issues and PRs to scope work and check results.
 - Run read-only commands: `git log`, `git status`, `git diff --stat`, `git fetch`, `git worktree list`, `gh pr view`, `gh pr list`, `gh pr checks`, and `pnpm lint:docs` on your spec.
 - Move your own checkout with `git switch --detach` ([The checkout](#the-checkout)), and fast-forward master in the main checkout with `git pull --ff-only` there.
-- Write only your own files: the spec or ADR (format it with `pnpm exec prettier --write <document>`, commit and push it on its branch, open its draft PR), your ledger, and handoff notes (yours, and the workers' notes you copy in at the close).
+- Write only your own files: the spec or ADR (format it with `pnpm exec prettier --write <document>` before you commit it, as step 3 says; commit and push it on its branch; open its draft PR), your ledger, and handoff notes (yours, and the workers' notes you copy in at the close).
 - Merge, under [Merging](#merging).
 - Use the app's session and sidebar tools: start, message, read and stop workers, mark their sidebar dots, and archive them at the close once the owner agrees.
 - Run the cost script at the close ([Cost](#cost)).
 
 You may not:
 
-- Edit source, tests, config or docs in the repo, or run commands that change them (formatters other than on your own spec or ADR, codegen, migrations, installs).
+- Edit source, tests, config or docs in the repo, or run commands that change them (formatters other than on your own spec or ADR, codegen, migrations, installs other than `pnpm install --frozen-lockfile` in your own worktree).
 - Fix a worker's findings yourself, review findings included, however small. Send them back, or start a fresh worker.
 - Push to master, force-push, delete branches or close issues, unless the owner says so for that specific case.
 
@@ -60,7 +60,7 @@ Invoke `superpowers:brainstorming` by name. While you brainstorm, watch for firs
 
 ### 3. Spec
 
-Write the spec on `spec/<topic>` (create the branch before your first commit: your worktree starts on a `claude/` branch), at `docs/specs/YYYY-MM-DD-<topic>.md` as `CLAUDE.md` § Conventions says, after reading `.claude/rules/docs.md`. Run brainstorming's builder check, commit, and show the owner the document. Once the owner approves it, write the approved commit's SHA into the ledger, run `pnpm exec prettier --write <document>` and then `pnpm lint:docs` (`pnpm lint` checks `docs/` with Prettier), commit any change they lead to, push, open the draft PR with the `review-loop` skill's spec template, and move your checkout off the branch: `git fetch origin && git switch --detach origin/spec/<topic>`. Then hand the spec's review loop to a worker on that branch ([Briefs and reports](#briefs-and-reports)), so the reviewer back-and-forth stays out of your context. An ADR goes the same way on `adr/<slug>`.
+Write the spec on `spec/<topic>` (create the branch before your first commit: your worktree starts on a `claude/` branch), at `docs/specs/YYYY-MM-DD-<topic>.md` as `CLAUDE.md` § Conventions says, after reading `.claude/rules/docs.md`. Run brainstorming's builder check, then `pnpm exec prettier --write <document>`, because `pnpm lint` checks `docs/` with Prettier (when your worktree has no `node_modules`, run `pnpm install --frozen-lockfile` first; it changes no tracked file). Then commit, and show the owner the document. Once the owner approves it, write the approved commit's SHA into the ledger, run `pnpm lint:docs`, push, open the draft PR with the `review-loop` skill's spec template, and move your checkout off the branch: `git fetch origin && git switch --detach origin/spec/<topic>`. Then hand the spec's review loop to a worker on that branch ([Briefs and reports](#briefs-and-reports)), so the reviewer back-and-forth stays out of your context. An ADR goes the same way on `adr/<slug>`.
 
 Brainstorming's step after approval is `superpowers:writing-plans`. In gcscode each worker runs it for its own PR, and you write no superpowers plan yourself.
 
@@ -320,7 +320,7 @@ Then write the handoff note `CLAUDE.md` § Sessions asks for. If the app refuses
 A brief for a spec or ADR's review loop is the template above with these changes:
 
 - ASSIGNMENT: the review loop of spec (or ADR) PR #<n>. OBJECTIVE: the loop has run to its stop and the PR is out of draft. Don't merge.
-- HOW TO WORK: check out the existing `spec/<topic>` (or `adr/<slug>`) in your worktree; the controller's checkout is detached off it. The one skill is the `review-loop` skill, § Spec and ADR PRs, from round 1 (its step 3): the lint and the draft PR are done. No plan and no plan check.
+- HOW TO WORK: check out the existing `spec/<topic>` (or `adr/<slug>`) in your worktree; the controller's checkout is detached off it. The one skill is the `review-loop` skill, § Spec and ADR PRs, from round 1 (its step 3): the lint and the draft PR are done. No plan and no plan check. Before each `Code-review-followup:` commit, run `pnpm exec prettier --write <document>` (when your worktree has no `node_modules`, run `pnpm install --frozen-lockfile` first), so the document reaches master formatted.
 - It adds: a finding which would change one of the document's decisions is not fixed. Keep it with a `kept:` line and report it as a QUESTION. The test: the loop fixes wording, accuracy, consistency, broken links and anchors, and claims about the repo it checks with a command; a fix that would change anything the owner approved is a decision, whether the spec marks it as the owner's, as the writing session's or not at all, and so is a fix you are unsure about.
 
 That is the route by which [Merging](#merging) sends such a review to the owner.
