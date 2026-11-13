@@ -5,7 +5,7 @@ description: How gcscode PRs are reviewed, from the first reviewer dispatch to t
 
 # Review loop
 
-Who reviews what is in the registry, `.claude/agent-config.json`: each role's bot identity, App IDs, routing, verdicts, and the agent file or superpowers prompt it runs. This skill is how the controller uses it.
+Who reviews what is in the registry, `.claude/agent-config.json`: each role's bot identity, App IDs, routing, verdicts, and the agent file or superpowers prompt it runs. This skill is how the worker uses it.
 
 State each rule once, in the file it belongs to, and point to it. A summary that restates a rule drifts from it, and fixes that rewrite a rule tend to introduce new defects into it.
 
@@ -26,7 +26,7 @@ State each rule once, in the file it belongs to, and point to it. A summary that
    - the role's `verdicts`, `header` and `reReviewHeader` from the registry, with `<model>` explained as `Claude ` plus the model its system prompt names;
    - "repo-relative paths only";
    - **final review only:** confirm every per-task `--request-changes` on the PR was addressed before approving — `feat/*` auto-merge reads this role alone — and verify each item of the plan's checklist of spec findings.
-4. **On `--request-changes`,** the same implementer fixes it in a `Code-review-followup:` commit (never an amend), and the dispatch carries the first two rules of "Fixing findings" below. The same role re-reviews, posting a new review. A task's re-review is one dispatch of superpowers' scoped re-review prompt. It posts as each per-task role with a finding under verification, with that role's findings (a ⚠️ item the controller confirmed as a gap is spec-compliance's), and new breakage in the fix diff posts as code-quality. Each post is `--request-changes` while one of its findings is not addressed or its new breakage is Critical or Important, otherwise `--comment`. A per-task role cannot clear its own block — it may not `--approve`, and GitHub clears `CHANGES_REQUESTED` only on a later approval or a dismissal — so when its re-review comes back `--comment`, the controller dismisses the earlier block. "Clean" is the re-review's own verdict, not the controller's reading of it. The dismissal stays in the timeline.
+4. **On `--request-changes`,** the same implementer fixes it in a `Code-review-followup:` commit (never an amend), and the dispatch carries the first two rules of "Fixing findings" below. The same role re-reviews, posting a new review. A task's re-review is one dispatch of superpowers' scoped re-review prompt. It posts as each per-task role with a finding under verification, with that role's findings (a ⚠️ item the worker confirmed as a gap is spec-compliance's), and new breakage in the fix diff posts as code-quality. Each post is `--request-changes` while one of its findings is not addressed or its new breakage is Critical or Important, otherwise `--comment`. A per-task role cannot clear its own block — it may not `--approve`, and GitHub clears `CHANGES_REQUESTED` only on a later approval or a dismissal — so when its re-review comes back `--comment`, the worker dismisses the earlier block. "Clean" is the re-review's own verdict, not the worker's reading of it. The dismissal stays in the timeline.
 
    ```bash
    gh api "repos/{owner}/{repo}/pulls/<PR>/reviews" \
@@ -46,7 +46,7 @@ A _product_ spec or ADR is about the app, its extensions or its API. An _agentic
 | Product         | red-team; the extension architect when routing matches | red-team; the architect only while its latest review has `Blocking:` above 0 |
 | Agentic-process | red-team                                               | red-team                                                                    |
 
-**Extension-architect routing** is the controller's judgment: dispatch when a product PR touches the extension API surface, the host↔extension boundary, lifecycle, isolation, communication, discovery, conflicts or the extension performance floor (signal list: `docs/specs/2026-05-17-reviewer-routing-and-domain-expert.md` § Extension architect's heuristic). When unsure, dispatch: a wrong dispatch costs one out-of-scope skip, which ends `Blocking: 0`. Re-evaluate when a followup brings extension architecture in. Never dispatch it on an agentic-process PR.
+**Extension-architect routing** is the worker's judgment: dispatch when a product PR touches the extension API surface, the host↔extension boundary, lifecycle, isolation, communication, discovery, conflicts or the extension performance floor (signal list: `docs/specs/2026-05-17-reviewer-routing-and-domain-expert.md` § Extension architect's heuristic). When unsure, dispatch: a wrong dispatch costs one out-of-scope skip, which ends `Blocking: 0`. Re-evaluate when a followup brings extension architecture in. Never dispatch it on an agentic-process PR.
 
 ### Steps
 
@@ -76,7 +76,7 @@ A _product_ spec or ADR is about the app, its extensions or its API. An _agentic
 
 ## Merging
 
-The owner merges — `gh pr merge --merge <n>`, which keeps the merge commit — or applies the `auto-merge` label once the PR is ready. The gates are described once, in the header comment of `.github/workflows/auto-merge.yml`. Two of them shape the controller's work: a draft never merges, and a `spec/*` or `adr/*` PR that changes anything outside `docs/` is refused by Gate 2, so say so in its PR body; the owner merges it by hand. If the owner merges despite an open `--request-changes` or a non-zero `Blocking:`, leave a PR comment saying why.
+The owner merges — `gh pr merge --merge <n>`, which keeps the merge commit — or applies the `auto-merge` label once the PR is ready; a controller merges under [its skill's rule](../controller/SKILL.md#merging). The gates are described once, in the header comment of `.github/workflows/auto-merge.yml`. Two of them shape the worker's work: a draft never merges, and a `spec/*` or `adr/*` PR that changes anything outside `docs/` is refused by Gate 2, so say so in its PR body; the owner merges it by hand. If the owner merges despite an open `--request-changes` or a non-zero `Blocking:`, leave a PR comment saying why.
 
 ## Fixing findings
 
@@ -103,6 +103,8 @@ Deferred: each non-blocking finding not fixed, and where it is recorded.
 Look at: the files or functions most worth your eyes, and why.
 Open decisions: what only you can decide, including defaults taken while unattended.
 ```
+
+A worker that a controller started reports to it instead, in [its brief's format](../controller/SKILL.md#briefs-and-reports): STATUS, the PR and any QUESTION first.
 
 Then write the handoff note (`CLAUDE.md` § Sessions).
 

@@ -86,6 +86,9 @@ This spec is the implementation brief written on 22 Oct 2026 from an evaluation 
    - **New tests:** the implementer mutates the changed branches and lists the survivors in its task report. This extends the existing "tests must be seen failing" rule; it goes in CLAUDE.md, not the superpowers prompts.
 2. **End-of-PR report to the owner,** in a fixed format: what changed (3–5 bullets); blocking findings and their resolution; non-blocking findings deferred, and where; what the owner should look at in the code (files or functions); open decisions. This report is the owner's main interface; PR comments are history.
 3. **Session hygiene.** One controller session per PR or iteration, started from a handoff note in `.claude/handoffs/` and ended by writing one. When working unattended, don't ask questions: take the documented default and record it in the end-of-PR report. Stop and ask only for irreversible decisions.
+
+   > **controller breadcrumb (added 2026-11-12):** "controller" now names the one session the owner talks to for an initiative, and the session that runs a PR is the worker; see [`2026-11-11-controller.md`](2026-11-11-controller.md#names).
+
 4. **Context restructure** (target: `shell/CLAUDE.md` ≈ 7–10k characters).
 
    | Content                                                                                                                                                                 | New home                                                                            |

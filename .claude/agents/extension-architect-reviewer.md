@@ -142,6 +142,6 @@ Then find the new review's id:
 gh api "repos/{owner}/{repo}/pulls/$PR/reviews" --jq '[.[] | select(.user.login == "gcscode-extension-architect[bot]")] | last | .id'
 ```
 
-## Return to the controller
+## Return to the session that dispatched you
 
 Under 100 words: whether the review posted (and any error), its review id, whether it was a review or an out-of-scope skip, the `Blocking: N` value, and the finding IDs with their grades or statuses. Don't repeat the review text; it is on the PR.

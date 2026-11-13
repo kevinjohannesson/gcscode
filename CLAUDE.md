@@ -8,9 +8,9 @@ gcscode is a VS Code–style ground control station (GCS): a Svelte 5 SPA whose 
 
 One pnpm workspace at the git root:
 
-- `packages/` — gcscode itself, in three roles: `@gcscode/shell` (the app — owns bootstrapping and the extension registry), `@gcscode/extension-api` (the **only** import path for extensions — types and contracts), and the extension packages. The canonical worked-example extension is `@gcscode/extension-example` (new extension authors read it first); the rest are first-party feature extensions (`extension-mavlink`, `extension-map`, `extension-mavlink-flight-overlay`, `extension-vehicle-status`, and others).
+- `packages/` — gcscode itself, in three roles: `@gcscode/shell` (the app — owns bootstrapping and the extension registry), `@gcscode/extension-api` (the **only** import path for extensions — types and contracts), and the extension packages. The canonical worked-example extension is `@gcscode/extension-example` (new extension authors read it first); the rest are first-party feature extensions (`extension-mavlink`, `extension-map` and others).
 - `libs/` — generic libraries that know nothing about gcscode: `dockview-svelte` (the shell lays out its views with it) and `map-gl-svelte` (a standalone MapLibre binding no package uses yet).
-- `tools/` — what gcscode is developed and tested against, reached only over the protocols a real system uses: `sitl` (ArduCopter SITL, MAVProxy and mavlink2rest; see its README), `camera-sim` (a fake camera that renders each SITL vehicle's view and publishes it through MediaMTX; see its README) and `mediamtx` (that media server: a pinned release and its config; see its README).
+- `tools/` — what gcscode is developed and tested against, reached only over the protocols a real system uses: `sitl` (ArduCopter SITL, MAVProxy and mavlink2rest), `camera-sim` (a fake camera that renders each SITL vehicle's view and publishes it through MediaMTX) and `mediamtx` (that media server: a pinned release and its config), each with a README.
 
 Shared tooling at the root: ESLint flat config, Prettier, `tsconfig.base.json`, which each package extends. `svelte.config.js` and `vite.config.ts` live in `packages/shell/`. `.claude/` holds the reviewer registry, agents, skills, scripts, rules and commands.
 
@@ -33,7 +33,7 @@ Either way: never reach around the API.
 
 ## Extension shape
 
-An extension module exports a named `const` of type `Extension` with `{ manifest: { id, displayName, version, description? }, activate(context) }`. The manifest carries declarative identity and presentation metadata; registration stays imperative. Inside `activate`, call `context.host.<namespace>.register*` (e.g. `context.host.window.registerView`, `context.host.commands.registerCommand`), each of which returns a `Disposable`, and push every disposable to `context.subscriptions`. Long-form contract: `packages/extension-api/README.md`. Manifest growth: [ADR-0007](docs/decisions/ADR-0007-extension-manifest.md).
+An extension module exports a named `const` of type `Extension` with `{ manifest: { id, displayName, version, description? }, activate(context) }`. The manifest carries declarative identity and presentation metadata; registration stays imperative. Inside `activate`, call `context.host.<namespace>.register*` (e.g. `context.host.window.registerView`, `context.host.commands.registerCommand`), each of which returns a `Disposable`, and push every disposable to `context.subscriptions`. Manifest growth: [ADR-0007](docs/decisions/ADR-0007-extension-manifest.md).
 
 ## Conventions
 
@@ -53,11 +53,11 @@ An extension module exports a named `const` of type `Extension` with `{ manifest
 ## Branching and merging
 
 - Code goes on `feat/<topic>` branches, specs on `spec/<topic>`, ADRs on `adr/<slug>` (take the next free ADR number when you create the branch), all off master. Plans and architecture notes may land on master directly. An ADR needed in the middle of a feature ships as its own PR first. A desktop-app worktree starts on a `claude/<slug>` branch: create the `feat/`, `spec/` or `adr/` branch before the first commit, since the merge gates read the prefix.
-- Open PRs as drafts, and push every commit before any reviewer is dispatched. Reviewing, fixing findings, merging and reporting: the `review-loop` skill (`.claude/skills/review-loop/`). Who reviews: `.claude/agent-config.json`.
+- Open PRs as drafts, and push every commit before any reviewer is dispatched. Reviewing, fixing findings, merging and reporting: the `review-loop` skill. Who reviews: `.claude/agent-config.json`.
 - Executing a plan: `superpowers:subagent-driven-development`, one implementer per task, reviewed per the `review-loop` skill.
 - Review fixes go in separate `Code-review-followup:` commits on the same branch. Never amend a pushed commit or squash: the review trail is part of the history.
 - After a spec or ADR PR merges, implement it on a `feat/` branch. Only purely mechanical docs edits whose exact text the spec gives go straight to master; if you find yourself making a decision the spec didn't, use a branch.
-- The owner merges. The `auto-merge` label hands it to `.github/workflows/auto-merge.yml`, whose header comment describes the gates; `test/*` branches stay manual.
+- The owner merges, or a controller under its skill's rule. The `auto-merge` label hands it to `.github/workflows/auto-merge.yml`, whose header comment describes the gates; `test/*` branches stay manual.
 - Never `--no-verify`. No force pushes to master, nor to a PR branch once it has reviews.
 
 ## Subagent worktree discipline
@@ -68,11 +68,11 @@ Work happens in a worktree — under `.worktrees/` for CLI sessions, `.claude/wo
 2. Chain `git branch --show-current` before every `git commit`; if it reads `master`, stop — you are in the main checkout.
 3. Run `pnpm format`, `pnpm test`, `pnpm check` and `pnpm lint` only with that prefix; otherwise they change or read the main checkout.
 
-A dispatch that will commit in a worktree restates these three rules: the subagent cannot tell which worktree it is in. Where the controller session runs: § Sessions.
+A dispatch that will commit in a worktree restates these three rules: the subagent cannot tell which worktree it is in. Where the worker session runs: § Sessions.
 
 ## Sessions
 
-One controller session per PR or iteration. When the worktree already exists, start the session in it: a session sees the path-scoped rules and skills of the checkout it started in, and that checkout's agent files as they were at start. A session that creates its worktree stays where it started, so it reads the rules explicitly (§ Conventions) and dispatches edited agent files inline (`review-loop` skill). Handoff notes live in the main checkout's `.claude/handoffs/` (gitignored), never a worktree's, which `git worktree remove` deletes; from any checkout that is `"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/handoffs/"`. Start from the latest note and end by writing one: state, decisions made, open items. When working unattended, don't ask questions: take the documented default and record it in the end-of-PR report. Stop and ask only before something irreversible.
+One worker session per PR or iteration; one controller per initiative (the `controller` skill). When the worktree already exists, start the session in it: a session sees the path-scoped rules and skills of the checkout it started in, and that checkout's agent files as they were at start. A session that creates its worktree stays where it started, so it reads the rules explicitly (§ Conventions) and dispatches edited agent files inline (`review-loop` skill). Handoff notes live in the main checkout's `.claude/handoffs/` (gitignored), never a worktree's, which `git worktree remove` deletes; from any checkout that is `"$(git rev-parse --path-format=absolute --git-common-dir)/../.claude/handoffs/"`. Start from the latest note, not a `*-ledger.md`, and end by writing one: state, decisions made, open items. When working unattended, don't ask questions: take the documented default and record it in the end-of-PR report. A worker that a controller started asks it what its brief sends there. Stop and ask only before something irreversible.
 
 ## Commands
 

@@ -30,7 +30,7 @@ scratch/
 .worktrees/
 .claude/worktrees/
 
-# Controller handoff notes between sessions (docs/specs/2026-10-22-review-loop-v2.md)
+# Handoff notes between sessions (docs/specs/2026-10-22-review-loop-v2.md)
 .claude/handoffs/
 
 # Brainstorming companion artifacts (superpowers:brainstorming visual companion)
