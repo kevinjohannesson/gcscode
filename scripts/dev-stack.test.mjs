@@ -29,11 +29,11 @@ import {
   MEDIAMTX_API,
   ROOT,
   SERVICES,
+  cameraSimUp,
   checkPorts,
   fetchMessage,
   hasHeartbeat,
   readiness,
-  streamReady,
 } from './dev-stack.mjs';
 
 const LAUNCHER = new URL('dev-stack.mjs', import.meta.url).href;
@@ -445,6 +445,24 @@ test('a service not up by its deadline fails the launch', TIMEOUT, async (t) => 
   await assertNoSurvivors(run.dir);
 });
 
+test('an up() that reports a failure fails the launch with its message', TIMEOUT, async (t) => {
+  const run = startStack(t, [
+    {
+      name: 'taken',
+      stub: { stdout: 'page: drone-1 WHIP taken\n' },
+      up: "() => ready('taken') ? { failure: 'drone-1 is taken.' } : false",
+    },
+    { name: 'other' },
+  ]);
+  assert.equal((await exitWithin(run)).code, 1, transcript(run));
+  assert.ok(run.out().includes('==> drone-1 is taken.\n'), transcript(run));
+  assert.doesNotMatch(run.out(), /taken is up|All up/);
+  const stopped = run.out().indexOf('==> Stopped.\n');
+  const lastLines = run.out().indexOf('==> Last lines from taken:\n    page: drone-1 WHIP taken\n');
+  assert.ok(stopped !== -1 && lastLines > stopped, transcript(run));
+  await assertNoSurvivors(run.dir);
+});
+
 test('a service that exits after startup stops the stack', TIMEOUT, async (t) => {
   const run = startStack(t, [
     { name: 'late', stub: { exitAfterMs: 700, exitCode: 0 } },
@@ -579,6 +597,13 @@ test("MediaMTX's config serves the API the launcher reads", () => {
   assert.ok(config.includes(`apiAddress: ${new URL(MEDIAMTX_API).host}`), 'apiAddress');
 });
 
+test("MediaMTX's config keeps each path with its first publisher", () => {
+  const config = readFileSync(join(ROOT, 'tools/mediamtx/mediamtx.yml'), 'utf8').split('\n');
+  const at = config.indexOf('pathDefaults:');
+  assert.notEqual(at, -1, 'pathDefaults:');
+  assert.equal(config[at + 1], '  overridePublisher: false');
+});
+
 test('the root script runs the launcher', () => {
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
   assert.equal(pkg.scripts['dev:sitl'], 'node scripts/dev-stack.mjs');
@@ -678,11 +703,14 @@ test('a process only talking to a UDP port is not its holder', async () => {
 
 const seen = [];
 
-/** A server answering every request with `body`; returns its base URL. */
+/**
+ * A server answering every request with `body`, or, given an object, each path
+ * with the body filed under it; returns its base URL.
+ */
 async function serve(body) {
   const server = createServer((request, response) => {
     seen.push(request.url);
-    response.end(body);
+    response.end(typeof body === 'string' ? body : (body[request.url] ?? ''));
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   closers.push(() => new Promise((resolve) => server.close(resolve)));
@@ -711,48 +739,118 @@ test('hasHeartbeat is false when nothing listens', async () => {
 
 const list = (...items) => JSON.stringify({ itemCount: items.length, pageCount: 1, items });
 
-test('streamReady is true when MediaMTX lists the path as ready', async () => {
-  const base = await serve(list({ name: 'drone-1', ready: true, tracks: ['H264'] }));
-  assert.equal(await streamReady(base, 'drone-1'), true);
-  assert.ok(seen.at(-1).endsWith('/v3/paths/list'));
+const PATH = {
+  name: 'drone-1',
+  ready: true,
+  source: { type: 'webRTCSession', id: 's1' },
+  tracks: ['H264'],
+};
+const READER = { id: 'r1', state: 'read', path: 'drone-1', query: '' };
+const publisher = (query) => ({ id: 's1', state: 'publish', path: 'drone-1', query });
+const CAMERA_SIM_TAKEN =
+  "drone-1 is already being published by something other than camera-sim's headless page, " +
+  'most likely a camera-sim tab left open. Close it, then run pnpm dev:sitl again.';
+
+/** A MediaMTX API with this path list and these sessions. */
+const mediamtx = (paths, sessions) =>
+  serve({ '/v3/paths/list': list(...paths), '/v3/webrtcsessions/list': list(...sessions) });
+
+test('cameraSimUp is true when the marked page publishes drone-1', async () => {
+  const base = await mediamtx([PATH], [READER, publisher('publisher=headless')]);
+  assert.equal(await cameraSimUp(base), true);
+  assert.deepEqual(seen.slice(-2), ['/v3/paths/list', '/v3/webrtcsessions/list']);
 });
 
-test('streamReady is false for a path listed but not ready', async () => {
-  assert.equal(
-    await streamReady(await serve(list({ name: 'drone-1', ready: false })), 'drone-1'),
-    false,
-  );
+test('cameraSimUp finds the marker among other query parameters', async () => {
+  const base = await mediamtx([PATH], [READER, publisher('user=x&publisher=headless')]);
+  assert.equal(await cameraSimUp(base), true);
 });
 
-test('streamReady is false when only another path is ready', async () => {
-  assert.equal(
-    await streamReady(await serve(list({ name: 'drone-2', ready: true })), 'drone-1'),
-    false,
-  );
+test('cameraSimUp fails when an unmarked page publishes drone-1', async () => {
+  const base = await mediamtx([PATH], [READER, publisher('')]);
+  assert.deepEqual(await cameraSimUp(base), { failure: CAMERA_SIM_TAKEN });
 });
 
-test('streamReady is false for an empty list', async () => {
-  assert.equal(await streamReady(await serve(list()), 'drone-1'), false);
+test('cameraSimUp fails for another label', async () => {
+  const base = await mediamtx([PATH], [READER, publisher('publisher=tab')]);
+  assert.deepEqual(await cameraSimUp(base), { failure: CAMERA_SIM_TAKEN });
 });
 
-test('streamReady is false for a body that is not JSON', async () => {
-  assert.equal(await streamReady(await serve('None'), 'drone-1'), false);
+test('cameraSimUp fails for a publisher that is not a WebRTC session', async () => {
+  const path = { ...PATH, source: { type: 'rtspSession', id: 'x' } };
+  const base = await mediamtx([path], [READER, publisher('publisher=headless')]);
+  assert.deepEqual(await cameraSimUp(base), { failure: CAMERA_SIM_TAKEN });
 });
 
-test('streamReady is false for an error status', async () => {
-  const server = createServer((_request, response) => {
-    response.statusCode = 500;
-    response.end(list({ name: 'drone-1', ready: true }));
+test('cameraSimUp is false while the source session is not listed', async () => {
+  assert.equal(await cameraSimUp(await mediamtx([PATH], [READER])), false);
+});
+
+test('cameraSimUp is false for a path listed but not ready', async () => {
+  const base = await mediamtx([{ ...PATH, ready: false }], [publisher('publisher=headless')]);
+  assert.equal(await cameraSimUp(base), false);
+});
+
+test('cameraSimUp is false when only another path is ready', async () => {
+  const base = await mediamtx([{ ...PATH, name: 'drone-2' }], [publisher('publisher=headless')]);
+  assert.equal(await cameraSimUp(base), false);
+});
+
+test('cameraSimUp is false for an empty list', async () => {
+  assert.equal(await cameraSimUp(await mediamtx([], [])), false);
+});
+
+test('cameraSimUp is false for a body of an unexpected shape', async () => {
+  const sessionsBodies = [
+    '{"items": null}',
+    '{"items": {}}',
+    '{"items": 3}',
+    '{"items": [null]}',
+    '[]',
+    'null',
+    '7',
+  ];
+  for (const body of ['{"items": null}', '{"items": {}}', '[]', 'null', '7', '"text"']) {
+    const base = await serve({ '/v3/paths/list': body });
+    assert.equal(await cameraSimUp(base), false, `paths body ${body}`);
+  }
+  for (const body of sessionsBodies) {
+    const base = await serve({ '/v3/paths/list': list(PATH), '/v3/webrtcsessions/list': body });
+    assert.equal(await cameraSimUp(base), false, `sessions body ${body}`);
+  }
+  const odd = await serve({ '/v3/paths/list': '{"items": [null, 3, "x"]}' });
+  assert.equal(await cameraSimUp(odd), false, 'paths items that are not objects');
+});
+
+test('cameraSimUp fails for a session whose query is not a string', async () => {
+  for (const session of [{ id: 's1', query: [1] }, { id: 's1', query: 5 }, { id: 's1' }]) {
+    const base = await serve({
+      '/v3/paths/list': list(PATH),
+      '/v3/webrtcsessions/list': list(session),
+    });
+    assert.deepEqual(await cameraSimUp(base), { failure: CAMERA_SIM_TAKEN });
+  }
+});
+
+test('cameraSimUp is false for a body that is not JSON', async () => {
+  assert.equal(await cameraSimUp(await serve('None')), false);
+});
+
+test('cameraSimUp is false for an error status', async () => {
+  const server = createServer((request, response) => {
+    const sessions = request.url === '/v3/webrtcsessions/list';
+    response.statusCode = sessions ? 500 : 200;
+    response.end(sessions ? list(publisher('publisher=headless')) : list(PATH));
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   closers.push(() => new Promise((resolve) => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
-  assert.equal(await streamReady(base, 'drone-1'), false);
+  assert.equal(await cameraSimUp(base), false);
 });
 
-test('streamReady is false when nothing listens', async () => {
+test('cameraSimUp is false when nothing listens', async () => {
   const port = await freePort('tcp');
-  assert.equal(await streamReady(`http://127.0.0.1:${port}`, 'drone-1'), false);
+  assert.equal(await cameraSimUp(`http://127.0.0.1:${port}`), false);
 });
 
 const SYS_STATUS = {
