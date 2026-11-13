@@ -60,7 +60,7 @@ Invoke `superpowers:brainstorming` by name. While you brainstorm, watch for firs
 
 ### 3. Spec
 
-Write the spec on `spec/<topic>` (create the branch before your first commit: your worktree starts on a `claude/` branch), at `docs/specs/YYYY-MM-DD-<topic>.md` as `CLAUDE.md` § Conventions says, after reading `.claude/rules/docs.md`. Run brainstorming's builder check, then `pnpm exec prettier --write <document>` (`pnpm lint` checks `docs/` with Prettier; when your worktree has no `node_modules`, run `pnpm install --frozen-lockfile` first, which changes no tracked file) and `pnpm lint:docs`, and fix what it reports. Then commit, and show the owner the document. Once the owner approves it, write the approved commit's SHA into the ledger, push, open the draft PR with the `review-loop` skill's spec template, and move your checkout off the branch: `git fetch origin && git switch --detach origin/spec/<topic>`. Then hand the spec's review loop to a worker on that branch ([Briefs and reports](#briefs-and-reports)), so the reviewer back-and-forth stays out of your context. An ADR goes the same way on `adr/<slug>`.
+Write the spec on `spec/<topic>` (create the branch before your first commit: your worktree starts on a `claude/` branch), at `docs/specs/YYYY-MM-DD-<topic>.md` as `CLAUDE.md` § Conventions says, after reading `.claude/rules/docs.md`. Run brainstorming's builder check, then `pnpm exec prettier --write <document>` (`pnpm lint` checks `docs/` with Prettier; when your worktree has no `node_modules`, run `pnpm install --frozen-lockfile` first, which changes no tracked file) and `pnpm lint:docs`, and fix what it reports. Then commit, and show the owner the document. Repeat the format and lint before committing each revision the owner asks for, not only the first. Once the owner approves it, write the approved commit's SHA into the ledger, push, open the draft PR with the `review-loop` skill's spec template, and move your checkout off the branch: `git fetch origin && git switch --detach origin/spec/<topic>`. Then hand the spec's review loop to a worker on that branch ([Briefs and reports](#briefs-and-reports)), so the reviewer back-and-forth stays out of your context. An ADR goes the same way on `adr/<slug>`.
 
 Brainstorming's step after approval is `superpowers:writing-plans`. In gcscode each worker runs it for its own PR, and you write no superpowers plan yourself.
 
@@ -145,18 +145,19 @@ When the initiative's last PR has merged:
 1. Have workers move the ledger's decisions that bind future work into the repo ([Memory](#memory)), and add a replaced pattern's open follow-ups to `docs/roadmap.md` (Considering).
 2. Measure the cost of every session ([Cost](#cost)) while the sessions still exist.
 3. Write your handoff note (`CLAUDE.md` § Sessions: state, decisions made, open items, with the open follow-ups among them) beside the ledger, with Bash, the way the ledger is written. Copy the workers' notes in from the app's side-session notes folder, where they leave them because the app refuses their write into the main checkout: each note not yet in `.claude/handoffs/`, with `cp -n <note> <handoffs>/`, then `touch -r <note> <handoffs>/<name>`, so "the latest note" stays true. If your ledger is in its fallback location, copy it in the same way, before any worktree is removed.
-4. Send the final report, and offer once to archive the initiative's finished sessions and remove their worktrees (`archive_session` removes a session's worktree by default).
+4. Send the final report, and offer once to archive the initiative's finished sessions. Before you offer, check each worker's worktree: after `git fetch origin`, `git -C <worktree> status --porcelain` and `git -C <worktree> log origin/master..HEAD` both print nothing, so it is clean and its branch merged. Leave a worker that fails out of the offer, and say why. Say in the offer what happens to the worktrees. Observed 2026-11-13: archiving two finished, clean workers left their worktrees on disk, detached, and the app's `get_storage_usage` counted them as "kept ready for new sessions", its reuse pool, which it reuses or reaps on its own, with 0 "kept after archive". A worktree with uncommitted changes is kept after archiving instead, and only `discard_kept_worktree`, which the owner approves, removes it.
 
 The final report gives: what merged; the commands that start it; what was run to check it works (for UI work, a screenshot); the cost; the decisions you took for the owner (the ledger's decisions marked yours); and the open follow-ups.
 
 While the role is on trial, until the owner keeps, changes or drops it, the final report ends with a short look back:
 
-- the cost, set against the reorganization initiative (PR #42 onward) where it can be measured;
+- the cost, set against the reorganization initiative where it can be measured: its controller, "gcscode repo reorganization" (`local_795c4c46-7bab-4fb2-9bae-d18ec30d7dfc`, PRs #42 and #43), and the sessions whose `startedBy` is that id (`list_sessions` with `include_archived: true`). [The follow-ups plan](../../../docs/plans/2026-11-13-controller-followups.md#reorganization-sessions) lists them with their worktree folders and start times. Later sessions reused some of those folders, so take each session's line by its start time, not the script's total;
 - which questions reached the owner, and whether each was a first of its kind;
 - any question lost or reworded without notice, stale dot, checkout confusion, or worker that did not report;
 - how delegated brainstorms went, if any ran;
 - how often you read a worker's transcript because the forwarded report was not enough (the ledger's `transcript read` lines);
-- what the sidebar showed for your session's branch and PR while your checkout was detached ([The checkout](#the-checkout)).
+- what the sidebar showed for your session's branch and PR while your checkout was detached ([The checkout](#the-checkout));
+- the ledger's size at the close (`wc -c <ledger>`): it is re-read on every resume and its Log only grows, so whether it needs trimming is decided with numbers.
 
 ### Delegated brainstorms
 
