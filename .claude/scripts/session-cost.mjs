@@ -2,7 +2,9 @@
 // Measures how many billed-weight tokens the Claude Code sessions of a worktree used,
 // so a controller can state it in its final report.
 //
-// Usage: .claude/scripts/session-cost.mjs <worktree path> [--since <ISO time>]
+// Usage: node .claude/scripts/session-cost.mjs <worktree path> [--since <ISO time>]
+//
+// A relative worktree path is resolved against the current directory.
 //
 // Every assistant entry in a session transcript carries a `usage` line. Its token
 // counts are weighted by what each kind costs relative to a plain input token:
@@ -21,7 +23,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const defaultConfigDir = () => process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude');
@@ -139,16 +141,28 @@ export function sessionCost(cwd, { since, configDir = defaultConfigDir() } = {})
 
 const millions = (n) => `${(n / 1e6).toFixed(1)}M`;
 
-function main(argv) {
-  const usage = 'Usage: session-cost.mjs <worktree path> [--since <ISO time>]';
-  const args = argv.slice(2);
+const usage = 'Usage: node .claude/scripts/session-cost.mjs <worktree path> [--since <ISO time>]';
+
+/**
+ * Reads the CLI arguments (`process.argv.slice(2)`): the worktree path, resolved
+ * against `cwd`, and the optional `--since` value. `undefined` when the path or the
+ * `--since` value is missing.
+ */
+export function parseArgs(args, cwd = process.cwd()) {
   const sinceAt = args.indexOf('--since');
   const since = sinceAt >= 0 ? args[sinceAt + 1] : undefined;
   const path = args.find((arg, i) => !arg.startsWith('--') && (sinceAt < 0 || i !== sinceAt + 1));
-  if (!path || (sinceAt >= 0 && !since)) {
+  if (!path || (sinceAt >= 0 && !since)) return undefined;
+  return { path: resolve(cwd, path), since };
+}
+
+function main(argv) {
+  const parsed = parseArgs(argv.slice(2));
+  if (!parsed) {
     console.error(usage);
     return 2;
   }
+  const { path, since } = parsed;
   const configDir = defaultConfigDir();
   if (!existsSync(projectDir(path, configDir))) {
     console.error(`No transcripts folder for ${path}`);
