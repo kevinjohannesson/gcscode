@@ -60,7 +60,7 @@ Invoke `superpowers:brainstorming` by name. While you brainstorm, watch for firs
 
 ### 3. Spec
 
-Write the spec on `spec/<topic>` (create the branch before your first commit: your worktree starts on a `claude/` branch), at `docs/specs/YYYY-MM-DD-<topic>.md` as `CLAUDE.md` § Conventions says, after reading `.claude/rules/docs.md`. Run brainstorming's builder check, then `pnpm exec prettier --write <document>`, because `pnpm lint` checks `docs/` with Prettier (when your worktree has no `node_modules`, run `pnpm install --frozen-lockfile` first; it changes no tracked file). Then commit, and show the owner the document. Once the owner approves it, write the approved commit's SHA into the ledger, run `pnpm lint:docs`, push, open the draft PR with the `review-loop` skill's spec template, and move your checkout off the branch: `git fetch origin && git switch --detach origin/spec/<topic>`. Then hand the spec's review loop to a worker on that branch ([Briefs and reports](#briefs-and-reports)), so the reviewer back-and-forth stays out of your context. An ADR goes the same way on `adr/<slug>`.
+Write the spec on `spec/<topic>` (create the branch before your first commit: your worktree starts on a `claude/` branch), at `docs/specs/YYYY-MM-DD-<topic>.md` as `CLAUDE.md` § Conventions says, after reading `.claude/rules/docs.md`. Run brainstorming's builder check, then `pnpm exec prettier --write <document>` (`pnpm lint` checks `docs/` with Prettier; when your worktree has no `node_modules`, run `pnpm install --frozen-lockfile` first, which changes no tracked file) and `pnpm lint:docs`, and fix what it reports. Then commit, and show the owner the document. Once the owner approves it, write the approved commit's SHA into the ledger, push, open the draft PR with the `review-loop` skill's spec template, and move your checkout off the branch: `git fetch origin && git switch --detach origin/spec/<topic>`. Then hand the spec's review loop to a worker on that branch ([Briefs and reports](#briefs-and-reports)), so the reviewer back-and-forth stays out of your context. An ADR goes the same way on `adr/<slug>`.
 
 Brainstorming's step after approval is `superpowers:writing-plans`. In gcscode each worker runs it for its own PR, and you write no superpowers plan yourself.
 
@@ -117,7 +117,7 @@ Every acceptance criterion needs evidence (command and result). Never accept DON
 
 These in the stat are precedent signals ([Precedent](#precedent)):
 
-- changes to `package.json` or `pnpm-lock.yaml`;
+- changes to `pnpm-lock.yaml` (the owner dropped `package.json` from this list on 2026-11-13, PR #56 RT-15);
 - a new `packages/` or `libs/` directory;
 - changes under `packages/extension-api/`.
 
@@ -320,7 +320,7 @@ Then write the handoff note `CLAUDE.md` § Sessions asks for. If the app refuses
 A brief for a spec or ADR's review loop is the template above with these changes:
 
 - ASSIGNMENT: the review loop of spec (or ADR) PR #<n>. OBJECTIVE: the loop has run to its stop and the PR is out of draft. Don't merge.
-- HOW TO WORK: check out the existing `spec/<topic>` (or `adr/<slug>`) in your worktree; the controller's checkout is detached off it. The one skill is the `review-loop` skill, § Spec and ADR PRs, from round 1 (its step 3): the lint and the draft PR are done. No plan and no plan check. Before each `Code-review-followup:` commit, run `pnpm exec prettier --write <document>` (when your worktree has no `node_modules`, run `pnpm install --frozen-lockfile` first), so the document reaches master formatted.
+- HOW TO WORK: check out the existing `spec/<topic>` (or `adr/<slug>`) in your worktree; the controller's checkout is detached off it. The one skill is the `review-loop` skill, § Spec and ADR PRs, from round 1 (its step 3): the lint and the draft PR are done. No plan and no plan check. Before each `Code-review-followup:` commit or amend, run `pnpm exec prettier --write <document>` (when your worktree has no `node_modules`, run `pnpm install --frozen-lockfile` first), so the document reaches master formatted.
 - It adds: a finding which would change one of the document's decisions is not fixed. Keep it with a `kept:` line and report it as a QUESTION. The test: the loop fixes wording, accuracy, consistency, broken links and anchors, and claims about the repo it checks with a command; a fix that would change anything the owner approved is a decision, whether the spec marks it as the owner's, as the writing session's or not at all, and so is a fix you are unsure about.
 
 That is the route by which [Merging](#merging) sends such a review to the owner.
@@ -426,4 +426,4 @@ Stop and correct course when you catch yourself:
 | Buttons retyped ("Vendor into libs/ui", "Use npm") | The buttons are copied from the ledger like the short form. |
 | `ask` rewritten ("Q1: How should gcscode take in shadcn-svelte, its first component library?") | The short form is written once and copied every turn after. |
 | "The owner passed over that question, so I shouldn't repeat it" | An unanswered numbered question is still open, not an offer the owner passed over. |
-| `git diff origin/master...origin/<branch> -- package.json pnpm-lock.yaml`, to see what the signal is | The stat is your signal. What the change is and why comes from the worker (step 7), and the review loop has read the diff. |
+| `git diff origin/master...origin/<branch> -- pnpm-lock.yaml`, to see what the signal is | The stat is your signal. What the change is and why comes from the worker (step 7), and the review loop has read the diff. |

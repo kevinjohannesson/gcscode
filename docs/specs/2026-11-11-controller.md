@@ -94,6 +94,8 @@ Agents copy the code around them and bring no preferences of their own, so whate
 
 Besides precedent, three kinds of decision stay with the owner: spending money, a licence or terms-of-service question, and anything irreversible beyond the merge itself. _(My call, carried over from how the controller's merge permission was recorded on 2026-11-10.)_
 
+> **controller-skill breadcrumb (added 2026-11-13):** the owner dropped `package.json` from step 7's precedent signals (PR #56 RT-15); the [`controller` skill](../../.claude/skills/controller/SKILL.md#7-check-the-report) holds the current list.
+
 ### Questions to the owner
 
 - Questions are numbered per initiative (Q1, Q2, …), and a number is never reused.
