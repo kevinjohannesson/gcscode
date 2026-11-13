@@ -127,7 +127,7 @@ Found 2026-11-13 with the app's `list_sessions` (`include_archived: true`; each 
 - Consumes: Task 1's usage form `node .claude/scripts/session-cost.mjs <worktree path> [--since <ISO time>]` (already the skill's § Cost form).
 - Links into this plan's [Reorganization sessions](#reorganization-sessions) section, so its heading must keep that anchor.
 
-Use `superpowers:writing-skills` for the skill edits. These are corrections of fact and one added look-back line, not new behaviour to pressure-test: no scenario runs.
+Use `superpowers:writing-skills` for the skill edits. These are corrections of fact and one added look-back line, so the test is retrieval, not pressure: four questions (the archive offer at the close, the reorganization sessions, a spec revision, the ledger in the look back), answered from the skill alone. The worker runs it against the skill on master (RED, all four failed on 2026-11-13) and again after this task (GREEN); the implementer does not run it.
 
 - [ ] **Step 1: § 3. Spec (item 6).** After "Then commit, and show the owner the document." insert: "Repeat the format and lint before committing each revision the owner asks for, not only the first."
 
