@@ -112,6 +112,20 @@ describe('readConfig', () => {
   });
 });
 
+describe('publisher', () => {
+  it('has no default', () => {
+    expect(readConfig('').publisher).toBeUndefined();
+  });
+
+  it('is the label in the URL', () => {
+    expect(readConfig('?publisher=headless').publisher).toBe('headless');
+  });
+
+  it('is nothing when the label is empty', () => {
+    expect(readConfig('?publisher=').publisher).toBeUndefined();
+  });
+});
+
 describe('streamName', () => {
   it('names a vehicle’s stream after its system id', () => {
     expect(streamName(1)).toBe('drone-1');
@@ -122,6 +136,18 @@ describe('whipEndpoint', () => {
   it('publishes vehicle 1 by default where gcscode’s Video panel plays', () => {
     // gcscode.video.whepUrl defaults to http://localhost:8889/drone-1/whep: the same MediaMTX path.
     expect(whipEndpoint(readConfig('').mediaUrl, 1)).toBe('http://localhost:8889/drone-1/whip');
+  });
+
+  it('adds the publisher label as a query', () => {
+    expect(whipEndpoint('http://localhost:8889', 1, 'headless')).toBe(
+      'http://localhost:8889/drone-1/whip?publisher=headless',
+    );
+  });
+
+  it('encodes the publisher label', () => {
+    expect(whipEndpoint('http://localhost:8889', 1, 'a b&c')).toBe(
+      'http://localhost:8889/drone-1/whip?publisher=a%20b%26c',
+    );
   });
 });
 

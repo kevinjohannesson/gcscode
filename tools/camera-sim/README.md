@@ -48,7 +48,7 @@ What comes next is on the [roadmap](../../docs/roadmap.md#tools--coming-committe
    - **Headless:** `pnpm --filter camera-sim start`. It needs Google Chrome, and runs the dev server and a headless Chrome until Ctrl-C. The page's console lines print as `page: …`: telemetry's state, the terrain line, and each stream's WHIP state.
    - **In a visible tab,** the way to see the status page and the ground check: `pnpm --filter camera-sim dev`, then open <http://localhost:5174>. The status page should list the terrain file, for example `S36E149.DAT (9 blocks with data)`. Keep the window visible: browsers slow down hidden tabs, which freezes the video.
 
-   Never open the page while a headless camera-sim runs: two pages take `drone-1` from each other in turn.
+   Opening the page while a headless camera-sim runs is safe, and shows the status page and the ground check. MediaMTX keeps each stream with its first publisher, so the tab's WHIP line says `taken`.
 
 5. **Fly** (MAVProxy): `mode guided`, `arm throttle`, `takeoff 50`. A view appears as soon as the vehicle reports its position. Before you arm, the ground check should already say OK. In SITL's first seconds, before it has a position, ArduPilot reports the vehicle at 0°, 0°: until the real position arrives, the view is empty and the check may say MISMATCH.
 
@@ -77,21 +77,22 @@ A landed drone sits exactly on SITL's ground, so its height above the rendered g
 
 Everything is set from the page URL, so pointing the sim somewhere else is a link, not a rebuild. A bad number, coordinate or `terrain` value is ignored with a warning on the page; addresses, the imagery template and its credit line are used as given.
 
-| Parameter                | Default                             | Meaning                                                                         |
-| ------------------------ | ----------------------------------- | ------------------------------------------------------------------------------- |
-| `mavlink`                | `ws://localhost:8088/v1/ws/mavlink` | mavlink2rest WebSocket                                                          |
-| `media`                  | `http://localhost:8889`             | MediaMTX WebRTC base; streams go to `<media>/<stream>/whip`                     |
-| `rtsp`                   | same host as `media`, port 8554     | Only used to show where to point VLC                                            |
-| `origin`                 | `-35.363262,149.165237,584` (CMAC)  | SITL's start location, `lat,lon` or `lat,lon,alt` (`SIM_OPOS_*`)                |
-| `terrain`                | `on`                                | `off` renders a flat world, for SITL with `SIM_TERRAIN 0`                       |
-| `terrainUrl`             | `/terrain`                          | Where the `.DAT` files are served; the dev server maps it to the terrain folder |
-| `markers`                | home, 100 m N, 100 m E              | `lat,lon;lat,lon;…`                                                             |
-| `pitch`                  | `-90`                               | Gimbal pitch in degrees, -90 is straight down                                   |
-| `hfov`                   | `70`                                | Horizontal field of view, degrees                                               |
-| `width`, `height`, `fps` | `1280`, `720`, `30`                 | Output video                                                                    |
-| `zoom`                   | `19`                                | Finest imagery zoom level near a camera (13–21)                                 |
-| `extent`                 | `8000`                              | Side of the world square around the origin, metres                              |
-| `imagery`, `attribution` | Esri World Imagery                  | XYZ template with `{z}`, `{x}`, `{y}`, and its credit line                      |
+| Parameter                | Default                             | Meaning                                                                                                                                                                   |
+| ------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mavlink`                | `ws://localhost:8088/v1/ws/mavlink` | mavlink2rest WebSocket                                                                                                                                                    |
+| `media`                  | `http://localhost:8889`             | MediaMTX WebRTC base; streams go to `<media>/<stream>/whip`                                                                                                               |
+| `rtsp`                   | same host as `media`, port 8554     | Only used to show where to point VLC                                                                                                                                      |
+| `origin`                 | `-35.363262,149.165237,584` (CMAC)  | SITL's start location, `lat,lon` or `lat,lon,alt` (`SIM_OPOS_*`)                                                                                                          |
+| `terrain`                | `on`                                | `off` renders a flat world, for SITL with `SIM_TERRAIN 0`                                                                                                                 |
+| `terrainUrl`             | `/terrain`                          | Where the `.DAT` files are served; the dev server maps it to the terrain folder                                                                                           |
+| `markers`                | home, 100 m N, 100 m E              | `lat,lon;lat,lon;…`                                                                                                                                                       |
+| `pitch`                  | `-90`                               | Gimbal pitch in degrees, -90 is straight down                                                                                                                             |
+| `hfov`                   | `70`                                | Horizontal field of view, degrees                                                                                                                                         |
+| `width`, `height`, `fps` | `1280`, `720`, `30`                 | Output video                                                                                                                                                              |
+| `zoom`                   | `19`                                | Finest imagery zoom level near a camera (13–21)                                                                                                                           |
+| `extent`                 | `8000`                              | Side of the world square around the origin, metres                                                                                                                        |
+| `imagery`, `attribution` | Esri World Imagery                  | XYZ template with `{z}`, `{x}`, `{y}`, and its credit line                                                                                                                |
+| `publisher`              | none                                | A label added to every WHIP address as `?publisher=<label>`; `pnpm --filter camera-sim start` sets `headless`, which is how `pnpm dev:sitl` tells its own page from a tab |
 
 Example: `http://localhost:5174/?pitch=-45&hfov=90`.
 
@@ -129,7 +130,8 @@ The sim can run on a stronger machine than SITL and the GCS:
 - **A visible tab must stay visible.** Browsers slow down hidden tabs, which freezes the video. Headless holds 30 fps.
 - **Headless costs about 55% of one core and 500 MB,** measured on an Intel Mac whose GPU (UHD 630) ran the WebGL.
 - **The frame rate follows the display.** Frames are drawn on the browser's animation frames, so a rate that doesn't divide the display's refresh rate comes out lower: `fps=25` on a 60 Hz display gives 20.
-- **One camera-sim page at a time.** A page publishes every vehicle it hears from. MediaMTX lets a new publisher take over a stream path, and a page that loses its path reconnects, so two pages hearing the same vehicle take `drone-<sysid>` from each other in turn.
+- **A stream keeps its first publisher.** MediaMTX refuses a second page publishing the same `drone-<sysid>`. That page's WHIP line says `taken`, and it stops publishing that stream. To publish from it, close the other page, then reload this one.
+  - A page reloaded at a moment when its old session cannot be ended (the network cut just then) finds the stream taken by that session. MediaMTX drops it after about 30 s; reload again after that.
 
 ## Layout
 

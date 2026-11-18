@@ -47,6 +47,11 @@ export interface SimConfig {
   };
   /** Ground markers for checking the video against the GCS map. */
   readonly markers: readonly GeoPoint[];
+  /**
+   * A label camera-sim adds to every WHIP address as `?publisher=<label>`, so
+   * MediaMTX's logs and the launcher can tell this page from another.
+   */
+  readonly publisher: string | undefined;
   /** Problems with URL overrides; the defaults were kept for these. */
   readonly warnings: readonly string[];
 }
@@ -173,6 +178,7 @@ export function readConfig(search: string): SimConfig {
       pitchDeg: number('pitch', -90, { min: -90, max: 30 }),
     },
     markers,
+    publisher: params.get('publisher') || undefined,
     warnings,
   };
 }
@@ -192,8 +198,9 @@ export function streamName(systemId: number): string {
 }
 
 /** Where a vehicle's stream is published: MediaMTX's WHIP endpoint for its path. */
-export function whipEndpoint(mediaUrl: string, systemId: number): string {
-  return `${mediaUrl}/${streamName(systemId)}/whip`;
+export function whipEndpoint(mediaUrl: string, systemId: number, publisher?: string): string {
+  const base = `${mediaUrl}/${streamName(systemId)}/whip`;
+  return publisher === undefined ? base : `${base}?publisher=${encodeURIComponent(publisher)}`;
 }
 
 /** The mavlink2rest URL with camera-sim's message filter appended. */

@@ -51,7 +51,7 @@ async function start(): Promise<void> {
   function addVehicle(track: VehicleTrack): void {
     const view = new CameraView(track, world, config.camera, config.imagery.attribution);
     const name = streamName(track.systemId);
-    const whipUrl = whipEndpoint(config.mediaUrl, track.systemId);
+    const whipUrl = whipEndpoint(config.mediaUrl, track.systemId, config.publisher);
     const rtspUrl = `${config.rtspUrl}/${name}`;
     const publisher = new WhipPublisher({
       endpointUrl: whipUrl,
