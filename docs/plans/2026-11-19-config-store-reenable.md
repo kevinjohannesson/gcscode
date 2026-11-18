@@ -33,6 +33,7 @@ In `packages/shell/src/configuration/configuration-store.svelte.ts`, the constru
 1. **Re-enabling with a schema the updated value now violates** — expect a warning, the default, and the saved blob untouched (spec v1 § Lifecycle, "Schema mismatch across re-registers"). Pinned by test 3.
 2. **Re-enabling after `update()` failed to save** — expect the last saved value, not the unsaved one (decision 3). Pinned by test 4.
 3. **Storage that throws when read, at registration** — registration now touches storage, so a throwing `getItem` must not make `registerConfiguration()` throw and fail the extension's activation. Expect the default. Pinned by test 5.
+4. **A value written to storage outside `update()` while the extension is disabled** (an operator's devtools edit) — expect re-enabling to pick it up. This is what tells reading storage apart from a copy refreshed by `update()`. Pinned by test 6.
 
 ## File structure
 
@@ -58,8 +59,9 @@ Add `describe('ConfigurationStore re-registration after update()', …)` to `con
 1. `restores the updated value when the key had a saved value at boot` — storage starts as `{ 'ext.a.foo': 'preset' }`. Register, `update('foo', 'updated')`, dispose, register again. Expect `get` → `'updated'`.
 2. `restores the updated value when the key had no saved value at boot` — empty storage. Same sequence. Expect `get` → `'updated'`.
 3. `warns and falls back to the default when the updated value violates the new schema, leaving storage untouched` — empty storage, `console.warn` spied. Register, `update('foo', 'updated')`, dispose, register `{ key: 'ext.a.foo', schema: { type: 'number' }, default: 0 }`. Expect `get<number>('foo')` → `0`, `warn` called once with a first argument matching `/ext\.a\.foo.*violates schema/`, and `loadConfigurationBlob(storage)` → `{ 'ext.a.foo': 'updated' }`.
-4. `restores the last saved value after update() failed to save` — a storage whose `setItem` throws `new Error('QuotaExceededError')` and whose `getItem` reads an empty `makeStorage()` (the pattern of the existing `Persistence failed` test). Register, expect `update('foo', 'world')` to reject with `/Persistence failed/`, dispose, register again. Expect `get` → `'hello'`.
+4. `restores the last saved value after update() failed to save` — a storage whose `setItem` throws `new Error('QuotaExceededError')` and whose `getItem` reads a `makeStorage()` seeded with `{ 'ext.a.foo': 'preset' }` (the pattern of the existing `Persistence failed` test). Register, expect `update('foo', 'world')` to reject with `/Persistence failed/`, dispose, register again. Expect `get` → `'preset'`.
 5. `falls back to the default when storage throws on read` — a storage whose `getItem` throws `new Error('storage disabled')` (the shape `persistence.test.ts` uses). Expect `registerConfiguration(…)` not to throw, and `get` → `'hello'`.
+6. `picks up a value written to storage while the extension was disabled` — empty storage. Register the usual contribution, dispose, `writeConfigurationBlob(storage, { 'ext.a.foo': 'edited' })`, register again. Expect `get` → `'edited'`.
 
 - [ ] **Step 2: Run the tests and watch 1–3 fail for the right reason**
 
@@ -80,7 +82,8 @@ Expected: every test in `src/configuration/` passes, including the existing boot
 Run each mutation, run the file, note which test fails, restore. Report each one and any that survived.
 
 - Restore from a boot-time copy again (the old code) → tests 1, 2, 3 fail.
-- Add the copy back, kept in step by `update()` **before** the write (the in-memory-first variant of the other fix) → test 4 fails with `expected 'world' to be 'hello'`.
+- Add the copy back, kept in step by `update()` **before** the write (the in-memory-first variant of the other fix) → test 4 fails with `expected 'world' to be 'preset'`.
+- Add the copy back, refreshed by `update()` after a successful write → test 6 fails with `expected 'hello' to be 'edited'`.
 - Read storage with `JSON.parse(this._storage.getItem(STORAGE_KEY) ?? '{}')` in place of `loadConfigurationBlob()` → test 5 fails with `storage disabled`.
 - Drop the `validate(persisted)` check (always set the saved value) → test 3 and the existing boot-time schema test fail.
 
@@ -109,3 +112,4 @@ The final review verifies each.
 
 - The once-per-registration warning for a corrupt blob (decision 4).
 - Spec v1 § Persistence says the store "loads the blob into `_values`" at boot; it loaded a separate copy before this PR and loads nothing at boot after it. The spec is the historical record and stays as it is.
+- `packages/shell/src/extension-host/previous-ids.ts`'s header comment says the registry reads what is saved when it is created; the configuration store now reads at each registration. Outside this PR's scope (final review M2).

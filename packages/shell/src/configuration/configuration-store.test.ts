@@ -288,6 +288,7 @@ describe('ConfigurationStore re-registration after update()', () => {
 
   it('restores the last saved value after update() failed to save', async () => {
     const readable = makeStorage();
+    writeConfigurationBlob(readable, { 'ext.a.foo': 'preset' });
     const failingStorage = {
       getItem: (k: string) => readable.getItem(k),
       setItem: () => {
@@ -301,7 +302,17 @@ describe('ConfigurationStore re-registration after update()', () => {
     );
     d.dispose();
     store.registerConfiguration(contribution, 'ext.a');
-    expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('hello');
+    expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('preset');
+  });
+
+  it('picks up a value written to storage while the extension was disabled', () => {
+    const storage = makeStorage();
+    const store = new ConfigurationStore(storage);
+    const d = store.registerConfiguration(contribution, 'ext.a');
+    d.dispose();
+    writeConfigurationBlob(storage, { 'ext.a.foo': 'edited' });
+    store.registerConfiguration(contribution, 'ext.a');
+    expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('edited');
   });
 
   it('falls back to the default when storage throws on read', () => {
