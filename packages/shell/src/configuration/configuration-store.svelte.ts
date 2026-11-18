@@ -40,11 +40,9 @@ export class ConfigurationStore {
   private _storage: Storage;
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- listeners are iterated synchronously inside update(), never observed in a reactive context
   private _listeners = new Set<(e: ConfigurationChangeEvent) => void>();
-  private _pendingPersisted: Record<string, unknown>;
 
   public constructor(storage: Storage = localStorage) {
     this._storage = storage;
-    this._pendingPersisted = loadConfigurationBlob(storage);
   }
 
   public registerConfiguration(
@@ -75,10 +73,13 @@ export class ConfigurationStore {
     const entry: CompiledSchemaEntry = { contribution, validate };
     this._schemas.set(key, entry);
 
-    // Re-validate any persisted value for this key. Bad → warn + leave out of
-    // _values; the persisted blob is NOT touched (so schema loosening recovers it).
-    if (key in this._pendingPersisted) {
-      const persisted = this._pendingPersisted[key];
+    // Re-validate any persisted value for this key. The blob is read from
+    // storage now, not from a copy taken at boot, so a value update() saved
+    // earlier in the run survives disable and re-enable. Bad → warn + leave out
+    // of _values; the persisted blob is NOT touched (so schema loosening recovers it).
+    const persistedBlob = loadConfigurationBlob(this._storage);
+    if (key in persistedBlob) {
+      const persisted = persistedBlob[key];
       if (validate(persisted)) {
         this._values.set(key, persisted);
       } else {
