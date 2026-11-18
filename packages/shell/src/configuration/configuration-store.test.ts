@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { ConfigurationTarget } from '@gcscode/extension-api';
+import { ConfigurationTarget, type ConfigurationContribution } from '@gcscode/extension-api';
 
 import { writeConfigurationBlob, loadConfigurationBlob } from './persistence';
 
@@ -238,6 +238,81 @@ describe('ConfigurationStore boot + re-validation', () => {
       'ext.a',
     );
     expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('preset');
+  });
+});
+
+describe('ConfigurationStore re-registration after update()', () => {
+  const contribution: ConfigurationContribution = {
+    key: 'ext.a.foo',
+    schema: { type: 'string' },
+    default: 'hello',
+  };
+
+  it('restores the updated value when the key had a saved value at boot', async () => {
+    const storage = makeStorage();
+    writeConfigurationBlob(storage, { 'ext.a.foo': 'preset' });
+    const store = new ConfigurationStore(storage);
+    const d = store.registerConfiguration(contribution, 'ext.a');
+    await store.getConfiguration('ext.a').update('foo', 'updated');
+    d.dispose();
+    store.registerConfiguration(contribution, 'ext.a');
+    expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('updated');
+  });
+
+  it('restores the updated value when the key had no saved value at boot', async () => {
+    const store = new ConfigurationStore(makeStorage());
+    const d = store.registerConfiguration(contribution, 'ext.a');
+    await store.getConfiguration('ext.a').update('foo', 'updated');
+    d.dispose();
+    store.registerConfiguration(contribution, 'ext.a');
+    expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('updated');
+  });
+
+  it('warns and falls back to the default when the updated value violates the new schema, leaving storage untouched', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const storage = makeStorage();
+    const store = new ConfigurationStore(storage);
+    const d = store.registerConfiguration(contribution, 'ext.a');
+    await store.getConfiguration('ext.a').update('foo', 'updated');
+    d.dispose();
+    store.registerConfiguration(
+      { key: 'ext.a.foo', schema: { type: 'number' }, default: 0 },
+      'ext.a',
+    );
+    expect(store.getConfiguration('ext.a').get<number>('foo')).toBe(0);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/ext\.a\.foo.*violates schema/);
+    expect(loadConfigurationBlob(storage)).toEqual({ 'ext.a.foo': 'updated' });
+    warn.mockRestore();
+  });
+
+  it('restores the last saved value after update() failed to save', async () => {
+    const readable = makeStorage();
+    const failingStorage = {
+      getItem: (k: string) => readable.getItem(k),
+      setItem: () => {
+        throw new Error('QuotaExceededError');
+      },
+    } as unknown as Storage;
+    const store = new ConfigurationStore(failingStorage);
+    const d = store.registerConfiguration(contribution, 'ext.a');
+    await expect(store.getConfiguration('ext.a').update('foo', 'world')).rejects.toThrow(
+      /Persistence failed/,
+    );
+    d.dispose();
+    store.registerConfiguration(contribution, 'ext.a');
+    expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('hello');
+  });
+
+  it('falls back to the default when storage throws on read', () => {
+    const throwingStorage = {
+      getItem: () => {
+        throw new Error('storage disabled');
+      },
+    } as unknown as Storage;
+    const store = new ConfigurationStore(throwingStorage);
+    expect(() => store.registerConfiguration(contribution, 'ext.a')).not.toThrow();
+    expect(store.getConfiguration('ext.a').get<string>('foo')).toBe('hello');
   });
 });
 
