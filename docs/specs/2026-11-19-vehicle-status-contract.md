@@ -78,15 +78,20 @@ The owner's research (`gcs-conflict-lessons-2026-11` and `gcs-human-factors-safe
 
 **Activation order.** MAVLink needs vehicle status's API to register, and vehicle status needs the map's to place its list. A registrant resolves the service it writes into in one of three ways:
 
-- **Eagerly:** it resolves at `activate()`, depends on `bundledExtensions` order, and degrades while the service is inactive. The flight overlay does this, and so does vehicle status's map list.
+- **Eagerly:** it resolves at `activate()` and depends on `bundledExtensions` order. If the service is inactive then, it degrades and stays degraded until it is itself re-enabled, even after the service activates. The flight overlay does this.
 - **Driven by traffic:** it re-resolves on each inbound message, as the asset adapter does.
-- **On a recurring path of its own:** a registrant whose own code runs again may resolve lazily on that path. MAVLink's provider resolves vehicle status on its clock (The provider's clock), never during `activate()`, so no activation-time edge forms from MAVLink to vehicle status.
+- **On a recurring path of its own:** a registrant whose own code runs again may resolve lazily on that path. MAVLink's provider resolves vehicle status on its clock (The provider's clock), and vehicle status resolves the map on a clock of its own (below), neither during `activate()`, so no activation-time edge forms between them.
 
 ADR-0012's Mechanics name the first two and say a registrant "with nothing to wait for cannot resolve lazily at all". The third is this spec's addition, which the first PR records in ADR-0012 as a breadcrumb (Breadcrumb in ADR-0012, and the extension API README). _(Controller, in review.)_
 
-Vehicle status moves after the map in `bundledExtensions`, where the flight overlay sits, and resolves the map's exports in `activate()` to register its list, because it has no recurring path of its own to resolve on. If the map is inactive, vehicle status warns once and registers no list, and the footer still works. Vehicle status registers no view, so the map stays the last entry that registers one, and `packages/shell/src/extension-host/bundled-extensions.test.ts`, which pins the flight overlay as the only entry after the map, changes to admit vehicle status too. The list's registration fires two `docs/out-of-scope.md` triggers, which the propagation section re-defers. _(Owner, after review.)_ A map enabled after vehicle status shows no list until vehicle status is re-enabled or the page reloads, as the flight overlay's layers do. _(Controller, in review.)_
+**Vehicle status's map clock.** In `activate()`, vehicle status starts a clock and pushes it to `subscriptions`. On each tick, until it holds a registration, it looks up the map's exports, and once it finds them it registers its list through `registerControl`, pushing that `Disposable` to `subscriptions` too. A map that activates at boot, later in the session or after a failed activation gets its list on the next tick, and until then the footer still works. The registration survives the map's own disable and re-enable: `mapApi` is a module-level registry that outlives them, the map's `activate()` never clears its controls, and `packages/extension-map/src/map-view.svelte` renders every registered control each time it mounts (`packages/extension-map/src/map-api.svelte.ts`). So the clock stops looking once it has registered. This timer only looks for the map, so vehicle status still never polls a provider. Vehicle status keeps its place in `bundledExtensions`, and `packages/shell/src/extension-host/bundled-extensions.test.ts` stays as it is. Because the list registers on a tick rather than in `activate()`, it fires neither `docs/out-of-scope.md` trigger that an activate-time registrant would: "Extension activation ordering / dependency declaration" and "Cleanup of contributions an extension registered into another extension's registry". The flight overlay is still the only extension that resolves and registers into another's registry in `activate()`. _(Owner, after review: this clock route replaced option (a).)_
 
-This is option (a). The other, (b), would register the list when the map's exports appear. The ADR-0012 cost that first seemed to set (b) apart falls on the provider's clock too, so it no longer separates them. What does: (a) leaves the gap above when the map is enabled later, and (b) would need a reactive root in vehicle status, which no gcscode package has yet. The owner kept (a) knowing this. _(Owner, after review.)_
+The trade the owner chose, against the two other routes:
+
+- **Against (a),** moving vehicle status after the map and resolving it eagerly: one timer whose only job is to find the map, instead of a reorder, a changed bundled-extensions test, two re-deferred `docs/out-of-scope.md` rows and a list that never came back when the map was enabled later.
+- **Against (b),** registering when the map's exports appear: the same result, without the first reactive root in a gcscode package.
+
+The cost is that timer, in an extension the design otherwise keeps from polling. _(Owner, after review.)_
 
 **Left to the builder:** exact type and member names; how a vehicle is named (the protocol supplies it; camera-sim already calls MAVLink system 1 `drone-1`); which map corner; the flash's look and length; the footer's wording with no vehicles.
 
@@ -131,11 +136,6 @@ When the first PR merges, amend **Distinguishing assets from non-assets** as wel
 
 When the first PR merges, reword the default in **Extension activation ordering / dependency declaration**, "registers its provider on first use", to: registers its provider after activation, on first use or on the provider's own clock (Design, Activation order). _(Controller, in review.)_
 
-When the second PR merges, re-defer the two rows whose triggers its list registration fires (Design, Activation order). _(Owner, after review.)_
-
-- **Extension activation ordering / dependency declaration.** Its first clause, the first service→service edge that must resolve during `activate()`, fires: vehicle status resolves the map's exports in its `activate()`. `bundledExtensions` order, with the consumer degrading while the map is inactive, covers that edge as it covers the flight overlay's. Replace the clause with: the first activate-time edge that `bundledExtensions` order cannot satisfy, such as two extensions that each need the other active first, or the first consumer of an activate-time edge that cannot degrade while its producer is inactive, or the first time an operator enables the map and finds no list (Activation order). Its other clauses stay.
-- **Cleanup of contributions an extension registered into another extension's registry.** Its second clause, the first extension besides the flight overlay that registers into another extension's registry during `activate()`, fires with vehicle status's map control. Replace that clause with: a third such extension. Widen the first clause from a stale map layer to a stale map layer or control surviving a failed activation, since vehicle status's list is a control.
-
 ## `docs/roadmap.md` propagation
 
 When the second PR merges, tick "Vehicle status owns its contract", and add under Feature extensions → Considering:
@@ -149,7 +149,7 @@ When the first PR merges:
 
 - **Divergences:** "Answer shape" from the table above, with the trigger of the Deferrals row it cites. The "Provider registration" row is already the ledger's "Who owns per-feature provider registries" Divergence: add this spec to that row's Source rather than adding a second row.
 - **Deferrals:** "Several providers", with the trigger in the table above.
-- **Amend** the Divergences row "Lazy per-message resolution of a service dependency": its gcscode column adds MAVLink's status provider, which resolves vehicle status on its own clock rather than per message (Activation order).
+- **Amend** the Divergences row "Lazy per-message resolution of a service dependency": retitle it "Lazy resolution of a service dependency", and add to its gcscode column MAVLink's status provider and vehicle status's map list, which resolve on clocks of their own rather than per message (Activation order). Its trigger, "the first registrant-shaped consumer that cannot resolve lazily", stays: both resolve lazily, so neither fires it, and the flight overlay, the one eager registrant, predates the row.
 
 ## Breadcrumb in the iteration A spec
 
@@ -159,5 +159,5 @@ When the first PR merges, add a one-line breadcrumb under the title of [`2026-04
 
 When the first PR merges:
 
-- Add a one-line breadcrumb to the Mechanics bullet "Lookup differs by direction, and only the read direction can be lazy" in [ADR-0012](../decisions/ADR-0012-service-extensions-vs-host-namespaces.md), pointing to this spec: a registrant with a recurring path of its own may resolve lazily on it, as MAVLink's status provider does on its clock (Activation order). ADR-0012 already carries implementation breadcrumbs of this kind (PR #34, PR #37). _(Controller, in review.)_
-- Reword "Readers may resolve lazily; registrants cannot." in `packages/extension-api/README.md` to match: a registrant resolves lazily only on a path of its own that runs again, per message or on a clock, and otherwise resolves at `activate()` and degrades.
+- Add a one-line breadcrumb to the Mechanics bullet "Lookup differs by direction, and only the read direction can be lazy" in [ADR-0012](../decisions/ADR-0012-service-extensions-vs-host-namespaces.md), pointing to this spec: a registrant with a recurring path of its own may resolve lazily on it, as MAVLink's status provider and vehicle status's map list do on their clocks (Activation order). It is the first ADR-0012 breadcrumb that extends a Mechanics rule; the earlier ones (PR #34, PR #37) record what implementation did to things the ADR named. It is a breadcrumb rather than a successor because a successor would mark all of ADR-0012 superseded for one sentence, while ADR-0012's decision, the split between platform and domain concerns, is untouched. _(Controller, in review.)_
+- Reword "Readers may resolve lazily; registrants cannot." in `packages/extension-api/README.md` to match: a registrant resolves lazily only on a path of its own that runs again, per message or on a clock, and otherwise resolves at `activate()` and degrades, staying degraded until it is itself re-enabled.
