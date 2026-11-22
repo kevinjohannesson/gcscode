@@ -9,6 +9,8 @@ lerna-debug.log*
 
 node_modules
 dist
+# Cargo build output (tools/radio-probe)
+target
 dist-ssr
 *.local
 

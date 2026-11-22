@@ -1,0 +1,26 @@
+[package]
+name = "radio-probe"
+version = "0.1.0"
+edition = "2024"
+description = "Prints the raw axes and buttons an EdgeTX radio such as the TX16S reports through SDL. A proof tool: it reads, and sends nothing anywhere."
+publish = false
+
+[dependencies]
+# Built from source and linked statically, so the binary needs no SDL on the machine.
+# Building SDL needs CMake (`brew install cmake` on macOS).
+sdl3 = { version = "=0.22.1", features = ["build-from-source-static"] }
+# Leave out the parts of SDL the probe never uses, which keeps the build shorter.
+sdl3-sys = { version = "=0.7.3", features = [
+  "no-sdl-audio",
+  "no-sdl-camera",
+  "no-sdl-gpu",
+  "no-sdl-render",
+  "no-sdl-dialog",
+  "no-sdl-tray",
+] }
+
+# On Linux, build SDL without a display server: the probe has no window, and a headless
+# machine (such as a cloud container running the tests) has no X11 or Wayland to build against.
+[target.'cfg(target_os = "linux")'.dependencies]
+sdl3 = { version = "=0.22.1", features = ["build-from-source-unix-console"] }
+sdl3-sys = { version = "=0.7.3", features = ["no-sdl-video"] }
