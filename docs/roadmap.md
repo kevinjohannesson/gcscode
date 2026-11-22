@@ -93,6 +93,119 @@ What the repo holds besides gcscode itself (the shell, the extension API and the
 - [x] **Fly SITL without activating the venv** — _shipped 2026-11-10 (PR #50)._ `pnpm fly-sitl` at the repo root runs the Python client with the venv's Python: `--circle [TURNS]` and `--takeoff [METRES]` fly the drone, `--connect` and `--telemetry` only check the link, and the arguments after an action go to its script. Without arguments it lists them, and a missing venv or pymavlink says to run setup. `setup.sh` now installs `client/requirements.txt`. Flying stays a command of its own: the planned one-command launcher brings SITL up ready to fly but never moves the drone. The client keeps running on the host whatever that launcher becomes.
 - [ ] **Docker Compose for the dev stack** — the eventual successor to the one-command dev stack's native launcher, reusing each service's config from its `tools/` folder. Compose gives the simpler lifecycle, but on macOS containers run inside a VM, so the WebRTC and UDP media ports need checking before it replaces anything. Trigger (owner): CI end-to-end tests, a second machine running the stack beside this Mac (not the Mac that replaces it, which the native launcher serves), or other contributors. Spec: [`specs/2026-11-10-dev-stack.md`](specs/2026-11-10-dev-stack.md).
 
+## Path to a fully fledged GCS
+
+How gcscode gets from where it is to a fully fledged ground control station, in eight milestones. Drawn on 2026-11-20 from four research reports of 11 November 2026, which are kept outside this repo: `gcs-expectations-late-2026` (Exp), `gcs-competitive-landscape-2026-11` (Land), `gcs-conflict-lessons-2026-11` (Conf) and `gcs-human-factors-safety-2026-11` (HF). Citations give a report's short name and section, such as HF §5. EASA clause numbers, such as C3.6, are the HMI clauses of EASA's proposed CM-HF-001, as HF §3.1 lists them.
+
+Nothing here is committed. The milestones are ordered by dependency, then by operator value and safety, and sizes are rough PR counts. Where a milestone names an entry elsewhere on this page, that entry keeps its own place and status. The new items, N1–N13, are all **Considering (not yet committed)**, each written out once under the milestone it belongs to. Each gives what it is, then _Why_, _Section_ (where it moves once committed), _Size_, _Depends_ and _First_ (the first of its kind it would bring to gcscode).
+
+### What "fully fledged" means
+
+Exp's table stakes (Bottom line, §6), minus what Land §7 says not to chase early, plus HF's safety core. An operator can:
+
+- **know** each vehicle's state, staleness, mode and failsafes, with tiered alerts that latch (HF §6 #3–5);
+- **command** each vehicle, every command bound to it, guarded and tracked to an answer (HF §6 #1–2);
+- **plan and fly** missions, fences and rally points with explicit upload, click-to-fly and a joystick (Exp §1.3, §1.5);
+- **see** each vehicle's camera and steer its gimbal (Exp §1.6);
+- **prepare and review:** pre-arm, checklist, parameters, recorded flights, replay (Exp §1.2, §1.8);
+- **survive bad links:** several links with health, lost-link prediction, GNSS health and GPS-denied aids, the clearest open-source gap (Exp Bottom line; Land §1 #4);
+- **share the sky:** see ADS-B and Remote ID traffic (Exp §1.3, §1.10).
+
+Not part of it: calibration and flashing depth (Mission Planner's moat, Land §7), several stations controlling one vehicle, defence integrations, anything weapons-related. What the path leaves out on purpose and may come back to has a row with a trigger in [`out-of-scope.md`](out-of-scope.md#gcs-features). A ready acceptance test for the safety half: the HMI clauses of EASA's proposed CM-HF-001, which map almost one to one onto the investigated failure modes (HF §3.1).
+
+### M1 · Every vehicle, at a glance (in flight)
+
+- **Operator can:** see each vehicle on its own row, worst first, with mode, armed state, battery and link age, and notice a mode change, instead of one line that mixes systems.
+- **Contains:** "Vehicle status owns its contract" (both of its feature PRs), "`airframe` leaves `extension-assets`", "Only `mavlink` extensions import the MAVLink extension" and "UI baseline", all under [Feature extensions → Coming](#coming-committed--will-ship); N8.
+- **Depends on:** the vehicle status contract spec (PR #60) merging.
+- **Size:** L, about 6 PRs, mostly specified.
+
+Its new item:
+
+- [ ] **N8. Several vehicles in SITL** — `pnpm dev:sitl` runs several vehicles on distinct system IDs; today it runs one, as SITL instance 0. camera-sim already keys its vehicles and streams by system ID. _Why:_ the vehicle status contract spec covers ordering and counts only with a fake provider; duplicate IDs merge silently in QGC (Land §4.1). _Section:_ Ecosystem → Tools. _Size:_ S. _Depends:_ nothing. _First:_ none.
+
+### M2 · One map, one truth
+
+- **Operator can:** trust each map symbol: drawn from that vehicle's own data, greyed when stale, with the same colour and callsign as its row; selecting a vehicle anywhere selects it everywhere.
+- **Contains:** the map's contract, which has no entry yet: it ends the flight overlay's reads of the one telemetry store that mixes every system, and takes over `airframe`; N2.
+- **Depends on:** M1's provider pattern.
+- **Size:** M, about 3 PRs.
+
+Its new item:
+
+- [ ] **N2. Selected vehicle and identity everywhere** — one selection shared by the vehicle list, map, video and actions; a colour and callsign per asset key on every row, symbol, dialog and alert. Its spec decides whether selection is a host concern ([ADR-0012](decisions/ADR-0012-service-extensions-vs-host-namespaces.md) names selection state as the likeliest domain capability to turn out universal and move to the host), and keeps colour and callsign with identity, not in a vehicle model ([ADR-0014](decisions/ADR-0014-protocols-as-languages.md)). _Why:_ QGC dropped a request for a vehicle not in view (HF §5 row 8); EASA C6.5–C6.7. _Section:_ Feature extensions, or Phase C if it is a host concern. _Size:_ M. _Depends:_ M1. _First:_ possibly a host namespace; the selection pattern every feature copies.
+
+### M3 · First commands, bound and guarded
+
+- **Operator can:** arm on the ground, change mode, return home or land the selected vehicle; see why an arm is refused; watch each command end accepted, rejected or timed out; and cannot disarm in flight or hit the wrong vehicle.
+- **Contains:** "Vehicle actions contract", with the research's lifecycle and guards: the vehicle status contract spec (PR #60) adds that entry when its second feature PR merges. N1, and the pre-arm step of N6, which is written out under M6.
+- **Depends on:** M1 (keys that are never reissued), M2 (selection), N1's ADR.
+- **Size:** L, about 5 PRs.
+
+Its new item:
+
+- [ ] **N1. Station link: where it lives, who it is** — an ADR on whether MAVLink traffic, the station's heartbeat and later manual control run in the page, a worker or a local process; then a configurable system ID, a heartbeat, a "vehicle hears this station" indicator and a watch-only setting. _Why:_ control loops tied to the UI thread or tab focus set off failsafes (Land §7); the GCS failsafe needs a dependable heartbeat (Exp §1.7); camera-sim went headless because a hidden browser tab stopped its video (PR #54). _Section:_ Phase C, as an ADR. _Size:_ M. _Depends:_ nothing. _First:_ gcscode code that runs outside the page.
+
+### M4 · Nothing fails silently
+
+- **Operator can:** see and hear a warning that stays red on any view until acknowledged; read which failsafe fired and what the vehicle is doing; see beforehand what each vehicle will do if its link drops now.
+- **Contains:** N3, which can start beside M3; "Lost-link behaviour per vehicle", which the vehicle status contract spec (PR #60) adds when its second feature PR merges; "Settings editor UI" ([Feature extensions → Considering](#considering-not-yet-committed)), for alert settings.
+- **Depends on:** M3's first outbound requests (reading the failsafe parameters); M2 (the lost-link path on the map).
+- **Size:** L, about 5 PRs and one ADR.
+
+Its new item:
+
+- [ ] **N3. Operator alerts: tiered, latched, audible** — a host-owned surface over every view: warning, caution and advisory in red, amber and green; warnings latch until acknowledged; each alert names its vehicle; one sound per class; a mute state that always shows; counts that expose nuisance alerts. _Why:_ HF §1.4, §5 rows 10–11; EASA C3.6; QGC's critical popup closes itself after 10 s (HF §3.3). _Section:_ Phase C (C4+), ADR first. _Size:_ L: tiers, sound, counts. _Depends:_ UI baseline. _First:_ a host surface that stays up over every view (the command palette and the extensions panel are overlays the operator dismisses), and the first sound.
+
+### M5 · Plan and fly a mission
+
+- **Operator can:** draw a mission, fence and rally points, upload them explicitly, start and pause the mission, and send a vehicle to a clicked point.
+- **Contains:** N4.
+- **Depends on:** M2 (a map with an editing surface), M3, M4 (breach alerts).
+- **Size:** L, about 5 PRs.
+
+Its new item:
+
+- [ ] **N4. MAVLink missions and click-to-fly** — a `mavlink`-named add-on: download, edit and explicitly upload missions, fences and rally points; start and pause; Go To with confirmation; QGC `.plan` import and export. Protocol-named under [ADR-0014](decisions/ADR-0014-protocols-as-languages.md) Decision 3: mission items are MAVLink's own commands, and a generic mission vocabulary would be the shared model ADR-0014 rejects. _Why:_ Exp §1.3, §1.5; interoperate with Mission Planner rather than match it (Land §7). _Section:_ Feature extensions. _Size:_ L. _Depends:_ M2, M3. _First:_ map editing as a contribution kind; likely a drawing-library dependency.
+
+### M6 · Ready before, recorded after
+
+- **Operator can:** keep Arm closed until a checklist passes, compare parameters across vehicles, find every flight recorded and exportable, replay it, and rehearse failures against SITL in the same UI.
+- **Contains:** N6, apart from its pre-arm step, which is part of M3; N7.
+- **Depends on:** M3, M4.
+- **Size:** L, about 5 PRs.
+
+Its new items:
+
+- [ ] **N6. Ready to fly** — pre-arm reasons as vehicle-status reasons (the step M3 takes); an operator checklist that guards Arm; a `mavlink`-named parameter view that compares and copies parameters across vehicles and flags firmware mismatches. _Why:_ per-vehicle pre-arm fixes QGC's active-vehicle-only limit (Exp §1.2, §6 #10); a quarter of drones fault before takeoff, and fleets are reconfigured by hand (Conf §4 #2–3). _Section:_ Feature extensions. _Size:_ L. _Depends:_ M3. _First:_ the first guard on an action.
+- [ ] **N7. Flight records, replay and rehearsal** — record each flight's telemetry plus one structured record (vehicle, operator, times, track, modes, alerts, links), exported as JSON, CSV or GeoJSON; replay through the MAVLink extension as one more link, marked "replay"; scripted SITL failures, marked "simulated". Analysis links out. _Why:_ one record per mission replaced hours of spreadsheets (Conf §3.2); 62% of UK accidents involved under 20 hours on type, and HF's answer is rehearsing failures in SITL (HF §1.8); Exp §1.8. _Section:_ Feature extensions; scenarios under Ecosystem → Tools. _Size:_ L. _Depends:_ M3, M4. _First:_ per-extension storage, which would fire the "Per-extension persistent state (`globalState` / `workspaceState`)" row in [`out-of-scope.md`](out-of-scope.md#extension-machinery).
+
+### M7 · Each vehicle's camera
+
+- **Operator can:** select a vehicle and get its own stream, steer its gimbal, zoom, take a photo, and point the camera by clicking the video or the map.
+- **Contains:** N5; the SITL gimbals in "Camera sim, after v0" ([Ecosystem → Tools](#tools--coming-committed--will-ship)).
+- **Depends on:** M2, M3.
+- **Size:** L, about 4 PRs.
+
+Its new item:
+
+- [ ] **N5. Each vehicle's camera** — `extension-video` publishes its video-source contract, which the MAVLink extension fills from camera protocol v2 stream discovery; gimbal, zoom and photo become actions; click-to-point on video and map; camera direction drawn apart from heading. _Why:_ Exp §1.6; a slewing camera looked like a turn to the pilot (HF §4.1). _Section:_ Feature extensions. _Size:_ L. _Depends:_ M2, M3, the SITL gimbals. _First:_ would fire the "Video-source contract" row in [`out-of-scope.md`](out-of-scope.md#extension-machinery); the first input taken on video.
+
+### M8 · Contested and crowded skies
+
+- **Operator can:** fly on two links with visible failover and per-link health; see GNSS health as "unknown" rather than "OK" when it is not reported; set a vehicle's position by map click without GNSS; see nearby traffic; supervise several vehicles by exception; fly with a joystick.
+- **Contains:** N10, N11, N12, N9 and N13, in that order, each shipping on its own.
+- **Depends on:** N1's decision on where the link lives; M3, M4.
+- **Size:** XL, about 8 PRs.
+
+Its new items, in that order:
+
+- [ ] **N10. Several links and link health** — the MAVLink extension holds several links per vehicle, de-duplicates, fails over visibly and warns on duplicate system IDs; a link-health contract (age, loss, latency; radio add-ons add radio figures) tells "video degraded" from "link lost". _Why:_ QGC's lead developer files its multi-link defects (Land §1 #4); Conf §6 #3; EASA C3.9. _Section:_ Feature extensions. _Size:_ L. _Depends:_ N1. _First:_ radio add-ons; a per-link contract.
+- [ ] **N11. Navigation health and GPS-denied aids** — navigation source and GNSS state per vehicle, "unknown" when not reported; `GNSS_INTEGRITY` behind a version guard; map-click position fix, EKF source switch and origin as actions. _Why:_ the commands are in MAVLink's `common.xml`, and only MAVProxy uses them (Exp Bottom line; Land §5.3); most aircraft send no jamming data (Land §1 #4); aids under 70% reliable do harm, so the raw evidence stays one click away (HF §2). _Section:_ Feature extensions. _Size:_ M. _Depends:_ M2, M3. _First:_ the first message from MAVLink's `development.xml` (`GNSS_INTEGRITY`); the version-guard pattern.
+- [ ] **N12. Traffic on the map** — ADS-B and Remote ID aircraft heard over MAVLink, drawn but not listed as vehicles; own Remote ID status. _Why:_ Exp §1.3, §1.10. _Section:_ Feature extensions. _Size:_ M. _Depends:_ M2. _First:_ aircraft on the map that are not assets.
+- [ ] **N9. Supervising several vehicles** — "changed since you last looked" per vehicle, a "needs a human" flag, and group actions on named vehicles behind one confirmation. _Why:_ capacity is set by regaining awareness after a switch, and ignoring that overstates it by up to 67% (HF §2); fielded groups of about five vehicles per operator use an attention queue (Conf §1.3). _Section:_ Feature extensions. _Size:_ M. _Depends:_ M3, N3, N8. _First:_ none.
+- [ ] **N13. Manual control off the page** — joystick input in the process N1 picks (the Gamepad API is window-only), stopping when the station stalls; a warning before a mode that passes raw throttle, which MAVLink declares per mode. _Why:_ Exp §1.5; Malloy T150 went from RTL into STAB at 2.6% throttle (HF §1.1, §5 row 2). _Section:_ Feature extensions. _Size:_ L. _Depends:_ N1, M3. _First:_ an input path outside the page.
+
 ## Agentic team architecture
 
 A workflow track that runs alongside feature iterations. Makes the implicit meta-project (Claude-driven extension architecture) explicit by investing in agent orchestration, reviewer durability, and traceability.
