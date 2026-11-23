@@ -33,17 +33,33 @@ pub fn axes_lines(axes: &[i16]) -> Vec<String> {
         .collect()
 }
 
-/// Buttons in groups of eight, `1` pressed and `.` released, with the first index of each group.
-pub fn buttons_line(buttons: &[bool]) -> String {
-    buttons
-        .chunks(8)
+/// Buttons as a numbered grid, twelve to a row: each number with `X` under it when pressed and
+/// `.` when not. Then a line listing the pressed ones, so they can be read without the grid.
+pub fn buttons_lines(buttons: &[bool]) -> Vec<String> {
+    let mut lines = Vec::new();
+    for (row, chunk) in buttons.chunks(12).enumerate() {
+        let numbers: String = (0..chunk.len())
+            .map(|i| format!("{:>3}", row * 12 + i))
+            .collect();
+        let marks: String = chunk
+            .iter()
+            .map(|&b| if b { "  X" } else { "  ." })
+            .collect();
+        lines.push(format!("button {numbers}"));
+        lines.push(format!("       {marks}"));
+    }
+    let pressed: Vec<String> = buttons
+        .iter()
         .enumerate()
-        .map(|(group, chunk)| {
-            let marks: String = chunk.iter().map(|&b| if b { '1' } else { '.' }).collect();
-            format!("{:>2}:{marks}", group * 8)
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
+        .filter(|(_, b)| **b)
+        .map(|(i, _)| i.to_string())
+        .collect();
+    lines.push(if pressed.is_empty() {
+        "pressed: none".to_string()
+    } else {
+        format!("pressed: {}", pressed.join(", "))
+    });
+    lines
 }
 
 /// Hats as SDL's bitmask (1 up, 2 right, 4 down, 8 left), numbered from 0.
@@ -93,13 +109,26 @@ mod tests {
     }
 
     #[test]
-    fn buttons_are_grouped_by_eight() {
-        let mut b = vec![false; 10];
+    fn buttons_are_a_numbered_grid_and_a_pressed_list() {
+        let mut b = vec![false; 14];
         b[0] = true;
         b[7] = true;
-        b[9] = true;
-        assert_eq!(buttons_line(&b), " 0:1......1  8:.1");
-        assert_eq!(buttons_line(&[]), "");
+        b[13] = true;
+        assert_eq!(
+            buttons_lines(&b),
+            vec![
+                "button   0  1  2  3  4  5  6  7  8  9 10 11",
+                "         X  .  .  .  .  .  .  X  .  .  .  .",
+                "button  12 13",
+                "         .  X",
+                "pressed: 0, 7, 13",
+            ]
+        );
+        assert_eq!(
+            buttons_lines(&[false, false]).last().unwrap(),
+            "pressed: none"
+        );
+        assert_eq!(buttons_lines(&[]), vec!["pressed: none"]);
     }
 
     #[test]

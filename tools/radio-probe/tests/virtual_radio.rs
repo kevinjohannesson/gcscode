@@ -80,7 +80,11 @@ fn reads_an_edgetx_radio_and_survives_unplug_and_replug() {
         vec![
             "axis  0 -32768   axis  1      0   axis  2  32767   axis  3      0",
             "axis  4      0   axis  5      0   axis  6      0   axis  7   1234",
-            "buttons  0:1.......  8:.......1 16:........",
+            "button   0  1  2  3  4  5  6  7  8  9 10 11",
+            "         X  .  .  .  .  .  .  .  .  .  .  .",
+            "button  12 13 14 15 16 17 18 19 20 21 22 23",
+            "         .  .  .  X  .  .  .  .  .  .  .  .",
+            "pressed: 0, 15",
         ]
     );
 
@@ -121,8 +125,10 @@ fn reads_an_edgetx_radio_and_survives_unplug_and_replug() {
         read(j),
         vec![
             "axis  0      0   axis  1      0",
-            "buttons  0:..",
-            "hat 0  3"
+            "button   0  1",
+            "         .  .",
+            "pressed: none",
+            "hat 0  3",
         ]
     );
 }

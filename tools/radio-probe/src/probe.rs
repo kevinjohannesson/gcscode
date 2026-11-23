@@ -67,7 +67,7 @@ pub fn read(j: &Joystick) -> Vec<String> {
         .collect();
 
     let mut lines = report::axes_lines(&axes);
-    lines.push(format!("buttons {}", report::buttons_line(&buttons)));
+    lines.extend(report::buttons_lines(&buttons));
     if !hats.is_empty() {
         lines.push(report::hats_line(&hats));
     }
