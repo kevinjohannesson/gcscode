@@ -4,8 +4,10 @@ import type { Disposable, ExtensionContext, ExtensionHost } from '@gcscode/exten
 import type { AssetDescription, AssetSource, AssetsApi } from '@gcscode/extension-assets';
 
 import { mavlinkExtension, type MavlinkExports } from './index';
+import MapInputView from './map-input-view.svelte';
 import MavlinkView from './mavlink-view.svelte';
 import { applyMessage, reset, telemetryState } from './telemetry-store.svelte';
+import { vehicleInputs } from './vehicle-inputs.svelte';
 
 // ---------------------------------------------------------------------------
 // MockWebSocket — minimal browser WebSocket interface for tests.
@@ -194,7 +196,7 @@ describe('mavlinkExtension', () => {
     expect(typeof mavlinkExtension.manifest.version).toBe('string');
   });
 
-  it('registers a view, a command, a keybinding, a configuration + change-listener, and the asset adapter; pushes all six disposables', () => {
+  it('registers two views, a command, a keybinding, a configuration + change-listener, and the asset adapter; pushes all seven disposables', () => {
     const { context, registerView, registerCommand, registerKeybinding } = makeContext();
     const { subscriptions } = context;
 
@@ -204,6 +206,11 @@ describe('mavlinkExtension', () => {
       id: 'gcscode.mavlink.location',
       component: MavlinkView,
       title: 'MAVLink',
+    });
+    expect(registerView).toHaveBeenCalledWith({
+      id: 'gcscode.mavlink.mapInput',
+      component: MapInputView,
+      title: 'Map input',
     });
     expect(registerCommand).toHaveBeenCalledWith({
       id: 'gcscode.mavlink.getLocation',
@@ -215,7 +222,7 @@ describe('mavlinkExtension', () => {
       key: 'Alt+Shift+L',
       command: 'gcscode.mavlink.getLocation',
     });
-    expect(subscriptions).toHaveLength(6);
+    expect(subscriptions).toHaveLength(7);
   });
 
   it('getLocation command returns current store location and logs it; returns null with no fix yet', () => {
@@ -330,6 +337,44 @@ describe('mavlinkExtension', () => {
 
     const mock = lastMock();
     expect(mock.url).toMatch(/^ws:\/\/localhost:8088\/v1\/ws\/mavlink\?filter=/);
+  });
+
+  it('subscribes to HOME_POSITION as well, for the Map input view', () => {
+    const { context } = makeContext();
+    mavlinkExtension.activate(context);
+
+    const filter = new URL(lastMock().url).searchParams.get('filter');
+    expect(filter).toBe(
+      '^(HEARTBEAT|GLOBAL_POSITION_INT|ATTITUDE|VFR_HUD|SYS_STATUS|HOME_POSITION)$',
+    );
+  });
+
+  it('feeds every frame to the Map input tracker and clears it on deactivate', async () => {
+    const { context } = makeContext();
+    mavlinkExtension.activate(context);
+
+    deliver(POSITION_FRAME);
+    deliver({
+      header: { system_id: 2, component_id: 1, sequence: 1 },
+      message: { type: 'HOME_POSITION', latitude: -353632621, longitude: 1491652374 },
+    });
+
+    expect(vehicleInputs.vehicles.map((v) => v.systemId)).toEqual([1, 2]);
+    expect(vehicleInputs.vehicles[0]!.position?.value).toEqual({
+      lat: -35.363261,
+      lng: 149.16523,
+      alt: 5.4,
+    });
+    expect(vehicleInputs.vehicles[1]!.home?.value).toEqual({
+      lat: -35.3632621,
+      lng: 149.1652374,
+    });
+    // The telemetry store is untouched by the extra subscription.
+    expect(telemetryState.lat).toBe(-35.363261);
+
+    await mavlinkExtension.deactivate?.();
+    expect(vehicleInputs.vehicles).toEqual([]);
+    expect(vehicleInputs.mergedWriter).toBeNull();
   });
 
   it('reconnects when gcscode.mavlink.connectionUrl changes', async () => {

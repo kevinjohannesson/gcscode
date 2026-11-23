@@ -3,6 +3,7 @@ import type { AssetsApi } from '@gcscode/extension-assets';
 
 import { createAssetAdapter } from './asset-adapter';
 import { createMavlinkClient, type MavlinkClient } from './mavlink-client';
+import MapInputView from './map-input-view.svelte';
 import MavlinkView from './mavlink-view.svelte';
 import {
   applyMessage,
@@ -11,6 +12,7 @@ import {
   telemetryState,
   type TelemetryState,
 } from './telemetry-store.svelte';
+import { vehicleInputs } from './vehicle-inputs.svelte';
 
 /**
  * Cross-extension exports for the MAVLink extension. Consumers `import type` this
@@ -27,7 +29,7 @@ export interface MavlinkExports {
   telemetry: Readonly<TelemetryState>;
 }
 
-const FILTER = '^(HEARTBEAT|GLOBAL_POSITION_INT|ATTITUDE|VFR_HUD|SYS_STATUS)$';
+const FILTER = '^(HEARTBEAT|GLOBAL_POSITION_INT|ATTITUDE|VFR_HUD|SYS_STATUS|HOME_POSITION)$';
 const DEFAULT_BASE_URL = 'ws://localhost:8088/v1/ws/mavlink';
 
 function composeUrl(baseUrl: string): string {
@@ -57,7 +59,7 @@ export const mavlinkExtension: Extension = {
     displayName: 'MAVLink',
     version: '0.0.0',
     description:
-      'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export.',
+      'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export, and shows per vehicle what the map is fed.',
   },
   activate(context): MavlinkExports {
     context.subscriptions.push(
@@ -91,6 +93,9 @@ export const mavlinkExtension: Extension = {
       // handler throws, which is why the adapter degrades rather than throws.
       applyMessage(json);
       assetAdapter.onMessage(json);
+      // Read-only, and it never throws: the Map input view's per-vehicle copy
+      // of what `applyMessage` merges.
+      vehicleInputs.onMessage(json);
     };
 
     openClient(cfg.get<string>('connectionUrl', DEFAULT_BASE_URL), handleMessage);
@@ -112,6 +117,11 @@ export const mavlinkExtension: Extension = {
         id: 'gcscode.mavlink.location',
         component: MavlinkView,
         title: 'MAVLink',
+      }),
+      context.host.window.registerView({
+        id: 'gcscode.mavlink.mapInput',
+        component: MapInputView,
+        title: 'Map input',
       }),
       context.host.commands.registerCommand({
         id: 'gcscode.mavlink.getLocation',
@@ -142,5 +152,6 @@ export const mavlinkExtension: Extension = {
   async deactivate() {
     await closeClient();
     reset();
+    vehicleInputs.reset();
   },
 };
