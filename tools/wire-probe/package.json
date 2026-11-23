@@ -1,0 +1,11 @@
+{
+  "name": "wire-probe",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Prints every MAVLink heartbeat, command and control frame on a UDP port, with its system ID and the time since the previous one. Listens only; sends nothing.",
+  "type": "module",
+  "scripts": {
+    "start": "node probe.mjs",
+    "test": "node --test mavlink.test.mjs view.test.mjs probe.test.mjs"
+  }
+}
