@@ -28,7 +28,7 @@ Separate VS Code's load-bearing reason from its syntax. The goal is the reason: 
 
 Then read what is already decided about the concern, newest first, searching by the concern's words and API names (`grep -n -i`), not by reading everything:
 
-1. **Pending choices**: `/mnt/project-files/decisions/pending-alignment.md`, when that folder exists. These are accepted but not yet merged, so no other source shows them.
+1. **Pending choices**: `/mnt/project-files/decisions/pending-alignment.md`, when that folder exists. These are accepted but not yet merged, so no other source shows them. A line with no PR yet: match its concern against the open and recently merged `spec/*` and `adr/*` PRs (`gh pr list --state all --limit 50 --json number,title,headRefName,state,files`, filtered as in step 2.2) and fill the PR field in when one carries it.
 2. **Open spec and ADR PRs**: `spec/*` and `adr/*` branches with an open PR whose title or files touch the concern (`gh pr list --state open --json number,title,headRefName,files`, then filter by branch prefix and the concern's words).
 3. **The ledger**: `docs/vs-code-alignment.md`, all three tables.
 4. **ADRs**: `docs/decisions/`. One whose Status says "Superseded by" no longer counts; follow the link.
@@ -64,7 +64,7 @@ The third line names anything the owner should look at: a divergence and its tra
 
 ## Record
 
-When the owner accepts a choice that diverges from VS Code, or reverses an earlier decision, append one line to `/mnt/project-files/decisions/pending-alignment.md` in the same turn. Create the folder and the file if needed. Read the file again just before you write, since other sessions write to it, and only append:
+When the owner accepts a choice that diverges from VS Code, or reverses an earlier decision, append one line to `/mnt/project-files/decisions/pending-alignment.md` in the same turn. Create the folder and the file if needed. Read the file again just before you write, since other sessions write to it. Append new lines; change existing ones only as the cleanup below says:
 
 ```
 - <YYYY-MM-DD> · <concern> · <the choice, one sentence> · <aligns | diverges: trade-off | reverses <source>> · <where it was accepted: thread link> · <the spec or ADR PR that carries it, once one is open>
@@ -72,6 +72,6 @@ When the owner accepts a choice that diverges from VS Code, or reverses an earli
 
 When the check finds an earlier decision unjustified and the owner doesn't act on it there, append it too, marked `suspect <source>`, so a later session or `/housekeeping` can take it up.
 
-When the spec or ADR that carries a pending choice merges, its ledger propagation (the ledger's Maintenance section) adds the row there. The pending line is then stale, but the author of that commit is usually a local session that cannot see the file, so the cleanup belongs to whoever reads it next: each time you read the file in step 2.1, check the PR each line names (`gh pr view <n> --json state`), treat a merged one as recorded in the ledger or the ADR instead, and remove its line. When a spec or ADR PR for a pending line opens and you can see the file, add the PR to that line.
+When the spec or ADR that carries a pending choice merges, its ledger propagation (the ledger's Maintenance section) adds the row there. The pending line is then stale, but the author of that commit is usually a local session that cannot see the file, so the cleanup belongs to whoever reads it next: each time you read the file in step 2.1, check the PR each line names (`gh pr view <n> --json state`), treat a merged one as recorded in the ledger or the ADR instead, and remove its line. A line still without a PR gets one filled in by the same reader (step 2.1).
 
 `/mnt/project-files/` is where a Claude Projects session sees the project's shared files. Without it (a local session), you cannot see or write pending choices. Say so in a line above the report, check the other sources, and put the accepted choice in the handoff note.
