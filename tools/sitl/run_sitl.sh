@@ -36,7 +36,8 @@ ARDUPILOT_DIR="${SITL_HOME}/ardupilot"
 VENV_DIR="${SITL_HOME}/venv"
 LOG_DIR="${SITL_HOME}/logs"
 SITL_BIN="${ARDUPILOT_DIR}/build/sitl/bin/arducopter"
-SITL_LOG="/tmp/ArduCopter-sitl.log"
+TMP_LOG_DIR="${SITL_TMP_LOG_DIR:-/tmp}"     # SITL's and mavlink2rest's own output
+SITL_LOG="${TMP_LOG_DIR}/ArduCopter-sitl.log"
 M2R_BIN="${SITL_HOME}/bin/mavlink2rest"   # the pinned copy setup.sh installs
 
 SITL_VEHICLES="${SITL_VEHICLES:-1}"
@@ -100,7 +101,7 @@ vehicle_dir() {
   if [[ "$1" == 1 ]]; then echo "${ARDUPILOT_DIR}"; else echo "${SITL_HOME}/vehicles/$1"; fi
 }
 sitl_log() {
-  if [[ "$1" == 1 ]]; then echo "${SITL_LOG}"; else echo "/tmp/ArduCopter-sitl-$1.log"; fi
+  if [[ "$1" == 1 ]]; then echo "${SITL_LOG}"; else echo "${TMP_LOG_DIR}/ArduCopter-sitl-$1.log"; fi
 }
 
 SITL_PIDS=()
@@ -169,7 +170,7 @@ for vehicle in $(seq 1 "${SITL_VEHICLES}"); do
   fi
 done
 
-M2R_LOG="/tmp/mavlink2rest.log"
+M2R_LOG="${TMP_LOG_DIR}/mavlink2rest.log"
 echo "==> Starting mavlink2rest"
 echo "    listen   : udp 14551 (GCS port)"
 echo "    serve    : http://127.0.0.1:8088 (REST + ws://.../v1/ws/mavlink)"
@@ -186,7 +187,7 @@ if ! kill -0 "${M2R_PID}" 2>/dev/null; then
 fi
 
 # Vehicles 2 and up: a MAVProxy each, in the background, sending to mavlink2rest only.
-for vehicle in $(seq 2 "${SITL_VEHICLES}"); do
+for ((vehicle = 2; vehicle <= SITL_VEHICLES; vehicle++)); do  # not `seq 2 N`: macOS seq counts down to 1
   mkdir -p "${LOG_DIR}/vehicle-${vehicle}"
   python -m MAVProxy.mavproxy \
     --master "tcp:127.0.0.1:$(sitl_port "${vehicle}")" \

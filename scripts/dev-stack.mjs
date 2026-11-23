@@ -380,7 +380,7 @@ export async function runStack({ services, mavlink2rest, vehicles = 1, timings }
       }
       if (Date.now() - startedAt >= t.readyWarnMs) {
         for (const { id, prearm, position } of states) {
-          const after = `Not ready to fly after ${t.readyWarnMs / 1000} s:${vehicles > 1 ? ` vehicle ${id}:` : ''}`;
+          const after = `${vehicles > 1 ? `Vehicle ${id} not` : 'Not'} ready to fly after ${t.readyWarnMs / 1000} s:`;
           const w = warned.get(id);
           if (!prearm && !w.prearm) {
             w.prearm = true;

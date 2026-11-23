@@ -49,7 +49,7 @@ The repo holds only scripts. Everything else lives outside it, in `GCSCODE_SITL_
 
 - `vehicles/<k>/` — the folder vehicle _k_ (2 and up) runs from, with its own parameters (`eeprom.bin`) and flight logs; its `terrain` links to `ardupilot/terrain/`, so every vehicle and camera-sim share one terrain database. Vehicle 1 runs from `ardupilot/`, as it always has. MAVProxy's logs for vehicle _k_ go to `logs/vehicle-<k>/`.
 
-SITL's own output goes to `/tmp/ArduCopter-sitl.log` (vehicle _k_ ≥ 2: `/tmp/ArduCopter-sitl-<k>.log`), mavlink2rest's to `/tmp/mavlink2rest.log`.
+SITL's own output goes to `/tmp/ArduCopter-sitl.log` (vehicle _k_ ≥ 2: `/tmp/ArduCopter-sitl-<k>.log`), mavlink2rest's to `/tmp/mavlink2rest.log`; `SITL_TMP_LOG_DIR` moves all three from `/tmp`.
 
 ## Flying it
 

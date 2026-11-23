@@ -1330,9 +1330,9 @@ test('with several vehicles, ready to fly waits for every one of them', TIMEOUT,
   await sleep(1200);
   assert.doesNotMatch(run.out(), /ready to fly \(/, 'vehicle 3 has no position');
   const position =
-    '==> Not ready to fly after 0.8 s: vehicle 3: no position yet; the EKF is not using GPS';
+    '==> Vehicle 3 not ready to fly after 0.8 s: no position yet; the EKF is not using GPS';
   assert.equal(count(run.out(), position), 1, transcript(run));
-  assert.equal(count(run.out(), 'Not ready to fly after'), 1, transcript(run));
+  assert.equal(count(run.out(), 'ready to fly after'), 1, transcript(run));
   assert.deepEqual(
     [...new Set(api.requests.map((r) => r.id))].sort(),
     [1, 2, 3],
