@@ -2,7 +2,7 @@
 
 `gcscode-station`, the station process: a native program that runs next to the gcscode page on the operator's machine. For now it does one thing. It reads an EdgeTX radio, such as the RadioMaster TX16S, and serves the radio's raw input to the page on a local WebSocket. It sends nothing to the radio or to any vehicle.
 
-It is built against two draft ADRs that have not merged yet: ADR-0016 (one station process, the MAVLink extension's native half, is the only thing that sends to a vehicle) and ADR-0015 (native programs live in `packages/` and reach the page over a WebSocket on 127.0.0.1). The radio reading is the one proven in [`tools/radio-probe`](../../tools/radio-probe/README.md), used as a library.
+It is the station process of [ADR-0016](../../docs/decisions/ADR-0016-one-station-process.md): one process, the only thing in gcscode that will send to a vehicle. Where it lives and how it reaches the page, in `packages/` and over a WebSocket on 127.0.0.1, follows ADR-0015, which is still a draft. The radio reading is the one proven in [`tools/radio-probe`](../../tools/radio-probe/README.md), used as a library.
 
 ## Running it
 
