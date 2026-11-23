@@ -135,7 +135,9 @@ echo "    defaults : ${SITL_DEFAULTS}"
 for vehicle in $(seq 1 "${SITL_VEHICLES}"); do
   dir="$(vehicle_dir "${vehicle}")"
   if [[ "${vehicle}" != 1 ]]; then
-    mkdir -p "${dir}"
+    # The link's target must exist: a link to a folder SITL has not made yet
+    # is dangling, `-e` is false for it, and `ln -s` then fails on the next run.
+    mkdir -p "${dir}" "${ARDUPILOT_DIR}/terrain"
     [[ -e "${dir}/terrain" ]] || ln -s "${ARDUPILOT_DIR}/terrain" "${dir}/terrain"
   fi
   ( cd "${dir}" && exec "${SITL_BIN}" \
