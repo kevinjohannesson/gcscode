@@ -35,8 +35,13 @@ function makeHome(name, { binary = false, venv = false } = {}) {
 
 // Runs run_sitl.sh with an environment built from scratch, so nothing from the
 // shell leaks in.
-function run(home) {
-  const env = { PATH: process.env.PATH, HOME: join(scratch, 'nobody'), GCSCODE_SITL_HOME: home };
+function run(home, extra = {}) {
+  const env = {
+    PATH: process.env.PATH,
+    HOME: join(scratch, 'nobody'),
+    GCSCODE_SITL_HOME: home,
+    ...extra,
+  };
   const result = spawnSync(RUN, [], { cwd: scratch, encoding: 'utf8', env });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
@@ -63,3 +68,17 @@ test('no mavlink2rest names the setup command', () => {
   const home = makeHome('no-m2r', { binary: true, venv: true });
   assertStopsAt(home, `mavlink2rest missing: ${join(home, 'bin/mavlink2rest')}`);
 });
+
+// SITL_VEHICLES is checked before anything else, so a bad count never starts SITL.
+for (const count of ['0', '6', '2.5', 'two', '05']) {
+  test(`SITL_VEHICLES=${JSON.stringify(count)} is refused`, () => {
+    const home = makeHome(`vehicles-${count}`, { binary: true, venv: true });
+    const { status, stdout, stderr } = run(home, { SITL_VEHICLES: count });
+    assert.equal(status, 1, stderr);
+    assert.ok(
+      stderr.includes(`SITL_VEHICLES must be a whole number from 1 to 5, got: ${count}`),
+      stderr,
+    );
+    assert.doesNotMatch(stdout, /Launching/);
+  });
+}
