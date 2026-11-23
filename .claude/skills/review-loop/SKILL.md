@@ -76,7 +76,7 @@ A _product_ spec or ADR is about the app, its extensions or its API. An _agentic
 
 ## Merging
 
-The owner merges — `gh pr merge --merge <n>`, which keeps the merge commit — or applies the `auto-merge` label once the PR is ready; a controller merges under [its skill's rule](../controller/SKILL.md#merging). The gates are described once, in the header comment of `.github/workflows/auto-merge.yml`. Two of them shape the worker's work: a draft never merges, and a `spec/*` or `adr/*` PR that changes anything outside `docs/` is refused by Gate 2, so say so in its PR body; the owner merges it by hand. If the owner merges despite an open `--request-changes` or a non-zero `Blocking:`, leave a PR comment saying why.
+The owner merges — `gh pr merge --merge <n>`, which keeps the merge commit — or applies the `auto-merge` label once the PR is ready; a controller merges under [its skill's rule](../controller/SKILL.md#merging). The gates are described once, in the header comment of `.github/workflows/auto-merge.yml`. A `claude/*` PR is reviewed and gated as the class its one `feat`, `spec` or `adr` label names; add that label when opening it. Two of them shape the worker's work: a draft never merges, and a `spec/*` or `adr/*` PR (or a `claude/*` one labelled `spec` or `adr`) that changes anything outside `docs/` is refused by Gate 2, so say so in its PR body; the owner merges it by hand. If the owner merges despite an open `--request-changes` or a non-zero `Blocking:`, leave a PR comment saying why.
 
 ## Fixing findings
 

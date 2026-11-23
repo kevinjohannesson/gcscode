@@ -3,9 +3,14 @@ name: Auto-merge
 # Auto-merges PRs when:
 # Pre-gate: PR is not in draft state.
 # Gate 1: The `auto-merge` label is present (user's opt-in signal).
-# Gate 2: The PR's headRefName is `feat/*`, `spec/*`, or `adr/*`; a `spec/*` or
-#         `adr/*` PR changes nothing outside `docs/`, so code cannot merge on
-#         a spec reviewer's count instead of gate 3a's final review.
+# Gate 2: The PR's headRefName is `feat/*`, `spec/*`, or `adr/*`, or it is
+#         `claude/*` and the PR carries exactly one of the labels `feat`, `spec`
+#         or `adr`, which then stands in for the prefix (cloud sessions can push
+#         only `claude/*` branches). A `spec/*` or `adr/*` PR, or a `claude/*`
+#         one labelled `spec` or `adr`, changes nothing outside `docs/`, so code
+#         cannot merge on a spec reviewer's count instead of gate 3a's final
+#         review. Below, "feat/*" and "spec/* or adr/*" include those labelled
+#         `claude/*` PRs.
 # Gate 3: Bot signal — class-aware, and in both classes read from the reviews
 #         API rather than from GitHub's computed reviewDecision, matching the bot
 #         logins exactly (`[bot]` suffix included):
@@ -60,6 +65,8 @@ jobs:
 
           PR_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,labels,mergeable,isDraft)
           HEAD_REF=$(echo "$PR_JSON" | jq -r .headRefName)
+          # The class a claude/* PR's type label names; the joined names when not exactly one.
+          TYPE_LABELS=$(echo "$PR_JSON" | jq -r '[.labels[].name | select(. == "feat" or . == "spec" or . == "adr")] | unique | join(",")')
           IS_DRAFT=$(echo "$PR_JSON" | jq -r .isDraft)
           MERGEABLE=$(echo "$PR_JSON" | jq -r .mergeable)
           HAS_LABEL=$(echo "$PR_JSON" | jq -r '[.labels[] | select(.name == "auto-merge")] | length')
@@ -78,8 +85,23 @@ jobs:
           fi
           echo "Gate 1 OK: auto-merge label present"
 
-          # Gate 2: PR class detection
-          case "$HEAD_REF" in
+          # Gate 2: PR class detection. A claude/* head (the only prefix cloud
+          # sessions may push) takes its class from exactly one type label, read
+          # as if it were the branch prefix; none or several fails closed.
+          CLASS_REF="$HEAD_REF"
+          if [[ "$HEAD_REF" == claude/* ]]; then
+            case "$TYPE_LABELS" in
+              feat|spec|adr)
+                CLASS_REF="${TYPE_LABELS}/${HEAD_REF}"
+                echo "Gate 2: claude/ head '${HEAD_REF}' typed '${TYPE_LABELS}' by its label"
+                ;;
+              *)
+                echo "Gate 2 FAILED: claude/ head '${HEAD_REF}' needs exactly one of the labels feat, spec or adr (has '${TYPE_LABELS}'). Exiting cleanly."
+                exit 0
+                ;;
+            esac
+          fi
+          case "$CLASS_REF" in
             feat/*)
               echo "Gate 2 OK: feature PR (head=${HEAD_REF}); gate 3a (final-review verdict) applies"
               PR_CLASS=feat
@@ -98,7 +120,7 @@ jobs:
               PR_CLASS=spec_or_adr
               ;;
             *)
-              echo "Gate 2 FAILED: head '${HEAD_REF}' is not feat/, spec/, or adr/. Exiting cleanly."
+              echo "Gate 2 FAILED: head '${HEAD_REF}' is not feat/, spec/, adr/ or a labelled claude/. Exiting cleanly."
               exit 0
               ;;
           esac
