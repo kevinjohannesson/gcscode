@@ -108,11 +108,12 @@ jobs:
               ;;
             spec/*|adr/*)
               # Spec and ADR PRs carry documents only. Anything else (scripts, agent
-              # files, this workflow) belongs on a feat/ branch behind gate 3a, or is
-              # merged by hand. Renames count by both names; paginated like the reviews.
+              # files, this workflow) belongs on a feat/ branch (or a claude/ one labelled
+              # feat) behind gate 3a, or is merged by hand. Renames count by both names;
+              # paginated like the reviews.
               OUTSIDE_DOCS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '.[] | (.filename, (.previous_filename // empty)) | select(startswith("docs/") | not)')
               if [[ -n "$OUTSIDE_DOCS" ]]; then
-                echo "Gate 2 FAILED: spec/ADR PR changes files outside docs/ (merge by hand, or move them to a feat/ branch):"
+                echo "Gate 2 FAILED: spec/ADR PR changes files outside docs/ (merge by hand, or move them to a feat/ branch; a claude/ head is relabelled feat instead):"
                 echo "$OUTSIDE_DOCS"
                 exit 0
               fi
