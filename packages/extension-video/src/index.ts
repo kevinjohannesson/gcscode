@@ -1,6 +1,7 @@
 import type { Extension } from '@gcscode/extension-api';
 
 import { DEFAULT_WHEP_URL, setVideoAddress } from './video-address';
+import StreamHealthView from './stream-health-view.svelte';
 import VideoPanel from './video-panel.svelte';
 
 export const videoExtension: Extension = {
@@ -8,7 +9,8 @@ export const videoExtension: Extension = {
     id: 'gcscode.video',
     displayName: 'Video',
     version: '0.0.0',
-    description: "A panel that plays the drone camera's live video stream.",
+    description:
+      "A panel that plays the drone camera's live video stream, and a view of that stream's health.",
   },
   activate(context) {
     context.subscriptions.push(
@@ -35,6 +37,11 @@ export const videoExtension: Extension = {
         id: 'gcscode.video.main',
         component: VideoPanel,
         title: 'Video',
+      }),
+      context.host.window.registerView({
+        id: 'gcscode.video.health',
+        component: StreamHealthView,
+        title: 'Video health',
       }),
     );
   },

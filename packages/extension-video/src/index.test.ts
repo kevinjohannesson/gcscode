@@ -4,13 +4,18 @@ import type { Disposable, ExtensionHost } from '@gcscode/extension-api';
 
 import { videoExtension } from './index';
 import { getVideoAddress } from './video-address';
+import StreamHealthView from './stream-health-view.svelte';
 import VideoPanel from './video-panel.svelte';
 
 function makeFakeHost(configured?: string) {
   const configurationDisposable: Disposable = { dispose: vi.fn() };
   const viewDisposable: Disposable = { dispose: vi.fn() };
+  const healthViewDisposable: Disposable = { dispose: vi.fn() };
   const registerConfiguration = vi.fn().mockReturnValue(configurationDisposable);
-  const registerView = vi.fn().mockReturnValue(viewDisposable);
+  const registerView = vi
+    .fn()
+    .mockReturnValueOnce(viewDisposable)
+    .mockReturnValueOnce(healthViewDisposable);
   const get = vi.fn((_key: string, defaultValue?: unknown) => configured ?? defaultValue);
   const getConfiguration = vi.fn().mockReturnValue({
     get,
@@ -44,6 +49,7 @@ function makeFakeHost(configured?: string) {
     get,
     configurationDisposable,
     viewDisposable,
+    healthViewDisposable,
   };
 }
 
@@ -77,24 +83,28 @@ describe('videoExtension', () => {
     expect(contribution.default).toBe('http://localhost:8889/drone-1/whep');
   });
 
-  it('registers the Video view with the panel component', () => {
+  it('registers the Video view and the Video health view', () => {
     const fake = makeFakeHost();
     activate(fake.host, []);
-    expect(fake.registerView).toHaveBeenCalledTimes(1);
-    const view = fake.registerView.mock.calls[0][0];
+    expect(fake.registerView).toHaveBeenCalledTimes(2);
+    const [view, health] = fake.registerView.mock.calls.map((call) => call[0]);
     expect(view.id).toBe('gcscode.video.main');
     expect(view.title).toBe('Video');
     expect(view.component).toBe(VideoPanel);
+    expect(health.id).toBe('gcscode.video.health');
+    expect(health.title).toBe('Video health');
+    expect(health.component).toBe(StreamHealthView);
   });
 
-  it('pushes exactly the two disposables and returns undefined', () => {
+  it('pushes exactly the three disposables and returns undefined', () => {
     const fake = makeFakeHost();
     const subscriptions: Disposable[] = [];
     const result = activate(fake.host, subscriptions);
     expect(result).toBeUndefined();
-    expect(subscriptions).toHaveLength(2);
+    expect(subscriptions).toHaveLength(3);
     expect(subscriptions).toContain(fake.configurationDisposable);
     expect(subscriptions).toContain(fake.viewDisposable);
+    expect(subscriptions).toContain(fake.healthViewDisposable);
   });
 
   it('reads the setting on each activation and hands it to the panel', () => {
