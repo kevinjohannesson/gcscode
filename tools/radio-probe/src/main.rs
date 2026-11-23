@@ -4,6 +4,7 @@
 use std::io::{Write, stdout};
 use std::time::{Duration, Instant};
 
+use radio_probe::panel::{self, Panel};
 use radio_probe::probe::{self, Probe};
 use radio_probe::pump;
 use sdl3::event::Event;
@@ -30,6 +31,7 @@ fn run() -> Result<(), String> {
     println!("radio-probe: waiting for an EdgeTX radio in USB joystick mode. Ctrl-C quits.");
     let mut probe = Probe::default();
     let mut panel = Panel::default();
+    let _cursor = HiddenCursor::new();
 
     let mut rate = pump::Rate::default();
     let mut quit = false;
@@ -38,14 +40,14 @@ fn run() -> Result<(), String> {
         pump::until(&mut events, Instant::now() + REDRAW, |event| match event {
             Event::Quit { .. } => quit = true,
             Event::JoyDeviceAdded { which, .. } => {
-                panel.clear();
+                emit(&panel.clear());
                 for line in probe.added(&joysticks, which) {
                     println!("{line}");
                 }
             }
             Event::JoyDeviceRemoved { which, .. } => {
                 if let Some(line) = probe.removed(which) {
-                    panel.clear();
+                    emit(&panel.clear());
                     println!("{line}");
                 }
             }
@@ -66,42 +68,36 @@ fn run() -> Result<(), String> {
                 Some(n) => format!("input events in the last second: {n}"),
                 None => "input events in the last second: (waiting for input)".to_string(),
             });
-            panel.draw(&lines);
+            emit(&panel.frame(&lines));
         }
     }
 
-    panel.clear();
+    emit(&panel.clear());
     println!("radio-probe: stopped.");
     Ok(())
 }
 
-/// A block of lines redrawn in place, so the values update live without scrolling.
-#[derive(Default)]
-struct Panel {
-    height: usize,
+/// Writes bytes to the terminal in one go.
+fn emit(bytes: &str) {
+    if !bytes.is_empty() {
+        let mut out = stdout().lock();
+        let _ = out.write_all(bytes.as_bytes());
+        let _ = out.flush();
+    }
 }
 
-impl Panel {
-    fn draw(&mut self, lines: &[String]) {
-        let mut out = stdout().lock();
-        if self.height > 0 {
-            let _ = write!(out, "\x1b[{}F", self.height); // up to the block's first line
-        }
-        for line in lines {
-            let _ = writeln!(out, "\x1b[2K{line}");
-        }
-        let _ = write!(out, "\x1b[J"); // erase anything left below
-        let _ = out.flush();
-        self.height = lines.len();
-    }
+/// Hides the cursor while it lives and shows it again when dropped, on any way out of `run`.
+struct HiddenCursor;
 
-    /// Erases the block, so a permanent message can be printed in its place.
-    fn clear(&mut self) {
-        if self.height > 0 {
-            let mut out = stdout().lock();
-            let _ = write!(out, "\x1b[{}F\x1b[J", self.height);
-            let _ = out.flush();
-            self.height = 0;
-        }
+impl HiddenCursor {
+    fn new() -> Self {
+        emit(panel::HIDE_CURSOR);
+        HiddenCursor
+    }
+}
+
+impl Drop for HiddenCursor {
+    fn drop(&mut self) {
+        emit(panel::SHOW_CURSOR);
     }
 }
