@@ -17,9 +17,9 @@
 # SITL_VEHICLES=N (1 to 5, default 1) runs N vehicles on system IDs 1 to N.
 # Vehicle k is SITL instance k-1, on TCP 5760 + 10*(k-1), with a MAVProxy of
 # its own that sends to 14551 and 14552 only, so mavlink2rest and the wire
-# probe see every vehicle and the Python client on 14550 sees vehicle 1 alone. Vehicle 1's MAVProxy is the one
-# in the foreground; the others run non-interactive, their lines prefixed with
-# `vehicle <k>: `.
+# probe see every vehicle and the Python client on 14550 sees vehicle 1 alone.
+# Vehicle 1's MAVProxy is the one in the foreground; the others run
+# non-interactive, their lines prefixed with `vehicle <k>: `.
 #
 # Args are forwarded to every MAVProxy. Examples:
 #   ./run_sitl.sh                        # defaults

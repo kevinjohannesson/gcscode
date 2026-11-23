@@ -4,6 +4,7 @@ import {
   Panel,
   Rate,
   Tally,
+  fit,
   formatRecord,
   frame,
   gaps,
@@ -110,6 +111,58 @@ test('the panel overwrites in place, in one write, and skips an unchanged frame'
   assert.equal(p.frame(['a', 'b']), '');
   assert.equal(p.frame(['c', 'd']), '\x1b[?2026h\x1b[2Fc\x1b[K\nd\x1b[K\n\x1b[?2026l');
   assert.equal(p.frame(['e']), '\x1b[?2026h\x1b[2Fe\x1b[K\n\x1b[J\x1b[?2026l');
+});
+
+test('a resized terminal gets one frame drawn afresh from the top', () => {
+  const p = new Panel();
+  p.frame(['a', 'b'], { columns: 80, rows: 24 });
+  assert.equal(p.frame(['a', 'b'], { columns: 80, rows: 24 }), '');
+  assert.equal(
+    p.frame(['a', 'b'], { columns: 60, rows: 24 }),
+    '\x1b[?2026h\x1b[H\x1b[2Ja\x1b[K\nb\x1b[K\n\x1b[?2026l',
+  );
+  assert.equal(
+    p.frame(['c'], { columns: 60, rows: 24 }),
+    '\x1b[?2026h\x1b[2Fc\x1b[K\n\x1b[J\x1b[?2026l',
+  );
+});
+
+test('a line wider than the terminal is cut one column short, so it never wraps', () => {
+  assert.deepEqual(fit(['0123456789', '012345', '0123456'], { columns: 7 }), [
+    '01234…',
+    '012345',
+    '01234…',
+  ]);
+});
+
+test('lines past the terminal height minus one are left out', () => {
+  assert.deepEqual(fit(['a', 'b', 'c', 'd'], { rows: 4 }), ['a', 'b', 'c']);
+  assert.deepEqual(fit(['a', 'b', 'c'], {}), ['a', 'b', 'c']);
+});
+
+test('a short terminal drops the senders that do not fit and says how many', () => {
+  const rows = [1, 2, 3, 4].map((system) => ({
+    system,
+    component: 1,
+    message: 'HEARTBEAT',
+    count: 1,
+    last: 0,
+    gap: null,
+  }));
+  // The tail is 3 lines (heading, "(none yet)", rate) and the table's frame 4,
+  // so a 12-line terminal has room for 12 - 1 - 3 - 4 = 4 rows: all of them.
+  const all = frame({ rows, latest: [], now: 0, perSecond: null, height: 12 });
+  assert.equal(all.length, 11);
+  assert.ok(!all.some((l) => l.includes('more rows')));
+  // One line shorter: 3 rows of room, so 2 rows and a line saying 2 more.
+  const cut = frame({ rows, latest: [], now: 0, perSecond: null, height: 11 });
+  assert.equal(cut.length, 10);
+  assert.deepEqual(cut.slice(3, 7), [
+    '│      1 │         1 │ HEARTBEAT │     1 │        - │ 0.000 s ago │',
+    '│      2 │         1 │ HEARTBEAT │     1 │        - │ 0.000 s ago │',
+    '└────────┴───────────┴───────────┴───────┴──────────┴─────────────┘',
+    '(2 more rows not shown: make the terminal taller)',
+  ]);
 });
 
 test('the rate counts whole seconds, and a quiet second reads 0', () => {

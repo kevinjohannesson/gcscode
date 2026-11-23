@@ -16,6 +16,7 @@ import {
   Rate,
   SHOW_CURSOR,
   Tally,
+  fit,
   formatRecord,
   frame,
   recordLine,
@@ -101,25 +102,40 @@ function main() {
   const draw = () => {
     if (!live) return;
     const t = now();
-    process.stdout.write(
-      panel.frame(frame({ rows: tally.sorted(), latest, now: t, perSecond: rate.perSecond(t) })),
-    );
+    // A terminal that does not know its size reports 0: fit nothing then.
+    const size = {
+      columns: process.stdout.columns || undefined,
+      rows: process.stdout.rows || undefined,
+    };
+    const lines = frame({
+      rows: tally.sorted(),
+      latest,
+      now: t,
+      perSecond: rate.perSecond(t),
+      height: size.rows,
+    });
+    process.stdout.write(panel.frame(fit(lines, size), size));
   };
   const timer = setInterval(draw, REDRAW_MS);
+  /** @type {NodeJS.Timeout | undefined} */
+  let deadline;
 
   let stopping = false;
   function stop(problem, code = 0) {
     if (stopping) return;
     stopping = true;
     clearInterval(timer);
+    clearTimeout(deadline);
     draw();
     socket.close();
     if (live) process.stdout.write(SHOW_CURSOR);
     if (problem) console.error(`wire-probe: ${problem}`);
     else console.log('wire-probe: stopped.');
-    const done = () => process.exit(code);
-    if (recording) recording.end(done);
-    else done();
+    // No process.exit: on macOS a pipe is written asynchronously, and exiting
+    // here could cut off the last lines. With the socket closed and the timer
+    // cleared, the process ends once stdout and the recording are flushed.
+    process.exitCode = code;
+    recording?.end();
   }
   process.on('SIGINT', () => stop());
   process.on('SIGTERM', () => stop());
@@ -133,7 +149,7 @@ function main() {
     if (opts.record) console.log(`wire-probe: saving every shown frame to ${opts.record}`);
     if (live) process.stdout.write(HIDE_CURSOR);
     draw();
-    if (opts.seconds !== undefined) setTimeout(() => stop(), opts.seconds * 1000);
+    if (opts.seconds !== undefined) deadline = setTimeout(() => stop(), opts.seconds * 1000);
   });
 }
 

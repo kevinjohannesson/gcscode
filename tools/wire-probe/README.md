@@ -36,6 +36,8 @@ frames in the last second: 218 in all, 2 of them shown
 - **Latest frames** lists the last 10 shown frames, each with its time since the probe started, its gap (`first` for a sender's first), and what it says. A command or control frame also says which system it is sent `to`; system 0 reads `to every system`.
 - **Frames in the last second** counts every MAVLink frame that arrived, then the shown ones among them. A busy wire with a quiet table means the probe is reading, and only the shown messages are missing.
 
+The block fits the terminal: a line wider than it is cut short and ends in `…`, and when the terminal is too short for every sender, the table shows the first ones and says how many more there are. Widen the terminal to see whole frame lines, which run past 100 columns. Resizing it redraws the block from the top of the screen.
+
 When its output goes to a pipe or a file instead of a terminal, the probe prints one plain line per shown frame, with no terminal codes, in the format of the latest frames list.
 
 ### Options

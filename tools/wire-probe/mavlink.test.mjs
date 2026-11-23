@@ -138,3 +138,8 @@ test('a start byte with too few bytes after it for a header is skipped', () => {
   assert.deepEqual(parseFrames(Uint8Array.from([0xfd, 0x09])), { frames: [], skipped: 2 });
   assert.deepEqual(parseFrames(Uint8Array.from([0xfe, 0x09, 0x00])), { frames: [], skipped: 3 });
 });
+
+test('a start byte that ends the datagram is skipped, not read past the end', () => {
+  assert.deepEqual(parseFrames(Uint8Array.from([0xfe])), { frames: [], skipped: 1 });
+  assert.deepEqual(parseFrames(Uint8Array.from([0xfd])), { frames: [], skipped: 1 });
+});

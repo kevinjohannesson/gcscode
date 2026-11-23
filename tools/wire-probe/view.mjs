@@ -117,19 +117,46 @@ export function table(rows, now) {
 
 /**
  * The whole live block: the table, the latest frames and the data rate.
+ * Given the terminal's height, the table drops the senders that do not fit
+ * and says how many, so the block never scrolls the screen.
  *
- * @param {{ rows: ReturnType<Tally['sorted']>, latest: Record[], now: number, perSecond: { all: number, shown: number } | null }} state
+ * @param {{ rows: ReturnType<Tally['sorted']>, latest: Record[], now: number, perSecond: { all: number, shown: number } | null, height?: number }} state
  * @returns {string[]}
  */
-export function frame({ rows, latest, now, perSecond }) {
-  return [
-    ...table(rows, now),
+export function frame({ rows, latest, now, perSecond, height = Infinity }) {
+  const tail = [
     'latest frames, newest last:',
     ...(latest.length ? latest.map(formatRecord) : ['  (none yet)']),
     perSecond === null
       ? 'frames in the last second: (counting)'
       : `frames in the last second: ${perSecond.all} in all, ${perSecond.shown} of them shown`,
   ];
+  // The table's own four lines and the tail take their room first, and one
+  // line stays free below the block for the cursor.
+  const room = height - 1 - tail.length - 4;
+  if (rows.length <= room) return [...table(rows, now), ...tail];
+  const kept = Math.max(room - 1, 0);
+  return [
+    ...table(rows.slice(0, kept), now),
+    `(${rows.length - kept} more rows not shown: make the terminal taller)`,
+    ...tail,
+  ];
+}
+
+/**
+ * Fits a block to the terminal so no line wraps and the block never scrolls
+ * it: each line is cut one column short of the width, ending in "…", and
+ * lines past the height minus one are left out.
+ *
+ * @param {string[]} lines
+ * @param {{ columns?: number, rows?: number }} size the terminal's, if known
+ * @returns {string[]}
+ */
+export function fit(lines, { columns, rows }) {
+  const width = columns === undefined ? Infinity : Math.max(columns - 1, 1);
+  const cut = (l) => (l.length > width ? l.slice(0, width - 1) + '…' : l);
+  const kept = rows === undefined ? lines : lines.slice(0, Math.max(rows - 1, 1));
+  return kept.map(cut);
 }
 
 /** Begin and end of a synchronised update (see radio-probe's panel.rs). */
@@ -141,17 +168,30 @@ export const SHOW_CURSOR = '\x1b[?25h';
 /**
  * A block of lines redrawn in place: each frame is one write that overwrites
  * the old one, erasing only what is left to the right of each line, and an
- * unchanged frame writes nothing.
+ * unchanged frame writes nothing. When the terminal's size changes, the old
+ * block may have been rewrapped, so that one frame clears the screen and
+ * starts again at the top.
  */
 export class Panel {
   /** @type {string[]} */
   shown = [];
+  /** @type {string | null} */
+  size = null;
 
-  /** @param {string[]} lines */
-  frame(lines) {
-    if (lines.length === this.shown.length && lines.every((l, i) => l === this.shown[i])) return '';
+  /**
+   * @param {string[]} lines
+   * @param {{ columns?: number, rows?: number }} [size] the terminal's
+   */
+  frame(lines, { columns, rows } = {}) {
+    const size = `${columns}x${rows}`;
+    const resized = this.size !== null && size !== this.size;
+    this.size = size;
+    if (resized) this.shown = [];
+    else if (lines.length === this.shown.length && lines.every((l, i) => l === this.shown[i]))
+      return '';
     let out = SYNC_ON;
-    if (this.shown.length) out += `\x1b[${this.shown.length}F`;
+    if (resized) out += '\x1b[H\x1b[2J';
+    else if (this.shown.length) out += `\x1b[${this.shown.length}F`;
     for (const line of lines) out += `${line}\x1b[K\n`;
     if (lines.length < this.shown.length) out += '\x1b[J';
     out += SYNC_OFF;

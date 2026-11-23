@@ -133,7 +133,7 @@ function launch({ home, marks, fakes }, vehicles) {
       MARKS: marks,
     },
   });
-  return { ...result, masters: mavproxyMasters(marks) };
+  return { ...result, masters: mavproxyMasters(marks), outs: mavproxyOuts(marks) };
 }
 
 // The --master of every MAVProxy the script started, in order.
@@ -145,6 +145,22 @@ function mavproxyMasters(marks) {
     return [];
   }
   return lines.map((line) => line.match(/--master (\S+)/)?.[1]);
+}
+
+// The --out list of every MAVProxy the script started, keyed by its --master.
+function mavproxyOuts(marks) {
+  let lines;
+  try {
+    lines = readFileSync(join(marks, 'mavproxy'), 'utf8').trim().split('\n');
+  } catch {
+    return {};
+  }
+  return Object.fromEntries(
+    lines.map((line) => [
+      line.match(/--master (\S+)/)?.[1],
+      [...line.matchAll(/--out (\S+)/g)].map((m) => m[1]),
+    ]),
+  );
 }
 
 test('one vehicle starts one MAVProxy, on vehicle 1', () => {
@@ -162,6 +178,17 @@ test('three vehicles start a MAVProxy each, vehicle 1 last in the foreground', (
     'tcp:127.0.0.1:5780',
   ]);
   assert.equal(run.masters.at(-1), 'tcp:127.0.0.1:5760');
+});
+
+// The wire probe (tools/wire-probe) listens on 14552 and sees every vehicle;
+// the Python client on 14550 sees vehicle 1 alone.
+test('every vehicle also sends to the wire probe on UDP 14552', () => {
+  const run = launch(makeLaunchableHome('launch-probe'), 2);
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(run.outs, {
+    'tcp:127.0.0.1:5760': ['udp:127.0.0.1:14550', 'udp:127.0.0.1:14551', 'udp:127.0.0.1:14552'],
+    'tcp:127.0.0.1:5770': ['udp:127.0.0.1:14551', 'udp:127.0.0.1:14552'],
+  });
 });
 
 // Vehicle 2's terrain links to ardupilot/terrain, which SITL makes only once
