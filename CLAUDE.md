@@ -41,6 +41,7 @@ An extension module exports a named `const` of type `Extension` with `{ manifest
 - **Extension export name:** a named `const` matching the extension's slug (`exampleExtension`, `telemetryExtension`). Never `default`, never a generic `extension`.
 - **Docs locations** (these override the superpowers skills' `docs/superpowers/` defaults): specs `docs/specs/YYYY-MM-DD-<topic>.md`, plans `docs/plans/YYYY-MM-DD-<topic>.md`, ADRs `docs/decisions/ADR-NNNN-<slug>.md`, architecture notes `docs/architecture/YYYY-MM-DD-<topic>.md` (indexed in its README). Before writing under `docs/`, read `.claude/rules/docs.md`: it loads by itself only when the session started in the same checkout as the file.
 - **Svelte:** before Svelte work, read `.claude/rules/svelte.md` (it too loads by itself only in the checkout the session started in).
+- **Terminal tools:** before building a tool that shows live data in a terminal, read `.claude/rules/terminal-proof-tools.md` (it loads by itself only for `tools/` in the checkout the session started in).
 - **Scratch:** `scratch/` is for one-off exploration that shouldn't become real code. Gitignored.
 - **Public repo:** commits, docs, PR bodies and reviews are world-readable. Use repo-relative paths, never a home-directory path, and no credentials or internal URLs.
 
