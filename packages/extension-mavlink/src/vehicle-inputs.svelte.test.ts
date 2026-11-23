@@ -66,11 +66,13 @@ describe('VehicleInputsTracker', () => {
       systemId: 3,
       componentId: 191,
       message: 'GLOBAL_POSITION_INT',
+      via: 'stream',
     });
     expect(vehicle(3)!.home!.source).toEqual({
       systemId: 3,
       componentId: 1,
       message: 'HOME_POSITION',
+      via: 'stream',
     });
   });
 
@@ -179,6 +181,66 @@ describe('VehicleInputsTracker', () => {
     expect(vehicle(4)!.position!.value).toEqual({ lat: 0.000001, lng: 0.000002, alt: null });
     expect(vehicle(4)!.position!.source.componentId).toBeNull();
     expect(vehicle(4)!.heading).toBeNull();
+  });
+
+  describe('seedHome', () => {
+    const stored = (latitude: number, lastUpdate: unknown): unknown => ({
+      message: { type: 'HOME_POSITION', latitude, longitude: 1491652374, altitude: 584_090 },
+      status: { time: { counter: 2, last_update: lastUpdate } },
+    });
+
+    it("fills a known vehicle's home from the bridge's copy, timed by the bridge", () => {
+      tracker.onMessage(position(2));
+      tracker.seedHome(2, 1, stored(-353632621, '1970-01-01T00:00:00.400Z'));
+      expect(vehicle(2)!.home).toEqual({
+        value: { lat: -35.3632621, lng: 149.1652374 },
+        receivedAt: 400,
+        changedAt: 400,
+        source: { systemId: 2, componentId: 1, message: 'HOME_POSITION', via: 'bridge' },
+      });
+    });
+
+    it('never adds a vehicle, and never replaces a home the stream delivered later', () => {
+      tracker.seedHome(2, 1, stored(-353632621, '1970-01-01T00:00:00.400Z'));
+      expect(tracker.vehicles).toEqual([]);
+
+      tracker.onMessage(home(1, -353632600));
+      tracker.seedHome(1, 1, stored(-353632621, '1970-01-01T00:00:01.000Z'));
+      expect(vehicle(1)!.home).toMatchObject({ value: { lat: -35.36326 }, receivedAt: 1_000 });
+      expect(vehicle(1)!.home!.source.via).toBe('stream');
+
+      tracker.seedHome(1, 1, stored(-353632621, '1970-01-01T00:00:01.001Z'));
+      expect(vehicle(1)!.home).toMatchObject({ value: { lat: -35.3632621 }, receivedAt: 1_001 });
+    });
+
+    it('ignores a body it cannot read', () => {
+      tracker.onMessage(position(1));
+      const unreadable: unknown[] = [
+        null,
+        'x',
+        {},
+        { message: null },
+        {
+          message: { type: 'GLOBAL_POSITION_INT', latitude: 1, longitude: 2 },
+          status: { time: { last_update: '1970-01-01T00:00:00.400Z' } },
+        },
+        {
+          message: { type: 'HOME_POSITION', latitude: 1 },
+          status: { time: { last_update: 'now' } },
+        },
+        stored(-353632621, undefined),
+        stored(-353632621, 'not a date'),
+        { message: { type: 'HOME_POSITION', latitude: 1, longitude: 2 } },
+      ];
+      for (const body of unreadable) tracker.seedHome(1, 1, body);
+      expect(vehicle(1)!.home).toBeNull();
+    });
+  });
+
+  it('knows which systems it holds', () => {
+    tracker.onMessage(position(3));
+    expect(tracker.has(3)).toBe(true);
+    expect(tracker.has(1)).toBe(false);
   });
 
   it('forgets everything on reset', () => {

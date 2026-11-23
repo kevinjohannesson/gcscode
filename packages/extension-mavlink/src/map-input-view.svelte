@@ -24,7 +24,8 @@
     return n.toFixed(7);
   }
   function source(s: InputSource): string {
-    return `${s.message} from ${s.systemId}/${s.componentId ?? '?'}`;
+    const from = `${s.message} from ${s.systemId}/${s.componentId ?? '?'}`;
+    return s.via === 'bridge' ? `${from}, bridge's stored copy` : from;
   }
 
   interface Line {

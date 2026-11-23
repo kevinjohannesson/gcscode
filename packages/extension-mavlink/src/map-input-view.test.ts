@@ -109,4 +109,21 @@ describe('MapInputView', () => {
     ]);
     expect(screen.getByTestId('merged').textContent).toContain("system 1's position, 0.5 s ago");
   });
+
+  it("says when a home is the bridge's stored copy rather than a frame on the stream", () => {
+    vehicleInputs.onMessage(
+      frame(2, { type: 'GLOBAL_POSITION_INT', lat: 1, lon: 2, relative_alt: 0, hdg: 0 }),
+    );
+    vehicleInputs.seedHome(2, 1, {
+      message: { type: 'HOME_POSITION', latitude: -353632621, longitude: 1491652374 },
+      status: { time: { last_update: new Date(7_500).toISOString() } },
+    });
+    render(MapInputView);
+    expect(cells('Home-2')).toEqual([
+      '-35.3632621, 149.1652374',
+      '2.5 s',
+      '2.5 s',
+      "HOME_POSITION from 2/1, bridge's stored copy",
+    ]);
+  });
 });

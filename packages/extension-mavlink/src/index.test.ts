@@ -182,6 +182,11 @@ describe('mavlinkExtension', () => {
   beforeEach(() => {
     mockInstances.length = 0;
     vi.stubGlobal('WebSocket', MockWebSocket);
+    // The Map input view's home seed reads the bridge over HTTP; no test reaches a real one.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve({ ok: false, json: () => Promise.resolve(null) })),
+    );
     reset();
   });
 
@@ -375,6 +380,30 @@ describe('mavlinkExtension', () => {
     await mavlinkExtension.deactivate?.();
     expect(vehicleInputs.vehicles).toEqual([]);
     expect(vehicleInputs.mergedWriter).toBeNull();
+  });
+
+  it("reads a new vehicle's stored home from the bridge the client is connected to, and again after a reconnect", async () => {
+    const { context, getConfiguration, onDidChangeConfiguration } = makeContext();
+    mavlinkExtension.activate(context);
+
+    deliver(POSITION_FRAME);
+    deliver(POSITION_FRAME);
+    expect(vi.mocked(fetch).mock.calls).toEqual([
+      ['http://localhost:8088/v1/mavlink/vehicles/1/components/1/messages/HOME_POSITION'],
+    ]);
+
+    getConfiguration.mockReturnValue({
+      get: (key: string, defaultValue?: unknown) =>
+        key === 'connectionUrl' ? 'ws://192.168.1.42:8088/v1/ws/mavlink' : defaultValue,
+    });
+    onDidChangeConfiguration.mock.calls[0][0]({
+      affectsConfiguration: (k: string) => k === 'gcscode.mavlink.connectionUrl',
+    });
+    await vi.waitFor(() => expect(mockInstances).toHaveLength(2));
+    deliver(POSITION_FRAME);
+    expect(vi.mocked(fetch).mock.calls[1]).toEqual([
+      'http://192.168.1.42:8088/v1/mavlink/vehicles/1/components/1/messages/HOME_POSITION',
+    ]);
   });
 
   it('reconnects when gcscode.mavlink.connectionUrl changes', async () => {

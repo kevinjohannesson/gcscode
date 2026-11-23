@@ -14,11 +14,13 @@
  * handler, which does not catch).
  */
 
-/** Where a reading came from: the sending system and component, and the message. */
+/** Where a reading came from: the sending system and component, the message, and how it reached gcscode. */
 export interface InputSource {
   readonly systemId: number;
   readonly componentId: number | null;
   readonly message: string;
+  /** `stream`: a frame on the WebSocket. `bridge`: the bridge's stored copy, read once (see `seedHome`). */
+  readonly via: 'stream' | 'bridge';
 }
 
 /** One value as the map receives it, with its timing and origin. Times are ms since the epoch. */
@@ -132,7 +134,7 @@ export class VehicleInputsTracker {
     if (typeof type !== 'string') return;
 
     const at = this.now();
-    const source: InputSource = { ...header, message: type };
+    const source: InputSource = { ...header, message: type, via: 'stream' };
 
     if (type === 'GLOBAL_POSITION_INT') {
       const lat = finite(msg['lat']);
@@ -171,6 +173,41 @@ export class VehicleInputsTracker {
     }
 
     this.heard(header.systemId, at);
+  }
+
+  /**
+   * A known vehicle's home from the bridge's stored copy of its last
+   * HOME_POSITION (`body` is mavlink2rest's `{ message, status }`). ArduPilot
+   * sends HOME_POSITION when home is set, not periodically, so a station that
+   * connects later never sees it on the stream. Ignored for a vehicle the
+   * tracker does not hold, and when the stream has already delivered a home at
+   * least as new.
+   */
+  public seedHome(systemId: number, componentId: number | null, body: unknown): void {
+    const vehicle = this._vehicles.find((v) => v.systemId === systemId);
+    if (vehicle === undefined || typeof body !== 'object' || body === null) return;
+    const { message, status } = body as { message?: unknown; status?: unknown };
+    if (typeof message !== 'object' || message === null) return;
+    const msg = message as Record<string, unknown>;
+    if (msg['type'] !== 'HOME_POSITION') return;
+    const lat = finite(msg['latitude']);
+    const lon = finite(msg['longitude']);
+    const lastUpdate = (status as { time?: { last_update?: unknown } } | null | undefined)?.time
+      ?.last_update;
+    const at = typeof lastUpdate === 'string' ? Date.parse(lastUpdate) : NaN;
+    if (lat === null || lon === null || Number.isNaN(at)) return;
+    if (vehicle.home !== null && vehicle.home.receivedAt >= at) return;
+    vehicle.home = {
+      value: { lat: lat / 1e7, lng: lon / 1e7 },
+      receivedAt: at,
+      changedAt: at,
+      source: { systemId, componentId, message: 'HOME_POSITION', via: 'bridge' },
+    };
+  }
+
+  /** Whether the tracker holds a row for this system. */
+  public has(systemId: number): boolean {
+    return this._vehicles.some((v) => v.systemId === systemId);
   }
 
   public reset(): void {

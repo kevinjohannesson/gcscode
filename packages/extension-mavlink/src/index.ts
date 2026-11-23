@@ -2,6 +2,7 @@ import type { Extension } from '@gcscode/extension-api';
 import type { AssetsApi } from '@gcscode/extension-assets';
 
 import { createAssetAdapter } from './asset-adapter';
+import { createHomeSeeder } from './home-seed';
 import { createMavlinkClient, type MavlinkClient } from './mavlink-client';
 import MapInputView from './map-input-view.svelte';
 import MavlinkView from './mavlink-view.svelte';
@@ -37,8 +38,11 @@ function composeUrl(baseUrl: string): string {
 }
 
 let client: MavlinkClient | null = null;
+/** The base URL the open client was given; the Map input view's home seed reads the bridge there. */
+let clientBase = DEFAULT_BASE_URL;
 
 function openClient(baseUrl: string, onMessage: (json: unknown) => void): void {
+  clientBase = baseUrl;
   client = createMavlinkClient({
     url: composeUrl(baseUrl),
     onMessage,
@@ -87,6 +91,14 @@ export const mavlinkExtension: Extension = {
     // containment's failure path both remove this extension's assets.
     context.subscriptions.push(assetAdapter);
 
+    // Fills in each vehicle's home for the Map input view from the bridge's
+    // stored copy, once per vehicle: a read, never a request to the vehicle.
+    const homeSeeder = createHomeSeeder({
+      tracker: vehicleInputs,
+      wsBase: () => clientBase,
+      fetch: (url) => fetch(url),
+    });
+
     const handleMessage = (json: unknown): void => {
       // Telemetry first. It is this extension's existing duty and must not
       // depend on the newer one; the client deliberately does not catch what a
@@ -96,6 +108,7 @@ export const mavlinkExtension: Extension = {
       // Read-only, and it never throws: the Map input view's per-vehicle copy
       // of what `applyMessage` merges.
       vehicleInputs.onMessage(json);
+      homeSeeder.onMessage(json);
     };
 
     openClient(cfg.get<string>('connectionUrl', DEFAULT_BASE_URL), handleMessage);
@@ -108,6 +121,7 @@ export const mavlinkExtension: Extension = {
           .get<string>('connectionUrl', DEFAULT_BASE_URL);
         // Fire-and-forget reconnect; errors propagate via the WebSocket's
         // onerror/onclose pathway already handled by createMavlinkClient.
+        homeSeeder.reset();
         void closeClient().then(() => openClient(newBase, handleMessage));
       }),
     );
