@@ -1,7 +1,13 @@
 // WHEP (WebRTC-HTTP Egress) over RTCPeerConnection: the one module that speaks
 // the protocol. It tells the panel what happened through the transport-neutral
 // reports in `video-source.ts`; the panel never sees SDP or HTTP.
-import type { ReportListener, SessionReport, VideoSession } from './video-source';
+import type {
+  ConnectionState,
+  ReportListener,
+  SessionReport,
+  StreamSample,
+  VideoSession,
+} from './video-source';
 
 /** How often `getStats()` is asked whether a frame has been decoded. */
 export const PICTURE_POLL_MS = 250;
@@ -238,7 +244,44 @@ export function openWhepSession(
     reportLater({ kind: 'unsupported', label: url });
   }
 
+  interface InboundVideo {
+    type?: string;
+    kind?: string;
+    framesDecoded?: number;
+    bytesReceived?: number;
+    packetsReceived?: number;
+    packetsLost?: number;
+  }
+
+  function toSample(conn: RTCPeerConnection, entries: RTCStatsReport): StreamSample {
+    let video: InboundVideo | undefined;
+    entries.forEach((entry: InboundVideo) => {
+      if (entry.type === 'inbound-rtp' && entry.kind === 'video') video = entry;
+    });
+    return {
+      connection: conn.connectionState as ConnectionState,
+      framesDecoded: video?.framesDecoded ?? 0,
+      bytesReceived: video?.bytesReceived ?? 0,
+      packetsReceived: video?.packetsReceived ?? 0,
+      packetsLost: video?.packetsLost ?? 0,
+    };
+  }
+
   return {
+    sample(): Promise<StreamSample | null> {
+      const conn = pc;
+      if (closed || !conn) return Promise.resolve(null);
+      let stats: Promise<RTCStatsReport>;
+      try {
+        stats = conn.getStats();
+      } catch {
+        return Promise.resolve(null);
+      }
+      return stats.then(
+        (entries) => (closed ? null : toSample(conn, entries)),
+        () => null,
+      );
+    },
     close(): void {
       if (closed) return;
       closed = true;

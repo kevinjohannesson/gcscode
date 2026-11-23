@@ -14,7 +14,7 @@ function setup() {
   const open = vi.fn((listener: ReportListener): VideoSession => {
     const close = vi.fn();
     attempts.push({ listener, close });
-    return { close };
+    return { close, sample: () => Promise.resolve(null) };
   });
   const state = new VideoPanelState(label, open);
   const send = (report: SessionReport, attempt = attempts.length - 1) =>
@@ -248,7 +248,7 @@ describe('a report before open() returns', () => {
     const close = vi.fn();
     const open = vi.fn((listener: ReportListener): VideoSession => {
       listener({ kind: 'unreachable', label });
-      return { close };
+      return { close, sample: () => Promise.resolve(null) };
     });
     const state = new VideoPanelState(label, open);
     state.start();
