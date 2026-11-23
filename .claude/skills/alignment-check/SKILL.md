@@ -29,7 +29,7 @@ Separate VS Code's load-bearing reason from its syntax. The goal is the reason: 
 Then read what is already decided about the concern, newest first, searching by the concern's words and API names (`grep -n -i`), not by reading everything:
 
 1. **Pending choices**: `/mnt/project-files/decisions/pending-alignment.md`, when that folder exists. These are accepted but not yet merged, so no other source shows them.
-2. **Open spec and ADR PRs**: `spec/*` and `adr/*` branches with an open PR whose title or files touch the concern.
+2. **Open spec and ADR PRs**: `spec/*` and `adr/*` branches with an open PR whose title or files touch the concern (`gh pr list --state open --json number,title,headRefName,files`, then filter by branch prefix and the concern's words).
 3. **The ledger**: `docs/vs-code-alignment.md`, all three tables.
 4. **ADRs**: `docs/decisions/`. One whose Status says "Superseded by" no longer counts; follow the link.
 5. **Specs**: the "VS Code alignment" sections of the specs the ledger rows link. A breadcrumb to a later spec means the later one wins.
@@ -55,9 +55,9 @@ When two gcscode sources disagree with each other, say so and recommend the one 
 Add at most three lines to the recommendation, in plain words:
 
 ```
-VS Code: contributes.views plus registerWebviewViewProvider; the host owns the view container.
-gcscode: aligns with ADR-0005; no earlier decision reversed.
-Flag: none.
+VS Code: contributes.views plus a view provider; the host owns the view's chrome.
+gcscode: justified divergence (ledger Divergences, ADR-0005): a view is a Svelte component and the extension owns its chrome; the declarative contributes manifest is a Deferral (ADR-0007).
+Flag: none; the in-process Svelte host the divergence rests on still holds.
 ```
 
 The third line names anything the owner should look at: a divergence and its trade-off, a reversal, or an earlier decision this check found unjustified. A reversal or a new divergence also goes first in the recommendation, never only in these lines. A reversal the owner accepts needs a successor spec or a superseding ADR (`.claude/rules/docs.md` § Specs and ADRs are the historical record).
@@ -67,11 +67,11 @@ The third line names anything the owner should look at: a divergence and its tra
 When the owner accepts a choice that diverges from VS Code, or reverses an earlier decision, append one line to `/mnt/project-files/decisions/pending-alignment.md` in the same turn. Create the folder and the file if needed. Read the file again just before you write, since other sessions write to it, and only append:
 
 ```
-- 2026-11-23 · <concern> · <the choice, one sentence> · <aligns | diverges: trade-off | reverses <source>> · <where it was accepted: thread link or PR>
+- <YYYY-MM-DD> · <concern> · <the choice, one sentence> · <aligns | diverges: trade-off | reverses <source>> · <where it was accepted: thread link> · <the spec or ADR PR that carries it, once one is open>
 ```
 
 When the check finds an earlier decision unjustified and the owner doesn't act on it there, append it too, marked `suspect <source>`, so a later session or `/housekeeping` can take it up.
 
-When the spec or ADR that carries a pending choice merges, its ledger propagation (the ledger's Maintenance section) adds the row there, and the same commit's author removes the line from the pending file.
+When the spec or ADR that carries a pending choice merges, its ledger propagation (the ledger's Maintenance section) adds the row there. The pending line is then stale, but the author of that commit is usually a local session that cannot see the file, so the cleanup belongs to whoever reads it next: each time you read the file in step 2.1, check the PR each line names (`gh pr view <n> --json state`), treat a merged one as recorded in the ledger or the ADR instead, and remove its line. When a spec or ADR PR for a pending line opens and you can see the file, add the PR to that line.
 
-Without `/mnt/project-files/` (a local session), you cannot see or write pending choices. Say so in the report's first line, check the other sources, and put the accepted choice in the handoff note.
+`/mnt/project-files/` is where a Claude Projects session sees the project's shared files. Without it (a local session), you cannot see or write pending choices. Say so in a line above the report, check the other sources, and put the accepted choice in the handoff note.
