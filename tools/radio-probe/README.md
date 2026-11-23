@@ -32,11 +32,15 @@ opened [3] TX16SMK3 Joystick  1209:4f54  (EdgeTX radio)
 axis  0      0   axis  1     12   axis  2 -32768   axis  3      0
 axis  4  32767   axis  5      0   axis  6      0   axis  7      0
 buttons  0:1.......  8:........ 16:........
+input events in the last second: 0
 ```
 
 - **Axes** are SDL's raw values, from -32768 to 32767, numbered from 0.
 - **Buttons** are in groups of eight, `1` pressed and `.` released. The number before each group is the index of its first button.
 - **Hats**, if a radio reports any, show SDL's bitmask: 1 up, 2 right, 4 down, 8 left.
+- **Input events in the last second** counts every axis, button and hat change SDL delivered from the radio. While a stick moves it shows how often the radio reports; it drops to 0 when nothing moves, since SDL sends only changes.
+
+The block redraws 20 times a second, also while events are still pouring in, so a moving stick is shown moving.
 
 Unplugging the radio prints a line and the probe waits. Plugging it back in opens it again.
 

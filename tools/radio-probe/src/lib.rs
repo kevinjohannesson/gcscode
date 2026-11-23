@@ -2,4 +2,5 @@
 //! joysticks instead of a real radio.
 
 pub mod probe;
+pub mod pump;
 pub mod report;

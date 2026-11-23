@@ -5,6 +5,7 @@ use std::io::{Write, stdout};
 use std::time::{Duration, Instant};
 
 use radio_probe::probe::{self, Probe};
+use radio_probe::pump;
 use sdl3::event::Event;
 
 /// How often the live block is redrawn.
@@ -29,39 +30,49 @@ fn run() -> Result<(), String> {
     println!("radio-probe: waiting for an EdgeTX radio in USB joystick mode. Ctrl-C quits.");
     let mut probe = Probe::default();
     let mut panel = Panel::default();
-    let mut last_draw = Instant::now() - REDRAW;
 
-    loop {
-        while let Some(event) = events.wait_event_timeout(Duration::from_millis(5)) {
-            match event {
-                Event::Quit { .. } => {
-                    panel.clear();
-                    println!("radio-probe: stopped.");
-                    return Ok(());
-                }
-                Event::JoyDeviceAdded { which, .. } => {
-                    panel.clear();
-                    for line in probe.added(&joysticks, which) {
-                        println!("{line}");
-                    }
-                }
-                Event::JoyDeviceRemoved { which, .. } => {
-                    if let Some(line) = probe.removed(which) {
-                        panel.clear();
-                        println!("{line}");
-                    }
-                }
-                _ => {}
-            }
-        }
+    let mut rate = pump::Rate::default();
+    let mut quit = false;
 
-        if last_draw.elapsed() >= REDRAW {
-            last_draw = Instant::now();
-            if let Some(j) = probe.radio() {
-                panel.draw(&probe::read(j));
+    while !quit {
+        pump::until(&mut events, Instant::now() + REDRAW, |event| match event {
+            Event::Quit { .. } => quit = true,
+            Event::JoyDeviceAdded { which, .. } => {
+                panel.clear();
+                for line in probe.added(&joysticks, which) {
+                    println!("{line}");
+                }
             }
+            Event::JoyDeviceRemoved { which, .. } => {
+                if let Some(line) = probe.removed(which) {
+                    panel.clear();
+                    println!("{line}");
+                }
+            }
+            Event::JoyAxisMotion { which, .. }
+            | Event::JoyButtonDown { which, .. }
+            | Event::JoyButtonUp { which, .. }
+            | Event::JoyHatMotion { which, .. }
+                if probe.radio().is_some_and(|j| j.id() == which) =>
+            {
+                rate.count(Instant::now())
+            }
+            _ => {}
+        });
+
+        if let Some(j) = probe.radio() {
+            let mut lines = probe::read(j);
+            lines.push(match rate.per_second(Instant::now()) {
+                Some(n) => format!("input events in the last second: {n}"),
+                None => "input events in the last second: (waiting for input)".to_string(),
+            });
+            panel.draw(&lines);
         }
     }
+
+    panel.clear();
+    println!("radio-probe: stopped.");
+    Ok(())
 }
 
 /// A block of lines redrawn in place, so the values update live without scrolling.
