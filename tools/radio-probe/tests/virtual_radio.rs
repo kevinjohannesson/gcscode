@@ -75,17 +75,25 @@ fn reads_an_edgetx_radio_and_survives_unplug_and_replug() {
         assert!(sys::SDL_SetJoystickVirtualButton(j.raw(), 15, true));
     }
     joysticks.update();
+    let lines = read(j);
+    // The axis rows of the table, one per axis, raw values by index.
     assert_eq!(
-        read(j),
-        vec![
-            "axis  0 -32768   axis  1      0   axis  2  32767   axis  3      0",
-            "axis  4      0   axis  5      0   axis  6      0   axis  7   1234",
-            "button   0  1  2  3  4  5  6  7  8  9 10 11",
-            "         X  .  .  .  .  .  .  .  .  .  .  .",
-            "button  12 13 14 15 16 17 18 19 20 21 22 23",
-            "         .  .  .  X  .  .  .  .  .  .  .  .",
-            "pressed: 0, 15",
+        lines[3..11],
+        [
+            "│    0 │ -32768 │ █████████████████················ │",
+            "│    1 │      0 │ ················█················ │",
+            "│    2 │  32767 │ ················█████████████████ │",
+            "│    3 │      0 │ ················█················ │",
+            "│    4 │      0 │ ················█················ │",
+            "│    5 │      0 │ ················█················ │",
+            "│    6 │      0 │ ················█················ │",
+            "│    7 │   1234 │ ················██··············· │",
         ]
+    );
+    assert_eq!(lines.last().unwrap(), "pressed: 0, 15");
+    assert!(
+        lines.iter().any(|l| l.contains("\x1b[7m 15 \x1b[0m")),
+        "button 15 not highlighted"
     );
 
     // A second radio is reported, not opened.
@@ -121,14 +129,11 @@ fn reads_an_edgetx_radio_and_survives_unplug_and_replug() {
         assert!(sys::SDL_SetJoystickVirtualHat(j.raw(), 0, 0x01 | 0x02));
     }
     joysticks.update();
+    let lines = read(j);
     assert_eq!(
-        read(j),
-        vec![
-            "axis  0      0   axis  1      0",
-            "button   0  1",
-            "         .  .",
-            "pressed: none",
-            "hat 0  3",
-        ]
+        lines[3],
+        "│    0 │      0 │ ················█················ │"
     );
+    assert_eq!(lines[lines.len() - 2], "pressed: none");
+    assert_eq!(lines.last().unwrap(), "hat 0  3");
 }

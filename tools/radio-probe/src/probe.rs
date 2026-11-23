@@ -66,8 +66,8 @@ pub fn read(j: &Joystick) -> Vec<String> {
         .map(|i| j.hat(i).map(|h| h.to_raw()).unwrap_or(0))
         .collect();
 
-    let mut lines = report::axes_lines(&axes);
-    lines.extend(report::buttons_lines(&buttons));
+    let mut lines = report::axes_table(&axes);
+    lines.extend(report::buttons_grid(&buttons));
     if !hats.is_empty() {
         lines.push(report::hats_line(&hats));
     }
