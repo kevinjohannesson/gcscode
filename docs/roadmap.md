@@ -122,7 +122,7 @@ Not part of it: calibration and flashing depth (Mission Planner's moat, Land §7
 
 Its new item:
 
-- [ ] **N8. Several vehicles in SITL** — `pnpm dev:sitl` runs several vehicles on distinct system IDs; today it runs one, as SITL instance 0. camera-sim already keys its vehicles and streams by system ID. _Why:_ the vehicle status contract spec covers ordering and counts only with a fake provider; duplicate IDs merge silently in QGC (Land §4.1). _Section:_ Ecosystem → Tools. _Size:_ S. _Depends:_ nothing. _First:_ none. It would fire the "Asset liveness" row in [`out-of-scope.md`](out-of-scope.md#extension-machinery): a vehicle that goes quiet stays listed beside the live ones, and no item on this path times it out.
+- [x] **N8. Several vehicles in SITL** — _shipped 2026-11-23 (PR #66)._ `pnpm dev:sitl --vehicles N` runs 1 to 5 vehicles on system IDs 1 to N, each with its own camera-sim stream `drone-<N>`, and one Ctrl-C stops them all; without the argument it runs one, as before. They all start at the same home, and `pnpm fly-sitl` flies vehicle 1 only. It fired the "Asset liveness" row, which now says so. The original entry follows. `pnpm dev:sitl` runs several vehicles on distinct system IDs; today it runs one, as SITL instance 0. camera-sim already keys its vehicles and streams by system ID. _Why:_ the vehicle status contract spec covers ordering and counts only with a fake provider; duplicate IDs merge silently in QGC (Land §4.1). _Section:_ Ecosystem → Tools. _Size:_ S. _Depends:_ nothing. _First:_ none. It would fire the "Asset liveness" row in [`out-of-scope.md`](out-of-scope.md#extension-machinery): a vehicle that goes quiet stays listed beside the live ones, and no item on this path times it out.
 
 ### M2 · One map, one truth
 

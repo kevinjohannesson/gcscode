@@ -78,7 +78,7 @@ One worker session per PR or iteration; one controller per initiative (the `cont
 ## Commands
 
 - `pnpm dev` — run the shell's dev server
-- `pnpm dev:sitl` — run SITL, MediaMTX, camera-sim and the dev server together, until one Ctrl-C (`scripts/dev-stack.mjs`)
+- `pnpm dev:sitl [--vehicles N]` — run SITL (1 to 5 vehicles, default 1), MediaMTX, camera-sim and the dev server together, until one Ctrl-C (`scripts/dev-stack.mjs`)
 - `pnpm build` — build all packages
 - `pnpm test` — all package tests, then the root tooling tests (`pnpm test:scripts`)
 - `pnpm check` — svelte-check + tsc across all packages

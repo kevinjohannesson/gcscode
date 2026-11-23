@@ -4,7 +4,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, realpathSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,8 +35,13 @@ function makeHome(name, { binary = false, venv = false } = {}) {
 
 // Runs run_sitl.sh with an environment built from scratch, so nothing from the
 // shell leaks in.
-function run(home) {
-  const env = { PATH: process.env.PATH, HOME: join(scratch, 'nobody'), GCSCODE_SITL_HOME: home };
+function run(home, extra = {}) {
+  const env = {
+    PATH: process.env.PATH,
+    HOME: join(scratch, 'nobody'),
+    GCSCODE_SITL_HOME: home,
+    ...extra,
+  };
   const result = spawnSync(RUN, [], { cwd: scratch, encoding: 'utf8', env });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
@@ -62,4 +67,113 @@ test('no venv names the setup command', () => {
 test('no mavlink2rest names the setup command', () => {
   const home = makeHome('no-m2r', { binary: true, venv: true });
   assertStopsAt(home, `mavlink2rest missing: ${join(home, 'bin/mavlink2rest')}`);
+});
+
+// SITL_VEHICLES is checked before anything else, so a bad count never starts SITL.
+for (const count of ['0', '6', '2.5', 'two', '05']) {
+  test(`SITL_VEHICLES=${JSON.stringify(count)} is refused`, () => {
+    const home = makeHome(`vehicles-${count}`, { binary: true, venv: true });
+    const { status, stdout, stderr } = run(home, { SITL_VEHICLES: count });
+    assert.equal(status, 1, stderr);
+    assert.ok(
+      stderr.includes(`SITL_VEHICLES must be a whole number from 1 to 5, got: ${count}`),
+      stderr,
+    );
+    assert.doesNotMatch(stdout, /Launching/);
+  });
+}
+
+// A home that gets past every check and launches stand-ins: an arducopter that
+// marks its port as listening, an nc that reads those marks, a python that
+// passes the MAVProxy import check and records each MAVProxy it is asked to
+// start, and a mavlink2rest that waits. No real port is opened or probed, and
+// the stand-ins' logs go to the test's own folder. Vehicle 1's MAVProxy runs
+// in the foreground and returns at once, so the script stops what it started
+// and exits.
+function makeLaunchableHome(name) {
+  const home = makeHome(name, { binary: true, venv: true });
+  const marks = join(home, 'marks');
+  const fakes = join(home, 'fakes');
+  mkdirSync(fakes);
+  mkdirSync(join(home, 'bin'));
+  mkdirSync(join(home, 'ardupilot/Tools/autotest/default_params'), { recursive: true });
+  writeFileSync(join(home, 'ardupilot/Tools/autotest/default_params/copter.parm'), '');
+  mkdirSync(join(home, 'venv/bin'));
+  writeFileSync(join(home, 'venv/bin/activate'), '');
+  const script = (path, body) => writeFileSync(path, `#!/bin/sh\n${body}\n`, { mode: 0o755 });
+  script(
+    join(home, 'ardupilot/build/sitl/bin/arducopter'),
+    'for a in "$@"; do case "$a" in -I*) i=${a#-I};; esac; done\n' +
+      'touch "$MARKS/$((5760 + 10 * i))"\nexec sleep 30',
+  );
+  script(join(home, 'bin/mavlink2rest'), 'exec sleep 30');
+  script(join(fakes, 'nc'), 'test -e "$MARKS/$3"');
+  script(
+    join(fakes, 'python'),
+    '[ "$1" = -c ] && exit 0\n' +
+      'echo "$*" >> "$MARKS/mavproxy"\n' +
+      'case "$*" in *--non-interactive*) exec sleep 30;; esac',
+  );
+  return { home, marks, fakes };
+}
+
+function launch({ home, marks, fakes }, vehicles) {
+  rmSync(marks, { recursive: true, force: true });
+  mkdirSync(marks);
+  const result = spawnSync(RUN, [], {
+    cwd: scratch,
+    encoding: 'utf8',
+    timeout: 20000,
+    env: {
+      PATH: `${fakes}:${process.env.PATH}`,
+      HOME: join(scratch, 'nobody'),
+      GCSCODE_SITL_HOME: home,
+      SITL_VEHICLES: String(vehicles),
+      SITL_TMP_LOG_DIR: marks,
+      MARKS: marks,
+    },
+  });
+  return { ...result, masters: mavproxyMasters(marks) };
+}
+
+// The --master of every MAVProxy the script started, in order.
+function mavproxyMasters(marks) {
+  let lines;
+  try {
+    lines = readFileSync(join(marks, 'mavproxy'), 'utf8').trim().split('\n');
+  } catch {
+    return [];
+  }
+  return lines.map((line) => line.match(/--master (\S+)/)?.[1]);
+}
+
+test('one vehicle starts one MAVProxy, on vehicle 1', () => {
+  const run = launch(makeLaunchableHome('launch-1'), 1);
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(run.masters, ['tcp:127.0.0.1:5760']);
+});
+
+test('three vehicles start a MAVProxy each, vehicle 1 last in the foreground', () => {
+  const run = launch(makeLaunchableHome('launch-3'), 3);
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(run.masters.slice().sort(), [
+    'tcp:127.0.0.1:5760',
+    'tcp:127.0.0.1:5770',
+    'tcp:127.0.0.1:5780',
+  ]);
+  assert.equal(run.masters.at(-1), 'tcp:127.0.0.1:5760');
+});
+
+// Vehicle 2's terrain links to ardupilot/terrain, which SITL makes only once
+// it fetches terrain: a second run must not trip over the link the first made.
+test('a second run reuses vehicle 2 terrain link', () => {
+  const home = makeLaunchableHome('launch-twice');
+  for (const pass of [1, 2]) {
+    const run = launch(home, 2);
+    assert.equal(run.status, 0, `run ${pass}: ${run.stderr}`);
+  }
+  assert.equal(
+    realpathSync(join(home.home, 'vehicles/2/terrain')),
+    join(home.home, 'ardupilot/terrain'),
+  );
 });
