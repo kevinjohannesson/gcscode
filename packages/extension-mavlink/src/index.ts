@@ -4,7 +4,9 @@ import type { AssetsApi } from '@gcscode/extension-assets';
 import { createAssetAdapter } from './asset-adapter';
 import { linkState } from './link-state.svelte';
 import LinkStateView from './link-state-view.svelte';
+import { createHomeSeeder } from './home-seed';
 import { createMavlinkClient, type MavlinkClient } from './mavlink-client';
+import MapInputView from './map-input-view.svelte';
 import MavlinkView from './mavlink-view.svelte';
 import {
   applyMessage,
@@ -13,6 +15,7 @@ import {
   telemetryState,
   type TelemetryState,
 } from './telemetry-store.svelte';
+import { vehicleInputs } from './vehicle-inputs.svelte';
 
 /**
  * Cross-extension exports for the MAVLink extension. Consumers `import type` this
@@ -29,7 +32,7 @@ export interface MavlinkExports {
   telemetry: Readonly<TelemetryState>;
 }
 
-const FILTER = '^(HEARTBEAT|GLOBAL_POSITION_INT|ATTITUDE|VFR_HUD|SYS_STATUS)$';
+const FILTER = '^(HEARTBEAT|GLOBAL_POSITION_INT|ATTITUDE|VFR_HUD|SYS_STATUS|HOME_POSITION)$';
 const DEFAULT_BASE_URL = 'ws://localhost:8088/v1/ws/mavlink';
 
 function composeUrl(baseUrl: string): string {
@@ -37,8 +40,11 @@ function composeUrl(baseUrl: string): string {
 }
 
 let client: MavlinkClient | null = null;
+/** The base URL the open client was given; the Map input view's home seed reads the bridge there. */
+let clientBase = DEFAULT_BASE_URL;
 
 function openClient(baseUrl: string, onMessage: (json: unknown) => void): void {
+  clientBase = baseUrl;
   client = createMavlinkClient({
     url: composeUrl(baseUrl),
     onMessage,
@@ -62,7 +68,7 @@ export const mavlinkExtension: Extension = {
     displayName: 'MAVLink',
     version: '0.0.0',
     description:
-      'Live ArduCopter telemetry via mavlink2rest WebSocket, and a view of the link itself; publishes a telemetry export.',
+      'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export, and shows per vehicle what the map is fed and the state of the link.',
   },
   activate(context): MavlinkExports {
     context.subscriptions.push(
@@ -90,6 +96,14 @@ export const mavlinkExtension: Extension = {
     // containment's failure path both remove this extension's assets.
     context.subscriptions.push(assetAdapter);
 
+    // Fills in each vehicle's home for the Map input view from the bridge's
+    // stored copy, once per vehicle: a read, never a request to the vehicle.
+    const homeSeeder = createHomeSeeder({
+      tracker: vehicleInputs,
+      wsBase: () => clientBase,
+      fetch: (url) => fetch(url),
+    });
+
     const handleMessage = (json: unknown): void => {
       // Telemetry first. It is this extension's existing duty and must not
       // depend on the newer one; the client deliberately does not catch what a
@@ -97,6 +111,10 @@ export const mavlinkExtension: Extension = {
       applyMessage(json);
       linkState.noteMessage(json);
       assetAdapter.onMessage(json);
+      // Read-only, and it never throws: the Map input view's per-vehicle copy
+      // of what `applyMessage` merges.
+      vehicleInputs.onMessage(json);
+      homeSeeder.onMessage(json);
     };
 
     openClient(cfg.get<string>('connectionUrl', DEFAULT_BASE_URL), handleMessage);
@@ -109,6 +127,7 @@ export const mavlinkExtension: Extension = {
           .get<string>('connectionUrl', DEFAULT_BASE_URL);
         // Fire-and-forget reconnect; errors propagate via the WebSocket's
         // onerror/onclose pathway already handled by createMavlinkClient.
+        homeSeeder.reset();
         void closeClient().then(() => openClient(newBase, handleMessage));
       }),
     );
@@ -118,6 +137,11 @@ export const mavlinkExtension: Extension = {
         id: 'gcscode.mavlink.location',
         component: MavlinkView,
         title: 'MAVLink',
+      }),
+      context.host.window.registerView({
+        id: 'gcscode.mavlink.mapInput',
+        component: MapInputView,
+        title: 'Map input',
       }),
       context.host.window.registerView({
         id: 'gcscode.mavlink.linkState',
@@ -153,6 +177,7 @@ export const mavlinkExtension: Extension = {
   async deactivate() {
     await closeClient();
     reset();
+    vehicleInputs.reset();
     linkState.reset();
   },
 };

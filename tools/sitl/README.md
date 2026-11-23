@@ -8,9 +8,10 @@ ArduCopter SITL (software in the loop): a simulated drone to develop and test gc
 arducopter (TCP 5760) <-> MAVProxy --> UDP 14550 --> Python client (client/)
                                    --> UDP 14551 --> mavlink2rest --> ws://localhost:8088/v1/ws/mavlink
                                                                       (gcscode's MAVLink extension)
+                                   --> UDP 14552 --> wire probe (tools/wire-probe), when it runs
 ```
 
-With several vehicles (`SITL_VEHICLES`, below), vehicle _k_ is SITL instance _k_ − 1 on TCP 5760 + 10(_k_ − 1), with system ID _k_ and a MAVProxy of its own that sends to UDP 14551 only. mavlink2rest sees them all, by system ID; the Python client on 14550 sees vehicle 1 alone.
+With several vehicles (`SITL_VEHICLES`, below), vehicle _k_ is SITL instance _k_ − 1 on TCP 5760 + 10(_k_ − 1), with system ID _k_ and a MAVProxy of its own that sends to UDP 14551 and 14552 only. mavlink2rest and the wire probe see them all, by system ID; the Python client on 14550 sees vehicle 1 alone.
 
 ## Setup (macOS)
 

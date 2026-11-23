@@ -10,15 +10,16 @@
 # Topology:
 #   arducopter (TCP 5760)  <->  MAVProxy  -->  UDP 14550  (Python CLI client)
 #                                          -->  UDP 14551  (reserved GCS)
+#                                          -->  UDP 14552  (tools/wire-probe)
 #
 #   mavlink2rest listens on UDP 14551 and serves http://127.0.0.1:8088
 #
 # SITL_VEHICLES=N (1 to 5, default 1) runs N vehicles on system IDs 1 to N.
 # Vehicle k is SITL instance k-1, on TCP 5760 + 10*(k-1), with a MAVProxy of
-# its own that sends to 14551 only, so mavlink2rest sees every vehicle and the
-# Python client on 14550 sees vehicle 1 alone. Vehicle 1's MAVProxy is the one
-# in the foreground; the others run non-interactive, their lines prefixed with
-# `vehicle <k>: `.
+# its own that sends to 14551 and 14552 only, so mavlink2rest and the wire
+# probe see every vehicle and the Python client on 14550 sees vehicle 1 alone.
+# Vehicle 1's MAVProxy is the one in the foreground; the others run
+# non-interactive, their lines prefixed with `vehicle <k>: `.
 #
 # Args are forwarded to every MAVProxy. Examples:
 #   ./run_sitl.sh                        # defaults
@@ -74,6 +75,9 @@ PRIMARY_OUT="${PRIMARY_OUT:-udp:127.0.0.1:14550}"                     # Python c
 # Fixed: instance k listens on TCP 5760 + 10*k, and mavlink2rest (and through
 # it the GCS) reads UDP 14551.
 GCS_OUT="udp:127.0.0.1:14551"
+# Every vehicle's frames also go to the wire probe (tools/wire-probe). UDP: with
+# no probe listening they are dropped and nothing waits.
+PROBE_OUT="udp:127.0.0.1:14552"
 sitl_port() { echo $((5760 + 10 * ($1 - 1))); }   # of vehicle $1
 
 # SITL runs from the ArduPilot folder, so resolve a relative path now, against
@@ -186,13 +190,14 @@ if ! kill -0 "${M2R_PID}" 2>/dev/null; then
   exit 1
 fi
 
-# Vehicles 2 and up: a MAVProxy each, in the background, sending to mavlink2rest only.
+# Vehicles 2 and up: a MAVProxy each, in the background, sending to mavlink2rest and the probe only.
 for ((vehicle = 2; vehicle <= SITL_VEHICLES; vehicle++)); do  # not `seq 2 N`: macOS seq counts down to 1
   mkdir -p "${LOG_DIR}/vehicle-${vehicle}"
   python -m MAVProxy.mavproxy \
     --master "tcp:127.0.0.1:$(sitl_port "${vehicle}")" \
     --state-basedir "${LOG_DIR}/vehicle-${vehicle}" \
     --out    "${GCS_OUT}" \
+    --out    "${PROBE_OUT}" \
     "$@" \
     --non-interactive \
     </dev/null > >(sed -l "s/^/vehicle ${vehicle}: /") 2>&1 &
@@ -204,6 +209,7 @@ cat <<INFO
     master : tcp:127.0.0.1:5760
     out    : ${PRIMARY_OUT}   (-> Python CLI client)
     out    : ${GCS_OUT}   (-> mavlink2rest, for the GCS)
+    out    : ${PROBE_OUT}   (-> wire probe: pnpm --filter wire-probe start)
     logs   : ${LOG_DIR}
 
     Tail SITL stdout in another terminal:  tail -f ${SITL_LOG}
@@ -219,6 +225,7 @@ python -m MAVProxy.mavproxy \
   --state-basedir "${LOG_DIR}" \
   --out    "${PRIMARY_OUT}" \
   --out    "${GCS_OUT}" \
+  --out    "${PROBE_OUT}" \
   "$@"
 
 # cleanup() runs on EXIT and tears down SITL.

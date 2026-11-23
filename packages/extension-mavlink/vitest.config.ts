@@ -4,8 +4,8 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   // `svelteTesting()` puts `browser` ahead of `node` in `resolve.conditions`,
-  // so the link state view mounts (its test opts into jsdom per file); without
-  // it Svelte's SSR build loads and mounting fails with `rune_outside_svelte`.
+  // which the Map input and Link state views' tests need to mount a component
+  // (each opts into jsdom itself); the rest of the package keeps running under node.
   plugins: [svelte(), svelteTesting()],
   test: {
     globals: true,
