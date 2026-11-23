@@ -2,6 +2,8 @@ import type { Extension } from '@gcscode/extension-api';
 import type { AssetsApi } from '@gcscode/extension-assets';
 
 import { createAssetAdapter } from './asset-adapter';
+import { linkState } from './link-state.svelte';
+import LinkStateView from './link-state-view.svelte';
 import { createMavlinkClient, type MavlinkClient } from './mavlink-client';
 import MavlinkView from './mavlink-view.svelte';
 import {
@@ -40,7 +42,10 @@ function openClient(baseUrl: string, onMessage: (json: unknown) => void): void {
   client = createMavlinkClient({
     url: composeUrl(baseUrl),
     onMessage,
-    onConnectionStateChange: setConnectionState,
+    onConnectionStateChange: (state) => {
+      setConnectionState(state);
+      linkState.setBridge(state);
+    },
   });
 }
 
@@ -57,7 +62,7 @@ export const mavlinkExtension: Extension = {
     displayName: 'MAVLink',
     version: '0.0.0',
     description:
-      'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export.',
+      'Live ArduCopter telemetry via mavlink2rest WebSocket, and a view of the link itself; publishes a telemetry export.',
   },
   activate(context): MavlinkExports {
     context.subscriptions.push(
@@ -90,6 +95,7 @@ export const mavlinkExtension: Extension = {
       // depend on the newer one; the client deliberately does not catch what a
       // handler throws, which is why the adapter degrades rather than throws.
       applyMessage(json);
+      linkState.noteMessage(json);
       assetAdapter.onMessage(json);
     };
 
@@ -112,6 +118,11 @@ export const mavlinkExtension: Extension = {
         id: 'gcscode.mavlink.location',
         component: MavlinkView,
         title: 'MAVLink',
+      }),
+      context.host.window.registerView({
+        id: 'gcscode.mavlink.linkState',
+        component: LinkStateView,
+        title: 'Link state',
       }),
       context.host.commands.registerCommand({
         id: 'gcscode.mavlink.getLocation',
@@ -142,5 +153,6 @@ export const mavlinkExtension: Extension = {
   async deactivate() {
     await closeClient();
     reset();
+    linkState.reset();
   },
 };
