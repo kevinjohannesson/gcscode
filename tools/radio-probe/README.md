@@ -66,6 +66,8 @@ The probe opens only EdgeTX's joystick, USB ID `1209:4f54`. Any other controller
 
 In EdgeTX's default Classic joystick mode, the radio reports its model's channel outputs, not its raw sticks: channels 1–8 as the eight axes and channels 9–32 as buttons 0–23, with a button pressed when its channel is above zero. So what you see depends on the radio's model and mixer, and changing a mix changes the output.
 
+For a TX16S model that gives every stick, switch and button its own number, using EdgeTX's Advanced joystick mode, see [tx16s-advanced-model.md](tx16s-advanced-model.md).
+
 ## If nothing shows up
 
 - **No "found" line:** the radio is in another USB mode, such as storage or serial. Unplug it and choose Joystick when the radio asks, or set USB Mode to Joystick in the radio's setup.
