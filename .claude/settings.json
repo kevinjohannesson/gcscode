@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(.claude/scripts/gh-app-token-reviewer:*)",
+      "Bash(gh pr review:*)"
+    ]
+  },
   "enabledPlugins": {
     "chrome-devtools-mcp@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
