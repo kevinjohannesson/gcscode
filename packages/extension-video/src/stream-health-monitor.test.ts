@@ -92,6 +92,34 @@ describe('StreamHealthMonitor', () => {
     monitor.start();
     await vi.advanceTimersByTimeAsync(HEALTH_POLL_MS * 4);
     expect(fake.sample).toHaveBeenCalledTimes(1);
+    // No frame was ever read, so there is no time since one.
+    expect(monitor.health.sinceLastFrameMs).toBeNull();
+    monitor.stop();
+  });
+
+  it('keeps the time since the last frame running while a read hangs, and blanks the rates', async () => {
+    let frames = 0;
+    let hang = false;
+    const fake = fakeSession(() =>
+      hang ? new Promise(() => {}) : Promise.resolve(totals(frames)),
+    );
+    const monitor = new StreamHealthMonitor(() => fake.session, Date.now);
+    monitor.start();
+    await settle();
+    frames = 15;
+    await vi.advanceTimersByTimeAsync(HEALTH_POLL_MS);
+    expect(monitor.health.framesPerSecond).toBe(30);
+    expect(monitor.health.sinceLastFrameMs).toBe(0);
+    hang = true;
+    await vi.advanceTimersByTimeAsync(HEALTH_POLL_MS * 3);
+    expect(fake.sample).toHaveBeenCalledTimes(3);
+    expect(monitor.health).toEqual({
+      connection: 'connected',
+      framesPerSecond: null,
+      sinceLastFrameMs: 1500,
+      bitrateKbps: null,
+      packetLossPercent: null,
+    });
     monitor.stop();
   });
 

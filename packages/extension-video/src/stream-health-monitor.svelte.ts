@@ -7,7 +7,9 @@ export const HEALTH_POLL_MS = 500;
 /**
  * Samples whichever session `source` returns, every `HEALTH_POLL_MS`, and holds
  * the latest health. A new session starts from scratch; a sample still being
- * read when the next tick comes skips that tick.
+ * read when the next tick comes skips that tick, which keeps the time since the
+ * last frame running and blanks the rates, so a read that hangs never leaves
+ * the view showing a live picture.
  */
 export class StreamHealthMonitor {
   private _health = $state<StreamHealth>(NO_SESSION);
@@ -40,7 +42,10 @@ export class StreamHealthMonitor {
   }
 
   private tick(): void {
-    if (this.pending) return;
+    if (this.pending) {
+      this.showStalled();
+      return;
+    }
     const session = this.source();
     if (session !== this.session) {
       this.session = session;
@@ -71,5 +76,17 @@ export class StreamHealthMonitor {
       .then(() => {
         this.pending = false;
       });
+  }
+
+  /** A tick with no new reading: no rates, and the time since the last frame keeps running. */
+  private showStalled(): void {
+    const lastFrameAt = this.memory?.lastFrameAt ?? null;
+    this._health = {
+      ...this._health,
+      framesPerSecond: null,
+      sinceLastFrameMs: lastFrameAt === null ? null : this.now() - lastFrameAt,
+      bitrateKbps: null,
+      packetLossPercent: null,
+    };
   }
 }

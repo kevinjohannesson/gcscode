@@ -47,10 +47,12 @@
     padding: 0.75rem;
     font-variant-numeric: tabular-nums;
   }
+  /* Light on the shell's dark panels, matching the Video panel's status text. */
   dt {
-    color: #666;
+    color: #999;
   }
   dd {
     margin: 0;
+    color: #ddd;
   }
 </style>

@@ -4,7 +4,7 @@ The **Video** panel: it plays a drone camera's live stream. While it has no pict
 
 ## The Video health view
 
-**Video health** is a second view, for checking the stream rather than watching it: drag its tab next to the Video panel. Every half second it shows the connection's state, frames per second, the time since the last new frame, the bitrate and the packet loss, each over the last half second. A frozen picture shows as frames per second at 0 and the time since the last new frame growing, even while the connection stays up.
+**Video health** is a second view, for checking the stream rather than watching it: drag its tab next to the Video panel. Every half second it shows the connection's state, frames per second, the time since the last new frame, the bitrate and the packet loss, each over the last half second. A frozen picture shows as frames per second at 0 and the time since the last new frame growing, even while the connection stays up. If a reading of the connection takes longer than half a second, the rates show — and the time since the last new frame keeps growing, so a stuck reading never looks like a live picture.
 
 It reads the Video panel's own connection and opens none of its own, so it shows "no connection" while the panel holds no session: between retries, or when the panel is closed.
 
