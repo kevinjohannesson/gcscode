@@ -1,7 +1,7 @@
 # ADR-0016: One station process sends everything gcscode sends to vehicles
 
 **Date:** 2026-11-22
-**Status:** Proposed
+**Status:** Accepted
 
 ## Context
 
