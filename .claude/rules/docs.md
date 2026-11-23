@@ -19,6 +19,8 @@ gcscode adopts VS Code's load-bearing extension patterns — disposables, activa
 
 When brainstorming or planning, surface every API divergence from VS Code as a labelled decision with its trade-off, never as a default, and record the choice in the spec or ADR. Every spec has a "VS Code alignment" section listing what aligns, what diverges and why, and what is deferred (`docs/specs/2026-04-26-phase-a2-commands.md` is the table-format example). When the iteration ships, copy each new row into `docs/vs-code-alignment.md`, the cumulative ledger.
 
+To check a recommendation against what is already decided, and record the choice once it is accepted, use the `alignment-check` skill.
+
 ## Specs and ADRs are the historical record
 
 A merged spec records what its iteration decided. A later spec that revises those decisions adds a one-line breadcrumb to the earlier one instead of rewriting it; substantive corrections go in the successor.
