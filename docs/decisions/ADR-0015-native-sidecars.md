@@ -1,7 +1,7 @@
 # ADR-0015: Native processes do the work the browser must never stall
 
 **Date:** 2026-11-22, amended 2026-11-24 to fit [ADR-0016](ADR-0016-one-station-process.md)
-**Status:** Proposed
+**Status:** Accepted
 
 ## Context
 
