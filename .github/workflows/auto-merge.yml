@@ -85,13 +85,26 @@ name: Auto-merge
 #         merge, whatever the PR changes. So does a files list shorter than the
 #         PR's changed-file count (the API stops at 3000).
 #
+# Ruleset: the repository ruleset "master: CI must pass" (Settings → Rules)
+# makes GitHub itself refuse a merge into the default branch unless the head
+# has a successful `ci` check from GitHub Actions, whoever merges: this
+# workflow, a hand merge, or any other workflow's token. It requires no
+# reviews and no up-to-date branch (an up-to-date rule would force a new CI
+# run, and with it a new merge attempt, after every master merge). Repository
+# admins can bypass it. It matches the check by name and app, so a `ci` job in
+# a PR's own workflow would satisfy it; Gate 5 above reads `ci.yml`'s own runs
+# instead, and stays the stricter check. GitHub also counts a skipped check as
+# passing, and `ci` is skipped when its run is cancelled; Gate 5 does not.
+#
 # Limit: the gates hold only while no workflow on the PR's side is changed,
 # this one included. A PR can edit this file or any other workflow so that it
 # runs on the PR's own `pull_request` or `pull_request_review` events, with
 # whatever token permissions that copy asks for, and reach the merge API
 # without consulting the base's gates or the merge policy. The policy's
 # enforced `workflows` rule leaves such PRs to the owner only when the gate is
-# asked; closing the route needs a repository ruleset. GitHub refusing the
+# asked; the CI ruleset above does not close the route either (a PR's own
+# workflow can post a `ci` check), and closing it needs a ruleset that requires
+# a pull request and gives the workflow token no bypass. GitHub refusing the
 # workflow token's merge of workflow changes is not relied on: it refused
 # PR #91, but merged PR #67.
 #

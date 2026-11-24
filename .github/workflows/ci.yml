@@ -26,7 +26,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # One check that sums up the run, for branch protection or a status badge.
+  # One check that sums up the run. The ruleset "master: CI must pass" requires it
+  # by this name (`ci`), so renaming the job blocks every merge into master until
+  # the ruleset is updated.
   # It succeeds only when every job it needs succeeded, so adding a job means
   # adding it here. Not skipped when a job fails, but skipped on a cancel.
   ci:
