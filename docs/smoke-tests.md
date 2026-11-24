@@ -4,16 +4,16 @@ Hands-on checks for each rung, run on the owner's Mac against the real stack. A 
 
 Every command block runs from the repo root of the main checkout, and each block stands on its own, so a markdown viewer that runs blocks can play them one at a time. A block marked **runs until Ctrl-C** gets a terminal of its own.
 
-| Test                                                  | Ticket / PR    | Branch                                | Needs                 |
-| ----------------------------------------------------- | -------------- | ------------------------------------- | --------------------- |
-| [Radio probe](#radio-probe)                           | GCS-13, PR #63 | `master`                              | TX16S, Rust and CMake |
-| [Several vehicles in SITL](#several-vehicles-in-sitl) | N8, PR #66     | `master`                              | SITL                  |
-| [Wire probe](#wire-probe)                             | GCS-17, PR #70 | `master`                              | SITL                  |
-| [Map input view](#map-input-view)                     | GCS-14, PR #71 | `master`                              | SITL                  |
-| [Link state view](#link-state-view)                   | GCS-24, PR #69 | `master`                              | SITL                  |
-| [Radio input view](#radio-input-view)                 | GCS-38, PR #68 | `master`                              | TX16S, Rust and CMake |
-| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81 | `master`                              | SITL, Rust and CMake  |
-| [Controls view](#controls-view)                       | GCS-40, PR #82 | draft: `claude/project-thread-lk6dk0` | TX16S, Rust and CMake |
+| Test                                                  | Ticket / PR    | Branch   | Needs                 |
+| ----------------------------------------------------- | -------------- | -------- | --------------------- |
+| [Radio probe](#radio-probe)                           | GCS-13, PR #63 | `master` | TX16S, Rust and CMake |
+| [Several vehicles in SITL](#several-vehicles-in-sitl) | N8, PR #66     | `master` | SITL                  |
+| [Wire probe](#wire-probe)                             | GCS-17, PR #70 | `master` | SITL                  |
+| [Map input view](#map-input-view)                     | GCS-14, PR #71 | `master` | SITL                  |
+| [Link state view](#link-state-view)                   | GCS-24, PR #69 | `master` | SITL                  |
+| [Radio input view](#radio-input-view)                 | GCS-38, PR #68 | `master` | TX16S, Rust and CMake |
+| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81 | `master` | SITL, Rust and CMake  |
+| [Controls view](#controls-view)                       | GCS-40, PR #82 | `master` | TX16S, Rust and CMake |
 
 ## Before you start
 
@@ -253,16 +253,12 @@ lsof -nP -iTCP -sTCP:LISTEN | grep -E ':(5760|5770|8088|5173|5174|8889|8091)\b' 
 
 **Goal:** a profile file says what each radio input means to gcscode. With the gcscode-adv profile, the **Controls** tab and `radio-probe --mapped` show "throttle 37%", "SA middle" and "control on" live, next to the raw values. **Proof is a screen recording** (Cmd-Shift-5) with the page and the probe side by side.
 
-**Draft PR #82.** Needs the TX16S on USB as a joystick, on its `gcscode-adv` model ([`tools/radio-probe/tx16s-advanced-model.md`](../tools/radio-probe/tx16s-advanced-model.md)), and Rust and CMake. No SITL. Set up its worktree once:
-
-```sh
-git fetch origin claude/project-thread-lk6dk0 && git worktree add --detach .worktrees/controls FETCH_HEAD && cd .worktrees/controls && pnpm install
-```
+Needs the TX16S on USB as a joystick, on its `gcscode-adv` model ([`tools/radio-probe/tx16s-advanced-model.md`](../tools/radio-probe/tx16s-advanced-model.md)), and Rust and CMake. No SITL.
 
 Plug in the radio on `gcscode-adv` first, then start the station (**runs until Ctrl-C**):
 
 ```sh
-cd .worktrees/controls && pnpm --filter mavlink-station start
+pnpm --filter mavlink-station start
 ```
 
 **Expect:** `station: radio profiles gcscode-adv`, the `opened … TX16SMK3 Joystick` lines with `buttons 28`, then `station: mapped with profile gcscode-adv`.
@@ -270,7 +266,7 @@ cd .worktrees/controls && pnpm --filter mavlink-station start
 Start the dev server in a second terminal (**runs until Ctrl-C**), then open gcscode and click the **Controls** tab:
 
 ```sh
-cd .worktrees/controls && pnpm dev
+pnpm dev
 ```
 
 ```sh
@@ -280,7 +276,7 @@ open http://localhost:5173/
 Start the probe with the profile in a third terminal (**runs until Ctrl-C**):
 
 ```sh
-cd .worktrees/controls && pnpm --filter radio-probe start -- --mapped
+pnpm --filter radio-probe start -- --mapped
 ```
 
 **Scenario 1, no position yet:** before touching a switch, look at the Controls tab. **Expect:** every switch reads `unknown`, since the radio's connect burst came before the station opened it.
@@ -298,18 +294,12 @@ cd .worktrees/controls && pnpm --filter radio-probe start -- --mapped
 **Scenario 7, a refused profile:** stop the station, then start it with a profile that maps the control switch to a switch position (**exits at once**):
 
 ```sh
-cd .worktrees/controls && sed 's/^control = .*/control = { switch = "SF", position = "down" }/' tools/radio-probe/profiles/gcscode-adv.toml > /tmp/refused.toml && pnpm --filter mavlink-station start -- --profile /tmp/refused.toml
+sed 's/^control = .*/control = { switch = "SF", position = "down" }/' tools/radio-probe/profiles/gcscode-adv.toml > /tmp/refused.toml && pnpm --filter mavlink-station start -- --profile /tmp/refused.toml
 ```
 
 **Expect:** `station: profile /tmp/refused.toml refused: control may only map to a held button …`, and the station exits.
 
 **Scenario 8, no profile:** select the Classic `gcscode` model and replug, then start the station again. **Expect:** `no profile matches this radio (8 axes, 24 buttons)` in its terminal, and the Controls tab says no profile matches; the Radio input tab still shows raw input.
-
-Remove the worktree when the PR has merged:
-
-```sh
-git worktree remove .worktrees/controls
-```
 
 ## Adding a test
 
