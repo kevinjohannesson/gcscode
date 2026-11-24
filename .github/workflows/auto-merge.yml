@@ -6,10 +6,11 @@ name: Auto-merge
 # PR that edits a gate's lines is still judged by the base's gates. That is
 # not a lock: see the Limit paragraph below. Because these runs hold a write
 # token on a PR's behalf, nothing here may check out, build or run the PR's
-# code: the head is only fetched as git objects, for Gate 3's patch-id
-# comparison. The gate also takes only same-repository PRs into the default
-# branch: `pull_request_target` runs the base branch's copy, so a PR into some
-# other branch would run whatever copy that branch holds, and the gates were
+# code: the head is only fetched as git objects, for Gates 2, 3, 6 and 7,
+# and Gate 7 reads one file from it, the playbook, as data. The gate also
+# takes only same-repository PRs into the default branch:
+# `pull_request_target` runs the base branch's copy, so a PR into some other
+# branch would run whatever copy that branch holds, and the gates were
 # written for branches this repository's sessions push, not a fork's.
 #
 # Pre-gate: PR is not in draft state.
@@ -87,6 +88,15 @@ name: Auto-merge
 #         branch), not from the pulls/files API, which diffs against the base
 #         commit recorded when the PR was opened and so, on a branch that later
 #         merged master in, lists master's newer changes as the PR's (PR #97).
+# Gate 7: The PR's `Ticket:` line passes `scripts/check-pr-ticket.mjs`, the
+#         script CI's `ticket` job runs. CI runs on a push, not on a label or
+#         body change, so a green run can predate a body that would close a
+#         smoke-tested ticket on merge; this gate reads the PR as it is now.
+#         The script is the base branch's copy, from the checkout. It checks
+#         against the union of the base's `docs/smoke-tests.md` and the head's
+#         (read from the head as data, when it has one), so neither a row
+#         master gained after the head branched nor a row the PR adds or
+#         removes slips through.
 #
 # Ruleset: the repository ruleset "master: CI must pass" (Settings → Rules)
 # makes GitHub itself refuse a merge into the default branch unless the head
@@ -145,6 +155,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # Gate 7 runs the base's scripts/check-pr-ticket.mjs, on the Node CI uses.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - name: Check gates and merge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -477,6 +491,23 @@ jobs:
             fi
             echo "Gate 6 OK: no enforced merge-policy rule matches"
           fi
+
+          # Gate 7: the ticket line, read live (header). The script runs from the
+          # base checkout; the head's playbook is only read, never run.
+          # The head's objects are here already: the fetch before Gate 2 brought them.
+          PLAYBOOKS="docs/smoke-tests.md"
+          HEAD_PLAYBOOK="${RUNNER_TEMP}/head-smoke-tests.md"
+          if git show "${HEAD_SHA}:docs/smoke-tests.md" > "$HEAD_PLAYBOOK" 2>/dev/null; then
+            PLAYBOOKS="${PLAYBOOKS}:${HEAD_PLAYBOOK}"
+          fi
+          echo "Gate 7: checking against the playbooks ${PLAYBOOKS}"
+          if ! TICKET_OUT=$(PR_NUMBER="$PR_NUMBER" PLAYBOOK_PATH="$PLAYBOOKS" GITHUB_REPOSITORY="$GH_REPO" GITHUB_TOKEN="$GH_TOKEN" node scripts/check-pr-ticket.mjs); then
+            echo "Gate 7 FAILED: the PR's ticket line does not pass:"
+            echo "$TICKET_OUT"
+            echo "Exiting cleanly."
+            exit 0
+          fi
+          echo "Gate 7 OK: ${TICKET_OUT}"
 
           # All gates pass — merge
           # --match-head-commit: a push after the reads above fails the merge rather
