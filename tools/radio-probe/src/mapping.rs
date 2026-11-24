@@ -176,8 +176,11 @@ pub struct Switch {
     pub positions: Vec<String>,
 }
 
-/// Which radio a profile is for. USB ids and name must match; `axes` and `buttons`, when
-/// given, must match the radio's counts too, which tells two models of one radio apart.
+/// Which radio a profile is for. USB ids must match, and the joystick's name must contain
+/// `name`: SDL builds the name from the USB strings and may put the manufacturer first, so
+/// the TX16S reads `TX16SMK3 Joystick` in one place and `OpenTX TX16SMK3 Joystick` in
+/// another. `axes` and `buttons`, when given, must match the radio's counts too, which
+/// tells two models of one radio apart.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Match {
@@ -231,6 +234,10 @@ impl Profile {
     fn check(&self) -> Result<(), String> {
         if self.name.trim().is_empty() {
             return Err("the profile has no name".into());
+        }
+        if self.matches.name.trim().is_empty() {
+            // Every name contains the empty text, so this would match any radio with these ids.
+            return Err("[match] needs the joystick's name, or part of it".into());
         }
 
         let mut axes_used = BTreeSet::new();
@@ -332,7 +339,7 @@ impl Profile {
         let m = &self.matches;
         m.vendor == info.vendor
             && m.product == info.product
-            && m.name == info.name
+            && info.name.contains(m.name.as_str())
             && m.axes.is_none_or(|n| n == axes)
             && m.buttons.is_none_or(|n| n == buttons)
             && self.highest_axis().is_none_or(|a| a < axes)
@@ -737,6 +744,13 @@ mod tests {
             .unwrap_err(),
             "the profile has no name"
         );
+        assert_eq!(
+            Profile::parse(
+                "name = \"p\"\n[match]\nvendor = 0x1209\nproduct = 0x4F54\nname = \" \"\n"
+            )
+            .unwrap_err(),
+            "[match] needs the joystick's name, or part of it"
+        );
     }
 
     fn info(name: &str) -> RadioInfo {
@@ -752,7 +766,10 @@ mod tests {
     fn a_profile_matches_by_usb_id_name_and_counts() {
         let p = profile(SA).unwrap();
         assert!(p.matches(&info("TX16SMK3 Joystick"), 8, 28));
+        // SDL on macOS puts the USB manufacturer string first.
+        assert!(p.matches(&info("OpenTX TX16SMK3 Joystick"), 8, 28));
         assert!(!p.matches(&info("Zorro Joystick"), 8, 28));
+        assert!(!p.matches(&info("TX16S Joystick"), 8, 28));
         // The same radio on its Classic model reports 24 buttons.
         assert!(!p.matches(&info("TX16SMK3 Joystick"), 8, 24));
         assert!(!p.matches(
