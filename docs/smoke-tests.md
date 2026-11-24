@@ -4,15 +4,15 @@ Hands-on checks for each rung, run on the owner's Mac against the real stack. A 
 
 Every command block runs from the repo root of the main checkout, and each block stands on its own, so a markdown viewer that runs blocks can play them one at a time. A block marked **runs until Ctrl-C** gets a terminal of its own.
 
-| Test                                                  | Ticket / PR    | Branch                                | Needs                 |
-| ----------------------------------------------------- | -------------- | ------------------------------------- | --------------------- |
-| [Radio probe](#radio-probe)                           | GCS-13, PR #63 | `master`                              | TX16S, Rust and CMake |
-| [Several vehicles in SITL](#several-vehicles-in-sitl) | N8, PR #66     | `master`                              | SITL                  |
-| [Wire probe](#wire-probe)                             | GCS-17, PR #70 | `master`                              | SITL                  |
-| [Map input view](#map-input-view)                     | GCS-14, PR #71 | `master`                              | SITL                  |
-| [Link state view](#link-state-view)                   | GCS-24, PR #69 | `master`                              | SITL                  |
-| [Radio input view](#radio-input-view)                 | GCS-38, PR #68 | `master`                              | TX16S, Rust and CMake |
-| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81 | draft: `claude/project-thread-2l93qj` | SITL, Rust and CMake  |
+| Test                                                  | Ticket / PR    | Branch   | Needs                 |
+| ----------------------------------------------------- | -------------- | -------- | --------------------- |
+| [Radio probe](#radio-probe)                           | GCS-13, PR #63 | `master` | TX16S, Rust and CMake |
+| [Several vehicles in SITL](#several-vehicles-in-sitl) | N8, PR #66     | `master` | SITL                  |
+| [Wire probe](#wire-probe)                             | GCS-17, PR #70 | `master` | SITL                  |
+| [Map input view](#map-input-view)                     | GCS-14, PR #71 | `master` | SITL                  |
+| [Link state view](#link-state-view)                   | GCS-24, PR #69 | `master` | SITL                  |
+| [Radio input view](#radio-input-view)                 | GCS-38, PR #68 | `master` | TX16S, Rust and CMake |
+| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81 | `master` | SITL, Rust and CMake  |
 
 ## Before you start
 
@@ -22,7 +22,7 @@ Bring the main checkout up to date:
 git switch master && git pull --ff-only && pnpm install
 ```
 
-Once PR #81 has merged, `pnpm dev:sitl` also starts the station process, which needs Rust and CMake and a build after each change to it:
+`pnpm dev:sitl` also starts the station process, which needs Rust and CMake and a build after each change to it:
 
 ```sh
 pnpm --filter mavlink-station run setup
@@ -202,16 +202,16 @@ pnpm --filter radio-probe start
 
 **Goal:** the station process starts with `pnpm dev:sitl`, the **Link state** tab shows `station: running` or `station: not running`, stopping the process flips it, and it sends nothing to any vehicle: the wire probe confirms.
 
-**Draft PR #81.** Set up its worktree once, which also builds the station (the first build compiles SDL and takes a few minutes):
+Build the station once, and again after its code changes (the first build compiles SDL and takes a few minutes):
 
 ```sh
-git fetch origin claude/project-thread-2l93qj && git worktree add --detach .worktrees/station-startup FETCH_HEAD && cd .worktrees/station-startup && pnpm install && pnpm --filter mavlink-station run setup
+pnpm --filter mavlink-station run setup
 ```
 
-Start two vehicles from the worktree (**runs until Ctrl-C**), then open gcscode and click the **Link state** tab:
+Start two vehicles (**runs until Ctrl-C**), then open gcscode and click the **Link state** tab:
 
 ```sh
-cd .worktrees/station-startup && pnpm dev:sitl --vehicles 2
+pnpm dev:sitl --vehicles 2
 ```
 
 ```sh
@@ -223,7 +223,7 @@ open http://localhost:5173/
 **Scenario 1, it sends nothing:** start the wire probe in a second terminal (**runs until Ctrl-C**):
 
 ```sh
-cd .worktrees/station-startup && pnpm --filter wire-probe start
+pnpm --filter wire-probe start
 ```
 
 **Expect:** the same rows as without the station: `HEARTBEAT` from systems 1 and 2 only, and no command or control frame among the latest frames. The station has no MAVLink code yet, so nothing it does can show up here.
@@ -246,12 +246,6 @@ pkill -CONT -x gcscode-station
 
 ```sh
 lsof -nP -iTCP -sTCP:LISTEN | grep -E ':(5760|5770|8088|5173|5174|8889|8091)\b' || echo 'all stopped'
-```
-
-Remove the worktree when the PR has merged:
-
-```sh
-git worktree remove .worktrees/station-startup
 ```
 
 ## Adding a test
