@@ -3,20 +3,31 @@ name: Auto-merge
 # Auto-merges PRs when:
 # Pre-gate: PR is not in draft state.
 # Gate 1: The `auto-merge` label is present (user's opt-in signal).
-# Gate 2: The PR's headRefName is `feat/*`, `spec/*`, or `adr/*`, or it is
-#         `claude/*` and the PR carries exactly one of the labels `feat`, `spec`
-#         or `adr`, which then stands in for the prefix (cloud sessions can push
-#         only `claude/*` branches). A `spec/*` or `adr/*` PR, or a `claude/*`
-#         one labelled `spec` or `adr`, changes nothing outside `docs/`, so code
-#         cannot merge on a spec reviewer's count instead of gate 3a's final
-#         review. Below, "feat/*" and "spec/* or adr/*" include those labelled
-#         `claude/*` PRs.
+# Gate 2: The PR's headRefName is `feat/*`, `spec/*`, `adr/*` or `docs/*`, or
+#         it is `claude/*` and the PR carries exactly one of the labels `feat`,
+#         `spec`, `adr` or `docs`, which then stands in for the prefix (cloud
+#         sessions can push only `claude/*` branches). A `spec/*` or `adr/*` PR,
+#         or a `claude/*` one labelled `spec` or `adr`, changes nothing outside
+#         `docs/`, so code cannot merge on a spec reviewer's count instead of
+#         gate 3a's final review. A `docs/*` PR, or a `claude/*` one labelled
+#         `docs`, changes only Markdown files, and none under `docs/specs/` or
+#         `docs/decisions/` (a design is approved through gate 3b's reviewers),
+#         a `.github/` directory, or a `.claude/` directory at any depth other
+#         than the root's `.claude/rules/` (agents, skills, commands and
+#         scripts are the review process itself, and Claude Code also loads
+#         them from nested directories). One limit: a PR runs its own head's
+#         copy of this workflow, so a PR that edits this file is judged by its
+#         edited gates; the docs exclusion of `.github/` holds only while this
+#         file is unchanged, as every class's gates do. Below, "feat/*",
+#         "spec/* or adr/*" and "docs/*" include those labelled `claude/*` PRs.
 # Gate 3: Bot signal — class-aware, and in both classes read from the reviews
 #         API rather than from GitHub's computed reviewDecision, matching the bot
 #         logins exactly (`[bot]` suffix included):
-#         - feat/*: `gcscode-final-review`'s latest verdict-bearing review is
-#           APPROVED. Was `reviewDecision == APPROVED` until 2026-10-20, which
-#           could never pass: GitHub only computes reviewDecision when the base
+#         - feat/* and docs/*: `gcscode-final-review`'s latest verdict-bearing
+#           review is APPROVED. A docs/* PR has no per-task reviews, so this
+#           one review is all it gets; feat/* PRs already merge code on it.
+#           Was `reviewDecision == APPROVED` until 2026-10-20, which could
+#           never pass: GitHub only computes reviewDecision when the base
 #           branch has review requirements, and `master` is unprotected, so it
 #           stayed empty however many approvals existed. PR #34 was the first
 #           feat/* PR to reach this gate and exposed it.
@@ -30,10 +41,11 @@ name: Auto-merge
 #           spec-quality >= 1) until review-loop-v2 dropped the Sonnet red-team
 #           and spec-quality roles.
 #         In both classes the review that passes must cover the PR's current
-#         head: for feat/*, that final approval; for spec/* or adr/*, the newest
-#         review by either of those two reviewers. It covers the head when it
-#         was posted on the head commit (the review's `commit_id`), or when the
-#         PR's own changes are the same as at the reviewed commit: the diff
+#         head: for feat/* and docs/*, that final approval; for spec/* or
+#         adr/*, the newest review by either of those two reviewers. It covers
+#         the head when it was posted on the head commit (the review's
+#         `commit_id`), or when the PR's own changes are the same as at the
+#         reviewed commit: the diff
 #         from where each commit leaves the base branch, compared by
 #         `git patch-id --verbatim`, which ignores line numbers but not
 #         whitespace. So merging the base branch in, or a rebase,
@@ -56,7 +68,9 @@ name: Auto-merge
 #         label event instead).
 #
 # Specs: docs/specs/2026-05-14-auto-merge-on-user-approval.md,
-#        docs/specs/2026-10-22-review-loop-v2.md (Gate 3b).
+#        docs/specs/2026-10-22-review-loop-v2.md (Gate 3b). The docs/ class was
+#        added without a spec, at the owner's request, for docs-only PRs
+#        (playbooks, roadmap rungs, agent-doc rules) that fit no other class.
 # The review loop itself: .claude/skills/review-loop/SKILL.md.
 
 on:
@@ -121,7 +135,7 @@ jobs:
             [[ -n "$approved" && "$approved" == "$current" ]]
           }
           # The class a claude/* PR's type label names; the joined names when not exactly one.
-          TYPE_LABELS=$(echo "$PR_JSON" | jq -r '[.labels[].name | select(. == "feat" or . == "spec" or . == "adr")] | unique | join(",")')
+          TYPE_LABELS=$(echo "$PR_JSON" | jq -r '[.labels[].name | select(. == "feat" or . == "spec" or . == "adr" or . == "docs")] | unique | join(",")')
           IS_DRAFT=$(echo "$PR_JSON" | jq -r .isDraft)
           MERGEABLE=$(echo "$PR_JSON" | jq -r .mergeable)
           HAS_LABEL=$(echo "$PR_JSON" | jq -r '[.labels[] | select(.name == "auto-merge")] | length')
@@ -146,12 +160,12 @@ jobs:
           CLASS_REF="$HEAD_REF"
           if [[ "$HEAD_REF" == claude/* ]]; then
             case "$TYPE_LABELS" in
-              feat|spec|adr)
+              feat|spec|adr|docs)
                 CLASS_REF="${TYPE_LABELS}/${HEAD_REF}"
                 echo "Gate 2: claude/ head '${HEAD_REF}' typed '${TYPE_LABELS}' by its label"
                 ;;
               *)
-                echo "Gate 2 FAILED: claude/ head '${HEAD_REF}' needs exactly one of the labels feat, spec or adr (has '${TYPE_LABELS}'). Exiting cleanly."
+                echo "Gate 2 FAILED: claude/ head '${HEAD_REF}' needs exactly one of the labels feat, spec, adr or docs (has '${TYPE_LABELS}'). Exiting cleanly."
                 exit 0
                 ;;
             esac
@@ -175,14 +189,36 @@ jobs:
               echo "Gate 2 OK: spec/ADR PR (head=${HEAD_REF}), documents only; gate 3b (reviewers' Blocking: 0) applies"
               PR_CLASS=spec_or_adr
               ;;
+            docs/*)
+              # Docs PRs carry Markdown only, outside the places that need another
+              # class: specs and ADRs approve a design (gate 3b's reviewers), and
+              # .github/ and .claude/ (but the root's .claude/rules/) hold the
+              # workflows, agents, skills and scripts the review loop runs on, which a
+              # single final review should not be able to rewrite unseen. Both match
+              # at any depth: Claude Code loads skills, agents and commands from nested
+              # .claude/ directories too (packages/shell/.claude/skills/... would
+              # otherwise pass). Same rename and pagination rule as spec/ADR above.
+              NOT_DOCS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '.[] | (.filename, (.previous_filename // empty)) | select(
+                  (endswith(".md") | not)
+                  or startswith("docs/specs/") or startswith("docs/decisions/")
+                  or test("(^|/)\\.github/")
+                  or (test("(^|/)\\.claude/") and (startswith(".claude/rules/") | not)))')
+              if [[ -n "$NOT_DOCS" ]]; then
+                echo "Gate 2 FAILED: docs PR changes files a docs PR may not (merge by hand, or relabel it feat, spec or adr):"
+                echo "$NOT_DOCS"
+                exit 0
+              fi
+              echo "Gate 2 OK: docs PR (head=${HEAD_REF}), Markdown only; gate 3a (final-review verdict) applies"
+              PR_CLASS=docs
+              ;;
             *)
-              echo "Gate 2 FAILED: head '${HEAD_REF}' is not feat/, spec/, adr/ or a labelled claude/. Exiting cleanly."
+              echo "Gate 2 FAILED: head '${HEAD_REF}' is not feat/, spec/, adr/, docs/ or a labelled claude/. Exiting cleanly."
               exit 0
               ;;
           esac
 
           # Gate 3: bot signal (class-aware)
-          if [[ "$PR_CLASS" == "feat" ]]; then
+          if [[ "$PR_CLASS" == "feat" || "$PR_CLASS" == "docs" ]]; then
             # Gate 3a: `gcscode-final-review`'s latest verdict-bearing review must be
             # APPROVED. Latest-review-per-user semantics, the same thing PR #1's
             # validation established: take that author's most recent review, so a

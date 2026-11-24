@@ -1,6 +1,6 @@
 ---
 name: review-loop
-description: How gcscode PRs are reviewed, from the first reviewer dispatch to the owner's report. Use when opening a PR, dispatching any reviewer subagent (spec-compliance, code-quality, final review, red-team, extension architect), handling review findings, writing a Code-review-followup commit or its disposition table, deciding whether the review loop stops, marking a PR ready, merging, or reporting to the owner at the end of a PR.
+description: How gcscode PRs (feature, spec, ADR and docs) are reviewed, from the first reviewer dispatch to the owner's report. Use when opening a PR, dispatching any reviewer subagent (spec-compliance, code-quality, final review, red-team, extension architect), handling review findings, writing a Code-review-followup commit or its disposition table, deciding whether the review loop stops, marking a PR ready, merging, or reporting to the owner at the end of a PR.
 ---
 
 # Review loop
@@ -74,9 +74,17 @@ A _product_ spec or ADR is about the app, its extensions or its API. An _agentic
 
 **Findings format** (the agent files are authoritative): a numbered list in which each finding has an ID (`RT-3`, `EA-2`), `[blocking]` or `[non-blocking]`, a location, a one-line problem and a one-line fix; reasoning for blocking findings only; a `Checked against:` line; and a last line `Blocking: N`. Blocking means it would cause a defect, a wrong decision or real rework if shipped as written. Drift from an earlier decision is non-blocking unless it contradicts an accepted ADR.
 
+## Docs PRs (`docs/*`)
+
+A docs PR changes Markdown only: the roadmap, playbooks, READMEs, plans, architecture notes, `CLAUDE.md`, `.claude/rules/`. A spec or ADR is never a docs PR, and neither is a change to a `.github/` or `.claude/` directory at any depth, outside the root's `.claude/rules/`: those are spec, ADR or feature PRs, and the `auto-merge` workflow's Gate 2 refuses them as docs (its header states the one limit).
+
+1. Run `pnpm lint:docs` and fix what it reports, then open a draft PR (Spec or ADR template below, with the Docs line under Reviews) and push.
+2. `gh pr ready <n>`, then one final cross-cutting review of the whole diff, dispatched as in [Feature PRs](#feature-prs-feat) step 3, with the brief that it is a docs PR: judge accuracy against the repo, contradictions with `CLAUDE.md`, rules, skills, specs and ADRs, and broken links. There are no per-task reviews.
+3. On `--request-changes`, fix in a `Code-review-followup:` commit per [Fixing findings](#fixing-findings), push, and dispatch the final review's re-review. The merge gate is its `--approve`.
+
 ## Merging
 
-The owner merges — `gh pr merge --merge <n>`, which keeps the merge commit — or applies the `auto-merge` label once the PR is ready; a controller merges under [its skill's rule](../controller/SKILL.md#merging). The gates are described once, in the header comment of `.github/workflows/auto-merge.yml`. Two of them shape the worker's work: a draft never merges, and a `spec/*` or `adr/*` PR (or a `claude/*` one labelled `spec` or `adr`) that changes anything outside `docs/` is refused by Gate 2, so say so in its PR body; the owner merges it by hand. A `claude/*` PR is reviewed and gated as the class its one `feat`, `spec` or `adr` label names; add that label when opening it. If the owner merges despite an open `--request-changes` or a non-zero `Blocking:`, leave a PR comment saying why.
+The owner merges — `gh pr merge --merge <n>`, which keeps the merge commit — or applies the `auto-merge` label once the PR is ready; a controller merges under [its skill's rule](../controller/SKILL.md#merging). The gates are described once, in the header comment of `.github/workflows/auto-merge.yml`. Two of them shape the worker's work: a draft never merges, and a `spec/*` or `adr/*` PR (or a `claude/*` one labelled `spec` or `adr`) that changes anything outside `docs/` is refused by Gate 2, so say so in its PR body; the owner merges it by hand. Gate 2 likewise refuses a `docs/*` PR (or a `claude/*` one labelled `docs`) that changes anything a docs PR may not ([Docs PRs](#docs-prs-docs)). A `claude/*` PR is reviewed and gated as the class its one `feat`, `spec`, `adr` or `docs` label names; add that label when opening it. If the owner merges despite an open `--request-changes` or a non-zero `Blocking:`, leave a PR comment saying why.
 
 ## Fixing findings
 
@@ -144,6 +152,8 @@ Spec or ADR PR:
 Reviewed per `.claude/skills/review-loop/SKILL.md`: red-team, plus the extension architect on product PRs that touch extension architecture. Each review ends `Blocking: N`.
 
 <If the PR changes anything outside `docs/`: Gate 2 refuses auto-merge, so the owner merges it by hand.>
+
+<Docs PR: replace both paragraphs above under Reviews with "Reviewed per `.claude/skills/review-loop/SKILL.md` § Docs PRs: one final cross-cutting review, whose approval is the merge gate.">
 ```
 
 ## Designing a reviewer role
