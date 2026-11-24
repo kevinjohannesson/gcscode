@@ -57,7 +57,9 @@
   <video bind:this={video} muted autoplay playsinline class:hidden={panel.status !== 'playing'}
   ></video>
   {#if panel.status !== 'playing'}
-    <p class="message">{panel.message}</p>
+    <div class="message">
+      <p>{panel.message}</p>
+    </div>
   {/if}
 </div>
 
@@ -70,7 +72,6 @@
     width: 100%;
     height: 100%;
     background: var(--video-letterbox);
-    color: var(--gcscode-foreground);
   }
   video {
     width: 100%;
@@ -86,8 +87,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0;
     padding: 1rem;
+  }
+  /* The message is chrome, so it sits on a theme surface, not on the
+     letterbox: its text pair (foreground on widget-background) is the one
+     the contrast test checks, in whatever theme. */
+  .message p {
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--gcscode-widget-border);
+    border-radius: 4px;
+    background: var(--gcscode-widget-background);
+    color: var(--gcscode-foreground);
     text-align: center;
   }
 </style>

@@ -77,7 +77,9 @@ export function findStyleViolations(
  * with review, like Tailwind classes (Decision 7). A view on the theme has none
  * (ADR-0017 Consequences), except as the value of a custom property it
  * declares: that is a named domain colour (Decision 3), and
- * `findStyleViolations` checks the name belongs to the extension.
+ * `findStyleViolations` checks the name belongs to the extension. The
+ * exemption trusts that name: a domain or picture colour, never chrome text or
+ * borders wearing a slug, which review catches.
  */
 export function findHardcodedColours(source: string): string[] {
   const styles = [...source.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
