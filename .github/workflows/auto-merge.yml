@@ -44,6 +44,11 @@ name: Auto-merge
 #         checked (`--match-head-commit`), so a push in between fails the merge
 #         instead of riding in on the earlier review.
 # Gate 4: The PR is mergeable (no conflicts).
+# Gate 5: The `ci` check of `.github/workflows/ci.yml`, run by GitHub
+#         Actions, succeeded on the head commit: its latest run, so a re-run
+#         that fails closes the gate again. A PR waiting only on CI is
+#         re-evaluated when the CI workflow completes (the `workflow_run`
+#         trigger, which runs master's copy of this file).
 #
 # Specs: docs/specs/2026-05-14-auto-merge-on-user-approval.md,
 #        docs/specs/2026-10-22-review-loop-v2.md (Gate 3b).
@@ -54,10 +59,14 @@ on:
     types: [submitted]
   pull_request:
     types: [labeled]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
 
 permissions:
   contents: write
   pull-requests: write
+  checks: read
 
 jobs:
   auto-merge:
@@ -73,7 +82,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number || github.event.review.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.review.pull_request.number || github.event.workflow_run.pull_requests[0].number }}
         run: |
           set -euo pipefail
 
@@ -284,6 +293,15 @@ jobs:
             exit 0
           fi
           echo "Gate 4 OK: PR is mergeable"
+
+          # Gate 5: CI green on the head. Only GitHub Actions' own check runs count,
+          # so no other App can post a passing `ci`.
+          CI_CONCLUSION=$(gh api --paginate "repos/${GH_REPO}/commits/${HEAD_SHA}/check-runs?check_name=ci" --jq '.check_runs[] | select(.app.slug == "github-actions") | {startedAt: .started_at, conclusion: (.conclusion // "pending")}' | jq -rs 'sort_by(.startedAt) | last | .conclusion // "NONE"')
+          if [[ "$CI_CONCLUSION" != "success" ]]; then
+            echo "Gate 5 FAILED: the ci check on head ${HEAD_SHA} is '${CI_CONCLUSION}' (expected success). The CI workflow's completion re-runs this gate. Exiting cleanly."
+            exit 0
+          fi
+          echo "Gate 5 OK: ci succeeded on head ${HEAD_SHA}"
 
           # All gates pass — merge
           # --match-head-commit: a push after the reads above fails the merge rather
