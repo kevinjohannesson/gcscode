@@ -397,3 +397,78 @@ describe('close before the answer', () => {
     ]);
   });
 });
+
+describe('sample', () => {
+  it("reads the video totals and the connection's state", async () => {
+    const t = setup();
+    const session = t.open();
+    await settle();
+    Object.assign(t.pc(), {
+      framesDecoded: 120,
+      bytesReceived: 50_000,
+      packetsReceived: 400,
+      packetsLost: 7,
+    });
+    t.pc().setConnectionState('connected');
+    await expect(session.sample()).resolves.toEqual({
+      connection: 'connected',
+      framesDecoded: 120,
+      bytesReceived: 50_000,
+      packetsReceived: 400,
+      packetsLost: 7,
+    });
+  });
+
+  it('reads zeros while there is no video entry yet', async () => {
+    const t = setup();
+    const session = t.open();
+    await settle();
+    t.pc().getStats = () => Promise.resolve(new Map()) as never;
+    await expect(session.sample()).resolves.toEqual({
+      connection: 'new',
+      framesDecoded: 0,
+      bytesReceived: 0,
+      packetsReceived: 0,
+      packetsLost: 0,
+    });
+  });
+
+  it('resolves null after close without touching the connection', async () => {
+    const t = setup();
+    const session = t.open();
+    await settle();
+    session.close();
+    const calls = t.pc().getStatsCalls;
+    await expect(session.sample()).resolves.toBeNull();
+    expect(t.pc().getStatsCalls).toBe(calls);
+    expect(t.pc().callsAfterClose).toBe(0);
+  });
+
+  it('resolves null when close() lands while the stats are being read', async () => {
+    const t = setup();
+    const session = t.open();
+    await settle();
+    const pending = session.sample();
+    session.close();
+    await expect(pending).resolves.toBeNull();
+  });
+
+  it('resolves null when getStats rejects or throws', async () => {
+    const t = setup();
+    const session = t.open();
+    await settle();
+    t.pc().rejectStats = true;
+    await expect(session.sample()).resolves.toBeNull();
+    t.pc().rejectStats = false;
+    t.pc().throwStats = true;
+    await expect(session.sample()).resolves.toBeNull();
+  });
+
+  it('resolves null without WebRTC', async () => {
+    const session = openWhepSession(url, () => {}, {
+      fetch: () => Promise.reject(new Error('unused')),
+      RTCPeerConnection: undefined,
+    });
+    await expect(session.sample()).resolves.toBeNull();
+  });
+});

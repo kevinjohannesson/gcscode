@@ -278,7 +278,11 @@ importers:
 
   tools/mediamtx: {}
 
+  tools/radio-probe: {}
+
   tools/sitl: {}
+
+  tools/wire-probe: {}
 
 packages:
 

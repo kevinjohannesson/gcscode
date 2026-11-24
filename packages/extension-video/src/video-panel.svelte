@@ -1,12 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
+  import { liveSession } from './live-session.svelte';
   import { getVideoAddress } from './video-address';
   import { VideoPanelState } from './video-panel-state.svelte';
   import { openWhepSession } from './whep-session';
 
   const address = getVideoAddress();
-  const panel = new VideoPanelState(address, (listener) => openWhepSession(address, listener));
+  const panel = new VideoPanelState(
+    address,
+    liveSession.track((listener) => openWhepSession(address, listener)),
+  );
 
   let video: HTMLVideoElement | undefined = $state();
 

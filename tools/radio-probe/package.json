@@ -1,0 +1,10 @@
+{
+  "name": "radio-probe",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Prints the raw axes and buttons an EdgeTX radio such as the TX16S reports through SDL. Reads only; sends nothing.",
+  "scripts": {
+    "start": "cargo run --release --quiet --",
+    "test:rust": "cargo test"
+  }
+}

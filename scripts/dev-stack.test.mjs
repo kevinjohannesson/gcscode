@@ -27,13 +27,16 @@ import { fileURLToPath } from 'node:url';
 import {
   MAVLINK2REST,
   MEDIAMTX_API,
+  MAX_VEHICLES,
   ROOT,
-  SERVICES,
   cameraSimUp,
   checkPorts,
+  everyHeartbeat,
   fetchMessage,
   hasHeartbeat,
+  parseArgs,
   readiness,
+  stackServices,
 } from './dev-stack.mjs';
 
 const LAUNCHER = new URL('dev-stack.mjs', import.meta.url).href;
@@ -52,6 +55,7 @@ const TIMEOUT = { timeout: 20000 };
 //   ignoreSignals          ignore SIGINT, SIGTERM and SIGHUP
 //   stopMs                 on a signal, wait this long, record `graceful`, exit
 //   stderrOnSignal         text to write to stderr on a signal
+//   printEnv               the name of an environment variable to print
 function stub() {
   const { appendFileSync, writeFileSync, writeSync } = process.getBuiltinModule('node:fs');
   const { spawn } = process.getBuiltinModule('node:child_process');
@@ -87,6 +91,7 @@ function stub() {
   // Synchronous writes, so an exit right after cannot drop them.
   if (o.stdout) writeSync(1, o.stdout);
   if (o.stderr) writeSync(2, o.stderr);
+  if (o.printEnv) writeSync(1, `${o.printEnv}=${process.env[o.printEnv]}\n`);
   writeFileSync(file('.ready'), '');
   if (o.exitAfterMs !== undefined) setTimeout(() => process.exit(o.exitCode), o.exitAfterMs);
 }
@@ -120,9 +125,9 @@ function launch(script, env = process.env) {
  * `exited(name)` whether it has exited and been reaped. By default a service is
  * up once its own stub is.
  */
-function stackScript(dir, services, timings, mavlink2rest) {
+function stackScript(dir, services, timings, mavlink2rest, vehicles) {
   const entries = services.map(
-    ({ name, stub: options = {}, command, up, upWithinMs = 10000, addresses = [] }) => `{
+    ({ name, stub: options = {}, command, up, upWithinMs = 10000, addresses = [], env }) => `{
       name: ${JSON.stringify(name)},
       command: ${JSON.stringify(command ?? process.execPath)},
       args: ${JSON.stringify(command ? [] : ['-e', STUB, JSON.stringify({ dir, name, ...options })])},
@@ -131,6 +136,7 @@ function stackScript(dir, services, timings, mavlink2rest) {
       up: ${up ?? `() => ready(${JSON.stringify(name)})`},
       upWithinMs: ${upWithinMs},
       addresses: ${JSON.stringify(addresses)},
+      env: ${JSON.stringify(env)},
     }`,
   );
   return `
@@ -146,7 +152,7 @@ function stackScript(dir, services, timings, mavlink2rest) {
       }
     };
     const services = [${entries.join(', ')}];
-    process.exit(await runStack({ services, mavlink2rest: ${JSON.stringify(mavlink2rest)}, timings: ${JSON.stringify(timings)} }));
+    process.exit(await runStack({ services, mavlink2rest: ${JSON.stringify(mavlink2rest)}, vehicles: ${JSON.stringify(vehicles)}, timings: ${JSON.stringify(timings)} }));
   `;
 }
 
@@ -155,9 +161,9 @@ function stackScript(dir, services, timings, mavlink2rest) {
  * in a fresh folder. After the test, it kills the launcher's group and every
  * stub's group by the PIDs they recorded.
  */
-function startStack(t, services, timings = {}, mavlink2rest = 'http://127.0.0.1:1') {
+function startStack(t, services, timings = {}, mavlink2rest = 'http://127.0.0.1:1', vehicles) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'dev-stack-test-')));
-  const run = launch(stackScript(dir, services, { ...FAST, ...timings }, mavlink2rest));
+  const run = launch(stackScript(dir, services, { ...FAST, ...timings }, mavlink2rest, vehicles));
   t.after(() => {
     killGroup(run.child.pid);
     for (const name of readdirSync(dir).filter((file) => file.endsWith('.pid'))) {
@@ -517,7 +523,9 @@ test('an uncaught error in the launcher takes its services down with it', TIMEOU
   await assertNoSurvivors(run.dir);
 });
 
-test("SERVICES is the spec's table", () => {
+const SERVICES = stackServices(1);
+
+test("one vehicle's services are the spec's table", () => {
   assert.equal(ROOT, dirname(dirname(fileURLToPath(import.meta.url))));
   assert.equal(MAVLINK2REST, 'http://127.0.0.1:8088');
   const table = SERVICES.map(({ name, command, args, cwd, ports, upWithinMs }) => ({
@@ -589,6 +597,98 @@ test("SERVICES is the spec's table", () => {
   for (const service of [SERVICES[0], SERVICES[1], SERVICES[3]]) {
     accessSync(service.command, constants.X_OK);
   }
+  assert.deepEqual(
+    SERVICES.map((s) => s.env),
+    [{ SITL_VEHICLES: '1' }, undefined, undefined, undefined],
+  );
+});
+
+test('five vehicles check five SITL ports and list five streams', () => {
+  assert.equal(MAX_VEHICLES, 5);
+  const [sitl, mediamtx, gcscode, cameraSim] = stackServices(5);
+  assert.deepEqual(sitl.env, { SITL_VEHICLES: '5' });
+  assert.deepEqual(sitl.ports, [
+    { proto: 'tcp', port: 5760 },
+    { proto: 'tcp', port: 5770 },
+    { proto: 'tcp', port: 5780 },
+    { proto: 'tcp', port: 5790 },
+    { proto: 'tcp', port: 5800 },
+    { proto: 'tcp', port: 8088 },
+    { proto: 'udp', port: 14551 },
+  ]);
+  assert.deepEqual(mediamtx.addresses, [
+    ['WHEP, vehicle 1', 'http://localhost:8889/drone-1/whep'],
+    ['WHEP, vehicle 2', 'http://localhost:8889/drone-2/whep'],
+    ['WHEP, vehicle 3', 'http://localhost:8889/drone-3/whep'],
+    ['WHEP, vehicle 4', 'http://localhost:8889/drone-4/whep'],
+    ['WHEP, vehicle 5', 'http://localhost:8889/drone-5/whep'],
+    ['RTSP, vehicle 1', 'rtsp://localhost:8554/drone-1'],
+    ['RTSP, vehicle 2', 'rtsp://localhost:8554/drone-2'],
+    ['RTSP, vehicle 3', 'rtsp://localhost:8554/drone-3'],
+    ['RTSP, vehicle 4', 'rtsp://localhost:8554/drone-4'],
+    ['RTSP, vehicle 5', 'rtsp://localhost:8554/drone-5'],
+  ]);
+  // Nothing else depends on the count.
+  const rest = (s) => ({ ...s, up: undefined, addresses: undefined });
+  assert.deepEqual([gcscode, cameraSim].map(rest), [SERVICES[2], SERVICES[3]].map(rest));
+});
+
+test('parseArgs takes --vehicles 1 to 5, in either spelling, default 1', () => {
+  assert.deepEqual(parseArgs([]), { vehicles: 1 });
+  assert.deepEqual(parseArgs(['--vehicles', '2']), { vehicles: 2 });
+  assert.deepEqual(parseArgs(['--vehicles=5']), { vehicles: 5 });
+  assert.deepEqual(parseArgs(['--', '--vehicles', '3']), { vehicles: 3 });
+  assert.deepEqual(parseArgs(['--vehicles', '1']), { vehicles: 1 });
+});
+
+test('parseArgs refuses a count outside 1 to 5 and unknown arguments', () => {
+  const bad = (got) => ({ error: `--vehicles takes a whole number from 1 to 5, got: ${got}` });
+  assert.deepEqual(parseArgs(['--vehicles', '0']), bad('0'));
+  assert.deepEqual(parseArgs(['--vehicles', '6']), bad('6'));
+  assert.deepEqual(parseArgs(['--vehicles=10']), bad('10'));
+  assert.deepEqual(parseArgs(['--vehicles', '2.5']), bad('2.5'));
+  assert.deepEqual(parseArgs(['--vehicles', 'two']), bad('two'));
+  assert.deepEqual(parseArgs(['--vehicles']), bad('nothing'));
+  assert.deepEqual(parseArgs(['--vehicle', '2']), { error: 'Unknown argument: --vehicle' });
+  assert.deepEqual(parseArgs(['5']), { error: 'Unknown argument: 5' });
+});
+
+test(
+  'a bad --vehicles stops the launcher before it checks or starts anything',
+  TIMEOUT,
+  async () => {
+    const child = spawn(
+      process.execPath,
+      [join(ROOT, 'scripts/dev-stack.mjs'), '--vehicles', '6'],
+      {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    let out = '';
+    child.stdout.setEncoding('utf8').on('data', (chunk) => (out += chunk));
+    const code = await new Promise((resolve) => child.on('close', resolve));
+    assert.equal(code, 1, out);
+    assert.equal(
+      out,
+      '==> --vehicles takes a whole number from 1 to 5, got: 6\n' +
+        '==> Usage: pnpm dev:sitl [--vehicles N], N from 1 to 5 (default 1)\n',
+    );
+  },
+);
+
+test("a service's env is added to the launcher's environment", TIMEOUT, async (t) => {
+  const run = startStack(t, [
+    { name: 'one', stub: { printEnv: 'DEV_STACK_TEST_ENV' }, env: { DEV_STACK_TEST_ENV: 'set' } },
+    { name: 'two', stub: { printEnv: 'PATH' } },
+  ]);
+  await printed(run, '==> All up.');
+  ctrlC(run);
+  await exitWithin(run);
+  assert.match(run.out(), /^one \| DEV_STACK_TEST_ENV=set$/m);
+  assert.match(
+    run.out(),
+    new RegExp(`^two \\| PATH=${process.env.PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'),
+  );
 });
 
 test("MediaMTX's config serves the API the launcher reads", () => {
@@ -723,6 +823,21 @@ test('hasHeartbeat is true for a HEARTBEAT message', async () => {
   assert.ok(seen.at(-1).endsWith('/v1/mavlink/vehicles/1/components/1/messages/HEARTBEAT'));
 });
 
+test("hasHeartbeat asks for the given vehicle's HEARTBEAT", async () => {
+  const base = await serve(JSON.stringify({ message: { type: 'HEARTBEAT', mavlink_version: 3 } }));
+  assert.equal(await hasHeartbeat(base, 4), true);
+  assert.ok(seen.at(-1).endsWith('/v1/mavlink/vehicles/4/components/1/messages/HEARTBEAT'));
+});
+
+test('everyHeartbeat needs a HEARTBEAT from each vehicle', async () => {
+  const api = await mavlink2rest();
+  api.answers.HEARTBEAT = { message: { type: 'HEARTBEAT' } };
+  api.answers['3:HEARTBEAT'] = 'None';
+  assert.equal(await everyHeartbeat(api.url, 2), true);
+  assert.equal(await everyHeartbeat(api.url, 3), false);
+  assert.deepEqual(api.requests.map((r) => r.id).sort(), [1, 1, 2, 2, 3]);
+});
+
 test('hasHeartbeat is false for a message not seen yet', async () => {
   assert.equal(await hasHeartbeat(await serve('None')), false);
 });
@@ -780,6 +895,52 @@ test('cameraSimUp fails for a publisher that is not a WebRTC session', async () 
   const path = { ...PATH, source: { type: 'rtspSession', id: 'x' } };
   const base = await mediamtx([path], [READER, publisher('publisher=headless')]);
   assert.deepEqual(await cameraSimUp(base), { failure: CAMERA_SIM_TAKEN });
+});
+
+const pathOf = (id, session) => ({
+  ...PATH,
+  name: `drone-${id}`,
+  source: { type: 'webRTCSession', id: session },
+});
+const publisherOf = (id, session, query) => ({
+  id: session,
+  state: 'publish',
+  path: `drone-${id}`,
+  query,
+});
+
+test('cameraSimUp for several vehicles is true once the marked page publishes every stream', async () => {
+  const base = await mediamtx(
+    [pathOf(1, 's1'), pathOf(2, 's2'), pathOf(3, 's3')],
+    [
+      publisherOf(1, 's1', 'publisher=headless'),
+      publisherOf(2, 's2', 'publisher=headless'),
+      publisherOf(3, 's3', 'publisher=headless'),
+    ],
+  );
+  assert.equal(await cameraSimUp(base, 3), true);
+  assert.equal(await cameraSimUp(base, 2), true, 'a stream beyond the count is not looked at');
+});
+
+test('cameraSimUp for several vehicles is false while one stream is missing', async () => {
+  const base = await mediamtx(
+    [pathOf(1, 's1'), pathOf(3, 's3')],
+    [publisherOf(1, 's1', 'publisher=headless'), publisherOf(3, 's3', 'publisher=headless')],
+  );
+  assert.equal(await cameraSimUp(base, 3), false);
+  assert.equal(await cameraSimUp(base), true, 'one vehicle needs drone-1 only');
+});
+
+test('cameraSimUp for several vehicles names the stream someone else publishes', async () => {
+  const base = await mediamtx(
+    [pathOf(1, 's1'), pathOf(2, 's2')],
+    [publisherOf(1, 's1', 'publisher=headless'), publisherOf(2, 's2', '')],
+  );
+  assert.deepEqual(await cameraSimUp(base, 2), {
+    failure:
+      "drone-2 is already being published by something other than camera-sim's headless page, " +
+      'most likely a camera-sim tab left open. Close it, then run pnpm dev:sitl again.',
+  });
 });
 
 test('cameraSimUp is false while the source session is not listed', async () => {
@@ -907,6 +1068,12 @@ test('fetchMessage returns the message object of a JSON body', async () => {
   assert.ok(seen.at(-1).endsWith('/v1/mavlink/vehicles/1/components/1/messages/SYS_STATUS'));
 });
 
+test("fetchMessage asks for the given vehicle's message", async () => {
+  const base = await serve(JSON.stringify(SYS_STATUS));
+  assert.deepEqual(await fetchMessage(base, 'SYS_STATUS', 3), SYS_STATUS.message);
+  assert.ok(seen.at(-1).endsWith('/v1/mavlink/vehicles/3/components/1/messages/SYS_STATUS'));
+});
+
 test('fetchMessage is undefined for a message not seen yet', async () => {
   assert.equal(await fetchMessage(await serve('None'), 'SYS_STATUS'), undefined);
 });
@@ -918,16 +1085,19 @@ test('fetchMessage is undefined when nothing listens', async () => {
 
 /**
  * A stand-in mavlink2rest on an ephemeral port. `answers` maps a message name
- * to what it replies with (an object, or the string `None`); the test changes
- * it while the launcher polls. `requests` records each request's time and name.
+ * to what it replies with for every vehicle (an object, or the string `None`),
+ * and `<systemId>:<name>` to what it replies with for that vehicle alone; the
+ * test changes it while the launcher polls. `requests` records each request's
+ * time, vehicle and name.
  */
 async function mavlink2rest() {
   const answers = {};
   const requests = [];
   const server = createServer((request, response) => {
     const name = request.url.split('/').at(-1);
-    requests.push({ at: Date.now(), name, method: request.method });
-    const answer = answers[name] ?? 'None';
+    const id = Number(request.url.match(/\/vehicles\/(\d+)\//)?.[1]);
+    requests.push({ at: Date.now(), id, name, method: request.method });
+    const answer = answers[`${id}:${name}`] ?? answers[name] ?? 'None';
     response.end(typeof answer === 'string' ? answer : JSON.stringify(answer));
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -1149,3 +1319,49 @@ function tcpOpen(port) {
     socket.once('error', () => resolve(false));
   });
 }
+
+test('with several vehicles, ready to fly waits for every one of them', TIMEOUT, async (t) => {
+  const api = await mavlink2rest();
+  api.answers.SYS_STATUS = SYS_STATUS;
+  api.answers.EKF_STATUS_REPORT = ekf(EKF_POSITION);
+  api.answers['3:EKF_STATUS_REPORT'] = ekf('EKF_ATTITUDE');
+  const run = startStack(t, READY_SERVICES, READY_TIMINGS, api.url, 3);
+  await printed(run, '==> Waiting until all 3 vehicles are ready to fly.');
+  await sleep(1200);
+  assert.doesNotMatch(run.out(), /ready to fly \(/, 'vehicle 3 has no position');
+  const position =
+    '==> Vehicle 3 not ready to fly after 0.8 s: no position yet; the EKF is not using GPS';
+  assert.equal(count(run.out(), position), 1, transcript(run));
+  assert.equal(count(run.out(), 'ready to fly after'), 1, transcript(run));
+  assert.deepEqual(
+    [...new Set(api.requests.map((r) => r.id))].sort(),
+    [1, 2, 3],
+    'it asks every vehicle',
+  );
+  delete api.answers['3:EKF_STATUS_REPORT'];
+  await printed(run, '==> ready to fly (');
+  ctrlC(run);
+  await exitWithin(run);
+  assert.match(run.out(), /==> ready to fly \(\d+\.\d s\), all 3 vehicles\n/);
+  assert.ok(
+    run.out().includes('    Fly vehicle 1 from another terminal:  pnpm fly-sitl --circle 3\n'),
+  );
+  assert.match(run.out(), /==> Starting one, two, with 3 vehicles\n/);
+});
+
+test('a vehicle seen ready is not asked again', TIMEOUT, async (t) => {
+  const api = await mavlink2rest();
+  api.answers.SYS_STATUS = SYS_STATUS;
+  api.answers.EKF_STATUS_REPORT = ekf(EKF_POSITION);
+  api.answers['2:SYS_STATUS'] = SYS_STATUS_NO_PREARM;
+  const run = startStack(t, READY_SERVICES, READY_TIMINGS, api.url, 2);
+  await printed(run, 'Waiting until all 2 vehicles are ready to fly.');
+  await sleep(500);
+  const asked = (id) => api.requests.filter((r) => r.id === id).length;
+  const before = { one: asked(1), two: asked(2) };
+  await sleep(400);
+  assert.equal(asked(1), before.one, 'vehicle 1 was ready');
+  assert.ok(asked(2) > before.two, 'vehicle 2 is still polled');
+  ctrlC(run);
+  await exitWithin(run);
+});

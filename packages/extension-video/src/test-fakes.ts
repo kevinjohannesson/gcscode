@@ -16,6 +16,9 @@ export class FakePeerConnection extends EventTarget {
   iceGatheringState: RTCIceGatheringState = 'complete';
   connectionState: RTCPeerConnectionState = 'new';
   framesDecoded = 0;
+  bytesReceived = 0;
+  packetsReceived = 0;
+  packetsLost = 0;
 
   readonly transceivers: { kind: string; init: unknown }[] = [];
   readonly remoteDescriptions: unknown[] = [];
@@ -27,6 +30,10 @@ export class FakePeerConnection extends EventTarget {
   rejectRemoteDescription = false;
   /** Makes `getStats` return a promise that never settles. */
   hangStats = false;
+  /** Makes `getStats` return a promise that rejects. */
+  rejectStats = false;
+  /** Makes `getStats` throw. */
+  throwStats = false;
 
   constructor() {
     super();
@@ -75,10 +82,23 @@ export class FakePeerConnection extends EventTarget {
   getStats(): Promise<Map<string, unknown>> {
     this.touch();
     this.getStatsCalls += 1;
+    if (this.throwStats) throw new Error('getStats');
     if (this.hangStats) return new Promise(() => {});
+    if (this.rejectStats) return Promise.reject(new Error('getStats'));
     return Promise.resolve(
       new Map<string, unknown>([
-        ['v', { type: 'inbound-rtp', kind: 'video', framesDecoded: this.framesDecoded }],
+        ['a', { type: 'inbound-rtp', kind: 'audio', framesDecoded: 999, bytesReceived: 999 }],
+        [
+          'v',
+          {
+            type: 'inbound-rtp',
+            kind: 'video',
+            framesDecoded: this.framesDecoded,
+            bytesReceived: this.bytesReceived,
+            packetsReceived: this.packetsReceived,
+            packetsLost: this.packetsLost,
+          },
+        ],
       ]),
     );
   }

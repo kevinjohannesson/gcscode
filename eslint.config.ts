@@ -129,6 +129,7 @@ export default [
       '**/node_modules/**',
       '**/dist/**',
       '**/.svelte-kit/**',
+      '**/target/**',
       '**/scratch/**',
       '.worktrees/**',
       '.claude/**',
