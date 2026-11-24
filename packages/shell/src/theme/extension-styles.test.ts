@@ -60,6 +60,15 @@ describe('themed extensions write no hex or functional colour literal in their s
     ]);
   });
 
+  // The list shrinks as extensions migrate: a clean extension left on it
+  // would be exempt from then on.
+  it.each(notYetThemed)('extension-%s still has a literal, so it stays listed', (slug) => {
+    const literals = files
+      .filter((f) => f.slug === slug && f.path.endsWith('.svelte'))
+      .flatMap((f) => findHardcodedColours(f.text));
+    expect(literals.length).toBeGreaterThan(0);
+  });
+
   it.each(themedExtensions)('extension-%s', (slug) => {
     const literals = files
       .filter((f) => f.slug === slug && f.path.endsWith('.svelte'))
