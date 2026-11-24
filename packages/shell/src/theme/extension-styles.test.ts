@@ -42,7 +42,7 @@ describe('extension styles (ADR-0017 Decision 5)', () => {
 // Extensions whose views have not moved onto the theme yet (ADR-0017
 // Consequences). Every other extension, a new one included, writes no hex or
 // functional colour literal; a PR that migrates one takes it off this list.
-const notYetThemed = ['manual-control', 'mavlink-flight-overlay'];
+const notYetThemed = ['mavlink-flight-overlay'];
 const themedExtensions = extensionSlugs.filter((slug) => !notYetThemed.includes(slug));
 
 describe('themed extensions write no hex or functional colour literal in their styles', () => {
@@ -51,6 +51,7 @@ describe('themed extensions write no hex or functional colour literal in their s
       'assets',
       'assets-demo',
       'example',
+      'manual-control',
       'map',
       'map-demo',
       'mavlink',
