@@ -66,11 +66,17 @@ until nc -z localhost "${PORT}" 2>/dev/null; do
   { sleep 0.5; } 2>/dev/null
 done
 
+# Line-buffered sed, so each page line shows as Chrome prints it: BSD sed
+# (macOS) spells it -l, GNU sed (Linux) -u. GNU's -l is a line-wrap length
+# instead: it would take the next flag as its value and leave output
+# block-buffered until Chrome exits.
+if sed --version >/dev/null 2>&1; then SED_LINE_BUFFERED=-u; else SED_LINE_BUFFERED=-l; fi
+
 # Only the page's console lines and Chrome's fatal errors get through.
 "${CHROME}" --headless=new --user-data-dir="${PROFILE}" \
   --enable-logging=stderr --log-level=0 \
   "http://localhost:${PORT}/?publisher=headless" \
-  2> >(sed -l -n -e 's/^\[[^]]*:CONSOLE[^]]*\] "\(.*\)", source: .*/page: \1/p' -e '/:FATAL:/p' >&2) &
+  2> >(sed "${SED_LINE_BUFFERED}" -n -e 's/^\[[^]]*:CONSOLE[^]]*\] "\(.*\)", source: .*/page: \1/p' -e '/:FATAL:/p' >&2) &
 CHROME_PID=$!
 
 while true; do

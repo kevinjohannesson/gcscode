@@ -190,6 +190,11 @@ if ! kill -0 "${M2R_PID}" 2>/dev/null; then
   exit 1
 fi
 
+# Line-buffered sed for the prefixed MAVProxy output below: BSD sed (macOS)
+# spells it -l, GNU sed (Linux) -u, where -l is a line-wrap length that would
+# take the script as its value.
+if sed --version >/dev/null 2>&1; then SED_LINE_BUFFERED=-u; else SED_LINE_BUFFERED=-l; fi
+
 # Vehicles 2 and up: a MAVProxy each, in the background, sending to mavlink2rest and the probe only.
 for ((vehicle = 2; vehicle <= SITL_VEHICLES; vehicle++)); do  # not `seq 2 N`: macOS seq counts down to 1
   mkdir -p "${LOG_DIR}/vehicle-${vehicle}"
@@ -200,7 +205,7 @@ for ((vehicle = 2; vehicle <= SITL_VEHICLES; vehicle++)); do  # not `seq 2 N`: m
     --out    "${PROBE_OUT}" \
     "$@" \
     --non-interactive \
-    </dev/null > >(sed -l "s/^/vehicle ${vehicle}: /") 2>&1 &
+    </dev/null > >(sed "${SED_LINE_BUFFERED}" "s/^/vehicle ${vehicle}: /") 2>&1 &
   MAVPROXY_PIDS+=($!)
 done
 
