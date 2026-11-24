@@ -1,6 +1,33 @@
 @import 'tailwindcss';
 
 /*
+ * Shell-only Tailwind colours, each an alias of a theme variable, so the shell's
+ * own UI (header, status bar, palette, extensions panel) uses the theme too.
+ * Extensions never use these classes (ADR-0017 Decision 7).
+ */
+@theme inline {
+  --color-fg: var(--gcscode-foreground);
+  --color-fg-muted: var(--gcscode-descriptionForeground);
+  --color-panel: var(--gcscode-panel-background);
+  --color-panel-border: var(--gcscode-panel-border);
+  --color-widget: var(--gcscode-widget-background);
+  --color-widget-border: var(--gcscode-widget-border);
+  --color-toolbar-hover: var(--gcscode-toolbar-hoverBackground);
+  --color-input: var(--gcscode-input-background);
+  --color-input-fg: var(--gcscode-input-foreground);
+  --color-input-border: var(--gcscode-input-border);
+  --color-button: var(--gcscode-button-background);
+  --color-button-fg: var(--gcscode-button-foreground);
+  --color-button-hover: var(--gcscode-button-hoverBackground);
+  --color-list-hover: var(--gcscode-list-hoverBackground);
+  --color-list-active: var(--gcscode-list-activeSelectionBackground);
+  --color-statusbar: var(--gcscode-statusBar-background);
+  --color-statusbar-fg: var(--gcscode-statusBar-foreground);
+  --color-caution: var(--gcscode-level-caution);
+  --font-mono: var(--gcscode-monospace-font-family);
+}
+
+/*
  * The theme's values are written to the root by `applyTheme` (theme/dark-theme.ts)
  * before anything renders. This file only uses them (ADR-0017).
  */

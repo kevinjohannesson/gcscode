@@ -9,6 +9,6 @@
   let { containerApi: _containerApi, group: _group }: IWatermarkPanelProps = $props();
 </script>
 
-<div class="flex h-full w-full items-center justify-center">
+<div class="flex h-full w-full items-center justify-center text-fg-muted">
   <p data-testid="empty-state">No extensions registered.</p>
 </div>

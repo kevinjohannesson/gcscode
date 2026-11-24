@@ -51,7 +51,12 @@
 </script>
 
 <main class="shell flex h-screen flex-col">
-  <header class="shell__header">GCScode</header>
+  <header
+    class="shell__header flex h-7 shrink-0 items-center justify-between border-b border-panel-border bg-statusbar px-3 text-xs text-fg-muted"
+  >
+    <span class="font-semibold text-fg">GCScode</span>
+    <span>Ctrl+Shift+P commands · Ctrl+Shift+X extensions</span>
+  </header>
   <section class="shell__content min-h-0 flex-1">
     <DockviewSvelte
       components={{ 'view-host': ViewHost }}
@@ -63,7 +68,7 @@
     />
   </section>
   <footer
-    class="shell__statusbar flex items-center justify-between border-t border-neutral-300 px-3 py-1 text-xs"
+    class="shell__statusbar flex h-[22px] shrink-0 items-center justify-between border-t border-panel-border bg-statusbar px-3 text-xs text-statusbar-fg"
     data-testid="statusbar"
   >
     <div
