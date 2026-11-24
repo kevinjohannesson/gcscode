@@ -10,8 +10,15 @@ Connects to `ws://localhost:8088/v1/ws/mavlink`, subscribes to `HEARTBEAT`, `GLO
 
 - **View** — `gcscode.mavlink.location`, renders live telemetry.
 - **View** — `gcscode.mavlink.mapInput`, **Map input**: a read-only proof view of what the map is fed. It keeps the frames the telemetry store merges apart by MAVLink system id and lists, per vehicle, the latest position, heading (from `GLOBAL_POSITION_INT`) and home (from `HOME_POSITION`), how long ago each was received and last changed, and the system, component and message it came from. A vehicle that goes quiet keeps its row and its ages keep growing. ArduPilot sends `HOME_POSITION` only when home is set, so once per vehicle the extension reads mavlink2rest's stored copy of it (`GET …/v1/mavlink/vehicles/<system>/components/<component>/messages/HOME_POSITION`, at the address of the configured WebSocket) and marks that home as the bridge's stored copy. It is a read from the bridge, never a request to the vehicle. A line above the rows names the system whose position the merged store, and so the map, holds now. The map's own home marker is a fixed point in the flight overlay, not any vehicle's `HOME_POSITION`.
+- **View** — `gcscode.mavlink.linkState`, **Link state**, below.
 - **Command** — `gcscode.mavlink.getLocation`, returns `{lat, lng, alt}` or `null` if no fix yet, and logs it.
 - **Keybinding** — `Alt+Shift+L` → `gcscode.mavlink.getLocation`.
+
+## The Link state view
+
+**Link state** is a read-only view for checking the link rather than flying on it. It shows whether the mavlink2rest bridge is up, connecting or down and for how long, and for each system ID heard on it (with its `MAV_TYPE`) how long ago its last heartbeat arrived. A vehicle that stops shows its age growing while the others stay under a second; a system never drops out of the list.
+
+It reads the extension's one WebSocket and opens none of its own (`src/link-state.svelte.ts` holds the state, fed from `index.ts`). gcscode does not reconnect after the bridge drops yet, so once the bridge shows as down it stays down, the view says so, and the ages keep growing until the page is reloaded.
 
 ## Cross-extension exports
 

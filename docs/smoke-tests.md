@@ -6,6 +6,7 @@ Every command block runs from the repo root of the main checkout, and each block
 
 | Test                                                  | Ticket / PR    | Branch                                | Needs                 |
 | ----------------------------------------------------- | -------------- | ------------------------------------- | --------------------- |
+| [Radio probe](#radio-probe)                           | GCS-13, PR #63 | `master`                              | TX16S, Rust and CMake |
 | [Several vehicles in SITL](#several-vehicles-in-sitl) | N8, PR #66     | `master`                              | SITL                  |
 | [Wire probe](#wire-probe)                             | GCS-17, PR #70 | `master`                              | SITL                  |
 | [Map input view](#map-input-view)                     | GCS-14, PR #71 | `master`                              | SITL                  |
@@ -33,6 +34,26 @@ And let it go again:
 ```sh
 pkill -CONT -f 'tcp:127.0.0.1:5770'
 ```
+
+## Radio probe
+
+**Goal:** the terminal shows the TX16S's raw input live: every axis, button and hat SDL reports, read and nothing more. Its README: [`tools/radio-probe`](../tools/radio-probe/README.md).
+
+Needs Rust and CMake (`brew install cmake`). No SITL. Start the probe (**runs until Ctrl-C**; its first build compiles SDL and takes a few minutes):
+
+```sh
+pnpm --filter radio-probe start
+```
+
+Then plug in the radio and choose **USB Joystick (HID)** when it asks.
+
+**Expect:** an `opened … TX16SMK3 Joystick  1209:4f54  (EdgeTX radio)` line with its serial and counts (8 axes, 24 buttons, 0 hats), then the axes table, the button grid, the `pressed:` line and `input events in the last second`.
+
+**Scenario 1, sticks and switches:** move each stick, then flip each switch. **Expect:** a moving stick's bar moves while it moves, from -32768 to 32767 at its ends; a switch's button lights up and shows on the `pressed:` line; the events count rises while you move and drops to 0 when you stop. In Classic mode the values are the model's channel outputs, so they follow its mixer.
+
+**Scenario 2, unplug:** unplug the radio, then plug it back in. **Expect:** a line saying it is gone and the probe waiting, then the radio opened again.
+
+**Scenario 3, terminal in the background:** bring another app to the front and move a stick. **Expect:** the values still change. If nothing changes at all, macOS needs Input Monitoring for the terminal (System Settings, Privacy & Security, Input Monitoring).
 
 ## Several vehicles in SITL
 
