@@ -35,7 +35,8 @@ name: Auto-merge
 #         was posted on the head commit (the review's `commit_id`), or when the
 #         PR's own changes are the same as at the reviewed commit: the diff
 #         from where each commit leaves the base branch, compared by
-#         `git patch-id --stable`. So merging the base branch in, or a rebase,
+#         `git patch-id --verbatim`, which ignores line numbers but not
+#         whitespace. So merging the base branch in, or a rebase,
 #         keeps the review, and a new commit, or a conflict resolution that
 #         changes the PR's own lines, holds the merge until it is reviewed in
 #         turn. A base-branch change right next to the PR's lines also changes
@@ -91,15 +92,18 @@ jobs:
           # Gate 3): it is the head, or the PR's own changes, from where each
           # leaves the base branch, have the same patch ID. A commit the checkout
           # lacks (one a rebase left behind) is fetched by SHA; anything that
-          # cannot be compared fails closed.
+          # cannot be compared fails closed. --verbatim, not --stable: --stable
+          # ignores whitespace, so a whitespace-only commit (YAML indentation, a
+          # space in a string) would ride in on the earlier review.
           review_covers_head() {
             local reviewed="$1" approved current
             [[ -n "$reviewed" ]] || return 1
             [[ "$reviewed" == "$HEAD_SHA" ]] && return 0
-            git fetch -q --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}" "$HEAD_SHA" || return 1
-            git cat-file -e "${reviewed}^{commit}" 2>/dev/null || git fetch -q --no-tags origin "$reviewed" || return 1
-            approved=$(git diff --binary "$(git merge-base "origin/${BASE_REF}" "$reviewed")" "$reviewed" | git patch-id --stable | cut -d' ' -f1) || return 1
-            current=$(git diff --binary "$(git merge-base "origin/${BASE_REF}" "$HEAD_SHA")" "$HEAD_SHA" | git patch-id --stable | cut -d' ' -f1) || return 1
+            # Anonymous fetches: this works while the repository is public.
+            git fetch -q --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}" "$HEAD_SHA" || { echo "Could not fetch ${BASE_REF} and the head from origin; cannot compare the reviewed changes."; return 1; }
+            git cat-file -e "${reviewed}^{commit}" 2>/dev/null || git fetch -q --no-tags origin "$reviewed" || { echo "Could not fetch the reviewed commit ${reviewed} from origin; cannot compare the reviewed changes."; return 1; }
+            approved=$(git diff --binary "$(git merge-base "origin/${BASE_REF}" "$reviewed")" "$reviewed" | git patch-id --verbatim | cut -d' ' -f1) || return 1
+            current=$(git diff --binary "$(git merge-base "origin/${BASE_REF}" "$HEAD_SHA")" "$HEAD_SHA" | git patch-id --verbatim | cut -d' ' -f1) || return 1
             [[ -n "$approved" && "$approved" == "$current" ]]
           }
           # The class a claude/* PR's type label names; the joined names when not exactly one.
