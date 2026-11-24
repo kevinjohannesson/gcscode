@@ -58,6 +58,7 @@ const fake = vi.hoisted(() => {
       return this.bearing;
     }
     public remove(): void {}
+    public resize = vi.fn();
     /** What maplibre does on each frame of the operator's drag. */
     public operatorMovesTo(lng: number, lat: number): void {
       this.center = { lng, lat };
@@ -76,8 +77,34 @@ function resetCamera(): void {
   mapApi.camera.bearing = 0;
 }
 
-beforeEach(resetCamera);
+// jsdom has no ResizeObserver. This one records what the view observes, so a
+// test can play the dock panel resizing.
+class FakeResizeObserver {
+  public static all: FakeResizeObserver[] = [];
+  public observed: Element[] = [];
+  public disconnected = false;
+  public constructor(private readonly callback: ResizeObserverCallback) {
+    FakeResizeObserver.all.push(this);
+  }
+  public observe(target: Element): void {
+    this.observed.push(target);
+  }
+  public unobserve(): void {}
+  public disconnect(): void {
+    this.disconnected = true;
+  }
+  public fire(): void {
+    this.callback([], this as unknown as ResizeObserver);
+  }
+}
+
+beforeEach(() => {
+  resetCamera();
+  FakeResizeObserver.all = [];
+  vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+});
 afterEach(() => {
+  vi.unstubAllGlobals();
   fake.FakeMap.last = null;
   resetCamera();
 });
@@ -198,5 +225,30 @@ describe('MapView camera sync', () => {
 
     expect(map.jumpTo).toHaveBeenCalledTimes(1);
     expect(map.jumpTo).toHaveBeenCalledWith(expect.objectContaining({ center: [149.17, -35.36] }));
+  });
+});
+
+describe('MapView fills its panel', () => {
+  it('resizes the map when its panel resizes', () => {
+    const map = mountedMap();
+    const [observer] = FakeResizeObserver.all;
+    expect(observer?.observed).toEqual([document.querySelector('.map-view__canvas')]);
+
+    observer?.fire();
+
+    expect(map.resize).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops observing when the view is destroyed', () => {
+    const { unmount } = render(MapView);
+    flushSync();
+    unmount();
+
+    expect(FakeResizeObserver.all[0]?.disconnected).toBe(true);
+  });
+
+  it('draws no heading of its own: the tab names the map', () => {
+    render(MapView);
+    expect(document.querySelector('h2')).toBeNull();
   });
 });

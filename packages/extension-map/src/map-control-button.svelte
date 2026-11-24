@@ -37,19 +37,19 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: white;
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: var(--gcscode-widget-background);
+    border: 1px solid var(--gcscode-widget-border);
     border-radius: 4px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-    color: #333;
+    box-shadow: 0 1px 4px var(--gcscode-widget-shadow);
+    color: var(--gcscode-foreground);
     cursor: pointer;
     padding: 0;
   }
   .map-control-button:hover {
-    background: #f4f4f4;
+    background: var(--gcscode-toolbar-hoverBackground);
   }
   .map-control-button:active {
-    background: #e8e8e8;
+    background: var(--gcscode-toolbar-activeBackground);
   }
   .map-control-button :global(svg) {
     width: 16px;

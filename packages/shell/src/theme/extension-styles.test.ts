@@ -42,7 +42,7 @@ describe('extension styles (ADR-0017 Decision 5)', () => {
 // Extensions whose views have moved onto the theme (ADR-0017 Consequences),
 // one per follow-up PR. Each writes no hex or functional colour literal from
 // then on.
-const themedExtensions = ['assets-demo', 'mavlink', 'vehicle-status', 'video'];
+const themedExtensions = ['assets-demo', 'map', 'mavlink', 'vehicle-status', 'video'];
 
 describe('themed extensions write no hex or functional colour literal in their styles', () => {
   it.each(themedExtensions)('extension-%s', (slug) => {
