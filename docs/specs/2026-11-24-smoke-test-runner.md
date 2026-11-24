@@ -41,7 +41,7 @@ Decisions the owner made in the project thread on 2026-11-24 are marked _(Owner.
 
 The playbook's table is the source of truth. Its **Ticket / PR** column carries exactly one Linear ID per row, `GCS-<n>`, followed by the PR. Today's "N8" row (Several vehicles in SITL) becomes GCS-16. _(My call.)_
 
-A PR that adds or changes a smoke test links its ticket in its body with Linear's non-closing magic word, `Part of GCS-<n>`, never `Fixes` or `Closes`, and keeps the ID out of its title and branch name. Once it merges, the session that merged it moves the ticket to Smoke test; when the owner merged by hand, the coordinator does. `CLAUDE.md`'s smoke tests rule says this. _(My call.)_
+A PR that adds or changes a smoke test links its ticket in its body with Linear's non-closing magic word, `Part of GCS-<n>`, never `Fixes` or `Closes`, and keeps the ID out of its title and branch name. Once it merges, the session that merged it moves the ticket to Smoke test; when the owner merged by hand, the coordinator does. `CLAUDE.md`'s smoke tests rule says this, and it names the playbook's table, not the `proof-tool` label, as what decides which tickets have a smoke test. What that label means is the ticket drift thread's call. _(My call.)_
 
 The runner does not trust that move to happen. It lists every test in the checkout's table whose ticket is not Done or Canceled, whatever its other state, so a missed move cannot hide a test. A test on a draft branch is listed with its branch, as the table already gives it. _(My call.)_
 
