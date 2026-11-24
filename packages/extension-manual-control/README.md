@@ -6,7 +6,7 @@ The **Controls** view, next to it: the same input through the radio's profile (s
 
 Both views only listen. They send nothing to the station, the radio or any vehicle, and opening or closing one changes nothing for the station or its other pages. The station is [`packages/mavlink-station`](../mavlink-station/README.md). `pnpm dev:sitl` starts it; without SITL, start it alone with `pnpm --filter mavlink-station start`. Either way it needs one build first: `pnpm --filter mavlink-station run setup`.
 
-While either has no input it says why in one line: connecting, no station at the address (it tries again every 2 seconds), a station with another protocol version, or a station with no radio open. Which version to expect is the MAVLink extension's `stationProtocol` export, read when a view opens; without that extension a view says it does not know the protocol, and does not connect. Three seconds with no message from the station count as the station being gone, even if the socket has not closed.
+While either has no input it says why in one line: connecting, no station at the address (it tries again every 2 seconds), a station with another protocol version, or a station with no radio open. Which version to expect is the MAVLink extension's `stationProtocol` export, read when a view opens; without that extension a view says it does not know the protocol, and does not connect until it is reopened with the extension on. Three seconds with no message from the station count as the station being gone, even if the socket has not closed.
 
 ## The station's address
 

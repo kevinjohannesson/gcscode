@@ -28,7 +28,7 @@
   {:else if station.status === 'unknown-protocol'}
     <p class="message">
       This page does not know which protocol the station speaks: the MAVLink extension, which owns
-      the station, is not loaded.
+      the station, is not loaded. Turn it on, then reopen this view.
     </p>
   {:else if station.status === 'mismatch'}
     <p class="message">
