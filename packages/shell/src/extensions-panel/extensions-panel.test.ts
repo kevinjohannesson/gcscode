@@ -275,6 +275,20 @@ describe('extensions-panel.svelte', () => {
     expect(extensionsPanelState.isOpen).toBe(false);
   });
 
+  it('leaves Enter on a row button to that button, not the highlighted row', async () => {
+    const { manager } = setup([
+      makeExtension({ id: 'ext.a', displayName: 'Alpha' }),
+      makeExtension({ id: 'ext.b', displayName: 'Bravo' }),
+    ]);
+    extensionsPanelState.open();
+    render(ExtensionsPanel, { props: { manager } });
+    // Alpha is highlighted (row 0); the key goes to Bravo's Disable button.
+    const bravoButton = screen.getAllByRole('button', { name: 'Disable' })[1]!;
+    const notPrevented = await fireEvent.keyDown(bravoButton, { key: 'Enter' });
+    expect(notPrevented).toBe(true);
+    expect(manager.listExtensions().find((r) => r.manifest.id === 'ext.a')?.enabled).toBe(true);
+  });
+
   describe('failed activation rows', () => {
     // Spec validation case 22.
     it('shows a failed row with its message and a reload hint', () => {

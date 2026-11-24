@@ -85,7 +85,12 @@
     void manager.setEnabled(record.manifest.id, !record.enabled);
   }
 
+  // The handler sits on the dialog so Escape closes the panel from anywhere in
+  // it. Enter and the arrows act on the highlighted row only from the search
+  // box or the dialog itself: on a focused Enable/Disable button, Enter is that
+  // button's own press, for that button's row.
   function onKeyDown(event: KeyboardEvent) {
+    if (event.key !== 'Escape' && event.target !== input && event.target !== dialog) return;
     if (event.key === 'Enter') {
       event.preventDefault();
       event.stopPropagation();
