@@ -35,7 +35,7 @@ name: Auto-merge
 #           spec-quality >= 1) until review-loop-v2 dropped the Sonnet red-team
 #           and spec-quality roles.
 #         In both classes the review that passes must cover the PR's current
-#         head: for feat/*, that final approval; for spec/* or adr/*, the newest
+#         head: for feat/* and docs/*, that final approval; for spec/* or adr/*, the newest
 #         review by either of those two reviewers. It covers the head when it
 #         was posted on the head commit (the review's `commit_id`), or when the
 #         PR's own changes are the same as at the reviewed commit: the diff
