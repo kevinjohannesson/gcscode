@@ -44,6 +44,16 @@ name: Auto-merge
 #         checked (`--match-head-commit`), so a push in between fails the merge
 #         instead of riding in on the earlier review.
 # Gate 4: The PR is mergeable (no conflicts).
+# Gate 5: The latest run of `.github/workflows/ci.yml` on the head commit
+#         completed with success. It reads that workflow's runs, not checks by
+#         name, so a job called `ci` in some other workflow counts for
+#         nothing. A run still in progress, a re-run of a passing run
+#         included, holds the gate, and a re-run that fails closes it again.
+#         A PR waiting only on CI is re-evaluated when the CI workflow
+#         completes (the `workflow_run` trigger, which runs master's copy of
+#         this file, and only for the first PR GitHub lists for that head; it
+#         lists none for a PR from a fork, which waits for its next review or
+#         label event instead).
 #
 # Specs: docs/specs/2026-05-14-auto-merge-on-user-approval.md,
 #        docs/specs/2026-10-22-review-loop-v2.md (Gate 3b).
@@ -54,10 +64,14 @@ on:
     types: [submitted]
   pull_request:
     types: [labeled]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
 
 permissions:
   contents: write
   pull-requests: write
+  actions: read
 
 jobs:
   auto-merge:
@@ -73,7 +87,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number || github.event.review.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.review.pull_request.number || github.event.workflow_run.pull_requests[0].number }}
         run: |
           set -euo pipefail
 
@@ -284,6 +298,16 @@ jobs:
             exit 0
           fi
           echo "Gate 4 OK: PR is mergeable"
+
+          # Gate 5: CI green on the head. Reads ci.yml's own workflow runs (header);
+          # a run that has not completed reads as pending, whatever it concluded
+          # before a re-run.
+          CI_CONCLUSION=$(gh api --paginate "repos/${GH_REPO}/actions/workflows/ci.yml/runs?head_sha=${HEAD_SHA}" --jq '.workflow_runs[] | {createdAt: .created_at, status, conclusion}' | jq -rs 'sort_by(.createdAt) | last | if . == null then "NONE" elif .status != "completed" then "pending" else (.conclusion // "NONE") end')
+          if [[ "$CI_CONCLUSION" != "success" ]]; then
+            echo "Gate 5 FAILED: the latest CI run on head ${HEAD_SHA} is '${CI_CONCLUSION}' (expected success). The CI workflow's completion re-runs this gate. Exiting cleanly."
+            exit 0
+          fi
+          echo "Gate 5 OK: CI succeeded on head ${HEAD_SHA}"
 
           # All gates pass — merge
           # --match-head-commit: a push after the reads above fails the merge rather
