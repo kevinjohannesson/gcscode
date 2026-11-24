@@ -40,8 +40,9 @@ describe('extension styles (ADR-0017 Decision 5)', () => {
 });
 
 // Extensions whose views have moved onto the theme (ADR-0017 Consequences),
-// one per follow-up PR. Each hardcodes no colour from then on.
-const themedExtensions = ['mavlink'];
+// one per follow-up PR. Each writes no hex or functional colour literal from
+// then on.
+const themedExtensions = ['assets-demo', 'mavlink', 'vehicle-status', 'video'];
 
 describe('themed extensions write no hex or functional colour literal in their styles', () => {
   it.each(themedExtensions)('extension-%s', (slug) => {
@@ -59,6 +60,22 @@ describe('findHardcodedColours', () => {
         '<style>.a { color: #ddd; background: rgba(0, 0, 0, 0.5); border-color: #1f1f1fcc; fill: oklch(0.7 0.1 200); }</style>',
       ),
     ).toEqual(['#ddd', 'rgba(', '#1f1f1fcc', 'oklch(']);
+  });
+
+  it('reads declaration values, not selectors', () => {
+    expect(
+      findHardcodedColours(
+        '<style>/* note: #abc; */ #add, .a:hover { color: var(--gcscode-foreground); } .b { background: color(display-p3 1 1 1); border-color: color-mix(in srgb, var(--gcscode-foreground) 20%, transparent); outline-color: #fff; }</style>',
+      ),
+    ).toEqual(['color(', '#fff']);
+  });
+
+  it('accepts a literal as the value of a custom property the component declares', () => {
+    expect(
+      findHardcodedColours(
+        '<style>.a { --video-letterbox: #000; background: var(--video-letterbox); color: #fff; }</style>',
+      ),
+    ).toEqual(['#fff']);
   });
 
   it('accepts theme variables and ignores markup outside the style block', () => {

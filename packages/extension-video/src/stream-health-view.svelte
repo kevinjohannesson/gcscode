@@ -45,14 +45,14 @@
     gap: 0.25rem 1rem;
     margin: 0;
     padding: 0.75rem;
-    font-variant-numeric: tabular-nums;
+    color: var(--gcscode-foreground);
   }
-  /* Light on the shell's dark panels, matching the Video panel's status text. */
   dt {
-    color: #999;
+    color: var(--gcscode-descriptionForeground);
   }
   dd {
     margin: 0;
-    color: #ddd;
+    font-family: var(--gcscode-monospace-font-family);
+    font-variant-numeric: tabular-nums;
   }
 </style>
