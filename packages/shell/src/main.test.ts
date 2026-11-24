@@ -77,7 +77,13 @@ describe('main.ts at boot', () => {
       },
     });
 
-    expect(dialled).toHaveLength(1);
-    expect(dialled[0]).toMatch(/^ws:\/\/vehicle\.test:8088\/v1\/ws\/mavlink\?filter=/);
+    // Two sockets since PR #81: mavlink2rest at the saved URL, and the
+    // station process at its default address.
+    expect(dialled).toHaveLength(2);
+    expect(dialled.filter((url) => url.startsWith('ws://vehicle.test:8088/'))).toHaveLength(1);
+    expect(dialled.find((url) => url.startsWith('ws://vehicle.test:8088/'))).toMatch(
+      /^ws:\/\/vehicle\.test:8088\/v1\/ws\/mavlink\?filter=/,
+    );
+    expect(dialled).toContain('ws://127.0.0.1:8091/ws');
   });
 });
