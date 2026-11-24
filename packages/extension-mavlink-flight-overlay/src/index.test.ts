@@ -149,6 +149,7 @@ describe('mavlinkFlightOverlayExtension', () => {
         batteryRemaining: 50,
         connection: 'connected',
       },
+      stationProtocol: 1,
     };
     const host = makeFakeHost({
       getExtension: vi.fn((id: string) => {
@@ -248,6 +249,7 @@ describe('mavlinkFlightOverlayExtension', () => {
         batteryRemaining: 50,
         connection: 'connected',
       },
+      stationProtocol: 1,
     };
     const host = makeFakeHost({
       getExtension: vi.fn((id: string) => {
@@ -291,6 +293,7 @@ describe('mavlinkFlightOverlayExtension', () => {
         batteryRemaining: null,
         connection: 'connecting',
       },
+      stationProtocol: 1,
     };
     const host = makeFakeHost({
       getExtension: vi.fn((id: string) => {

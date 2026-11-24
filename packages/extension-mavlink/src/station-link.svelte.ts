@@ -4,7 +4,13 @@
 // (ADR-0015 Decision 3). It only listens: protocol 1 has nothing for a page to
 // send, and it never sends.
 
-/** The station protocol this page speaks (packages/mavlink-station/README.md). */
+/**
+ * The station protocol this page speaks (packages/mavlink-station/README.md): the
+ * page's one copy of it. Other extensions read it from this extension's exports as
+ * `stationProtocol`, and `station-protocol.test.ts` checks it against the station's
+ * own `PROTOCOL` in packages/mavlink-station/src/snapshot.rs, so a bump changes this
+ * line and the station's, and no view.
+ */
 export const STATION_PROTOCOL = 1;
 export const DEFAULT_STATION_URL = 'ws://127.0.0.1:8091/ws';
 

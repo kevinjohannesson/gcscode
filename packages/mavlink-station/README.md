@@ -30,7 +30,7 @@ Then run `pnpm dev` and open the **Radio input** view (`@gcscode/extension-manua
 
 The station sends JSON text, and the page sends nothing (anything it sends is ignored):
 
-- First, `{"type":"hello","protocol":1,"station":"0.1.0"}`. A page that sees another `protocol` says the two do not match.
+- First, `{"type":"hello","protocol":1,"station":"0.1.0"}`. A page that sees another `protocol` says the two do not match. The page's copy of the number is `STATION_PROTOCOL` in `packages/extension-mavlink`, and a test there fails when it differs from `PROTOCOL` in `src/snapshot.rs`.
 - Then the current input, and the newest input after every change, at most every 20 ms. A page that falls behind skips to the newest; nothing queues up for it. When nothing changes it repeats the input every second, so the page can tell a quiet radio from a dead station.
 
 ```json

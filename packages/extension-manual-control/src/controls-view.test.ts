@@ -2,13 +2,14 @@ import { render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ControlsView from './controls-view.svelte';
-import { setStationAddressSource } from './station-address';
+import { setStationAddressSource, setStationProtocolSource } from './station-address';
 import { FakeSocket, HELLO, advControls, inputText } from './test-fakes';
 
 beforeEach(() => {
   FakeSocket.instances = [];
   vi.stubGlobal('WebSocket', FakeSocket);
   setStationAddressSource(() => 'ws://127.0.0.1:8091/ws');
+  setStationProtocolSource(() => 1);
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -127,5 +128,29 @@ describe('ControlsView', () => {
     await live();
     result.unmount();
     expect(FakeSocket.latest().closeCalls).toBe(1);
+  });
+
+  it("says which protocol the station speaks when it is not this page's", async () => {
+    setStationProtocolSource(() => 2);
+    render(ControlsView);
+    await live();
+    await vi.waitFor(() =>
+      expect(
+        screen.getByText(
+          'The station speaks protocol 1, this page protocol 2. Run the two from the same checkout.',
+        ),
+      ).toBeTruthy(),
+    );
+  });
+
+  it('says the MAVLink extension is missing when nothing gives the protocol, and does not connect', () => {
+    setStationProtocolSource(() => null);
+    render(ControlsView);
+    expect(
+      screen.getByText(
+        'This page does not know which protocol the station speaks: the MAVLink extension, which owns the station, is not loaded.',
+      ),
+    ).toBeTruthy();
+    expect(FakeSocket.instances).toHaveLength(0);
   });
 });

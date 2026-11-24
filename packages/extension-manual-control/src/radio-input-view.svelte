@@ -3,11 +3,10 @@
 
   import { axisFill, buttonRows, eventsLine, isEdgeTx, pressedLine, usbId } from './radio-format';
   import { RadioInputState } from './radio-input-state.svelte';
-  import { getStationAddress } from './station-address';
-  import { PROTOCOL } from './station-protocol';
+  import { getStationAddress, getStationProtocol } from './station-address';
 
   const address = getStationAddress();
-  const station = new RadioInputState(address, (url) => new WebSocket(url));
+  const station = new RadioInputState(address, getStationProtocol(), (url) => new WebSocket(url));
 
   onMount(() => {
     station.start();
@@ -26,10 +25,15 @@
       view keeps trying. If it is running, it may have refused this page: its terminal says so, and
       <code>--allow-origin {location.origin}</code> lets this page in.
     </p>
+  {:else if station.status === 'unknown-protocol'}
+    <p class="message">
+      This page does not know which protocol the station speaks: the MAVLink extension, which owns
+      the station, is not loaded.
+    </p>
   {:else if station.status === 'mismatch'}
     <p class="message">
-      The station speaks protocol {station.stationProtocol}, this page protocol {PROTOCOL}. Run the
-      two from the same checkout.
+      The station speaks protocol {station.stationProtocol}, this page protocol {station.pageProtocol}.
+      Run the two from the same checkout.
     </p>
   {:else if !radio}
     <p class="message">

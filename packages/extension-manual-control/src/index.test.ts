@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Disposable, ExtensionHost } from '@gcscode/extension-api';
 
 import { manualControlExtension } from './index';
-import { getStationAddress } from './station-address';
+import { getStationAddress, getStationProtocol } from './station-address';
 import ControlsView from './controls-view.svelte';
 import RadioInputView from './radio-input-view.svelte';
 
@@ -112,6 +112,22 @@ describe('manualControlExtension', () => {
     // Set after activation: the next view to open sees it.
     setting.value = 'ws://a.test:1/ws';
     expect(getStationAddress()).toBe('ws://a.test:1/ws');
+  });
+
+  it("reads the station protocol from the MAVLink extension's exports when the view asks", () => {
+    const fake = makeFakeHost();
+    const loaded: { mavlink?: { id: string; exports: { stationProtocol: number } } } = {};
+    const getExtension = vi.fn((_id: string) => loaded.mavlink);
+    fake.host.extensions.getExtension = getExtension as ExtensionHost['extensions']['getExtension'];
+    activate(fake.host, []);
+    expect(getExtension).not.toHaveBeenCalled();
+
+    // The MAVLink extension not loaded (or not active yet): nothing says.
+    expect(getStationProtocol()).toBeNull();
+    expect(getExtension).toHaveBeenLastCalledWith('gcscode.mavlink');
+
+    loaded.mavlink = { id: 'gcscode.mavlink', exports: { stationProtocol: 7 } };
+    expect(getStationProtocol()).toBe(7);
   });
 
   it('a later activation replaces the reader', () => {

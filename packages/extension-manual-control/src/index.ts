@@ -1,8 +1,13 @@
 import type { Extension } from '@gcscode/extension-api';
+import type { MavlinkExports } from '@gcscode/extension-mavlink';
 
 import ControlsView from './controls-view.svelte';
 import RadioInputView from './radio-input-view.svelte';
-import { DEFAULT_STATION_URL, setStationAddressSource } from './station-address';
+import {
+  DEFAULT_STATION_URL,
+  setStationAddressSource,
+  setStationProtocolSource,
+} from './station-address';
 
 export const manualControlExtension: Extension = {
   manifest: {
@@ -22,6 +27,13 @@ export const manualControlExtension: Extension = {
       configuration
         .getConfiguration('gcscode.mavlink')
         .get<string>('stationUrl', DEFAULT_STATION_URL),
+    );
+    // The protocol is that extension's too, so a protocol bump changes it there
+    // and in the station, not here.
+    const extensions = context.host.extensions;
+    setStationProtocolSource(
+      () =>
+        extensions.getExtension<MavlinkExports>('gcscode.mavlink')?.exports.stationProtocol ?? null,
     );
 
     context.subscriptions.push(

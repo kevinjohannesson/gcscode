@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { linkState } from './link-state.svelte';
 import LinkStateView from './link-state-view.svelte';
-import { stationLink } from './station-link.svelte';
+import { STATION_PROTOCOL, stationLink } from './station-link.svelte';
+
+/** A hello in whatever protocol this page speaks, so a protocol bump leaves these tests alone. */
+const HELLO = `{"type":"hello","protocol":${STATION_PROTOCOL},"station":"0.1.0"}`;
 
 /** Stands in for the browser's WebSocket behind the view's station link. */
 class FakeStationSocket {
@@ -98,7 +101,7 @@ describe('LinkStateView', () => {
   it('shows the station running, with its version and for how long', async () => {
     const result = render(LinkStateView);
     await vi.advanceTimersByTimeAsync(500);
-    station().onmessage?.({ data: '{"type":"hello","protocol":1,"station":"0.1.0"}' });
+    station().onmessage?.({ data: HELLO });
     for (let i = 0; i < 3; i++) {
       await vi.advanceTimersByTimeAsync(1_000);
       station().onmessage?.({ data: '{"type":"input","radio":null,"eventsPerSecond":0}' });
@@ -110,7 +113,7 @@ describe('LinkStateView', () => {
   });
 
   it('flips to not running when the station stops, and says how to start it', async () => {
-    station().onmessage?.({ data: '{"type":"hello","protocol":1,"station":"0.1.0"}' });
+    station().onmessage?.({ data: HELLO });
     const result = render(LinkStateView);
     await vi.advanceTimersByTimeAsync(1_000);
     station().onclose?.();
@@ -131,7 +134,7 @@ describe('LinkStateView', () => {
 
     expect(text('station')).toBe('not usable for 0.5 s');
     expect(text('station-hint')).toBe(
-      'The station at ws://127.0.0.1:8091/ws speaks protocol 0, this page protocol 1. Run the two from the same checkout.',
+      `The station at ws://127.0.0.1:8091/ws speaks protocol 0, this page protocol ${STATION_PROTOCOL}. Run the two from the same checkout.`,
     );
     result.unmount();
   });

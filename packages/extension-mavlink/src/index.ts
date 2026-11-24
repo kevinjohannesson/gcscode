@@ -8,7 +8,7 @@ import { createHomeSeeder } from './home-seed';
 import { createMavlinkClient, type MavlinkClient } from './mavlink-client';
 import MapInputView from './map-input-view.svelte';
 import MavlinkView from './mavlink-view.svelte';
-import { DEFAULT_STATION_URL, stationLink } from './station-link.svelte';
+import { DEFAULT_STATION_URL, STATION_PROTOCOL, stationLink } from './station-link.svelte';
 import {
   applyMessage,
   reset,
@@ -31,6 +31,12 @@ import { vehicleInputs } from './vehicle-inputs.svelte';
  */
 export interface MavlinkExports {
   telemetry: Readonly<TelemetryState>;
+  /**
+   * The station protocol the page speaks. This extension owns the station session
+   * (ADR-0015 Decision 3), so other extensions that read the station check its
+   * `hello` against this rather than keeping their own copy.
+   */
+  stationProtocol: number;
 }
 
 const FILTER = '^(HEARTBEAT|GLOBAL_POSITION_INT|ATTITUDE|VFR_HUD|SYS_STATUS|HOME_POSITION)$';
@@ -199,7 +205,7 @@ export const mavlinkExtension: Extension = {
       }),
     );
 
-    return { telemetry: telemetryState };
+    return { telemetry: telemetryState, stationProtocol: STATION_PROTOCOL };
   },
   async deactivate() {
     await closeClient();

@@ -1,7 +1,8 @@
 // The messages the station sends the page, protocol version 1 (packages/mavlink-station,
-// src/snapshot.rs). The page sends nothing. Version 1 added `controls`.
-
-export const PROTOCOL = 1;
+// src/snapshot.rs). The page sends nothing. Version 1 added `controls`. Which version
+// the station speaks is not kept here: the MAVLink extension owns the station
+// session and its protocol number (ADR-0015 Decision 3), and station-address.ts
+// reads it from that extension's exports.
 
 export interface RadioInput {
   readonly name: string;
