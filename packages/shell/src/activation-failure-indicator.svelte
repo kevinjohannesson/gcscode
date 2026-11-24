@@ -58,7 +58,7 @@
        without relying on color at all. -->
   <button
     type="button"
-    class="cursor-pointer rounded px-1.5 py-0.5 text-xs text-amber-700 hover:bg-amber-100"
+    class="cursor-pointer rounded px-1.5 py-0.5 text-xs text-[var(--gcscode-level-caution)] hover:bg-[var(--gcscode-toolbar-hoverBackground)]"
     data-testid="activation-failure-indicator"
     title={detail}
     onclick={openPanel}

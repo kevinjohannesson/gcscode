@@ -84,6 +84,8 @@ const pairs: Pair[] = [
   ['--gcscode-textLink-foreground', '--gcscode-panel-background', text],
   ['--gcscode-foreground', '--gcscode-toolbar-hoverBackground', text],
   ['--gcscode-foreground', '--gcscode-toolbar-activeBackground', text],
+  // The shell's activation-failure indicator: caution text over a hovered status item.
+  ['--gcscode-level-caution', '--gcscode-toolbar-hoverBackground', text],
   ['--gcscode-input-foreground', '--gcscode-input-background', text],
   ['--gcscode-button-foreground', '--gcscode-button-background', text],
   ['--gcscode-button-foreground', '--gcscode-button-hoverBackground', text],
@@ -110,8 +112,8 @@ const pairs: Pair[] = [
 ];
 
 describe('dark theme contrast', () => {
-  it('covers 37 pairs', () => {
-    expect(pairs).toHaveLength(37);
+  it('covers 38 pairs', () => {
+    expect(pairs).toHaveLength(38);
   });
 
   it.each(pairs)('%s on %s is at least %s:1', (fg, bg, minimum) => {
