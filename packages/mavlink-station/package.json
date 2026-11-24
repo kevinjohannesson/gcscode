@@ -1,0 +1,11 @@
+{
+  "name": "mavlink-station",
+  "private": true,
+  "version": "0.0.0",
+  "description": "gcscode's station process: for now it reads an EdgeTX radio and serves its raw input to the page on ws://127.0.0.1:8091/ws. Sends nothing to any vehicle.",
+  "scripts": {
+    "setup": "cargo build --release",
+    "start": "cargo run --release --quiet --",
+    "test:rust": "cargo test"
+  }
+}

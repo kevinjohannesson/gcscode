@@ -91,6 +91,7 @@ describe('vehicleStatusExtension', () => {
         batteryRemaining: 47,
         connection: 'connected',
       },
+      stationProtocol: 1,
     };
 
     // Active case

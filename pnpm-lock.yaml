@@ -137,6 +137,18 @@ importers:
         specifier: ^5.0.0
         version: 5.55.5(@typescript-eslint/types@8.59.0)
 
+  packages/extension-manual-control:
+    dependencies:
+      '@gcscode/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
+      '@gcscode/extension-mavlink':
+        specifier: workspace:*
+        version: link:../extension-mavlink
+      svelte:
+        specifier: ^5.0.0
+        version: 5.55.5(@typescript-eslint/types@8.59.0)
+
   packages/extension-map:
     dependencies:
       '@gcscode/extension-api':
@@ -218,6 +230,8 @@ importers:
         specifier: ^5.0.0
         version: 5.55.5(@typescript-eslint/types@8.59.0)
 
+  packages/mavlink-station: {}
+
   packages/shell:
     dependencies:
       '@gcscode/extension-api':
@@ -232,6 +246,9 @@ importers:
       '@gcscode/extension-example':
         specifier: workspace:*
         version: link:../extension-example
+      '@gcscode/extension-manual-control':
+        specifier: workspace:*
+        version: link:../extension-manual-control
       '@gcscode/extension-map':
         specifier: workspace:*
         version: link:../extension-map

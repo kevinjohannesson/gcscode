@@ -7,15 +7,36 @@ use sdl3::joystick::{Joystick, JoystickId};
 
 use crate::report;
 
+/// Who the open radio is, read once when it is opened.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RadioInfo {
+    pub name: String,
+    pub vendor: u16,
+    pub product: u16,
+    pub serial: Option<String>,
+}
+
+/// Every input's raw value at one moment, as SDL reports them.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Inputs {
+    pub axes: Vec<i16>,
+    pub buttons: Vec<bool>,
+    pub hats: Vec<u8>,
+}
+
 /// The radio being read, if one is open. At most one: further radios are reported and left.
 #[derive(Default)]
 pub struct Probe {
-    radio: Option<Joystick>,
+    radio: Option<(Joystick, RadioInfo)>,
 }
 
 impl Probe {
     pub fn radio(&self) -> Option<&Joystick> {
-        self.radio.as_ref()
+        self.radio.as_ref().map(|(j, _)| j)
+    }
+
+    pub fn info(&self) -> Option<&RadioInfo> {
+        self.radio.as_ref().map(|(_, i)| i)
     }
 
     /// A joystick appeared. SDL also announces every joystick plugged in before the probe
@@ -31,14 +52,20 @@ impl Probe {
         }
         match joysticks.open(which) {
             Ok(j) => {
+                let info = RadioInfo {
+                    name,
+                    vendor,
+                    product,
+                    serial: serial(&j),
+                };
                 let details = format!(
                     "  serial {}  axes {}  buttons {}  hats {}",
-                    serial(&j).unwrap_or_else(|| "(none)".into()),
+                    info.serial.as_deref().unwrap_or("(none)"),
                     j.num_axes(),
                     j.num_buttons(),
                     j.num_hats()
                 );
-                self.radio = Some(j);
+                self.radio = Some((j, info));
                 vec![format!("opened {line}"), details]
             }
             Err(e) => vec![format!("found {line}, could not open it: {e}")],
@@ -47,7 +74,7 @@ impl Probe {
 
     /// A joystick went away. Only the open radio's removal is reported.
     pub fn removed(&mut self, which: JoystickId) -> Option<String> {
-        if self.radio.as_ref().is_some_and(|j| j.id() == which) {
+        if self.radio().is_some_and(|j| j.id() == which) {
             self.radio = None;
             Some("radio unplugged. Waiting for it to come back.".to_string())
         } else {
@@ -56,20 +83,26 @@ impl Probe {
     }
 }
 
+/// Every input's current raw value.
+pub fn values(j: &Joystick) -> Inputs {
+    Inputs {
+        axes: (0..j.num_axes()).map(|i| j.axis(i).unwrap_or(0)).collect(),
+        buttons: (0..j.num_buttons())
+            .map(|i| j.button(i).unwrap_or(false))
+            .collect(),
+        hats: (0..j.num_hats())
+            .map(|i| j.hat(i).map(|h| h.to_raw()).unwrap_or(0))
+            .collect(),
+    }
+}
+
 /// Every input's current raw value, as the lines of the live block.
 pub fn read(j: &Joystick) -> Vec<String> {
-    let axes: Vec<i16> = (0..j.num_axes()).map(|i| j.axis(i).unwrap_or(0)).collect();
-    let buttons: Vec<bool> = (0..j.num_buttons())
-        .map(|i| j.button(i).unwrap_or(false))
-        .collect();
-    let hats: Vec<u8> = (0..j.num_hats())
-        .map(|i| j.hat(i).map(|h| h.to_raw()).unwrap_or(0))
-        .collect();
-
-    let mut lines = report::axes_table(&axes);
-    lines.extend(report::buttons_grid(&buttons));
-    if !hats.is_empty() {
-        lines.push(report::hats_line(&hats));
+    let v = values(j);
+    let mut lines = report::axes_table(&v.axes);
+    lines.extend(report::buttons_grid(&v.buttons));
+    if !v.hats.is_empty() {
+        lines.push(report::hats_line(&v.hats));
     }
     lines
 }

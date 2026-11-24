@@ -99,17 +99,17 @@
 </script>
 
 <div
-  class="fixed left-1/2 top-16 z-50 w-[520px] -translate-x-1/2 overflow-hidden rounded-md border border-neutral-700 bg-neutral-800 shadow-2xl"
+  class="fixed left-1/2 top-16 z-50 w-[520px] -translate-x-1/2 overflow-hidden rounded-md border border-widget-border bg-widget shadow-[0_8px_24px_var(--gcscode-widget-shadow)]"
   role="dialog"
   aria-label="Extensions"
 >
   <div
-    class="border-b border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs uppercase tracking-wider text-neutral-400"
+    class="border-b border-widget-border bg-panel px-3 py-1.5 text-xs uppercase tracking-wider text-fg-muted"
   >
     Extensions
   </div>
   {#if records.length === 0}
-    <div class="px-3 py-6 text-center text-sm text-neutral-400">No extensions installed.</div>
+    <div class="px-3 py-6 text-center text-sm text-fg-muted">No extensions installed.</div>
   {:else}
     <!-- svelte-ignore a11y_autofocus -->
     <input
@@ -117,18 +117,18 @@
       bind:value={query}
       onkeydown={onKeyDown}
       placeholder="Search extensions…"
-      class="w-full border-none bg-neutral-700 px-3 py-2 text-sm text-neutral-100 outline-none placeholder:text-neutral-400"
+      class="w-full border-none bg-input px-3 py-2 text-sm text-input-fg outline-none placeholder:text-fg-muted"
       autofocus
     />
     {#if filtered.length === 0}
-      <div class="px-3 py-4 text-center text-sm text-neutral-400">No matching extensions.</div>
+      <div class="px-3 py-4 text-center text-sm text-fg-muted">No matching extensions.</div>
     {:else}
       <ul class="max-h-96 overflow-y-auto">
         {#each filtered as record, i (record.manifest.id)}
           <li
-            class="border-b border-neutral-700 last:border-b-0"
+            class="border-b border-widget-border last:border-b-0"
             class:opacity-60={!record.enabled}
-            class:bg-blue-900={i === highlightIndex}
+            class:bg-list-active={i === highlightIndex}
           >
             <div
               class="flex items-start gap-3 px-3 py-2.5"
@@ -137,11 +137,13 @@
             >
               <div class="min-w-0 flex-1">
                 <div class="flex items-baseline gap-2">
-                  <strong class="text-sm text-neutral-100">{record.manifest.displayName}</strong>
-                  <span class="text-xs text-neutral-400">v{record.manifest.version}</span>
+                  <strong class="text-sm text-fg">{record.manifest.displayName}</strong>
+                  <span class="text-xs text-fg-muted">v{record.manifest.version}</span>
                 </div>
                 {#if record.manifest.description}
-                  <div class="mt-0.5 text-xs text-neutral-300">{record.manifest.description}</div>
+                  <div class="mt-0.5 text-xs text-fg-muted" data-testid="extension-description">
+                    {record.manifest.description}
+                  </div>
                 {/if}
                 {#if record.failure !== undefined}
                   <!-- Amber, not red, and matching the status-bar indicator: the
@@ -152,12 +154,12 @@
                        train the operator to discount red. Red also made the same
                        fact look worse one click after the indicator reported it. -->
                   <div
-                    class="mt-1 text-xs wrap-break-word text-amber-300"
+                    class="mt-1 text-xs wrap-break-word text-caution"
                     data-testid="extension-failure"
                   >
                     Failed to start: {record.failure.message}
                   </div>
-                  <div class="mt-0.5 text-xs text-neutral-400">
+                  <div class="mt-0.5 text-xs text-fg-muted">
                     <!-- Reload is the only recovery path, and it is not free: it
                          restarts the whole app, so an operator mid-flight loses live
                          telemetry and video while it happens. Both branches say so,
@@ -180,7 +182,7 @@
               {:else if record.enabled}
                 <button
                   type="button"
-                  class="flex-shrink-0 rounded border border-neutral-500 bg-neutral-700 px-3 py-1 text-xs text-neutral-200"
+                  class="flex-shrink-0 rounded border border-widget-border bg-toolbar-hover px-3 py-1 text-xs text-fg"
                   onclick={(event) => onButtonClick(event, record)}
                 >
                   Disable
@@ -188,7 +190,7 @@
               {:else}
                 <button
                   type="button"
-                  class="flex-shrink-0 rounded border border-blue-600 bg-blue-700 px-3 py-1 text-xs text-white"
+                  class="flex-shrink-0 rounded border border-button bg-button px-3 py-1 text-xs text-button-fg hover:bg-button-hover"
                   onclick={(event) => onButtonClick(event, record)}
                 >
                   Enable

@@ -5,7 +5,8 @@
 // spawn, never processes found by name: the owner runs their own copies of
 // these services with the same command lines.
 //
-// Spec: docs/specs/2026-11-10-dev-stack.md (§ The launcher).
+// Spec: docs/specs/2026-11-10-dev-stack.md (§ The launcher), and for the
+// station's entry docs/specs/2026-11-24-station-in-dev-stack.md.
 
 import { execFile, spawn } from 'node:child_process';
 import { createSocket } from 'node:dgram';
@@ -122,6 +123,18 @@ export const stackServices = (vehicles) => [
     up: () => cameraSimUp(MEDIAMTX_API, vehicles),
     upWithinMs: 90000,
     addresses: [],
+  },
+  {
+    // The station process (ADR-0016), built by its setup. It sends nothing to
+    // any vehicle yet, so it does not depend on SITL being up.
+    name: 'station',
+    command: join(ROOT, 'packages/mavlink-station/run.sh'),
+    args: [],
+    cwd: ROOT,
+    ports: [{ proto: 'tcp', port: 8091 }],
+    up: () => tcpAccepts(8091),
+    upWithinMs: 10000,
+    addresses: [['Station', 'ws://127.0.0.1:8091/ws']],
   },
 ];
 

@@ -3,7 +3,7 @@
   import maplibregl from 'maplibre-gl';
   import { onDestroy, onMount, setContext } from 'svelte';
 
-  import { mapApi, MAPLIBRE_CONTEXT_KEY } from './map-api.svelte';
+  import { mapApi, MAPLIBRE_CONTEXT_KEY, type MapCamera } from './map-api.svelte';
   import MapControlButton from './map-control-button.svelte';
 
   let container: HTMLDivElement | undefined = $state();
@@ -13,6 +13,14 @@
   // fires a `move` event that would otherwise write right back, masking the
   // original write or causing spurious re-renders.
   let isUpdatingFromCamera = false;
+
+  // The camera as the `move` handler last copied it out of maplibre. Guards
+  // the other direction: that copy re-runs the camera $effect below, and a
+  // `jumpTo` there would hand maplibre back the camera it just reported. That
+  // is not harmless: `jumpTo` calls `stop()`, which ends the operator's drag
+  // or wheel zoom in progress, so a drag moved the map one mousemove's worth
+  // and stopped. Plain `let`, not `$state`: the effect must not track it.
+  let lastFromMap: MapCamera | null = null;
 
   // Layer components access the maplibre Map via context. The getter form
   // (() => map) resolves `map` lazily — children mount before the parent's
@@ -43,31 +51,63 @@
     map.on('move', () => {
       if (!map || isUpdatingFromCamera) return;
       const c = map.getCenter();
-      mapApi.camera.center = [c.lng, c.lat];
-      mapApi.camera.zoom = map.getZoom();
-      mapApi.camera.pitch = map.getPitch();
-      mapApi.camera.bearing = map.getBearing();
+      lastFromMap = {
+        center: [c.lng, c.lat],
+        zoom: map.getZoom(),
+        pitch: map.getPitch(),
+        bearing: map.getBearing(),
+      };
+      mapApi.camera.center = lastFromMap.center;
+      mapApi.camera.zoom = lastFromMap.zoom;
+      mapApi.camera.pitch = lastFromMap.pitch;
+      mapApi.camera.bearing = lastFromMap.bearing;
     });
   });
 
+  // maplibre follows window resizes only; a dock panel resizes on its own
+  // (a splitter drag, a group maximised), so the canvas follows its box.
+  let resizeObserver: ResizeObserver | undefined;
+  onMount(() => {
+    if (!container) return;
+    resizeObserver = new ResizeObserver(() => map?.resize());
+    resizeObserver.observe(container);
+  });
+
   onDestroy(() => {
+    resizeObserver?.disconnect();
     map?.remove();
     map = null;
   });
 
   // Camera state → maplibre. Re-runs on any field change. Guarded against the
-  // maplibre 'move' callback above.
+  // maplibre 'move' callback above, and skips the camera that callback just
+  // copied out (see `lastFromMap`), so only another writer's change moves
+  // the map.
   $effect(() => {
     if (!map) return;
     const { center, zoom, pitch, bearing } = mapApi.camera;
+    if (
+      lastFromMap &&
+      center[0] === lastFromMap.center[0] &&
+      center[1] === lastFromMap.center[1] &&
+      zoom === lastFromMap.zoom &&
+      pitch === lastFromMap.pitch &&
+      bearing === lastFromMap.bearing
+    ) {
+      return;
+    }
     isUpdatingFromCamera = true;
     map.jumpTo({ center, zoom, pitch, bearing });
     isUpdatingFromCamera = false;
+    // The map is now where this write sent it, not where it last reported
+    // (`jumpTo`'s own `move` was suppressed above). Without this, a later
+    // write back to the last reported camera (a pitch toggled 60 → 0 after
+    // a drag) would match and be skipped, leaving the map tilted.
+    lastFromMap = null;
   });
 </script>
 
 <div class="map-view">
-  <h2 class="map-view__heading">Map</h2>
   <div class="map-view__canvas-wrapper">
     <div class="map-view__canvas" bind:this={container}></div>
     {#if map}
@@ -95,26 +135,16 @@
 {/if}
 
 <style>
-  .map-view {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-  }
-  .map-view__heading {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 600;
-  }
+  /* The map fills its dock panel; the tab already names it. */
+  .map-view,
   .map-view__canvas-wrapper {
     position: relative;
     width: 100%;
-    height: 400px;
+    height: 100%;
   }
   .map-view__canvas {
     position: absolute;
     inset: 0;
-    border-radius: 4px;
     overflow: hidden;
   }
   .map-view__controls {

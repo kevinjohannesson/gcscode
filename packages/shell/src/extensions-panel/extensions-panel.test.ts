@@ -122,7 +122,7 @@ describe('extensions-panel.svelte', () => {
     expect(screen.getByText('Extension A')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Disable' })).toBeInTheDocument();
     // No description-block element should be rendered
-    const descriptions = container.querySelectorAll('.text-neutral-300');
+    const descriptions = container.querySelectorAll('[data-testid="extension-description"]');
     expect(descriptions.length).toBe(0);
   });
 
@@ -160,18 +160,18 @@ describe('extensions-panel.svelte', () => {
 
     const input = screen.getByRole('textbox');
     // Start: highlight is on row 0 (Alpha)
-    expect(container.querySelectorAll('li')[0].classList.contains('bg-blue-900')).toBe(true);
+    expect(container.querySelectorAll('li')[0].classList.contains('bg-list-active')).toBe(true);
 
     await fireEvent.keyDown(input, { key: 'ArrowDown' });
-    expect(container.querySelectorAll('li')[1].classList.contains('bg-blue-900')).toBe(true);
+    expect(container.querySelectorAll('li')[1].classList.contains('bg-list-active')).toBe(true);
 
     await fireEvent.keyDown(input, { key: 'ArrowDown' });
     // Wraps to first row
-    expect(container.querySelectorAll('li')[0].classList.contains('bg-blue-900')).toBe(true);
+    expect(container.querySelectorAll('li')[0].classList.contains('bg-list-active')).toBe(true);
 
     await fireEvent.keyDown(input, { key: 'ArrowUp' });
     // Wraps backward to last row
-    expect(container.querySelectorAll('li')[1].classList.contains('bg-blue-900')).toBe(true);
+    expect(container.querySelectorAll('li')[1].classList.contains('bg-list-active')).toBe(true);
   });
 
   it('Enter on highlighted row calls manager.setEnabled with the toggled value', async () => {

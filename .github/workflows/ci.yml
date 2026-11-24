@@ -1,0 +1,82 @@
+name: CI
+
+# Runs the repository's own checks on every pull request, and on pushes to
+# master. Merges made by the auto-merge workflow push with GITHUB_TOKEN, which
+# starts no workflow, so only merges made by hand run CI on master; every
+# auto-merged head passed CI as a PR first.
+# The checks: `pnpm check`, `pnpm lint` and `pnpm test` (the JS and TypeScript packages,
+# then the root tooling tests), and `cargo test` for the two Rust packages.
+# The auto-merge gate requires this workflow's latest run on the PR's head
+# commit to have succeeded (`.github/workflows/auto-merge.yml`, Gate 5), and the
+# workflow's completion re-runs the gate, so a PR that was waiting on CI merges
+# when it turns green.
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # A new push to a PR cancels its older run. Master runs are not cancelled
+  # while running, though a third queued one replaces the one waiting.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # One check that sums up the run, for branch protection or a status badge.
+  # It succeeds only when every job it needs succeeded, so adding a job means
+  # adding it here. Not skipped when a job fails, but skipped on a cancel.
+  ci:
+    runs-on: ubuntu-latest
+    needs: [node, rust]
+    if: ${{ !cancelled() }}
+    steps:
+      - name: Require every job
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "Job results: ${RESULTS}"
+          echo "$RESULTS" | jq -e 'all(. == "success")' > /dev/null
+
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # libs/map-gl-svelte runs its tests in a real browser.
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: libs/map-gl-svelte
+      - run: pnpm check
+      - run: pnpm lint
+      - run: pnpm test
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      # mavlink-station depends on radio-probe by path, so its tests build both.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/mavlink-station/target
+            tools/radio-probe/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+      - run: cargo test --locked
+        working-directory: tools/radio-probe
+      - run: cargo test --locked
+        working-directory: packages/mavlink-station

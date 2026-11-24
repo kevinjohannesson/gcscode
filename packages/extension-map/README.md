@@ -4,7 +4,7 @@ Geographical view contributing the `gcscode.map.main` view. Renders a maplibre c
 
 This is the **first service-style extension** in gcscode — its primary value is the API surface other extensions render INTO, not the visible UI it contributes itself. The closest VS Code analogue is the editor-with-decorations / language-services pattern.
 
-The throwaway `@gcscode/extension-map-demo` coexists in the bundle as a side-by-side reference.
+The throwaway `@gcscode/extension-map-demo` stays in the bundle, turned off by default, as a reference.
 
 ## Contributions
 

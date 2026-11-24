@@ -28,7 +28,7 @@ Then plug in the radio. When it asks how to use USB, choose **USB Joystick (HID)
 
 ```text
 opened [3] TX16SMK3 Joystick  1209:4f54  (EdgeTX radio)
-  serial 2056394B5631  axes 8  buttons 24  hats 0
+  serial 0123456789AB  axes 8  buttons 24  hats 0
 ┌──────┬────────┬───────────────────────────────────┐
 │ axis │  value │ -32768          0           32767 │
 ├──────┼────────┼───────────────────────────────────┤
@@ -61,6 +61,42 @@ The block redraws 20 times a second, also while events are still pouring in, so 
 Unplugging the radio prints a line and the probe waits. Plugging it back in opens it again.
 
 The probe opens only EdgeTX's joystick, USB ID `1209:4f54`. Any other controller is listed and left alone, and so is a second EdgeTX radio.
+
+## Mapped: what each input means
+
+`--mapped` also shows what each input means to gcscode, through a **profile**: a file that says, for one radio set up one way, which axis is roll, pitch, throttle, yaw or aux 1 to 4 and how it is calibrated, which held button is each on/off control (control, RTL), and which Pulse buttons together make one switch with named positions. `--profile <file>` adds a profile of your own, tried before the bundled ones:
+
+```sh
+pnpm --filter radio-probe start -- --mapped
+pnpm --filter radio-probe start -- --profile my-radio.toml
+```
+
+The bundled profile is [`profiles/gcscode-adv.toml`](profiles/gcscode-adv.toml), for the TX16S on the model in [tx16s-advanced-model.md](tx16s-advanced-model.md). The axes table gets a control column, and lines under the button grid name each switch's position, each on/off control, what the profile leaves out and the inputs nothing reads:
+
+```text
+  mapped with profile gcscode-adv
+┌──────┬────────┬────────────────┬───────────────────────────────────┐
+│ axis │  value │ control        │ -32768          0           32767 │
+├──────┼────────┼────────────────┼───────────────────────────────────┤
+│    0 │  -3932 │ roll      -12% │ ··············███················ │
+│    1 │      0 │ pitch       0% │ ················█················ │
+│    2 │  -8520 │ throttle   37% │ ············█████················ │
+…
+profile gcscode-adv
+SA middle   SB up       SC unknown  SD up       SE up       SF down     SG up
+control on (button 20)
+not mapped: RTL
+unmapped axes: none   unmapped buttons: 21, 22, 23, 24, 25, 26, 27
+```
+
+What a profile holds, and the rules it is checked against (`src/mapping.rs`):
+
+- **Which radio.** `[match]` names the USB vendor and product id and the joystick's name; `axes` and `buttons`, when given, must match the radio's counts too. The TX16S reports 28 buttons on its Advanced model and 24 on a Classic one, so the counts tell the two apart. A profile also matches only a radio that has every input it reads.
+- **Axes** map to roll, pitch, throttle, yaw and aux 1 to 4, each with a raw `min` (the -100% end, 0% for throttle), `centre` and `max` (100%), and an optional `deadband`: within that many raw steps of the centre the axis reads 0%, and from there it rises evenly, so it never jumps. Each half is calibrated on its own, so an off-centre stick still reads 0% at rest and -100% and 100% at its ends. Throttle reads 0% to 100%. A reversed axis has `min` above `max`.
+- **Switches** are EdgeTX Pulse switches: one button per position, pressed for 0.2 s when the switch moves there. A switch keeps its last position after the press ends, and shows `unknown` until one of its buttons has been seen. A press of two of its buttons at once is ignored. The radio's connect burst, which presses every switch's current position once, sets each switch's starting position, if it comes after the probe opened the radio.
+- **On/off controls** (control and RTL) may only map to a held button, never to a switch position or a switch's Pulse button: a Pulse switch's position is lost whenever a press is missed, and these must be readable at any moment. A profile that breaks this, or any other rule (an axis or button used twice, a centre outside min and max, a deadband as wide as a half, an unknown key), is refused with one line saying why, and the probe stops.
+
+Without `--mapped` or `--profile` the probe prints raw values only, exactly as before.
 
 ## What it shows about the radio
 

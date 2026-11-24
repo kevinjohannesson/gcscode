@@ -580,6 +580,14 @@ test("one vehicle's services are the spec's table", () => {
       ports: [{ proto: 'tcp', port: 5174 }],
       upWithinMs: 90000,
     },
+    {
+      name: 'station',
+      command: join(ROOT, 'packages/mavlink-station/run.sh'),
+      args: [],
+      cwd: ROOT,
+      ports: [{ proto: 'tcp', port: 8091 }],
+      upWithinMs: 10000,
+    },
   ]);
   assert.deepEqual(
     SERVICES.map((s) => s.addresses),
@@ -591,21 +599,22 @@ test("one vehicle's services are the spec's table", () => {
       ],
       [['gcscode', 'http://localhost:5173/']],
       [],
+      [['Station', 'ws://127.0.0.1:8091/ws']],
     ],
   );
   assert.equal(MEDIAMTX_API, 'http://127.0.0.1:9997');
-  for (const service of [SERVICES[0], SERVICES[1], SERVICES[3]]) {
+  for (const service of [SERVICES[0], SERVICES[1], SERVICES[3], SERVICES[4]]) {
     accessSync(service.command, constants.X_OK);
   }
   assert.deepEqual(
     SERVICES.map((s) => s.env),
-    [{ SITL_VEHICLES: '1' }, undefined, undefined, undefined],
+    [{ SITL_VEHICLES: '1' }, undefined, undefined, undefined, undefined],
   );
 });
 
 test('five vehicles check five SITL ports and list five streams', () => {
   assert.equal(MAX_VEHICLES, 5);
-  const [sitl, mediamtx, gcscode, cameraSim] = stackServices(5);
+  const [sitl, mediamtx, gcscode, cameraSim, station] = stackServices(5);
   assert.deepEqual(sitl.env, { SITL_VEHICLES: '5' });
   assert.deepEqual(sitl.ports, [
     { proto: 'tcp', port: 5760 },
@@ -630,7 +639,10 @@ test('five vehicles check five SITL ports and list five streams', () => {
   ]);
   // Nothing else depends on the count.
   const rest = (s) => ({ ...s, up: undefined, addresses: undefined });
-  assert.deepEqual([gcscode, cameraSim].map(rest), [SERVICES[2], SERVICES[3]].map(rest));
+  assert.deepEqual(
+    [gcscode, cameraSim, station].map(rest),
+    [SERVICES[2], SERVICES[3], SERVICES[4]].map(rest),
+  );
 });
 
 test('parseArgs takes --vehicles 1 to 5, in either spelling, default 1', () => {

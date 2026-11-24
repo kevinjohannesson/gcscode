@@ -65,10 +65,20 @@ class MockWebSocket {
   }
 }
 
-/** The socket the most recent `activate` opened. */
+/**
+ * The mavlink2rest sockets, in the order they opened. Since PR #81 each
+ * activation of the MAVLink extension also opens a socket to the station
+ * process (`ws://127.0.0.1:8091/ws`), which carries no MAVLink.
+ */
+function mavlinkMocks(): MockWebSocket[] {
+  return mockInstances.filter((mock) => mock.url.includes('/v1/ws/mavlink'));
+}
+
+/** The mavlink2rest socket the most recent `activate` opened. */
 function lastMock(): MockWebSocket {
-  const mock = mockInstances[mockInstances.length - 1];
-  if (!mock) throw new Error('No MockWebSocket instance was constructed');
+  const mocks = mavlinkMocks();
+  const mock = mocks[mocks.length - 1];
+  if (!mock) throw new Error('No mavlink2rest MockWebSocket was constructed');
   return mock;
 }
 
@@ -338,7 +348,7 @@ describe('teardown across the adapter boundary', () => {
     // The re-enabled extension opened its own socket, so the frame below goes
     // to the new activation rather than to the closed one `lastMock()` would
     // otherwise still be pointing at.
-    expect(mockInstances).toHaveLength(2);
+    expect(mavlinkMocks()).toHaveLength(2);
     deliver(HEARTBEAT_FRAME);
 
     const after = mavlinkAssets(api);

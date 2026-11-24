@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
 
   import { linkState, type BridgeState } from './link-state.svelte';
+  import { STATION_PROTOCOL, stationLink, type StationStatus } from './station-link.svelte';
 
   /** How often the ages are redrawn: often enough that a 1 Hz heartbeat visibly resets. */
   const REDRAW_MS = 250;
@@ -21,6 +22,20 @@
     disconnected: 'down',
   };
 
+  const STATION_LABEL: Record<StationStatus, string> = {
+    connecting: 'connecting',
+    running: 'running',
+    'not-running': 'not running',
+    mismatch: 'not usable',
+  };
+
+  const stationText = $derived(
+    `${STATION_LABEL[stationLink.status]} for ${seconds(now - stationLink.since)}` +
+      (stationLink.status === 'running' && stationLink.version
+        ? ` (gcscode-station ${stationLink.version})`
+        : ''),
+  );
+
   function seconds(ms: number): string {
     return `${(Math.max(0, ms) / 1000).toFixed(1)} s`;
   }
@@ -32,7 +47,23 @@
     <dd data-testid="bridge" class={linkState.bridge}>
       {BRIDGE_LABEL[linkState.bridge]} for {seconds(now - linkState.bridgeSince)}
     </dd>
+    <dt>station</dt>
+    <dd data-testid="station" class={stationLink.status}>
+      {stationText}
+    </dd>
   </dl>
+  {#if stationLink.status === 'not-running'}
+    <p data-testid="station-hint">
+      Nothing answers at {stationLink.url}; this view keeps trying. <code>pnpm dev:sitl</code>
+      starts the station, or <code>pnpm --filter mavlink-station start</code> alone. If it is running,
+      it may have refused this page: its terminal says so.
+    </p>
+  {:else if stationLink.status === 'mismatch'}
+    <p data-testid="station-hint">
+      The station at {stationLink.url} speaks protocol {stationLink.stationProtocol}, this page
+      protocol {STATION_PROTOCOL}. Run the two from the same checkout.
+    </p>
+  {/if}
   {#if linkState.bridge === 'disconnected'}
     <p data-testid="no-reconnect">
       gcscode does not reconnect after a drop yet. Reload the page once mavlink2rest is back.
@@ -62,8 +93,7 @@
 <style>
   .link {
     padding: 0.75rem;
-    font-variant-numeric: tabular-nums;
-    color: #ddd;
+    color: var(--gcscode-foreground);
   }
   dl {
     display: grid;
@@ -71,21 +101,34 @@
     gap: 0.25rem 1rem;
     margin: 0;
   }
-  /* Light on the shell's dark panels, matching the Video health view. */
   dt,
   th {
-    color: #999;
+    color: var(--gcscode-descriptionForeground);
     font-weight: normal;
   }
   dd {
     margin: 0;
   }
-  dd.disconnected {
-    color: #f88;
+  /* Status lines are prose, so tabular digits only; table cells are values. */
+  dd {
+    font-variant-numeric: tabular-nums;
+  }
+  td {
+    font-family: var(--gcscode-monospace-font-family);
+    font-variant-numeric: tabular-nums;
+  }
+  dd.disconnected,
+  dd.not-running,
+  dd.mismatch {
+    color: var(--gcscode-errorForeground);
   }
   p {
     margin: 0.5rem 0 0;
-    color: #999;
+    color: var(--gcscode-descriptionForeground);
+  }
+  code {
+    font-family: var(--gcscode-monospace-font-family);
+    color: var(--gcscode-foreground);
   }
   table {
     margin-top: 0.75rem;
