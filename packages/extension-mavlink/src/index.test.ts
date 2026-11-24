@@ -4,6 +4,8 @@ import type { Disposable, ExtensionContext, ExtensionHost } from '@gcscode/exten
 import type { AssetDescription, AssetSource, AssetsApi } from '@gcscode/extension-assets';
 
 import { mavlinkExtension, type MavlinkExports } from './index';
+import { linkState } from './link-state.svelte';
+import LinkStateView from './link-state-view.svelte';
 import MapInputView from './map-input-view.svelte';
 import MavlinkView from './mavlink-view.svelte';
 import { applyMessage, reset, telemetryState } from './telemetry-store.svelte';
@@ -201,7 +203,7 @@ describe('mavlinkExtension', () => {
     expect(typeof mavlinkExtension.manifest.version).toBe('string');
   });
 
-  it('registers two views, a command, a keybinding, a configuration + change-listener, and the asset adapter; pushes all seven disposables', () => {
+  it('registers three views, a command, a keybinding, a configuration + change-listener, and the asset adapter; pushes all eight disposables', () => {
     const { context, registerView, registerCommand, registerKeybinding } = makeContext();
     const { subscriptions } = context;
 
@@ -217,6 +219,11 @@ describe('mavlinkExtension', () => {
       component: MapInputView,
       title: 'Map input',
     });
+    expect(registerView).toHaveBeenCalledWith({
+      id: 'gcscode.mavlink.linkState',
+      component: LinkStateView,
+      title: 'Link state',
+    });
     expect(registerCommand).toHaveBeenCalledWith({
       id: 'gcscode.mavlink.getLocation',
       title: 'Get Location',
@@ -227,7 +234,7 @@ describe('mavlinkExtension', () => {
       key: 'Alt+Shift+L',
       command: 'gcscode.mavlink.getLocation',
     });
-    expect(subscriptions).toHaveLength(7);
+    expect(subscriptions).toHaveLength(8);
   });
 
   it('getLocation command returns current store location and logs it; returns null with no fix yet', () => {
@@ -270,6 +277,31 @@ describe('mavlinkExtension', () => {
     } finally {
       consoleLogSpy.mockRestore();
     }
+  });
+
+  it('feeds the link state from its one socket: bridge state, heartbeats, and a reset on deactivate', async () => {
+    const { context } = makeContext();
+    mavlinkExtension.activate(context);
+    const mock = lastMock();
+    expect(linkState.bridge).toBe('connecting');
+
+    mock.onopen?.({ type: 'open' });
+    expect(linkState.bridge).toBe('connected');
+
+    mock.onmessage?.({
+      data: JSON.stringify({
+        header: { system_id: 2, component_id: 1 },
+        message: { type: 'HEARTBEAT', mavtype: { type: 'MAV_TYPE_QUADROTOR' } },
+      }),
+    });
+    expect(linkState.systems.map((s) => [s.systemId, s.type])).toEqual([[2, 'QUADROTOR']]);
+
+    mock.onclose?.({ type: 'close' });
+    expect(linkState.bridge).toBe('disconnected');
+
+    await mavlinkExtension.deactivate?.();
+    expect(linkState.bridge).toBe('connecting');
+    expect(linkState.systems).toEqual([]);
   });
 
   it('defines a deactivate hook that returns a promise', () => {
