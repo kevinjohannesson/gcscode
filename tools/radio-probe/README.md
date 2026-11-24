@@ -28,7 +28,7 @@ Then plug in the radio. When it asks how to use USB, choose **USB Joystick (HID)
 
 ```text
 opened [3] TX16SMK3 Joystick  1209:4f54  (EdgeTX radio)
-  serial 2056394B5631  axes 8  buttons 24  hats 0
+  serial 0123456789AB  axes 8  buttons 24  hats 0
 ┌──────┬────────┬───────────────────────────────────┐
 │ axis │  value │ -32768          0           32767 │
 ├──────┼────────┼───────────────────────────────────┤
