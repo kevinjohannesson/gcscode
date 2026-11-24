@@ -12,16 +12,22 @@ name: Auto-merge
 #         gate 3a's final review. A `docs/*` PR, or a `claude/*` one labelled
 #         `docs`, changes only Markdown files, and none under `docs/specs/` or
 #         `docs/decisions/` (a design is approved through gate 3b's reviewers),
-#         `.github/`, or `.claude/` other than `.claude/rules/` (agents, skills,
-#         commands and scripts are the review process itself). Below, "feat/*",
+#         a `.github/` directory, or a `.claude/` directory at any depth other
+#         than the root's `.claude/rules/` (agents, skills, commands and
+#         scripts are the review process itself, and Claude Code also loads
+#         them from nested directories). One limit: a PR runs its own head's
+#         copy of this workflow, so a PR that edits this file is judged by its
+#         edited gates; the docs exclusion of `.github/` holds only while this
+#         file is unchanged, as every class's gates do. Below, "feat/*",
 #         "spec/* or adr/*" and "docs/*" include those labelled `claude/*` PRs.
 # Gate 3: Bot signal — class-aware, and in both classes read from the reviews
 #         API rather than from GitHub's computed reviewDecision, matching the bot
 #         logins exactly (`[bot]` suffix included):
 #         - feat/* and docs/*: `gcscode-final-review`'s latest verdict-bearing
-#           review is APPROVED. A docs/* PR has no per-task reviews, so this one
-#           review is all it gets; feat/* PRs already merge code on it. Was `reviewDecision == APPROVED` until 2026-10-20, which
-#           could never pass: GitHub only computes reviewDecision when the base
+#           review is APPROVED. A docs/* PR has no per-task reviews, so this
+#           one review is all it gets; feat/* PRs already merge code on it.
+#           Was `reviewDecision == APPROVED` until 2026-10-20, which could
+#           never pass: GitHub only computes reviewDecision when the base
 #           branch has review requirements, and `master` is unprotected, so it
 #           stayed empty however many approvals existed. PR #34 was the first
 #           feat/* PR to reach this gate and exposed it.
@@ -35,10 +41,11 @@ name: Auto-merge
 #           spec-quality >= 1) until review-loop-v2 dropped the Sonnet red-team
 #           and spec-quality roles.
 #         In both classes the review that passes must cover the PR's current
-#         head: for feat/* and docs/*, that final approval; for spec/* or adr/*, the newest
-#         review by either of those two reviewers. It covers the head when it
-#         was posted on the head commit (the review's `commit_id`), or when the
-#         PR's own changes are the same as at the reviewed commit: the diff
+#         head: for feat/* and docs/*, that final approval; for spec/* or
+#         adr/*, the newest review by either of those two reviewers. It covers
+#         the head when it was posted on the head commit (the review's
+#         `commit_id`), or when the PR's own changes are the same as at the
+#         reviewed commit: the diff
 #         from where each commit leaves the base branch, compared by
 #         `git patch-id --verbatim`, which ignores line numbers but not
 #         whitespace. So merging the base branch in, or a rebase,
@@ -171,15 +178,17 @@ jobs:
             docs/*)
               # Docs PRs carry Markdown only, outside the places that need another
               # class: specs and ADRs approve a design (gate 3b's reviewers), and
-              # .github/ and .claude/ (but .claude/rules/) hold the workflows, agents,
-              # skills and scripts the review loop runs on, which a single final review
-              # should not be able to rewrite unseen. Same rename and pagination rule
-              # as spec/ADR above.
+              # .github/ and .claude/ (but the root's .claude/rules/) hold the
+              # workflows, agents, skills and scripts the review loop runs on, which a
+              # single final review should not be able to rewrite unseen. Both match
+              # at any depth: Claude Code loads skills, agents and commands from nested
+              # .claude/ directories too (packages/shell/.claude/skills/... would
+              # otherwise pass). Same rename and pagination rule as spec/ADR above.
               NOT_DOCS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '.[] | (.filename, (.previous_filename // empty)) | select(
                   (endswith(".md") | not)
                   or startswith("docs/specs/") or startswith("docs/decisions/")
-                  or startswith(".github/")
-                  or (startswith(".claude/") and (startswith(".claude/rules/") | not)))')
+                  or test("(^|/)\\.github/")
+                  or (test("(^|/)\\.claude/") and (startswith(".claude/rules/") | not)))')
               if [[ -n "$NOT_DOCS" ]]; then
                 echo "Gate 2 FAILED: docs PR changes files a docs PR may not (merge by hand, or relabel it feat, spec or adr):"
                 echo "$NOT_DOCS"

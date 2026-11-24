@@ -76,7 +76,7 @@ A _product_ spec or ADR is about the app, its extensions or its API. An _agentic
 
 ## Docs PRs (`docs/*`)
 
-A docs PR changes Markdown only: the roadmap, playbooks, READMEs, plans, architecture notes, `CLAUDE.md`, `.claude/rules/`. A spec or ADR is never a docs PR, and neither is a change to `.github/` or to `.claude/` outside `.claude/rules/`: those are spec, ADR or feature PRs, and the `auto-merge` workflow's Gate 2 refuses them as docs.
+A docs PR changes Markdown only: the roadmap, playbooks, READMEs, plans, architecture notes, `CLAUDE.md`, `.claude/rules/`. A spec or ADR is never a docs PR, and neither is a change to a `.github/` or `.claude/` directory at any depth, outside the root's `.claude/rules/`: those are spec, ADR or feature PRs, and the `auto-merge` workflow's Gate 2 refuses them as docs (its header states the one limit).
 
 1. Run `pnpm lint:docs` and fix what it reports, then open a draft PR (Spec or ADR template below, with the Docs line under Reviews) and push.
 2. `gh pr ready <n>`, then one final cross-cutting review of the whole diff, dispatched as in [Feature PRs](#feature-prs-feat) step 3, with the brief that it is a docs PR: judge accuracy against the repo, contradictions with `CLAUDE.md`, rules, skills, specs and ADRs, and broken links. There are no per-task reviews.
@@ -153,7 +153,7 @@ Reviewed per `.claude/skills/review-loop/SKILL.md`: red-team, plus the extension
 
 <If the PR changes anything outside `docs/`: Gate 2 refuses auto-merge, so the owner merges it by hand.>
 
-<Docs PR: replace the line above with "Reviewed per `.claude/skills/review-loop/SKILL.md` § Docs PRs: one final cross-cutting review, whose approval is the merge gate.">
+<Docs PR: replace both paragraphs above under Reviews with "Reviewed per `.claude/skills/review-loop/SKILL.md` § Docs PRs: one final cross-cutting review, whose approval is the merge gate.">
 ```
 
 ## Designing a reviewer role
