@@ -98,14 +98,15 @@ export function prClass(branch, labels) {
 
 /**
  * What is wrong with a PR's ticket line, if anything.
- * @param {{ title: string, body: string | null, branch: string, labels: string[], playbook: string }} pr
+ * @param {{ title: string, body: string | null, branch: string, labels: string[], playbook: string | string[] }} pr
  * @returns {string[]} one message per problem; empty when the PR passes
  */
 export function checkPrTicket({ title, body, branch, labels, playbook }) {
   const kind = prClass(branch, labels);
   const text = stripFences(body ?? '');
   const lines = [...text.matchAll(TICKET_LINE)].map((m) => m[1].trim());
-  const waiting = playbookTickets(playbook);
+  // Several playbooks (the base's and the head's) count as their union.
+  const waiting = new Set([playbook].flat().flatMap((text) => [...playbookTickets(text)]));
   // Tickets whose IDs must stay out of the title and branch name: every ticket
   // with a smoke test, and every ticket the line links without closing.
   const keepOut = new Set(waiting);
@@ -168,7 +169,8 @@ export function checkPrTicket({ title, body, branch, labels, playbook }) {
 
 /**
  * Checks the PR that PR_NUMBER or a GitHub Actions event names, against the
- * playbook at PLAYBOOK_PATH (default `docs/smoke-tests.md`).
+ * playbooks at PLAYBOOK_PATH, colon-separated, as one (default
+ * `docs/smoke-tests.md`).
  * @param {{ env: Record<string, string | undefined>, fetch: typeof fetch, readFile: (path: string) => string, log: (line: string) => void }} io
  * @returns {Promise<number>} the exit code
  */
@@ -196,7 +198,7 @@ export async function run({ env, fetch, readFile, log }) {
     body: pr.body,
     branch: pr.head.ref,
     labels: pr.labels.map((l) => l.name),
-    playbook: readFile(env.PLAYBOOK_PATH || 'docs/smoke-tests.md'),
+    playbook: (env.PLAYBOOK_PATH || 'docs/smoke-tests.md').split(':').map(readFile),
   });
   if (problems.length === 0) {
     log('The ticket line is fine.');

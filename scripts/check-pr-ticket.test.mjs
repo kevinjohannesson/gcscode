@@ -294,3 +294,32 @@ test('run checks the PR that PR_NUMBER names, against the playbook at PLAYBOOK_P
     '::error title=PR ticket line::GCS-42 has a smoke test in docs/smoke-tests.md, so a merge must not close it: write "Part of GCS-42".',
   );
 });
+
+test('run takes the union of the playbooks at PLAYBOOK_PATH', async () => {
+  const t = io('pull_request', ok(pr('- Ticket: Fixes GCS-17')));
+  t.io.env.PLAYBOOK_PATH = 'docs/smoke-tests.md:head-playbook.md';
+  const read = t.io.readFile;
+  t.io.readFile = (path) =>
+    path === 'head-playbook.md' ? '# The head lost its table\n' : read(path);
+  assert.equal(await run(t.io), 1);
+  assert.deepEqual(
+    t.logs[0],
+    '::error title=PR ticket line::GCS-17 has a smoke test in docs/smoke-tests.md, so a merge must not close it: write "Part of GCS-17".',
+  );
+});
+
+test('a row only the head’s playbook has counts too', async () => {
+  const t = io('pull_request', ok(pr('- Ticket: Fixes GCS-42')));
+  t.io.env.PLAYBOOK_PATH = 'docs/smoke-tests.md:head-playbook.md';
+  const read = t.io.readFile;
+  t.io.readFile = (path) =>
+    path === 'head-playbook.md' ? '| T | Ticket / PR |\n| - | - |\n| x | GCS-42 |\n' : read(path);
+  assert.equal(await run(t.io), 1);
+});
+
+test('PR_NUMBER wins over the event’s PR', async () => {
+  const t = io('pull_request', ok(pr('- Ticket: Fixes GCS-42')));
+  t.io.env.PR_NUMBER = '9';
+  assert.equal(await run(t.io), 0);
+  assert.deepEqual(t.calls, [['https://api.github.com/repos/o/r/pulls/9', 'Bearer t']]);
+});
