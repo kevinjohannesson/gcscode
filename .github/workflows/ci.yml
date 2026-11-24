@@ -1,10 +1,13 @@
 name: CI
 
-# Runs the repository's own checks on every pull request and on master:
-# `pnpm check`, `pnpm lint` and `pnpm test` (the JS and TypeScript packages,
+# Runs the repository's own checks on every pull request, and on pushes to
+# master. Merges made by the auto-merge workflow push with GITHUB_TOKEN, which
+# starts no workflow, so only merges made by hand run CI on master; every
+# auto-merged head passed CI as a PR first.
+# The checks: `pnpm check`, `pnpm lint` and `pnpm test` (the JS and TypeScript packages,
 # then the root tooling tests), and `cargo test` for the two Rust packages.
-# The auto-merge gate requires this workflow's `ci` check to have succeeded on
-# the PR's head commit (`.github/workflows/auto-merge.yml`, Gate 5), and the
+# The auto-merge gate requires this workflow's latest run on the PR's head
+# commit to have succeeded (`.github/workflows/auto-merge.yml`, Gate 5), and the
 # workflow's completion re-runs the gate, so a PR that was waiting on CI merges
 # when it turns green.
 
@@ -18,15 +21,17 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # A new push to a PR cancels its older run; master runs all finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # The one check the auto-merge gate reads. It succeeds only when every job
-  # it needs succeeded, so adding a job means adding it here.
+  # One check that sums up the run, for branch protection or a status badge.
+  # It succeeds only when every job it needs succeeded, so adding a job means
+  # adding it here. Not skipped when a job fails, but skipped on a cancel.
   ci:
     runs-on: ubuntu-latest
     needs: [node, rust]
-    if: always()
+    if: ${{ !cancelled() }}
     steps:
       - name: Require every job
         env:
@@ -69,6 +74,7 @@ jobs:
             packages/mavlink-station/target
             tools/radio-probe/target
           key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
       - run: cargo test --locked
         working-directory: tools/radio-probe
       - run: cargo test --locked
