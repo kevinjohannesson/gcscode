@@ -11,7 +11,7 @@ Every command block runs from the repo root of the main checkout, and each block
 | [Wire probe](#wire-probe)                             | GCS-17, PR #70 | `master`                              | SITL                  |
 | [Map input view](#map-input-view)                     | GCS-14, PR #71 | `master`                              | SITL                  |
 | [Link state view](#link-state-view)                   | GCS-24, PR #69 | draft: `claude/project-thread-0l1wrd` | SITL                  |
-| [Radio input view](#radio-input-view)                 | GCS-38, PR #68 | draft: `claude/project-thread-u456wv` | TX16S, Rust and CMake |
+| [Radio input view](#radio-input-view)                 | GCS-38, PR #68 | `master`                              | TX16S, Rust and CMake |
 
 ## Before you start
 
@@ -175,22 +175,16 @@ git worktree remove .worktrees/link-state
 
 **Goal:** the **Radio input** tab shows the TX16S's raw input, the same values the terminal probe prints, served by the station process. Reloading or closing the page changes nothing for the station. **Proof is a screen recording** (Cmd-Shift-5) with the page and the terminal probe side by side.
 
-**Draft PR #68.** Needs the TX16S on USB as a joystick, and Rust and CMake (`brew install cmake`). No SITL. Set up its worktree once:
+Needs the TX16S on USB as a joystick, and Rust and CMake (`brew install cmake`). No SITL. Start the station (**runs until Ctrl-C**; its first build compiles SDL and takes a few minutes):
 
 ```sh
-git fetch origin claude/project-thread-u456wv && git worktree add --detach .worktrees/radio-input FETCH_HEAD && cd .worktrees/radio-input && pnpm install
-```
-
-Start the station (**runs until Ctrl-C**; its first build compiles SDL and takes a few minutes):
-
-```sh
-cd .worktrees/radio-input && pnpm --filter mavlink-station start
+pnpm --filter mavlink-station start
 ```
 
 Start the dev server in a second terminal (**runs until Ctrl-C**), then open gcscode and click the **Radio input** tab:
 
 ```sh
-cd .worktrees/radio-input && pnpm dev
+pnpm dev
 ```
 
 ```sh
@@ -200,7 +194,7 @@ open http://localhost:5173/
 Start the terminal probe in a third terminal (**runs until Ctrl-C**):
 
 ```sh
-cd .worktrees/radio-input && pnpm --filter radio-probe start
+pnpm --filter radio-probe start
 ```
 
 **Scenario 1, sticks and switches:** start the recording, then move each stick and flip each switch. **Expect:** the page's axes and its `pressed:` buttons match the probe's at each moment.
@@ -208,12 +202,6 @@ cd .worktrees/radio-input && pnpm --filter radio-probe start
 **Scenario 2, reload:** reload the page, then close the tab and open it again. **Expect:** the station's terminal shows nothing new and keeps running, and the page picks the input up again.
 
 **Scenario 3, station gone:** press Ctrl-C in the station's terminal. **Expect:** the page says the station is gone and retries every 2 s; start the station again and the page picks it up.
-
-Remove the worktree when the PR has merged:
-
-```sh
-git worktree remove .worktrees/radio-input
-```
 
 ## Adding a test
 
