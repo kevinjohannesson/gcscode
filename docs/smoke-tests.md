@@ -12,7 +12,7 @@ Every command block runs from the repo root of the main checkout, and each block
 | [Map input view](#map-input-view)                     | GCS-14, PR #71 | `master`                              | SITL                  |
 | [Link state view](#link-state-view)                   | GCS-24, PR #69 | draft: `claude/project-thread-0l1wrd` | SITL                  |
 | [Radio input view](#radio-input-view)                 | GCS-38, PR #68 | `master`                              | TX16S, Rust and CMake |
-| [Controls view](#controls-view)                       | GCS-40, PR #NN | draft: `claude/project-thread-lk6dk0` | TX16S, Rust and CMake |
+| [Controls view](#controls-view)                       | GCS-40, PR #82 | draft: `claude/project-thread-lk6dk0` | TX16S, Rust and CMake |
 
 ## Before you start
 
@@ -208,7 +208,7 @@ pnpm --filter radio-probe start
 
 **Goal:** a profile file says what each radio input means to gcscode. With the gcscode-adv profile, the **Controls** tab and `radio-probe --mapped` show "throttle 37%", "SA middle" and "control on" live, next to the raw values. **Proof is a screen recording** (Cmd-Shift-5) with the page and the probe side by side.
 
-**Draft PR #NN.** Needs the TX16S on USB as a joystick, on its `gcscode-adv` model ([`tools/radio-probe/tx16s-advanced-model.md`](../tools/radio-probe/tx16s-advanced-model.md)), and Rust and CMake. No SITL. Set up its worktree once:
+**Draft PR #82.** Needs the TX16S on USB as a joystick, on its `gcscode-adv` model ([`tools/radio-probe/tx16s-advanced-model.md`](../tools/radio-probe/tx16s-advanced-model.md)), and Rust and CMake. No SITL. Set up its worktree once:
 
 ```sh
 git fetch origin claude/project-thread-lk6dk0 && git worktree add --detach .worktrees/controls FETCH_HEAD && cd .worktrees/controls && pnpm install
