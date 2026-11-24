@@ -10,6 +10,7 @@ name = "gcscode-adv"
 [match]
 vendor = 0x1209
 product = 0x4F54
+# The joystick's name must contain this: macOS reports "OpenTX TX16SMK3 Joystick".
 name = "TX16SMK3 Joystick"
 # Advanced mode reports the highest button used plus one, so 28 here; the Classic model
 # reports 24 and does not match.
