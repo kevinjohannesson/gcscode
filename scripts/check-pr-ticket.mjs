@@ -28,11 +28,12 @@ import { pathToFileURL } from 'node:url';
 
 const ID = /GCS-(\d+)/gi;
 // A ticket line: `Ticket:` after an optional list marker, in bold or not.
-const TICKET_LINE = /^[ \t]*(?:[-*+]|\d+[.)])?[ \t]*(?:\*\*)?Ticket:(?:\*\*)?(.*)$/gim;
+const TICKET_LINE = /^[ \t]*(?:[-*+]|\d+[.)])?[ \t]*(?:\*\*)?Ticket(?:\*\*)?:(?:\*\*)?(.*)$/gim;
 const ENTRY = /^(Fixes|Closes|Part of|Related to)\s+GCS-(\d+)$/i;
 // Linear's closing magic words, followed by an ID, anywhere in a PR body.
+// It takes a list (`Fixes GCS-1, GCS-2 and GCS-3`) and IDs written as links.
 const CLOSING =
-  /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|complete[sd]?|completing)\b[\s:]+GCS-(\d+)/gi;
+  /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|complete[sd]?|completing)\b[\s:]+\[?GCS-\d+(?:\][^\s,]*)?(?:(?:\s*,\s*|\s+and\s+)\[?GCS-\d+(?:\][^\s,]*)?)*/gi;
 
 /**
  * A PR body without its fenced code blocks, which quote text rather than say it.
@@ -49,9 +50,16 @@ export function stripFences(body) {
       fence = null;
     else if (fence === null) kept.push(line);
   }
-  return kept.join('\n');
+  // An unclosed fence quotes nothing: GitHub would show the rest as code, but
+  // the safe reading is to check it.
+  return fence === null ? kept.join('\n') : body;
 }
 
+/**
+ * The ticket IDs in the playbook table's "Ticket / PR" column, as numbers.
+ * @param {string} playbook the text of `docs/smoke-tests.md`
+ * @returns {Set<number>}
+ */
 export function playbookTickets(playbook) {
   const tickets = new Set();
   const lines = playbook.split('\n');
@@ -143,11 +151,12 @@ export function checkPrTicket({ title, body, branch, labels, playbook }) {
   // Linear closes on a closing word anywhere in the body, not only on the line.
   const prose = text.replace(TICKET_LINE, '');
   for (const m of prose.matchAll(CLOSING)) {
-    const n = Number(m[1]);
-    if (waiting.has(n)) {
-      problems.push(
-        `"${m[0]}" closes GCS-${n} on merge, but it has a smoke test: reword it, or write "Part of GCS-${n}".`,
-      );
+    for (const n of new Set([...m[0].matchAll(ID)].map(([, k]) => Number(k)))) {
+      if (waiting.has(n)) {
+        problems.push(
+          `"${m[0]}" closes GCS-${n} on merge, but it has a smoke test: reword it, or write "Part of GCS-${n}".`,
+        );
+      }
     }
   }
   return problems;

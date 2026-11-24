@@ -253,3 +253,29 @@ test('the module can be imported without a script path', () => {
   );
   assert.equal(out, 'ok\n');
 });
+
+test('a closing word before a list or a link still names each ticket', () => {
+  assert.deepEqual(check({ body: '- Ticket: Fixes GCS-42\n\nFixes GCS-43, GCS-17 and GCS-104.' }), [
+    '"Fixes GCS-43, GCS-17 and GCS-104" closes GCS-17 on merge, but it has a smoke test: reword it, or write "Part of GCS-17".',
+    '"Fixes GCS-43, GCS-17 and GCS-104" closes GCS-104 on merge, but it has a smoke test: reword it, or write "Part of GCS-104".',
+  ]);
+  assert.deepEqual(
+    check({ body: '- Ticket: Fixes GCS-42\n\nfixes [GCS-17](https://linear.app/x/GCS-17)' }),
+    [
+      '"fixes [GCS-17](https://linear.app/x/GCS-17)" closes GCS-17 on merge, but it has a smoke test: reword it, or write "Part of GCS-17".',
+    ],
+  );
+});
+
+test('an unclosed fence hides nothing', () => {
+  assert.deepEqual(
+    check({ body: '- Ticket: Fixes GCS-42\n\n```sh\npnpm test\n\nThis also fixes GCS-17.' }),
+    [
+      '"fixes GCS-17" closes GCS-17 on merge, but it has a smoke test: reword it, or write "Part of GCS-17".',
+    ],
+  );
+});
+
+test('a ticket line with the colon outside the bold is read', () => {
+  assert.deepEqual(check({ body: '- **Ticket**: Fixes GCS-42' }), []);
+});
