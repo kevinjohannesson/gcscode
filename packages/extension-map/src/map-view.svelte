@@ -89,6 +89,11 @@
     isUpdatingFromCamera = true;
     map.jumpTo({ center, zoom, pitch, bearing });
     isUpdatingFromCamera = false;
+    // The map is now where this write sent it, not where it last reported
+    // (`jumpTo`'s own `move` was suppressed above). Without this, a later
+    // write back to the last reported camera (a pitch toggled 60 → 0 after
+    // a drag) would match and be skipped, leaving the map tilted.
+    lastFromMap = null;
   });
 </script>
 

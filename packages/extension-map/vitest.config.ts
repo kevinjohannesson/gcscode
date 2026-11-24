@@ -3,9 +3,10 @@ import { svelteTesting } from '@testing-library/svelte/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  // `svelteTesting()` puts `browser` ahead of `node` in `resolve.conditions`,
-  // which the map view's test needs to mount a component (it opts into jsdom
-  // itself); the rest of the package keeps running under node.
+  // `svelteTesting()` puts `browser` ahead of `node` in `resolve.conditions`
+  // for the whole package, which the map view's test needs to mount a
+  // component, and registers testing-library's cleanup after each test. Only
+  // that test opts into jsdom; the rest keep the node environment.
   plugins: [svelte(), svelteTesting()],
   test: {
     globals: true,

@@ -18,7 +18,17 @@ const fake = vi.hoisted(() => {
     public zoom = 0;
     public pitch = 0;
     public bearing = 0;
-    public jumpTo = vi.fn();
+    // Like maplibre's: applies the camera, then fires `move` synchronously
+    // (camera.ts `jumpTo` → `fire(new Event('move'))`).
+    public jumpTo = vi.fn(
+      (o: { center: [number, number]; zoom: number; pitch: number; bearing: number }) => {
+        this.center = { lng: o.center[0], lat: o.center[1] };
+        this.zoom = o.zoom;
+        this.pitch = o.pitch;
+        this.bearing = o.bearing;
+        for (const l of this.moveListeners) l();
+      },
+    );
     private moveListeners: Listener[] = [];
     public constructor(opts: {
       center: [number, number];
@@ -129,6 +139,51 @@ describe('MapView camera sync', () => {
 
     expect(map.jumpTo).toHaveBeenCalledTimes(1);
     expect(map.jumpTo).toHaveBeenCalledWith(expect.objectContaining(expected));
+  });
+
+  it.each([
+    [
+      'pitch toggled 60 then back to 0',
+      () => (mapApi.camera.pitch = 60),
+      () => (mapApi.camera.pitch = 0),
+    ],
+    [
+      'zoom set to 16 then reset to 13',
+      () => (mapApi.camera.zoom = 16),
+      () => (mapApi.camera.zoom = 13),
+    ],
+  ])('applies a write back to the dragged camera after a %s', (_name, first, second) => {
+    // The second write equals the camera the drag last reported; the map is
+    // elsewhere by then (the first write moved it), so it must still apply.
+    const map = mountedMap();
+    map.operatorMovesTo(149.2, -35.37);
+    flushSync();
+
+    first();
+    flushSync();
+    second();
+    flushSync();
+
+    expect(map.jumpTo).toHaveBeenCalledTimes(2);
+    expect(map.jumpTo).toHaveBeenLastCalledWith({
+      center: [149.2, -35.37],
+      zoom: 13,
+      pitch: 0,
+      bearing: 0,
+    });
+    expect([map.zoom, map.pitch]).toEqual([13, 0]);
+  });
+
+  it('keeps the camera the writer set when maplibre reports its own jump back', () => {
+    // The loop guard: jumpTo fires `move` synchronously, which must not be
+    // copied back over the camera mid-write.
+    const map = mountedMap();
+    mapApi.camera.zoom = 15;
+    flushSync();
+
+    expect(map.jumpTo).toHaveBeenCalledTimes(1);
+    expect(mapApi.camera.zoom).toBe(15);
+    expect(map.zoom).toBe(15);
   });
 
   it('moves the map back when a writer sets the camera the operator dragged away from', () => {

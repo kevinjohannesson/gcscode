@@ -52,7 +52,7 @@ export const bundledExtensions: readonly BundledExtensionEntry[] = [
   // Same as vehicle-status, and documentation for the same reason: map-demo
   // reads MAVLink exports lazily per use (getMavlinkExports() inside a $derived).
   // Retired: off unless the operator turns it on in the Extensions panel. Kept
-  // in the bundle as the side-by-side reference its README describes.
+  // in the bundle as a reference beside Map (packages/extension-map/README.md).
   { id: mapDemoExtension.manifest.id, extension: mapDemoExtension, initialEnabled: false },
   // Video sits before Map so that Map stays the front tab at load: the shell
   // adds panels in registration order, the last one added is in front, and
