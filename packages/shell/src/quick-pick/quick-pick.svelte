@@ -108,12 +108,12 @@
 
 {#if request}
   <div
-    class="fixed left-1/2 top-16 z-50 w-[440px] -translate-x-1/2 overflow-hidden rounded-md border border-neutral-700 bg-neutral-800 shadow-2xl"
+    class="fixed left-1/2 top-16 z-50 w-[440px] -translate-x-1/2 overflow-hidden rounded-md border border-widget-border bg-widget shadow-[0_8px_24px_var(--gcscode-widget-shadow)]"
     role="dialog"
     aria-label="Command palette"
   >
     {#if request.options?.title}
-      <div class="border-b border-neutral-700 bg-neutral-900 px-3 py-1.5 text-xs text-neutral-400">
+      <div class="border-b border-widget-border bg-panel px-3 py-1.5 text-xs text-fg-muted">
         {request.options.title}
       </div>
     {/if}
@@ -123,19 +123,19 @@
       bind:value={query}
       onkeydown={onKeyDown}
       placeholder={placeholder()}
-      class="w-full border-none bg-neutral-700 px-3 py-2 text-sm text-neutral-100 outline-none placeholder:text-neutral-400"
+      class="w-full border-none bg-input px-3 py-2 text-sm text-input-fg outline-none placeholder:text-fg-muted"
       autofocus
     />
     {#if filtered.length === 0}
-      <div class="px-3 py-4 text-center text-sm text-neutral-400">No matching commands</div>
+      <div class="px-3 py-4 text-center text-sm text-fg-muted">No matching commands</div>
     {:else}
       <ul class="max-h-80 overflow-y-auto">
         {#each filtered as item, i (item.label)}
           <li>
             <button
               type="button"
-              class="w-full px-3 py-1.5 text-left text-sm text-neutral-100"
-              class:bg-blue-900={i === highlightIndex}
+              class="w-full px-3 py-1.5 text-left text-sm text-fg"
+              class:bg-list-active={i === highlightIndex}
               onclick={() => pickIndex(i)}
               onmouseenter={() => (highlightIndex = i)}
             >

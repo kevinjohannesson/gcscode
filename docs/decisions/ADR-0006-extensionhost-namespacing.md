@@ -2,6 +2,8 @@
 
 **Status:** Accepted (2026-05-01)
 
+_Note: theme colours landed as CSS variables, not a namespace, in [ADR-0017](ADR-0017-theme-colours-as-css-variables.md); the first theme call comes with theme switching, on `host.window`._
+
 ## Context
 
 [ADR-0003](ADR-0003-plugin-api-refinements.md) forecast that the flat `ExtensionHost` API would benefit from namespacing once the surface exceeded 5–7 methods, and parked the call ("Decide then; not now"). [ADR-0005](ADR-0005-extension-boundaries.md)'s follow-up noted that adding `getExtension` brought the surface to six methods — under the trigger but approaching it.

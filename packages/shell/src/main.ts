@@ -11,6 +11,11 @@ import { createExtensionPersistence } from './extension-host/extension-persisten
 import { moveSavedStateFromPreviousIds } from './extension-host/previous-ids';
 import { createRegistry } from './extension-host/registry';
 import { createWorkbenchExtension } from './built-in/workbench';
+import { applyTheme } from './theme/dark-theme';
+
+// Before anything renders or activates: a view or a script that reads a theme
+// variable when it mounts must never read it empty (ADR-0017 Decision 1).
+applyTheme(document.documentElement);
 
 // First: the registry's configuration store and the disabled set read what is
 // saved when they are created, so a renamed extension's saved state has to be

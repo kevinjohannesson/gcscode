@@ -105,13 +105,16 @@
 
 <style>
   .view {
+    /* A control's bar is data, not chrome: the extension's own colour, the
+       same as the Radio input view's axis bar (ADR-0017 Decision 3). */
+    --manual-control-axis-fill: #4fa3e0;
     height: 100%;
     overflow: auto;
-    padding: 0.75rem 1rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding: 0.75rem;
+    font-family: var(--gcscode-monospace-font-family);
     font-size: 0.85rem;
-    color: #ddd;
-    background: #1e1e1e;
+    font-variant-numeric: tabular-nums;
+    color: var(--gcscode-foreground);
     box-sizing: border-box;
   }
   p {
@@ -121,7 +124,7 @@
   .from,
   .unmapped-line,
   .unmapped {
-    color: #999;
+    color: var(--gcscode-descriptionForeground);
   }
   table {
     border-collapse: collapse;
@@ -129,16 +132,15 @@
   }
   th,
   td {
-    border: 1px solid #555;
+    border: 1px solid var(--gcscode-widget-border);
     padding: 0.1rem 0.5rem;
   }
   th {
     font-weight: normal;
-    color: #999;
+    color: var(--gcscode-descriptionForeground);
   }
   .num {
     text-align: right;
-    font-variant-numeric: tabular-nums;
   }
   .scale,
   .bar {
@@ -151,23 +153,24 @@
     position: absolute;
     top: 25%;
     bottom: 25%;
-    background: #4fa3e0;
+    background: var(--manual-control-axis-fill);
   }
   .mid {
     position: absolute;
     left: 50%;
     top: 0;
     bottom: 0;
-    border-left: 1px solid #777;
+    border-left: 1px solid var(--gcscode-descriptionForeground);
   }
   .state {
     min-width: 6rem;
   }
   .state.on {
-    background: #ddd;
-    color: #1e1e1e;
+    background: var(--gcscode-foreground);
+    color: var(--gcscode-panel-background);
   }
   .state.unknown {
-    color: #e0b050;
+    color: var(--gcscode-descriptionForeground);
+    font-style: italic;
   }
 </style>
