@@ -3,7 +3,7 @@
 
 use std::time::{Duration, Instant};
 
-use radio_probe::pump;
+use radio_input::pump;
 
 #[test]
 fn returns_on_time_while_events_keep_arriving() {

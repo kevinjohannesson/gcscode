@@ -1,7 +1,7 @@
 //! The probe's text with a profile: what each input means to gcscode, next to its raw value.
 //! Pure, so it is tested without a controller.
 
-use crate::mapping::{AxisRole, Controls};
+use radio_input::mapping::{AxisRole, Controls};
 use crate::report::axis_bar;
 
 /// Width of the control column: `throttle -100%`.
@@ -125,7 +125,7 @@ pub const NO_PROFILE: &str = "no profile matches this radio, so only raw values 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mapping::{AxisControl, OnOffControl, OnOffRole, SwitchControl};
+    use radio_input::mapping::{AxisControl, OnOffControl, OnOffRole, SwitchControl};
 
     fn controls() -> Controls {
         let mapped = [(AxisRole::Roll, 0, -12), (AxisRole::Throttle, 2, 37)];

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use mavlink_station::{api, input, snapshot::Snapshot};
-use radio_probe::mapping::Profile;
+use radio_input::mapping::Profile;
 use tokio::sync::watch;
 
 const PORT: u16 = 8091;

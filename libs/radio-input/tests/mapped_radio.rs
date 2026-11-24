@@ -3,8 +3,8 @@
 
 use std::ffi::CString;
 
-use radio_probe::mapping::{self, Mapper, Profile};
-use radio_probe::probe::{Probe, values};
+use radio_input::mapping::{self, Mapper, Profile};
+use radio_input::probe::{Probe, values};
 use sdl3::joystick::JoystickId;
 use sdl3::sys::joystick as sys;
 

@@ -98,6 +98,8 @@ importers:
         specifier: ^1.64.1
         version: 1.64.1
 
+  libs/radio-input: {}
+
   packages/extension-api:
     dependencies:
       '@types/json-schema':

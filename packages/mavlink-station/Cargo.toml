@@ -10,8 +10,8 @@ name = "gcscode-station"
 path = "src/main.rs"
 
 [dependencies]
-# The radio reading proven by the probe (GCS-13), reused rather than copied.
-radio-probe = { path = "../../tools/radio-probe" }
+# The radio reading and the profiles, shared with tools/radio-probe, which proves them.
+radio-input = { path = "../../libs/radio-input" }
 sdl3 = { version = "=0.22.1", features = ["build-from-source-static"] }
 sdl3-sys = { version = "=0.7.3", features = [
   "no-sdl-audio",

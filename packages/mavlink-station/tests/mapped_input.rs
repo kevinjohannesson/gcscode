@@ -5,8 +5,8 @@ use std::ffi::CString;
 
 use mavlink_station::input::{mapper_for, snapshot};
 use mavlink_station::snapshot::input_json;
-use radio_probe::mapping::Profile;
-use radio_probe::probe::Probe;
+use radio_input::mapping::Profile;
+use radio_input::probe::Probe;
 use sdl3::sys::joystick as sys;
 use serde_json::{Value, json};
 
