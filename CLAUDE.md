@@ -95,3 +95,4 @@ One worker session per PR or iteration; one controller per initiative (the `cont
 - `docs/architecture/` — dated notes on established patterns: background, not decisions.
 - `packages/extension-api/README.md` and `packages/extension-example/README.md` — how to write an extension.
 - `/housekeeping` (`.claude/commands/housekeeping.md`) — a drift sweep to run every 2–3 iterations, not during feature work.
+- `/linear-audit` (`.claude/commands/linear-audit.md`) — checks the Linear board against GitHub and the smoke-test playbook; part of `/housekeeping`.
