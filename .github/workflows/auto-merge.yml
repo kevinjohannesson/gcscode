@@ -66,6 +66,14 @@ name: Auto-merge
 #         this file, and only for the first PR GitHub lists for that head; it
 #         lists none for a PR from a fork, which waits for its next review or
 #         label event instead).
+# Gate 6: The merge policy, `.github/merge-policy.json`, read from the base
+#         branch (never the PR's copy), lets this PR merge on its own. Each
+#         rule lists paths; a changed file (both names on a rename) on a path
+#         of a rule whose decision is `owner` holds the merge when the rule's
+#         mode is `enforce`, and only logs that it would have when the mode is
+#         `observe`. The file's `$comment` gives the path syntax. A base branch
+#         without the file has no policy yet, which logs and passes; a policy
+#         that cannot be read or parsed holds every merge.
 #
 # Specs: docs/specs/2026-05-14-auto-merge-on-user-approval.md,
 #        docs/specs/2026-10-22-review-loop-v2.md (Gate 3b). The docs/ class was
@@ -344,6 +352,48 @@ jobs:
             exit 0
           fi
           echo "Gate 5 OK: CI succeeded on head ${HEAD_SHA}"
+
+          # Gate 6: merge policy, from the base branch (header).
+          git fetch -q --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}" || { echo "Gate 6 FAILED: could not fetch ${BASE_REF} to read the merge policy. Exiting cleanly."; exit 0; }
+          if ! git cat-file -e "origin/${BASE_REF}:.github/merge-policy.json" 2>/dev/null; then
+            echo "Gate 6 OK: ${BASE_REF} has no .github/merge-policy.json yet, so no policy applies"
+          else
+            POLICY=$(git show "origin/${BASE_REF}:.github/merge-policy.json")
+            CHANGED_FILES=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '.[] | (.filename, (.previous_filename // empty))' | jq -R . | jq -s .)
+            # One line per (rule, file) match: mode, rule id, file. Rules whose
+            # decision is not `owner` never hold a merge.
+            if ! POLICY_MATCHES=$(echo "$POLICY" | jq -r --argjson files "$CHANGED_FILES" '
+                def covers($f):
+                  . as $p
+                  | if ($p | startswith("**/")) then $p[3:] as $q
+                      | if ($q | endswith("/")) then ($f | startswith($q)) or ($f | contains("/" + $q))
+                        else $f == $q or ($f | endswith("/" + $q)) end
+                    elif ($p | endswith("/")) then $f | startswith($p)
+                    else $f == $p end;
+                if (.rules | type) != "array" then error("rules is not a list") else . end
+                | .rules[]
+                | select(.decision == "owner")
+                | . as $rule
+                | if ($rule.mode != "enforce" and $rule.mode != "observe") then error("rule \($rule.id): mode must be enforce or observe") else . end
+                | $files[] as $f
+                | select(any($rule.paths[]; covers($f)))
+                | "\($rule.mode)\t\($rule.id)\t\($f)"'); then
+              echo "Gate 6 FAILED: ${BASE_REF}'s .github/merge-policy.json could not be read; every merge holds until it is fixed. Exiting cleanly."
+              exit 0
+            fi
+            OBSERVED=$(echo "$POLICY_MATCHES" | awk -F'\t' '$1 == "observe" { print "  " $2 ": " $3 }')
+            ENFORCED=$(echo "$POLICY_MATCHES" | awk -F'\t' '$1 == "enforce" { print "  " $2 ": " $3 }')
+            if [[ -n "$OBSERVED" ]]; then
+              echo "Gate 6 (observe only): these rules would hold the merge for the owner, and do not yet:"
+              echo "$OBSERVED"
+            fi
+            if [[ -n "$ENFORCED" ]]; then
+              echo "Gate 6 FAILED: the merge policy leaves this PR to the owner, who merges it by hand:"
+              echo "$ENFORCED"
+              exit 0
+            fi
+            echo "Gate 6 OK: no enforced merge-policy rule matches"
+          fi
 
           # All gates pass — merge
           # --match-head-commit: a push after the reads above fails the merge rather

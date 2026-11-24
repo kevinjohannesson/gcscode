@@ -1,0 +1,28 @@
+{
+  "$comment": "Which changes the auto-merge workflow may merge on its own, and which need the owner. Read by .github/workflows/auto-merge.yml (Gate 6) from the base branch, never from the PR, so a PR cannot loosen the policy it is judged by. A rule matches when any changed file (both names on a rename) matches one of its paths: a path ending in / matches everything under it, any other path matches that file only, and a leading **/ matches at any depth. decision 'owner' means the owner merges by hand. mode 'enforce' holds the merge; mode 'observe' only logs that it would have, for trying a rule before relying on it.",
+  "version": 1,
+  "rules": [
+    {
+      "id": "workflows",
+      "description": "Workflow files. GitHub refuses to let the workflow's own token merge a PR that changes them, so the merge would fail anyway; holding it says why. This also covers a PR that edits the gate itself, which a PR's own run would otherwise judge by its edited copy.",
+      "paths": [".github/workflows/"],
+      "decision": "owner",
+      "mode": "enforce"
+    },
+    {
+      "id": "review-process",
+      "description": "The review process itself: this policy, the reviewer registry, agents, skills, commands, scripts and settings. One final review should not be able to change how the next PR is reviewed or merged.",
+      "paths": [
+        ".github/",
+        "**/.claude/agents/",
+        "**/.claude/skills/",
+        "**/.claude/commands/",
+        "**/.claude/scripts/",
+        "**/.claude/agent-config.json",
+        "**/.claude/settings.json"
+      ],
+      "decision": "owner",
+      "mode": "observe"
+    }
+  ]
+}
