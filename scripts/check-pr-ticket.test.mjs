@@ -279,3 +279,18 @@ test('an unclosed fence hides nothing', () => {
 test('a ticket line with the colon outside the bold is read', () => {
   assert.deepEqual(check({ body: '- **Ticket**: Fixes GCS-42' }), []);
 });
+
+test('run checks the PR that PR_NUMBER names, against the playbook at PLAYBOOK_PATH', async () => {
+  const t = io('workflow_run', ok(pr('- Ticket: Fixes GCS-42')));
+  t.io.env.PR_NUMBER = '9';
+  t.io.env.PLAYBOOK_PATH = 'head-playbook.md';
+  const read = t.io.readFile;
+  t.io.readFile = (path) =>
+    path === 'head-playbook.md' ? '| T | Ticket / PR |\n| - | - |\n| x | GCS-42 |\n' : read(path);
+  assert.equal(await run(t.io), 1);
+  assert.deepEqual(t.calls, [['https://api.github.com/repos/o/r/pulls/9', 'Bearer t']]);
+  assert.deepEqual(
+    t.logs[0],
+    '::error title=PR ticket line::GCS-42 has a smoke test in docs/smoke-tests.md, so a merge must not close it: write "Part of GCS-42".',
+  );
+});

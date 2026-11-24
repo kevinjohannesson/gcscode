@@ -19,6 +19,10 @@
 // title or branch, or follows a closing word in the body. A ticket the line
 // links without closing stays out of the title and branch for the same reason.
 //
+// auto-merge's Gate 7 runs it too, from the base branch, just before merging,
+// with PR_NUMBER and the head's playbook, since a label or body change re-runs
+// that gate but not CI.
+//
 // In CI it reads the PR from the API rather than the event, so after the body
 // is fixed a re-run of the job sees the fix. Outside a pull request it does
 // nothing.
@@ -163,17 +167,22 @@ export function checkPrTicket({ title, body, branch, labels, playbook }) {
 }
 
 /**
- * Checks the PR a GitHub Actions event names.
+ * Checks the PR that PR_NUMBER or a GitHub Actions event names, against the
+ * playbook at PLAYBOOK_PATH (default `docs/smoke-tests.md`).
  * @param {{ env: Record<string, string | undefined>, fetch: typeof fetch, readFile: (path: string) => string, log: (line: string) => void }} io
  * @returns {Promise<number>} the exit code
  */
 export async function run({ env, fetch, readFile, log }) {
   const { GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REPOSITORY, GITHUB_TOKEN } = env;
-  if (GITHUB_EVENT_NAME !== 'pull_request') {
-    log('Not a pull request: nothing to check.');
-    return 0;
+  // PR_NUMBER names the PR outright (auto-merge's gate); otherwise the event does.
+  let number = Number(env.PR_NUMBER);
+  if (!env.PR_NUMBER) {
+    if (GITHUB_EVENT_NAME !== 'pull_request') {
+      log('Not a pull request: nothing to check.');
+      return 0;
+    }
+    number = JSON.parse(readFile(GITHUB_EVENT_PATH)).pull_request.number;
   }
-  const number = JSON.parse(readFile(GITHUB_EVENT_PATH)).pull_request.number;
   const res = await fetch(`https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${number}`, {
     headers: { authorization: `Bearer ${GITHUB_TOKEN}`, accept: 'application/vnd.github+json' },
   });
@@ -187,7 +196,7 @@ export async function run({ env, fetch, readFile, log }) {
     body: pr.body,
     branch: pr.head.ref,
     labels: pr.labels.map((l) => l.name),
-    playbook: readFile('docs/smoke-tests.md'),
+    playbook: readFile(env.PLAYBOOK_PATH || 'docs/smoke-tests.md'),
   });
   if (problems.length === 0) {
     log('The ticket line is fine.');
