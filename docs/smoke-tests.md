@@ -12,7 +12,7 @@ Every command block runs from the repo root of the main checkout, and each block
 | [Map input view](#map-input-view)                     | GCS-14, PR #71 | `master`                              | SITL                  |
 | [Link state view](#link-state-view)                   | GCS-24, PR #69 | `master`                              | SITL                  |
 | [Radio input view](#radio-input-view)                 | GCS-38, PR #68 | draft: `claude/project-thread-u456wv` | TX16S, Rust and CMake |
-| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #PR | draft: `claude/project-thread-2l93qj` | SITL, Rust and CMake  |
+| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81 | draft: `claude/project-thread-2l93qj` | SITL, Rust and CMake  |
 
 ## Before you start
 
@@ -22,7 +22,7 @@ Bring the main checkout up to date:
 git switch master && git pull --ff-only && pnpm install
 ```
 
-Once PR #PR has merged, `pnpm dev:sitl` also starts the station process, which needs Rust and CMake and a build after each change to it:
+Once PR #81 has merged, `pnpm dev:sitl` also starts the station process, which needs Rust and CMake and a build after each change to it:
 
 ```sh
 pnpm --filter mavlink-station run setup
@@ -142,7 +142,7 @@ pnpm fly-sitl --circle 3
 
 ## Link state view
 
-**Goal:** the **Link state** tab shows whether the mavlink2rest bridge is up, and for each system ID how long ago its last heartbeat arrived. Its `station` line, from PR #PR, has a test of its own: [Station in the dev stack](#station-in-the-dev-stack).
+**Goal:** the **Link state** tab shows whether the mavlink2rest bridge is up, and for each system ID how long ago its last heartbeat arrived. Its `station` line, from PR #81, has a test of its own: [Station in the dev stack](#station-in-the-dev-stack).
 
 Start two vehicles (**runs until Ctrl-C**), then open gcscode and click the **Link state** tab:
 
@@ -214,7 +214,7 @@ git worktree remove .worktrees/radio-input
 
 **Goal:** the station process starts with `pnpm dev:sitl`, the **Link state** tab shows `station: running` or `station: not running`, stopping the process flips it, and it sends nothing to any vehicle: the wire probe confirms.
 
-**Draft PR #PR**, on top of PR #68. Set up its worktree once, which also builds the station (the first build compiles SDL and takes a few minutes):
+**Draft PR #81**, on top of PR #68. Set up its worktree once, which also builds the station (the first build compiles SDL and takes a few minutes):
 
 ```sh
 git fetch origin claude/project-thread-2l93qj && git worktree add --detach .worktrees/station-startup FETCH_HEAD && cd .worktrees/station-startup && pnpm install && pnpm --filter mavlink-station run setup
