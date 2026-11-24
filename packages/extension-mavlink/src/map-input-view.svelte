@@ -114,17 +114,15 @@
 <style>
   .map-input {
     padding: 0.75rem;
-    color: #ddd;
-    font-variant-numeric: tabular-nums;
+    color: var(--gcscode-foreground);
   }
   p {
     margin: 0 0 0.75rem;
   }
-  /* Light on the shell's dark panels, matching the other proof views. */
   .empty,
   .heard,
   thead th {
-    color: #999;
+    color: var(--gcscode-descriptionForeground);
   }
   table {
     border-collapse: collapse;
@@ -135,6 +133,10 @@
     text-align: left;
     white-space: nowrap;
     font-weight: normal;
+  }
+  td {
+    font-family: var(--gcscode-monospace-font-family);
+    font-variant-numeric: tabular-nums;
   }
   tr.vehicle th {
     padding-top: 0.6rem;

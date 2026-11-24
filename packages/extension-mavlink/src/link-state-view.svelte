@@ -93,8 +93,7 @@
 <style>
   .link {
     padding: 0.75rem;
-    font-variant-numeric: tabular-nums;
-    color: #ddd;
+    color: var(--gcscode-foreground);
   }
   dl {
     display: grid;
@@ -102,23 +101,31 @@
     gap: 0.25rem 1rem;
     margin: 0;
   }
-  /* Light on the shell's dark panels, matching the Video health view. */
   dt,
   th {
-    color: #999;
+    color: var(--gcscode-descriptionForeground);
     font-weight: normal;
   }
   dd {
     margin: 0;
   }
+  dd,
+  td {
+    font-family: var(--gcscode-monospace-font-family);
+    font-variant-numeric: tabular-nums;
+  }
   dd.disconnected,
   dd.not-running,
   dd.mismatch {
-    color: #f88;
+    color: var(--gcscode-errorForeground);
   }
   p {
     margin: 0.5rem 0 0;
-    color: #999;
+    color: var(--gcscode-descriptionForeground);
+  }
+  code {
+    font-family: var(--gcscode-monospace-font-family);
+    color: var(--gcscode-foreground);
   }
   table {
     margin-top: 0.75rem;

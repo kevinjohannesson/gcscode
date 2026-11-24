@@ -61,3 +61,42 @@
     <dd>{fmtPercent(telemetryState.batteryRemaining)}</dd>
   </dl>
 </section>
+
+<style>
+  section {
+    padding: 0.75rem;
+    color: var(--gcscode-foreground);
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  h2 {
+    margin: 0;
+    font-size: 1em;
+    font-weight: 600;
+  }
+  .status {
+    color: var(--gcscode-descriptionForeground);
+  }
+  .status.disconnected {
+    color: var(--gcscode-errorForeground);
+  }
+  dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 1rem;
+    margin: 0;
+  }
+  dt {
+    color: var(--gcscode-descriptionForeground);
+  }
+  dd {
+    margin: 0;
+    font-family: var(--gcscode-monospace-font-family);
+    font-variant-numeric: tabular-nums;
+  }
+</style>
