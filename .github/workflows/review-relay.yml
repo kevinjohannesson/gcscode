@@ -1,0 +1,20 @@
+name: Review relay
+
+# Does nothing but complete, so that a submitted review starts the auto-merge
+# gate through its `workflow_run` trigger, which runs the base branch's copy of
+# `auto-merge.yml`. A `pull_request_review` trigger on the gate itself would run
+# the PR's own copy, which the PR could have edited. This file runs from the
+# PR's copy too, so it is given no permissions and nothing depends on what it
+# does; the gate reads the reviews from the API itself.
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions: {}
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Review submitted; the auto-merge gate runs when this completes."
