@@ -37,7 +37,7 @@ Read in this order, skim-not-deep-read, focused on what's changed since the last
 9. `git log --oneline -30` — recent commit history.
 10. `docs/brainfarts.md` — read but treat as inert (per `.claude/rules/docs.md`, agents must not pull requirements from here).
 11. `docs/architecture/README.md` — the architecture-note index. Check that every note in the folder has an index row.
-12. The Linear board: run [`/linear-audit`](linear-audit.md) and carry its **For you** and **Process gaps** items into Stage 2 as findings. Its clear-cut fixes it makes itself.
+12. The Linear board: run [`/linear-audit`](linear-audit.md) and carry its **For you** and **Process gaps** items into Stage 2 as findings. Its clear-cut fixes it makes itself: the one exception to this survey changing nothing.
 
 Optional: peek at the user's auto-memory at `~/.claude/projects/<project-slug>/memory/MEMORY.md` for current preferences and settled topics. Respect "settled" topics (e.g., Svelte coupling) — high bar to re-open.
 

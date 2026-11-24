@@ -7,12 +7,17 @@
 //   - Ticket: Related to GCS-<n>
 //
 // A feature PR must carry exactly one such line. A docs, spec or ADR PR may
-// leave it out, since a Markdown-only change needs no ticket, but a line it does
-// carry is checked the same way. A ticket with a row in the smoke-test
-// playbook's table (`docs/smoke-tests.md`) waits for its smoke test, so its PR
-// uses `Part of` (or `Related to`, for a PR that changes neither code nor what a
-// test checks), never `Fixes` or `Closes`. A non-closing link keeps the ID out of
-// the title and branch name: Linear closes a ticket on merge when either names it.
+// leave it out or write `Ticket: none`, since a Markdown-only change needs no
+// ticket, but a line it does carry is checked the same way. Fenced code blocks
+// in the body are quotes, so they are skipped.
+//
+// A ticket with a row in the smoke-test playbook's table (`docs/smoke-tests.md`)
+// waits for its smoke test, so a merge must not close it: its PR links it with
+// `Part of` (or `Related to`, for a PR that changes neither code nor what a test
+// checks), no closing word anywhere in the body names it, and no PR names it in
+// its title or branch. Linear closes a ticket on merge when its ID is in the
+// title or branch, or follows a closing word in the body. A ticket the line
+// links without closing stays out of the title and branch for the same reason.
 //
 // In CI it reads the PR from the API rather than the event, so after the body
 // is fixed a re-run of the job sees the fix. Outside a pull request it does
@@ -22,14 +27,31 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const ID = /GCS-(\d+)/gi;
-const TICKET_LINE = /^[ \t]*[-*]?[ \t]*Ticket:(.*)$/gim;
+// A ticket line: `Ticket:` after an optional list marker, in bold or not.
+const TICKET_LINE = /^[ \t]*(?:[-*+]|\d+[.)])?[ \t]*(?:\*\*)?Ticket:(?:\*\*)?(.*)$/gim;
 const ENTRY = /^(Fixes|Closes|Part of|Related to)\s+GCS-(\d+)$/i;
+// Linear's closing magic words, followed by an ID, anywhere in a PR body.
+const CLOSING =
+  /\b(?:close[sd]?|closing|fix(?:e[sd])?|fixing|resolve[sd]?|resolving|complete[sd]?|completing)\b[\s:]+GCS-(\d+)/gi;
 
 /**
- * The ticket IDs in the playbook table's "Ticket / PR" column, as numbers.
- * @param {string} playbook the text of `docs/smoke-tests.md`
- * @returns {Set<number>}
+ * A PR body without its fenced code blocks, which quote text rather than say it.
+ * @param {string} body
+ * @returns {string}
  */
+export function stripFences(body) {
+  const kept = [];
+  let fence = null;
+  for (const line of body.split(/\r?\n/)) {
+    const marker = /^[ \t]*(`{3,}|~{3,})/.exec(line)?.[1];
+    if (fence === null && marker) fence = marker;
+    else if (fence !== null && marker && marker[0] === fence[0] && marker.length >= fence.length)
+      fence = null;
+    else if (fence === null) kept.push(line);
+  }
+  return kept.join('\n');
+}
+
 export function playbookTickets(playbook) {
   const tickets = new Set();
   const lines = playbook.split('\n');
@@ -64,83 +86,114 @@ export function prClass(branch, labels) {
 
 /**
  * What is wrong with a PR's ticket line, if anything.
- * @param {{ title: string, body: string, branch: string, labels: string[], playbook: string }} pr
+ * @param {{ title: string, body: string | null, branch: string, labels: string[], playbook: string }} pr
  * @returns {string[]} one message per problem; empty when the PR passes
  */
 export function checkPrTicket({ title, body, branch, labels, playbook }) {
   const kind = prClass(branch, labels);
-  const lines = [...(body ?? '').matchAll(TICKET_LINE)].map((m) => m[1].trim());
+  const text = stripFences(body ?? '');
+  const lines = [...text.matchAll(TICKET_LINE)].map((m) => m[1].trim());
+  const waiting = playbookTickets(playbook);
+  // Tickets whose IDs must stay out of the title and branch name: every ticket
+  // with a smoke test, and every ticket the line links without closing.
+  const keepOut = new Set(waiting);
+  const problems = [];
 
   if (lines.length === 0) {
-    return kind === 'feat'
-      ? [
-          'A feature PR names its ticket: add "- Ticket: Fixes GCS-<n>" (or "Part of GCS-<n>") under Links.',
-        ]
-      : [];
+    if (kind === 'feat') {
+      problems.push(
+        'A feature PR names its ticket: add "- Ticket: Fixes GCS-<n>" (or "Part of GCS-<n>") under Links.',
+      );
+    }
+  } else if (lines.length > 1) {
+    problems.push(`Found ${lines.length} "Ticket:" lines; keep one.`);
+  } else if (/^none\b/i.test(lines[0])) {
+    if (kind === 'feat')
+      problems.push('A feature PR needs a ticket: "Ticket: none" is for Markdown-only PRs.');
+  } else {
+    const entries = lines[0].split(/\s*,\s*/).filter(Boolean);
+    if (entries.length === 0) problems.push('The "Ticket:" line names no ticket.');
+    for (const entry of entries) {
+      const m = ENTRY.exec(entry);
+      if (!m) {
+        problems.push(
+          `"${entry}" is not "Fixes", "Closes", "Part of" or "Related to" followed by one GCS-<n>.`,
+        );
+        continue;
+      }
+      const closes = /^(fixes|closes)$/i.test(m[1]);
+      const n = Number(m[2]);
+      if (closes && waiting.has(n)) {
+        problems.push(
+          `GCS-${n} has a smoke test in docs/smoke-tests.md, so a merge must not close it: write "Part of GCS-${n}".`,
+        );
+      }
+      if (!closes) keepOut.add(n);
+    }
   }
-  if (lines.length > 1) return [`Found ${lines.length} "Ticket:" lines; keep one.`];
 
-  const problems = [];
-  const waiting = playbookTickets(playbook);
-  const entries = lines[0].split(/\s*,\s*/).filter(Boolean);
-  if (entries.length === 0) problems.push('The "Ticket:" line names no ticket.');
+  const named = (where) => new Set([...where.matchAll(ID)].map(([, k]) => Number(k)));
+  const inTitle = named(title);
+  const inBranch = named(branch);
+  for (const n of [...keepOut].sort((a, b) => a - b)) {
+    if (inTitle.has(n)) problems.push(`Take GCS-${n} out of the title: Linear closes it on merge.`);
+    if (inBranch.has(n)) problems.push(`The branch name has GCS-${n}: Linear closes it on merge.`);
+  }
 
-  for (const entry of entries) {
-    const m = ENTRY.exec(entry);
-    if (!m) {
+  // Linear closes on a closing word anywhere in the body, not only on the line.
+  const prose = text.replace(TICKET_LINE, '');
+  for (const m of prose.matchAll(CLOSING)) {
+    const n = Number(m[1]);
+    if (waiting.has(n)) {
       problems.push(
-        `"${entry}" is not "Fixes", "Closes", "Part of" or "Related to" followed by one GCS-<n>.`,
+        `"${m[0]}" closes GCS-${n} on merge, but it has a smoke test: reword it, or write "Part of GCS-${n}".`,
       );
-      continue;
-    }
-    const closes = /^(fixes|closes)$/i.test(m[1]);
-    const n = Number(m[2]);
-    const id = `GCS-${n}`;
-    if (closes && waiting.has(n)) {
-      problems.push(
-        `${id} has a smoke test in docs/smoke-tests.md, so a merge must not close it: write "Part of ${id}".`,
-      );
-    }
-    if (!closes) {
-      const named = (text) => [...text.matchAll(ID)].some(([, k]) => Number(k) === n);
-      if (named(title)) problems.push(`Take ${id} out of the title: Linear closes it on merge.`);
-      if (named(branch)) problems.push(`The branch name has ${id}: Linear closes it on merge.`);
     }
   }
   return problems;
 }
 
-async function main() {
-  const { GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REPOSITORY, GITHUB_TOKEN } = process.env;
+/**
+ * Checks the PR a GitHub Actions event names.
+ * @param {{ env: Record<string, string | undefined>, fetch: typeof fetch, readFile: (path: string) => string, log: (line: string) => void }} io
+ * @returns {Promise<number>} the exit code
+ */
+export async function run({ env, fetch, readFile, log }) {
+  const { GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REPOSITORY, GITHUB_TOKEN } = env;
   if (GITHUB_EVENT_NAME !== 'pull_request') {
-    console.log('Not a pull request: nothing to check.');
+    log('Not a pull request: nothing to check.');
     return 0;
   }
-  const number = JSON.parse(readFileSync(GITHUB_EVENT_PATH, 'utf8')).pull_request.number;
+  const number = JSON.parse(readFile(GITHUB_EVENT_PATH)).pull_request.number;
   const res = await fetch(`https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${number}`, {
     headers: { authorization: `Bearer ${GITHUB_TOKEN}`, accept: 'application/vnd.github+json' },
   });
   if (!res.ok) {
-    console.error(`Could not read PR #${number}: HTTP ${res.status}.`);
+    log(`::error title=PR ticket line::Could not read PR #${number}: HTTP ${res.status}.`);
     return 1;
   }
   const pr = await res.json();
   const problems = checkPrTicket({
     title: pr.title,
-    body: pr.body ?? '',
+    body: pr.body,
     branch: pr.head.ref,
     labels: pr.labels.map((l) => l.name),
-    playbook: readFileSync('docs/smoke-tests.md', 'utf8'),
+    playbook: readFile('docs/smoke-tests.md'),
   });
   if (problems.length === 0) {
-    console.log('The ticket line is fine.');
+    log('The ticket line is fine.');
     return 0;
   }
-  for (const p of problems) console.log(`::error title=PR ticket line::${p}`);
-  console.log('Fix the PR, then re-run this job: it reads the PR as it is now.');
+  for (const p of problems) log(`::error title=PR ticket line::${p}`);
+  log('Fix the PR, then re-run this job: it reads the PR as it is now.');
   return 1;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.exitCode = await main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exitCode = await run({
+    env: process.env,
+    fetch,
+    readFile: (path) => readFileSync(path, 'utf8'),
+    log: console.log,
+  });
 }
