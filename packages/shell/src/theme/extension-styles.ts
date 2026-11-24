@@ -72,11 +72,13 @@ export function findStyleViolations(
 /**
  * Colours written as literals in a component's style blocks: hex and the
  * functional forms such as `rgb()` or `hsl()`. A view on the theme has none
- * (ADR-0017 Consequences).
+ * (ADR-0017 Consequences), except as the value of a custom property it
+ * declares: that is a named domain colour (Decision 3), and
+ * `findStyleViolations` checks the name belongs to the extension.
  */
 export function findHardcodedColours(source: string): string[] {
   const styles = [...source.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
-  const css = styles.join('\n');
+  const css = styles.join('\n').replace(/(?<![\w-])--[\w-]+\s*:[^;}]*/g, '');
   const literals = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/g;
   return [...css.matchAll(literals)].map((m) => m[0]);
 }

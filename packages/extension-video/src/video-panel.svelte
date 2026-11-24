@@ -63,11 +63,14 @@
 
 <style>
   .panel {
+    /* Picture content, not chrome: the letterbox around a frame stays black
+       in every theme (ADR-0017 Decision 3). */
+    --video-letterbox: #000;
     position: relative;
     width: 100%;
     height: 100%;
-    background: #000;
-    color: #ddd;
+    background: var(--video-letterbox);
+    color: var(--gcscode-foreground);
   }
   video {
     width: 100%;
