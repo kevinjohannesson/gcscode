@@ -43,30 +43,29 @@ pub fn snapshot(
     }
 }
 
-/// The mapper for the radio the probe has just opened, and the line that says which profile
-/// it uses, if any.
-pub fn mapper_for(probe: &Probe, profiles: &[Profile]) -> (Option<Mapper>, String) {
+/// The mapper for the radio the probe has just opened, and the lines that say which profile
+/// it uses, or what each profile expects that the radio is not.
+pub fn mapper_for(probe: &Probe, profiles: &[Profile]) -> (Option<Mapper>, Vec<String>) {
     let (Some(j), Some(info)) = (probe.radio(), probe.info()) else {
-        return (None, String::new());
+        return (None, Vec::new());
     };
-    match mapping::find(
-        profiles,
-        info,
-        j.num_axes() as usize,
-        j.num_buttons() as usize,
-    ) {
+    let (axes, buttons) = (j.num_axes() as usize, j.num_buttons() as usize);
+    match mapping::find(profiles, info, axes, buttons) {
         Some(p) => (
             Some(Mapper::new(p.clone())),
-            format!("mapped with profile {}", p.name),
+            vec![format!("mapped with profile {}", p.name)],
         ),
-        None => (
-            None,
-            format!(
-                "no profile matches this radio ({} axes, {} buttons), so it serves raw values only",
-                j.num_axes(),
-                j.num_buttons()
-            ),
-        ),
+        None => {
+            let mut lines = vec![format!(
+                "no profile matches this radio ({axes} axes, {buttons} buttons), so it serves raw values only"
+            )];
+            lines.extend(
+                mapping::why_none_match(profiles, info, axes, buttons)
+                    .into_iter()
+                    .map(|why| format!("  {why}")),
+            );
+            (None, lines)
+        }
     }
 }
 
@@ -98,9 +97,11 @@ pub fn run(
                     println!("station: {line}");
                 }
                 if !had_radio && probe.radio().is_some() {
-                    let (m, line) = mapper_for(&probe, &profiles);
+                    let (m, lines) = mapper_for(&probe, &profiles);
                     mapper = m;
-                    println!("station: {line}");
+                    for line in lines {
+                        println!("station: {line}");
+                    }
                 }
             }
             Event::JoyDeviceRemoved { which, .. } => {
