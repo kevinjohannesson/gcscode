@@ -49,7 +49,7 @@ pkill -CONT -f 'tcp:127.0.0.1:5770'
 
 **Goal:** the **Video health** tab tells a live picture from a frozen one: connection state, frames per second, time since the last new frame, bitrate and packet loss for the Video panel's stream. Its README: [`packages/extension-video`](../packages/extension-video/README.md#the-video-health-view).
 
-Start the stack (**runs until Ctrl-C**), then open gcscode and drag the **Video health** tab next to the **Video** panel, so both show at once:
+Start the stack (**runs until Ctrl-C**). Once the launcher says everything is up (a pause during startup trips its checks and stops the stack), open gcscode and drag the **Video health** tab next to the **Video** panel, so both show at once:
 
 ```sh
 pnpm dev:sitl
@@ -67,13 +67,13 @@ open http://localhost:5173/
 pkill -STOP -f camera-sim-chrome
 ```
 
-**Expect:** within a second the picture stops, frames per second drop to 0 and the time since the last new frame keeps growing, while the state still reads `connected`. Let it go again within about 10 s:
+**Expect:** within a second the picture stops, frames per second drop to 0 and the time since the last new frame keeps growing, while the state still reads `connected`. Let it go again within about 10 s, well inside the roughly 30 s after which MediaMTX drops a silent publisher:
 
 ```sh
 pkill -CONT -f camera-sim-chrome
 ```
 
-**Expect:** the picture moves again, and within a few seconds it is back to about 30 frames per second and a time since the last new frame under a second.
+**Expect:** the picture moves again, and within a few seconds it is back to about 30 frames per second and a time since the last new frame under a second. If camera-sim republishes on waking, the state briefly leaves `connected` and the panel reconnects on its own; that is not a failure.
 
 **Scenario 2, the media server goes away:** freeze MediaMTX, so it stops answering without exiting (an exit would stop the whole stack):
 
@@ -81,13 +81,13 @@ pkill -CONT -f camera-sim-chrome
 pkill -STOP -x mediamtx
 ```
 
-**Expect:** frames per second drop to 0 at once, and within about 10 s the state leaves `connected` (`disconnected`, then `no connection` while the panel retries). Let it go again:
+**Expect:** frames per second drop to 0 at once, and within about 10 s the state leaves `connected`: `disconnected`, then `no connection`, then, while the panel retries, `new` for up to 15 s at a time with `no connection` between tries. Once it has read `new` or `no connection`, let it go again:
 
 ```sh
 pkill -CONT -x mediamtx
 ```
 
-**Expect:** within about 15 s the state is `connected` again and the picture moves, without touching the page.
+**Expect:** within about 15 s the state is `connected` again and the picture moves, without touching the page. On the way it may pass through `no connection`, `new` and `connecting` while camera-sim republishes; that is not a failure.
 
 ## Radio probe
 
