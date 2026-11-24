@@ -296,6 +296,8 @@ importers:
 
   tools/sitl: {}
 
+  tools/wire-probe: {}
+
 packages:
 
   '@adobe/css-tools@4.4.4':

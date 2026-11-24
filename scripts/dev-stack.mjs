@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url';
  *   not yet; `{ failure }`: fails the service at once with that message
  * @property {number} upWithinMs counted from launch
  * @property {[label: string, url: string][]} addresses
+ * @property {Record<string, string>} [env] added to the launcher's environment
  */
 /**
  * @typedef {object} Running a service the launcher started
@@ -42,19 +43,38 @@ export const ROOT = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/,
 export const MAVLINK2REST = 'http://127.0.0.1:8088';
 export const MEDIAMTX_API = 'http://127.0.0.1:9997';
 
-/** @type {Service[]} */
-export const SERVICES = [
+/** The most vehicles `--vehicles` takes. */
+export const MAX_VEHICLES = 5;
+
+/** System IDs 1 to `vehicles`: vehicle k is SITL instance k - 1. */
+export const systemIds = (vehicles) => Array.from({ length: vehicles }, (_, i) => i + 1);
+
+/** The TCP port SITL instance `systemId - 1` listens on. */
+const sitlPort = (systemId) => 5760 + 10 * (systemId - 1);
+
+/** One stream address per vehicle, labelled with its system ID once there are several. */
+const perVehicle = (vehicles, label, url) =>
+  systemIds(vehicles).map((id) => [vehicles > 1 ? `${label}, vehicle ${id}` : label, url(id)]);
+
+/**
+ * The stack's services, with SITL running `vehicles` vehicles.
+ *
+ * @param {number} vehicles 1 to MAX_VEHICLES
+ * @returns {Service[]}
+ */
+export const stackServices = (vehicles) => [
   {
     name: 'sitl',
     command: join(ROOT, 'tools/sitl/run_sitl.sh'),
     args: ['--non-interactive', '--streamrate', '25'],
+    env: { SITL_VEHICLES: String(vehicles) },
     cwd: ROOT,
     ports: [
-      { proto: 'tcp', port: 5760 },
+      ...systemIds(vehicles).map((id) => ({ proto: 'tcp', port: sitlPort(id) })),
       { proto: 'tcp', port: 8088 },
       { proto: 'udp', port: 14551 },
     ],
-    up: () => hasHeartbeat(MAVLINK2REST),
+    up: () => everyHeartbeat(MAVLINK2REST, vehicles),
     upWithinMs: 60000,
     addresses: [['MAVLink WebSocket', 'ws://localhost:8088/v1/ws/mavlink']],
   },
@@ -74,8 +94,8 @@ export const SERVICES = [
     up: () => tcpAccepts(8889),
     upWithinMs: 10000,
     addresses: [
-      ['WHEP', 'http://localhost:8889/drone-1/whep'],
-      ['RTSP', 'rtsp://localhost:8554/drone-1'],
+      ...perVehicle(vehicles, 'WHEP', (id) => `http://localhost:8889/drone-${id}/whep`),
+      ...perVehicle(vehicles, 'RTSP', (id) => `rtsp://localhost:8554/drone-${id}`),
     ],
   },
   {
@@ -90,19 +110,58 @@ export const SERVICES = [
     addresses: [['gcscode', 'http://localhost:5173/']],
   },
   {
-    // Up when drone-1's publisher is the page run.sh marked (publisher=headless):
-    // it loaded, drew, got telemetry and published. Any other publisher fails
-    // the launch. The stream's addresses are mediamtx's, so it has none of its own.
+    // Up when every vehicle's stream is published by the page run.sh marked
+    // (publisher=headless): it loaded, drew, got telemetry and published. Any
+    // other publisher fails the launch. The streams' addresses are mediamtx's,
+    // so it has none of its own.
     name: 'camera-sim',
     command: join(ROOT, 'tools/camera-sim/run.sh'),
     args: [],
     cwd: ROOT,
     ports: [{ proto: 'tcp', port: 5174 }],
-    up: () => cameraSimUp(MEDIAMTX_API),
+    up: () => cameraSimUp(MEDIAMTX_API, vehicles),
     upWithinMs: 90000,
     addresses: [],
   },
 ];
+
+/**
+ * True when `check(id)` is for every system ID; the first `{ failure }` instead,
+ * in system ID order.
+ *
+ * @param {number} vehicles
+ * @param {(id: number) => Promise<boolean | { failure: string }>} check
+ */
+async function everyVehicle(vehicles, check) {
+  const results = await Promise.all(systemIds(vehicles).map(check));
+  return results.find((result) => typeof result === 'object') ?? results.every(Boolean);
+}
+
+/**
+ * The launcher's options from its arguments: `--vehicles N` or `--vehicles=N`,
+ * N from 1 to MAX_VEHICLES, default 1. A leading `--`, which pnpm passes on, is
+ * skipped.
+ *
+ * @param {string[]} args
+ * @returns {{ vehicles: number } | { error: string }}
+ */
+export function parseArgs(args) {
+  const rest = args[0] === '--' ? args.slice(1) : [...args];
+  let vehicles = 1;
+  while (rest.length > 0) {
+    const arg = rest.shift();
+    const inline = arg.startsWith('--vehicles=') ? arg.slice('--vehicles='.length) : undefined;
+    if (arg !== '--vehicles' && inline === undefined) return { error: `Unknown argument: ${arg}` };
+    const value = inline ?? rest.shift();
+    if (!/^[1-9]$/.test(value ?? '') || Number(value) > MAX_VEHICLES) {
+      return {
+        error: `--vehicles takes a whole number from 1 to ${MAX_VEHICLES}, got: ${value ?? 'nothing'}`,
+      };
+    }
+    vehicles = Number(value);
+  }
+  return { vehicles };
+}
 
 /** The launcher's waits, in milliseconds. `runStack({ timings })` overrides them. */
 export const TIMINGS = {
@@ -127,11 +186,12 @@ const CLOSE_WAIT_MS = 2000;
  * Starts every service at once, says when each is up, and stops them all on a
  * signal or a failure.
  *
- * @param {{ services: Service[], mavlink2rest: string, timings?: Partial<typeof TIMINGS> }} options
- *   `mavlink2rest` is its base URL, polled for "ready to fly" once every service is up
+ * @param {{ services: Service[], mavlink2rest: string, vehicles?: number, timings?: Partial<typeof TIMINGS> }} options
+ *   `mavlink2rest` is its base URL, polled for "ready to fly" once every service is up, for
+ *   system IDs 1 to `vehicles` (default 1)
  * @returns {Promise<number>} the exit code: 0 after a stop a signal asked for, 1 after a failure
  */
-export async function runStack({ services, mavlink2rest, timings }) {
+export async function runStack({ services, mavlink2rest, vehicles = 1, timings }) {
   const t = { ...TIMINGS, ...timings };
   /** @type {Running[]} */
   const running = [];
@@ -229,7 +289,8 @@ export async function runStack({ services, mavlink2rest, timings }) {
     return 1;
   }
 
-  say(`Starting ${services.map((s) => s.name).join(', ')}`);
+  const fleet = vehicles > 1 ? `, with ${vehicles} vehicles` : '';
+  say(`Starting ${services.map((s) => s.name).join(', ')}${fleet}`);
   const launchedAt = Date.now();
   const width = Math.max(...services.map((s) => s.name.length));
 
@@ -237,6 +298,7 @@ export async function runStack({ services, mavlink2rest, timings }) {
   function start(service) {
     const child = spawn(service.command, service.args, {
       cwd: service.cwd,
+      env: { ...process.env, ...service.env },
       // Its own session and process group, with no terminal: the terminal's
       // Ctrl-C reaches the launcher only, and kill(-pid) reaches its children.
       detached: true,
@@ -285,35 +347,53 @@ export async function runStack({ services, mavlink2rest, timings }) {
     }
   }
 
-  /** Says when the vehicle can arm, and warns if it takes long. Stops with the stack. */
+  /** Says when every vehicle can arm, and warns if one takes long. Stops with the stack. */
   async function watchReadiness() {
-    say('Waiting until the vehicle is ready to fly.');
+    const ids = systemIds(vehicles);
+    say(
+      vehicles > 1
+        ? `Waiting until all ${vehicles} vehicles are ready to fly.`
+        : 'Waiting until the vehicle is ready to fly.',
+    );
     const startedAt = Date.now();
-    const warned = { prearm: false, position: false };
+    /** @type {Map<number, { prearm: boolean, position: boolean }>} */
+    const warned = new Map(ids.map((id) => [id, { prearm: false, position: false }]));
+    /** @type {Set<number>} the vehicles seen ready: a vehicle stays ready once it was */
+    const ready = new Set();
     while (!ending()) {
-      const [sysStatus, ekfStatus] = await Promise.all([
-        fetchMessage(mavlink2rest, 'SYS_STATUS'),
-        fetchMessage(mavlink2rest, 'EKF_STATUS_REPORT'),
-      ]);
+      const states = await Promise.all(
+        ids
+          .filter((id) => !ready.has(id))
+          .map(async (id) => {
+            const [sysStatus, ekfStatus] = await Promise.all([
+              fetchMessage(mavlink2rest, 'SYS_STATUS', id),
+              fetchMessage(mavlink2rest, 'EKF_STATUS_REPORT', id),
+            ]);
+            return { id, ...readiness(sysStatus, ekfStatus) };
+          }),
+      );
       if (ending()) return;
-      const { prearm, position } = readiness(sysStatus, ekfStatus);
-      if (prearm && position) {
+      for (const { id, prearm, position } of states) if (prearm && position) ready.add(id);
+      if (ready.size === ids.length) {
         sayReadyToFly((Date.now() - launchedAt) / 1000);
         return;
       }
       if (Date.now() - startedAt >= t.readyWarnMs) {
-        const after = `Not ready to fly after ${t.readyWarnMs / 1000} s:`;
-        if (!prearm && !warned.prearm) {
-          warned.prearm = true;
-          say(
-            `${after} the pre-arm checks still fail; MAVProxy's PreArm lines above say why. Still waiting.`,
-          );
-        }
-        if (!position && !warned.position) {
-          warned.position = true;
-          say(
-            `${after} no position yet; the EKF is not using GPS (no "EKF3 IMU0 is using GPS" line above). Still waiting.`,
-          );
+        for (const { id, prearm, position } of states) {
+          const after = `${vehicles > 1 ? `Vehicle ${id} not` : 'Not'} ready to fly after ${t.readyWarnMs / 1000} s:`;
+          const w = warned.get(id);
+          if (!prearm && !w.prearm) {
+            w.prearm = true;
+            say(
+              `${after} the pre-arm checks still fail; MAVProxy's PreArm lines above say why. Still waiting.`,
+            );
+          }
+          if (!position && !w.position) {
+            w.position = true;
+            say(
+              `${after} no position yet; the EKF is not using GPS (no "EKF3 IMU0 is using GPS" line above). Still waiting.`,
+            );
+          }
         }
       }
       await sleep(t.readyPollMs);
@@ -323,11 +403,13 @@ export async function runStack({ services, mavlink2rest, timings }) {
   function sayReadyToFly(seconds) {
     const addresses = services.flatMap((s) => s.addresses);
     const width = Math.max(...addresses.map(([label]) => label.length));
-    say(`ready to fly (${seconds.toFixed(1)} s)`);
+    const who = vehicles > 1 ? `, all ${vehicles} vehicles` : '';
+    say(`ready to fly (${seconds.toFixed(1)} s)${who}`);
     for (const [label, url] of addresses) {
       process.stdout.write(`    ${label.padEnd(width)}  ${url}\n`);
     }
-    process.stdout.write('    Fly it from another terminal:  pnpm fly-sitl --circle 3\n');
+    const which = vehicles > 1 ? ' vehicle 1' : ' it';
+    process.stdout.write(`    Fly${which} from another terminal:  pnpm fly-sitl --circle 3\n`);
     process.stdout.write('    Ctrl-C stops everything.\n');
   }
 
@@ -459,12 +541,14 @@ export async function checkPorts(services) {
 
 /**
  * The message object mavlink2rest at `baseUrl` last saw of type `name` from
- * vehicle 1, component 1, or undefined. A message not seen yet is the body
- * `None`, which is not JSON; a non-JSON body and a network error are the same.
+ * vehicle `systemId` (default 1), component 1, or undefined. A message not seen
+ * yet is the body `None`, which is not JSON; a non-JSON body and a network
+ * error are the same.
  */
-export async function fetchMessage(baseUrl, name) {
+export async function fetchMessage(baseUrl, name, systemId = 1) {
+  const path = `/v1/mavlink/vehicles/${systemId}/components/1/messages/${name}`;
   try {
-    const response = await fetch(`${baseUrl}/v1/mavlink/vehicles/1/components/1/messages/${name}`, {
+    const response = await fetch(`${baseUrl}${path}`, {
       signal: AbortSignal.timeout(PROBE_MS * 2),
     });
     return JSON.parse(await response.text())?.message ?? undefined;
@@ -473,13 +557,18 @@ export async function fetchMessage(baseUrl, name) {
   }
 }
 
-/** True when mavlink2rest at `baseUrl` has seen a HEARTBEAT from vehicle 1, component 1. */
-export async function hasHeartbeat(baseUrl) {
-  return (await fetchMessage(baseUrl, 'HEARTBEAT'))?.type === 'HEARTBEAT';
+/** True when mavlink2rest at `baseUrl` has seen a HEARTBEAT from each of vehicles 1 to `vehicles`. */
+export function everyHeartbeat(baseUrl, vehicles) {
+  return everyVehicle(vehicles, (id) => hasHeartbeat(baseUrl, id));
 }
 
-const CAMERA_SIM_TAKEN =
-  "drone-1 is already being published by something other than camera-sim's headless page, " +
+/** True when mavlink2rest at `baseUrl` has seen a HEARTBEAT from vehicle `systemId` (default 1), component 1. */
+export async function hasHeartbeat(baseUrl, systemId = 1) {
+  return (await fetchMessage(baseUrl, 'HEARTBEAT', systemId))?.type === 'HEARTBEAT';
+}
+
+const cameraSimTaken = (stream) =>
+  `${stream} is already being published by something other than camera-sim's headless page, ` +
   'most likely a camera-sim tab left open. Close it, then run pnpm dev:sitl again.';
 
 /** The parsed JSON of `baseUrl` + `path`, or undefined on an error status, a non-JSON body or a network error. */
@@ -499,28 +588,37 @@ async function getJson(baseUrl, path) {
 const itemsOf = (body) => (Array.isArray(body?.items) ? body.items : []);
 
 /**
- * Whether camera-sim's headless page is publishing `drone-1` to MediaMTX at
- * `baseUrl`: true when it is, false when not yet, and `{ failure }` when anything
- * else publishes it. Never throws. Not yet: the API does not answer, gives an
- * error status or a body that is not JSON; a list body has no `items` array or
- * items that are not objects; the path is not listed or not ready; the session
- * is not listed. A failure: a ready `drone-1` whose source is not a WebRTC
- * session, or whose session does not carry the marker (a `query` that is
- * missing or not a string included).
+ * Whether camera-sim's headless page is publishing `drone-1` to `drone-<vehicles>`
+ * (default 1) to MediaMTX at `baseUrl`: true when it publishes every one of them,
+ * false when not yet, and `{ failure }` naming the first stream, in system ID
+ * order, that anything else publishes. Never throws. Not yet: the API does not
+ * answer, gives an error status or a body that is not JSON; a list body has no
+ * `items` array or items that are not objects; a path is not listed or not
+ * ready; its session is not listed. A failure: a ready stream whose source is
+ * not a WebRTC session, or whose session does not carry the marker (a `query`
+ * that is missing or not a string included).
  *
  * @returns {Promise<boolean | { failure: string }>}
  */
-export async function cameraSimUp(baseUrl) {
-  const paths = await getJson(baseUrl, '/v3/paths/list');
-  const path = itemsOf(paths).find((item) => item?.name === 'drone-1' && item.ready === true);
-  if (!path) return false;
-  if (path.source?.type !== 'webRTCSession') return { failure: CAMERA_SIM_TAKEN };
-  const sessions = await getJson(baseUrl, '/v3/webrtcsessions/list');
-  const session = itemsOf(sessions).find((item) => item?.id === path.source.id);
-  if (!session) return false;
-  const query = typeof session.query === 'string' ? session.query : '';
-  const marked = new URLSearchParams(query).get('publisher') === 'headless';
-  return marked || { failure: CAMERA_SIM_TAKEN };
+export async function cameraSimUp(baseUrl, vehicles = 1) {
+  const [paths, sessions] = await Promise.all([
+    getJson(baseUrl, '/v3/paths/list'),
+    getJson(baseUrl, '/v3/webrtcsessions/list'),
+  ]);
+  /** @returns {boolean | { failure: string }} */
+  const published = (id) => {
+    const stream = `drone-${id}`;
+    const path = itemsOf(paths).find((item) => item?.name === stream && item.ready === true);
+    if (!path) return false;
+    if (path.source?.type !== 'webRTCSession') return { failure: cameraSimTaken(stream) };
+    const session = itemsOf(sessions).find((item) => item?.id === path.source.id);
+    if (!session) return false;
+    const query = typeof session.query === 'string' ? session.query : '';
+    const marked = new URLSearchParams(query).get('publisher') === 'headless';
+    return marked || { failure: cameraSimTaken(stream) };
+  };
+  const results = systemIds(vehicles).map(published);
+  return results.find((result) => typeof result === 'object') ?? results.every(Boolean);
 }
 
 /** The names in a field mavlink2rest renders as `A | B | C`. */
@@ -609,5 +707,14 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Last, so every top-level const above is initialized before runStack runs.
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  process.exit(await runStack({ services: SERVICES, mavlink2rest: MAVLINK2REST }));
+  const options = parseArgs(process.argv.slice(2));
+  if ('error' in options) {
+    say(options.error);
+    say(`Usage: pnpm dev:sitl [--vehicles N], N from 1 to ${MAX_VEHICLES} (default 1)`);
+    process.exit(1);
+  }
+  const { vehicles } = options;
+  process.exit(
+    await runStack({ services: stackServices(vehicles), mavlink2rest: MAVLINK2REST, vehicles }),
+  );
 }

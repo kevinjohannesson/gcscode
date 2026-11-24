@@ -10,7 +10,7 @@ One pnpm workspace at the git root:
 
 - `packages/` — gcscode itself, in three roles: `@gcscode/shell` (the app — owns bootstrapping and the extension registry), `@gcscode/extension-api` (the **only** import path for extensions — types and contracts), and the extension packages. The canonical worked-example extension is `@gcscode/extension-example` (new extension authors read it first); the rest are first-party feature extensions (`extension-mavlink`, `extension-map` and others). `mavlink-station` is a native Rust program, not an extension: the station process that reads the radio and serves the page over a local WebSocket ([ADR-0016](docs/decisions/ADR-0016-one-station-process.md); draft ADR-0015).
 - `libs/` — generic libraries that know nothing about gcscode: `dockview-svelte` (the shell lays out its views with it) and `map-gl-svelte` (a standalone MapLibre binding no package uses yet).
-- `tools/` — what gcscode is developed and tested against, reached only over the protocols a real system uses: `sitl` (ArduCopter SITL, MAVProxy and mavlink2rest), `camera-sim` (a fake camera that renders each SITL vehicle's view and publishes it through MediaMTX), `mediamtx` (that media server: a pinned release and its config) and `radio-probe` (prints the raw input of an EdgeTX radio such as the TX16S, in Rust), each with a README.
+- `tools/` — what gcscode is developed and tested against, reached only over the protocols a real system uses: `sitl` (ArduCopter SITL, MAVProxy and mavlink2rest), `camera-sim` (a fake camera that renders each SITL vehicle's view and publishes it through MediaMTX), `mediamtx` (that media server: a pinned release and its config), `radio-probe` (prints the raw input of an EdgeTX radio such as the TX16S, in Rust) and `wire-probe` (prints every MAVLink heartbeat, command and control frame by system ID, listening only), each with a README.
 
 Shared tooling at the root: ESLint flat config, Prettier, `tsconfig.base.json`, which each package extends. `svelte.config.js` and `vite.config.ts` live in `packages/shell/`. `.claude/` holds the reviewer registry, agents, skills, scripts, rules and commands.
 
@@ -78,7 +78,7 @@ One worker session per PR or iteration; one controller per initiative (the `cont
 ## Commands
 
 - `pnpm dev` — run the shell's dev server
-- `pnpm dev:sitl` — run SITL, MediaMTX, camera-sim and the dev server together, until one Ctrl-C (`scripts/dev-stack.mjs`)
+- `pnpm dev:sitl [--vehicles N]` — run SITL (1 to 5 vehicles, default 1), MediaMTX, camera-sim and the dev server together, until one Ctrl-C (`scripts/dev-stack.mjs`)
 - `pnpm build` — build all packages
 - `pnpm test` — all package tests, then the root tooling tests (`pnpm test:scripts`)
 - `pnpm check` — svelte-check + tsc across all packages
