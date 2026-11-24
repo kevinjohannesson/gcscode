@@ -30,8 +30,8 @@ fn the_station_serves_the_radio_through_its_profile() {
 
     let mut probe = Probe::default();
     probe.added(&joysticks, id.into());
-    let (mapper, line) = mapper_for(&probe, &profiles);
-    assert_eq!(line, "mapped with profile gcscode-adv");
+    let (mapper, lines) = mapper_for(&probe, &profiles);
+    assert_eq!(lines, vec!["mapped with profile gcscode-adv"]);
     let mut mapper = mapper.unwrap();
     let j = probe.radio().unwrap();
     let set = |b: i32, down: bool| {
@@ -79,10 +79,13 @@ fn the_station_serves_the_radio_through_its_profile() {
     // SAFETY: as above.
     let classic = unsafe { sys::SDL_AttachVirtualJoystick(&desc) };
     probe.added(&joysticks, classic.into());
-    let (mapper, line) = mapper_for(&probe, &profiles);
+    let (mapper, lines) = mapper_for(&probe, &profiles);
     assert!(mapper.is_none());
     assert_eq!(
-        line,
-        "no profile matches this radio (8 axes, 24 buttons), so it serves raw values only"
+        lines,
+        vec![
+            "no profile matches this radio (8 axes, 24 buttons), so it serves raw values only",
+            "  profile gcscode-adv expects 28 buttons, the radio has 24",
+        ]
     );
 }

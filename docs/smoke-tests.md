@@ -299,7 +299,7 @@ sed 's/^control = .*/control = { switch = "SF", position = "down" }/' tools/radi
 
 **Expect:** `station: profile /tmp/refused.toml refused: control may only map to a held button …`, and the station exits.
 
-**Scenario 8, no profile:** select the Classic `gcscode` model and replug, then start the station again. **Expect:** `no profile matches this radio (8 axes, 24 buttons)` in its terminal, and the Controls tab says no profile matches; the Radio input tab still shows raw input.
+**Scenario 8, no profile:** select the Classic `gcscode` model and replug, then start the station again. **Expect:** `no profile matches this radio (8 axes, 24 buttons)` in its terminal, then `profile gcscode-adv expects 28 buttons, the radio has 24`, and the Controls tab says no profile matches; the Radio input tab still shows raw input.
 
 ## Adding a test
 

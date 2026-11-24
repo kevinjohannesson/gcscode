@@ -89,7 +89,17 @@ fn run() -> Result<(), String> {
                     );
                     match found {
                         Some(p) => println!("  mapped with profile {}", p.name),
-                        None => println!("  {}", mapped_report::NO_PROFILE),
+                        None => {
+                            println!("  {}", mapped_report::NO_PROFILE);
+                            for why in mapping::why_none_match(
+                                profiles,
+                                info,
+                                j.num_axes() as usize,
+                                j.num_buttons() as usize,
+                            ) {
+                                println!("    {why}");
+                            }
+                        }
                     }
                     mapper = found.cloned().map(Mapper::new);
                 }

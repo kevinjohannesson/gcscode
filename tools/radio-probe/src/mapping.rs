@@ -336,14 +336,46 @@ impl Profile {
 
     /// Whether this profile is for this radio, as it reports itself now.
     pub fn matches(&self, info: &RadioInfo, axes: usize, buttons: usize) -> bool {
+        self.mismatches(info, axes, buttons).is_empty()
+    }
+
+    /// What this profile expects that the radio is not, one phrase each, such as
+    /// `28 buttons, the radio has 24`. Empty when the profile is for this radio.
+    pub fn mismatches(&self, info: &RadioInfo, axes: usize, buttons: usize) -> Vec<String> {
         let m = &self.matches;
-        m.vendor == info.vendor
-            && m.product == info.product
-            && info.name.contains(m.name.as_str())
-            && m.axes.is_none_or(|n| n == axes)
-            && m.buttons.is_none_or(|n| n == buttons)
-            && self.highest_axis().is_none_or(|a| a < axes)
-            && self.highest_button().is_none_or(|b| b < buttons)
+        let mut out = Vec::new();
+        if (m.vendor, m.product) != (info.vendor, info.product) {
+            out.push(format!(
+                "USB id {:04x}:{:04x}, the radio is {:04x}:{:04x}",
+                m.vendor, m.product, info.vendor, info.product
+            ));
+        }
+        let name = m.name.trim();
+        if !info.name.contains(name) {
+            out.push(format!(
+                "a name containing \"{name}\", the radio is \"{}\"",
+                info.name
+            ));
+        }
+        match (m.axes, self.highest_axis()) {
+            (Some(n), _) if n != axes => out.push(format!("{n} axes, the radio has {axes}")),
+            (None, Some(a)) if a >= axes => out.push(format!(
+                "at least {} axes (it reads axis {a}), the radio has {axes}",
+                a + 1
+            )),
+            _ => {}
+        }
+        match (m.buttons, self.highest_button()) {
+            (Some(n), _) if n != buttons => {
+                out.push(format!("{n} buttons, the radio has {buttons}"))
+            }
+            (None, Some(b)) if b >= buttons => out.push(format!(
+                "at least {} buttons (it reads button {b}), the radio has {buttons}",
+                b + 1
+            )),
+            _ => {}
+        }
+        out
     }
 
     fn highest_axis(&self) -> Option<usize> {
@@ -366,6 +398,26 @@ impl Profile {
             .chain(held)
             .max()
     }
+}
+
+/// Why no profile is for this radio: one line per profile, naming what it expects that the
+/// radio is not, so a mismatch shows at a glance.
+pub fn why_none_match(
+    profiles: &[Profile],
+    info: &RadioInfo,
+    axes: usize,
+    buttons: usize,
+) -> Vec<String> {
+    profiles
+        .iter()
+        .map(|p| {
+            format!(
+                "profile {} expects {}",
+                p.name,
+                p.mismatches(info, axes, buttons).join("; ")
+            )
+        })
+        .collect()
 }
 
 /// The first profile that matches the radio, in the order given.
@@ -631,10 +683,14 @@ mod tests {
         assert_eq!(percent(AxisRole::Roll, 200, &r), 0);
     }
 
-    fn profile(body: &str) -> Result<Profile, String> {
-        Profile::parse(&format!(
+    fn profile_text(body: &str) -> String {
+        format!(
             "name = \"test\"\n[match]\nvendor = 0x1209\nproduct = 0x4F54\nname = \"TX16SMK3 Joystick\"\naxes = 8\nbuttons = 28\n{body}"
-        ))
+        )
+    }
+
+    fn profile(body: &str) -> Result<Profile, String> {
+        Profile::parse(&profile_text(body))
     }
 
     const SA: &str = "[[switches]]\nname = \"SA\"\nbuttons = [0, 1, 2]\npositions = [\"up\", \"middle\", \"down\"]\n";
@@ -751,6 +807,13 @@ mod tests {
             .unwrap_err(),
             "[match] needs the joystick's name, or part of it"
         );
+        assert_eq!(
+            Profile::parse(
+                "name = \"p\"\n[match]\nvendor = 0x1209\nproduct = 0x4F54\nname = \"\"\n"
+            )
+            .unwrap_err(),
+            "[match] needs the joystick's name, or part of it"
+        );
     }
 
     fn info(name: &str) -> RadioInfo {
@@ -791,6 +854,80 @@ mod tests {
         assert!(p.matches(&info("R"), 4, 10));
         assert!(!p.matches(&info("R"), 3, 10));
         assert!(!p.matches(&info("R"), 4, 9));
+    }
+
+    #[test]
+    fn a_mismatch_names_what_the_profile_expects_and_what_the_radio_is() {
+        let p = profile(SA).unwrap();
+        assert!(
+            p.mismatches(&info("OpenTX TX16SMK3 Joystick"), 8, 28)
+                .is_empty()
+        );
+        assert_eq!(
+            p.mismatches(&info("OpenTX TX16SMK3 Joystick"), 8, 24),
+            vec!["28 buttons, the radio has 24"]
+        );
+        assert_eq!(
+            p.mismatches(
+                &RadioInfo {
+                    vendor: 0x045E,
+                    product: 0x028E,
+                    ..info("Zorro Joystick")
+                },
+                7,
+                28
+            ),
+            vec![
+                "USB id 1209:4f54, the radio is 045e:028e",
+                "a name containing \"TX16SMK3 Joystick\", the radio is \"Zorro Joystick\"",
+                "8 axes, the radio has 7",
+            ]
+        );
+    }
+
+    #[test]
+    fn without_counts_a_mismatch_names_the_highest_input_read() {
+        let p = Profile::parse(
+            "name = \"loose\"\n[match]\nvendor = 0x1209\nproduct = 0x4F54\nname = \"R\"\n[axes]\nyaw = { axis = 3, min = -1, centre = 0, max = 1 }\n[on-off]\ncontrol = { button = 9 }\n",
+        )
+        .unwrap();
+        assert_eq!(
+            p.mismatches(&info("R"), 3, 9),
+            vec![
+                "at least 4 axes (it reads axis 3), the radio has 3",
+                "at least 10 buttons (it reads button 9), the radio has 9",
+            ]
+        );
+    }
+
+    #[test]
+    fn spaces_around_the_match_name_do_not_stop_it_matching() {
+        let p = Profile::parse(&profile_text(SA).replace(
+            "name = \"TX16SMK3 Joystick\"",
+            "name = \" TX16SMK3 Joystick \"",
+        ))
+        .unwrap();
+        assert!(p.matches(&info("OpenTX TX16SMK3 Joystick"), 8, 28));
+    }
+
+    #[test]
+    fn when_none_match_each_profile_says_what_it_expects() {
+        let a = profile(SA).unwrap();
+        let b = Profile {
+            name: "other".into(),
+            matches: Match {
+                name: "TX12 Joystick".into(),
+                ..a.matches.clone()
+            },
+            ..a.clone()
+        };
+        assert_eq!(
+            why_none_match(&[a, b], &info("OpenTX TX16SMK3 Joystick"), 8, 24),
+            vec![
+                "profile test expects 28 buttons, the radio has 24",
+                "profile other expects a name containing \"TX12 Joystick\", the radio is \"OpenTX TX16SMK3 Joystick\"; 28 buttons, the radio has 24",
+            ]
+        );
     }
 
     #[test]
