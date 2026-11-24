@@ -7,9 +7,10 @@ name: Auto-merge
 # not a lock: see the Limit paragraph below. Because these runs hold a write
 # token on a PR's behalf, nothing here may check out, build or run the PR's
 # code: the head is only fetched as git objects, for Gates 2, 3, 6 and 7,
-# and Gate 7 reads one file from it, the playbook, as data. The gate also takes only same-repository PRs into the default
-# branch: `pull_request_target` runs the base branch's copy, so a PR into some
-# other branch would run whatever copy that branch holds, and the gates were
+# and Gate 7 reads one file from it, the playbook, as data. The gate also
+# takes only same-repository PRs into the default branch:
+# `pull_request_target` runs the base branch's copy, so a PR into some other
+# branch would run whatever copy that branch holds, and the gates were
 # written for branches this repository's sessions push, not a fork's.
 #
 # Pre-gate: PR is not in draft state.
@@ -499,6 +500,7 @@ jobs:
           if git show "${HEAD_SHA}:docs/smoke-tests.md" > "$HEAD_PLAYBOOK" 2>/dev/null; then
             PLAYBOOKS="${PLAYBOOKS}:${HEAD_PLAYBOOK}"
           fi
+          echo "Gate 7: checking against the playbooks ${PLAYBOOKS}"
           if ! TICKET_OUT=$(PR_NUMBER="$PR_NUMBER" PLAYBOOK_PATH="$PLAYBOOKS" GITHUB_REPOSITORY="$GH_REPO" GITHUB_TOKEN="$GH_TOKEN" node scripts/check-pr-ticket.mjs); then
             echo "Gate 7 FAILED: the PR's ticket line does not pass:"
             echo "$TICKET_OUT"
