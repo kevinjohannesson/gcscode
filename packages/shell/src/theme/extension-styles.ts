@@ -71,14 +71,23 @@ export function findStyleViolations(
 
 /**
  * Colours written as literals in a component's style blocks: hex and the
- * functional forms such as `rgb()` or `hsl()`. A view on the theme has none
+ * functional forms such as `rgb()`, `hsl()` or `color()`, read from
+ * declaration values. `color-mix()` and `light-dark()` may wrap theme
+ * variables, and named colours (`red`) need a value parser, so both stay
+ * with review, like Tailwind classes (Decision 7). A view on the theme has none
  * (ADR-0017 Consequences), except as the value of a custom property it
  * declares: that is a named domain colour (Decision 3), and
  * `findStyleViolations` checks the name belongs to the extension.
  */
 export function findHardcodedColours(source: string): string[] {
   const styles = [...source.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
-  const css = styles.join('\n').replace(/(?<![\w-])--[\w-]+\s*:[^;}]*/g, '');
-  const literals = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/g;
-  return [...css.matchAll(literals)].map((m) => m[0]);
+  // Declaration values only, so an id selector such as `#add` is not a
+  // colour, and comments go first so their prose is not read as one.
+  const css = styles.join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
+  const values = [...css.matchAll(/(?<![\w-])[\w-]+\s*:\s*([^;{}]+)[;}]/g)]
+    .filter((m) => !m[0].startsWith('--'))
+    .map((m) => m[1])
+    .join('\n');
+  const literals = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/g;
+  return [...values.matchAll(literals)].map((m) => m[0]);
 }
