@@ -493,9 +493,7 @@ jobs:
 
           # Gate 7: the ticket line, read live (header). The script runs from the
           # base checkout; the head's playbook is only read, never run.
-          # The head may not be fetched yet: Gate 3's fetch runs only when the
-          # reviewed commit is not the head.
-          git fetch -q --no-tags origin "$HEAD_SHA" || { echo "Gate 7 FAILED: could not fetch the head ${HEAD_SHA} to read its playbook. Exiting cleanly."; exit 0; }
+          # The head's objects are here already: the fetch before Gate 2 brought them.
           PLAYBOOKS="docs/smoke-tests.md"
           HEAD_PLAYBOOK="${RUNNER_TEMP}/head-smoke-tests.md"
           if git show "${HEAD_SHA}:docs/smoke-tests.md" > "$HEAD_PLAYBOOK" 2>/dev/null; then
