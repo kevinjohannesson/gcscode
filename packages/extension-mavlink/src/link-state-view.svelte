@@ -109,7 +109,10 @@
   dd {
     margin: 0;
   }
-  dd,
+  /* Status lines are prose, so tabular digits only; table cells are values. */
+  dd {
+    font-variant-numeric: tabular-nums;
+  }
   td {
     font-family: var(--gcscode-monospace-font-family);
     font-variant-numeric: tabular-nums;

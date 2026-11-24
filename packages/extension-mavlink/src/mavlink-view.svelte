@@ -70,8 +70,7 @@
   header {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
+    gap: 0.75rem;
     margin-bottom: 0.5rem;
   }
   h2 {
