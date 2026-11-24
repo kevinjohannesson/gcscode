@@ -89,7 +89,9 @@ export function findHardcodedColours(source: string): string[] {
   const values = [...css.matchAll(/(?<![\w-])[\w-]+\s*:\s*([^;{}]+)[;}]/g)]
     .filter((m) => !m[0].startsWith('--'))
     .map((m) => m[1])
-    .join('\n');
-  const literals = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/g;
+    .join('\n')
+    // A URL's fragment and a quoted string are not colours.
+    .replace(/url\([^)]*\)|"[^"]*"|'[^']*'/gi, '');
+  const literals = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/gi;
   return [...values.matchAll(literals)].map((m) => m[0]);
 }

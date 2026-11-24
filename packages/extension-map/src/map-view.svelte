@@ -64,7 +64,17 @@
     });
   });
 
+  // maplibre follows window resizes only; a dock panel resizes on its own
+  // (a splitter drag, a group maximised), so the canvas follows its box.
+  let resizeObserver: ResizeObserver | undefined;
+  onMount(() => {
+    if (!container) return;
+    resizeObserver = new ResizeObserver(() => map?.resize());
+    resizeObserver.observe(container);
+  });
+
   onDestroy(() => {
+    resizeObserver?.disconnect();
     map?.remove();
     map = null;
   });
@@ -98,7 +108,6 @@
 </script>
 
 <div class="map-view">
-  <h2 class="map-view__heading">Map</h2>
   <div class="map-view__canvas-wrapper">
     <div class="map-view__canvas" bind:this={container}></div>
     {#if map}
@@ -126,26 +135,16 @@
 {/if}
 
 <style>
-  .map-view {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-  }
-  .map-view__heading {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 600;
-  }
+  /* The map fills its dock panel; the tab already names it. */
+  .map-view,
   .map-view__canvas-wrapper {
     position: relative;
     width: 100%;
-    height: 400px;
+    height: 100%;
   }
   .map-view__canvas {
     position: absolute;
     inset: 0;
-    border-radius: 4px;
     overflow: hidden;
   }
   .map-view__controls {

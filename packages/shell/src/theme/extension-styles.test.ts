@@ -39,12 +39,26 @@ describe('extension styles (ADR-0017 Decision 5)', () => {
   });
 });
 
-// Extensions whose views have moved onto the theme (ADR-0017 Consequences),
-// one per follow-up PR. Each writes no hex or functional colour literal from
-// then on.
-const themedExtensions = ['assets-demo', 'mavlink', 'vehicle-status', 'video'];
+// Extensions whose views have not moved onto the theme yet (ADR-0017
+// Consequences). Every other extension, a new one included, writes no hex or
+// functional colour literal; a PR that migrates one takes it off this list.
+const notYetThemed = ['manual-control', 'mavlink-flight-overlay'];
+const themedExtensions = extensionSlugs.filter((slug) => !notYetThemed.includes(slug));
 
 describe('themed extensions write no hex or functional colour literal in their styles', () => {
+  it('checks every extension not on the not-yet-themed list', () => {
+    expect(themedExtensions).toEqual([
+      'assets',
+      'assets-demo',
+      'example',
+      'map',
+      'map-demo',
+      'mavlink',
+      'vehicle-status',
+      'video',
+    ]);
+  });
+
   it.each(themedExtensions)('extension-%s', (slug) => {
     const literals = files
       .filter((f) => f.slug === slug && f.path.endsWith('.svelte'))
@@ -68,6 +82,14 @@ describe('findHardcodedColours', () => {
         '<style>/* note: #abc; */ #add, .a:hover { color: var(--gcscode-foreground); } .b { background: color(display-p3 1 1 1); border-color: color-mix(in srgb, var(--gcscode-foreground) 20%, transparent); outline-color: #fff; }</style>',
       ),
     ).toEqual(['color(', '#fff']);
+  });
+
+  it('reads upper-case functional forms, and skips URL fragments and quoted strings', () => {
+    expect(
+      findHardcodedColours(
+        `<style>.a { color: RGB(1, 2, 3); background: url(icons.svg#abc) no-repeat; } .b::before { content: "#abc"; quotes: '#fed'; }</style>`,
+      ),
+    ).toEqual(['RGB(']);
   });
 
   it('accepts a literal as the value of a custom property the component declares', () => {
