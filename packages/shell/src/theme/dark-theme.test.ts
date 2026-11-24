@@ -86,6 +86,12 @@ const pairs: Pair[] = [
   ['--gcscode-foreground', '--gcscode-toolbar-activeBackground', text],
   // The shell's activation-failure indicator: caution text over a hovered status item.
   ['--gcscode-level-caution', '--gcscode-toolbar-hoverBackground', text],
+  // GCS-89's shell chrome: the header's text on the status-bar colour, input
+  // placeholders, and an extension's failure line in a highlighted panel row.
+  ['--gcscode-foreground', '--gcscode-statusBar-background', text],
+  ['--gcscode-descriptionForeground', '--gcscode-statusBar-background', text],
+  ['--gcscode-descriptionForeground', '--gcscode-input-background', text],
+  ['--gcscode-level-caution', '--gcscode-list-activeSelectionBackground', text],
   ['--gcscode-input-foreground', '--gcscode-input-background', text],
   ['--gcscode-button-foreground', '--gcscode-button-background', text],
   ['--gcscode-button-foreground', '--gcscode-button-hoverBackground', text],
@@ -112,8 +118,8 @@ const pairs: Pair[] = [
 ];
 
 describe('dark theme contrast', () => {
-  it('covers 38 pairs', () => {
-    expect(pairs).toHaveLength(38);
+  it('covers 42 pairs', () => {
+    expect(pairs).toHaveLength(42);
   });
 
   it.each(pairs)('%s on %s is at least %s:1', (fg, bg, minimum) => {
