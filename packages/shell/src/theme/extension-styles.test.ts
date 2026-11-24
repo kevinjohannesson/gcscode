@@ -42,7 +42,7 @@ describe('extension styles (ADR-0017 Decision 5)', () => {
 // Extensions whose views have not moved onto the theme yet (ADR-0017
 // Consequences). Every other extension, a new one included, writes no hex or
 // functional colour literal; a PR that migrates one takes it off this list.
-const notYetThemed = ['manual-control', 'mavlink-flight-overlay'];
+const notYetThemed = ['mavlink-flight-overlay'];
 const themedExtensions = extensionSlugs.filter((slug) => !notYetThemed.includes(slug));
 
 describe('themed extensions write no hex or functional colour literal in their styles', () => {
@@ -51,12 +51,22 @@ describe('themed extensions write no hex or functional colour literal in their s
       'assets',
       'assets-demo',
       'example',
+      'manual-control',
       'map',
       'map-demo',
       'mavlink',
       'vehicle-status',
       'video',
     ]);
+  });
+
+  // The list shrinks as extensions migrate: a clean extension left on it
+  // would be exempt from then on.
+  it.each(notYetThemed)('extension-%s still has a literal, so it stays listed', (slug) => {
+    const literals = files
+      .filter((f) => f.slug === slug && f.path.endsWith('.svelte'))
+      .flatMap((f) => findHardcodedColours(f.text));
+    expect(literals.length).toBeGreaterThan(0);
   });
 
   it.each(themedExtensions)('extension-%s', (slug) => {
