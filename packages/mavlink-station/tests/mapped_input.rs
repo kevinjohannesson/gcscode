@@ -16,7 +16,8 @@ fn the_station_serves_the_radio_through_its_profile() {
     let joysticks = sdl.joystick().unwrap();
     let profiles = Profile::bundled();
 
-    let name = CString::new("TX16SMK3 Joystick").unwrap();
+    // The name SDL gives the TX16S on macOS, with the USB manufacturer first.
+    let name = CString::new("OpenTX TX16SMK3 Joystick").unwrap();
     let mut desc = sys::SDL_VirtualJoystickDesc::new();
     desc.name = name.as_ptr();
     desc.vendor_id = 0x1209;
