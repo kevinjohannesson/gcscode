@@ -245,7 +245,7 @@ pkill -CONT -x gcscode-station
 **Scenario 3, one Ctrl-C:** press Ctrl-C in the stack's terminal. **Expect:** `Stopping sitl, mediamtx, gcscode, camera-sim, station`, then `Stopped.` This prints any port still listening, or `all stopped`:
 
 ```sh
-lsof -nP -iTCP -sTCP:LISTEN | grep -E ':(5760|5770|8088|5173|8889|8091)\b' || echo 'all stopped'
+lsof -nP -iTCP -sTCP:LISTEN | grep -E ':(5760|5770|8088|5173|5174|8889|8091)\b' || echo 'all stopped'
 ```
 
 Remove the worktree when the PR has merged:

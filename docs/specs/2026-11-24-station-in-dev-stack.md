@@ -54,6 +54,10 @@ Not restarted. A station that exits stops the stack, as any service does under t
 
 A smoke test that needs the station quiet without stopping the stack freezes it (`pkill -STOP -x gcscode-station`) instead of stopping it.
 
+### One address
+
+The station has one address, the MAVLink extension's setting `gcscode.mavlink.stationUrl`. PR #68's Radio input view kept its own, `gcscode.manual-control.stationUrl`, until the step in which the MAVLink extension first connects ([ADR-0015](../decisions/ADR-0015-native-sidecars.md) Consequences); this is that step, so that setting goes and the Radio input view reads the MAVLink extension's when it opens. It reads it then, not at activation, because activation order is not guaranteed ([ADR-0005](../decisions/ADR-0005-extension-boundaries.md)). The Link state view follows a change at once; the Radio input view the next time it opens. Its connection stays a second, listen-only one: which page code may reach the station is still ADR-0016's open question. _(My call, PR #81 final review.)_
+
 ## VS Code alignment
 
 ADR-0015's ledger rows cover the process. This adds one point to its divergence on who starts it: in development, the dev stack starts the station from the same checkout as the page, which is what keeps one protocol version on both sides. No new row for [`docs/vs-code-alignment.md`](../vs-code-alignment.md).

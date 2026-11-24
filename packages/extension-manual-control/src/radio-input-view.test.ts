@@ -2,13 +2,13 @@ import { render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import RadioInputView from './radio-input-view.svelte';
-import { setStationAddress } from './station-address';
+import { setStationAddressSource } from './station-address';
 import { FakeSocket, HELLO, inputText } from './test-fakes';
 
 beforeEach(() => {
   FakeSocket.instances = [];
   vi.stubGlobal('WebSocket', FakeSocket);
-  setStationAddress('ws://127.0.0.1:8091/ws');
+  setStationAddressSource(() => 'ws://127.0.0.1:8091/ws');
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -20,7 +20,7 @@ async function settle() {
 
 describe('RadioInputView', () => {
   it('connects to the configured address and says so', async () => {
-    setStationAddress('ws://127.0.0.1:9999/ws');
+    setStationAddressSource(() => 'ws://127.0.0.1:9999/ws');
     render(RadioInputView);
     await settle();
     expect(FakeSocket.latest().url).toBe('ws://127.0.0.1:9999/ws');
