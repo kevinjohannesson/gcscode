@@ -117,7 +117,7 @@ describe('RadioInputView', () => {
     render(RadioInputView);
     expect(
       screen.getByText(
-        'This page does not know which protocol the station speaks: the MAVLink extension, which owns the station, is not loaded.',
+        'This page does not know which protocol the station speaks: the MAVLink extension, which owns the station, is not loaded. Turn it on, then reopen this view.',
       ),
     ).toBeTruthy();
     expect(FakeSocket.instances).toHaveLength(0);
