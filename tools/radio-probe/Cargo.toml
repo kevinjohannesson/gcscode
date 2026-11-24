@@ -6,9 +6,8 @@ description = "Prints the raw axes and buttons an EdgeTX radio such as the TX16S
 publish = false
 
 [dependencies]
-# Profiles (src/mapping.rs) are TOML files.
-serde = { version = "1", features = ["derive"] }
-toml = "1"
+# The radio reading and the profiles, shared with gcscode's station process.
+radio-input = { path = "../../libs/radio-input" }
 # Built from source and linked statically, so the binary needs no SDL on the machine.
 # Building SDL needs CMake (`brew install cmake` on macOS).
 sdl3 = { version = "=0.22.1", features = ["build-from-source-static"] }

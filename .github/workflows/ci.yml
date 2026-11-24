@@ -68,16 +68,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      # mavlink-station depends on radio-probe by path, so its tests build both.
+      # radio-probe and mavlink-station both depend on libs/radio-input by path.
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            libs/radio-input/target
             packages/mavlink-station/target
             tools/radio-probe/target
           key: cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: cargo-${{ runner.os }}-
+      - run: cargo test --locked
+        working-directory: libs/radio-input
       - run: cargo test --locked
         working-directory: tools/radio-probe
       - run: cargo test --locked

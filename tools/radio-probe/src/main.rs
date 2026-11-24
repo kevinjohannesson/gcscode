@@ -4,10 +4,11 @@
 use std::io::{Write, stdout};
 use std::time::{Duration, Instant};
 
-use radio_probe::mapping::{self, Mapper, Profile};
+use radio_input::mapping::{self, Mapper, Profile};
 use radio_probe::panel::{self, Panel};
-use radio_probe::probe::{self, Probe};
-use radio_probe::{mapped_report, pump, report};
+use radio_input::probe::{self, Probe};
+use radio_input::pump;
+use radio_probe::{mapped_report, report};
 use sdl3::event::Event;
 
 /// How often the live block is redrawn.
@@ -124,7 +125,7 @@ fn run() -> Result<(), String> {
 
         if let Some(j) = probe.radio() {
             let mut lines = match &mut mapper {
-                None => probe::read(j),
+                None => radio_probe::read(j),
                 Some(m) => {
                     let v = probe::values(j);
                     let controls = m.update(&v);

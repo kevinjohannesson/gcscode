@@ -3,7 +3,8 @@
 
 use std::ffi::CString;
 
-use radio_probe::probe::{Probe, read};
+use radio_input::probe::Probe;
+use radio_probe::read;
 use sdl3::joystick::JoystickId;
 use sdl3::sys::joystick as sys;
 
@@ -65,7 +66,7 @@ fn reads_an_edgetx_radio_and_survives_unplug_and_replug() {
     assert_eq!(lines[1], "  serial (none)  axes 8  buttons 24  hats 0");
     assert_eq!(
         probe.info(),
-        Some(&radio_probe::probe::RadioInfo {
+        Some(&radio_input::probe::RadioInfo {
             name: "TX16SMK3 Joystick".into(),
             vendor: 0x1209,
             product: 0x4F54,

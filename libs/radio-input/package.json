@@ -1,0 +1,9 @@
+{
+  "name": "radio-input",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Reads an EdgeTX radio such as the TX16S through SDL, raw and through a profile. Reads only; used by tools/radio-probe and packages/mavlink-station.",
+  "scripts": {
+    "test:rust": "cargo test"
+  }
+}

@@ -5,9 +5,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use radio_probe::mapping::{self, Mapper, Profile};
-use radio_probe::probe::{self, Probe};
-use radio_probe::pump;
+use radio_input::mapping::{self, Mapper, Profile};
+use radio_input::probe::{self, Probe};
+use radio_input::pump;
 use sdl3::event::Event;
 use tokio::sync::watch;
 

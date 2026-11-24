@@ -295,7 +295,7 @@ pnpm --filter radio-probe start -- --mapped
 **Scenario 7, a refused profile:** stop the station, then start it with a profile that maps the control switch to a switch position (**exits at once**):
 
 ```sh
-sed 's/^control = .*/control = { switch = "SF", position = "down" }/' tools/radio-probe/profiles/gcscode-adv.toml > /tmp/refused.toml && pnpm --filter mavlink-station start -- --profile /tmp/refused.toml
+sed 's/^control = .*/control = { switch = "SF", position = "down" }/' libs/radio-input/profiles/gcscode-adv.toml > /tmp/refused.toml && pnpm --filter mavlink-station start -- --profile /tmp/refused.toml
 ```
 
 **Expect:** `station: profile /tmp/refused.toml refused: control may only map to a held button …`, and the station exits.

@@ -1,11 +1,11 @@
-//! What the probe does with each joystick SDL announces or removes, and how it reads one.
+//! What to do with each joystick SDL announces or removes, and how to read the open radio.
 
 use std::ffi::CStr;
 
 use sdl3::JoystickSubsystem;
 use sdl3::joystick::{Joystick, JoystickId};
 
-use crate::report;
+use crate::device;
 
 /// Who the open radio is, read once when it is opened.
 #[derive(Clone, Debug, PartialEq)]
@@ -39,12 +39,12 @@ impl Probe {
         self.radio.as_ref().map(|(_, i)| i)
     }
 
-    /// A joystick appeared. SDL also announces every joystick plugged in before the probe
+    /// A joystick appeared. SDL also announces every joystick plugged in before reading
     /// started this way, so both paths are one. Returns the lines to print.
     pub fn added(&mut self, joysticks: &JoystickSubsystem, which: JoystickId) -> Vec<String> {
         let (name, vendor, product) = describe(which);
-        let line = report::device_line(which.raw(), &name, vendor, product);
-        if !report::is_edgetx(vendor, product) {
+        let line = device::device_line(which.raw(), &name, vendor, product);
+        if !device::is_edgetx(vendor, product) {
             return vec![format!("found {line}, not an EdgeTX radio, ignored")];
         }
         if self.radio.is_some() {
@@ -94,17 +94,6 @@ pub fn values(j: &Joystick) -> Inputs {
             .map(|i| j.hat(i).map(|h| h.to_raw()).unwrap_or(0))
             .collect(),
     }
-}
-
-/// Every input's current raw value, as the lines of the live block.
-pub fn read(j: &Joystick) -> Vec<String> {
-    let v = values(j);
-    let mut lines = report::axes_table(&v.axes);
-    lines.extend(report::buttons_grid(&v.buttons));
-    if !v.hats.is_empty() {
-        lines.push(report::hats_line(&v.hats));
-    }
-    lines
 }
 
 /// Name and USB IDs of a joystick SDL has announced, read before opening it.

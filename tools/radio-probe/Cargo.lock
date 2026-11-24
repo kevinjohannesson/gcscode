@@ -86,13 +86,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "radio-probe"
+name = "radio-input"
 version = "0.1.0"
 dependencies = [
  "sdl3",
  "sdl3-sys",
  "serde",
  "toml",
+]
+
+[[package]]
+name = "radio-probe"
+version = "0.1.0"
+dependencies = [
+ "radio-input",
+ "sdl3",
+ "sdl3-sys",
 ]
 
 [[package]]

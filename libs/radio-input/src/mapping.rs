@@ -1,4 +1,4 @@
-//! What each radio input means to gcscode: a profile file names, for one radio set up one
+//! What each radio input means to a ground station: a profile file names, for one radio set up one
 //! way, which axis drives each of a fixed list of controls and how it is calibrated, which
 //! held button is each on/off control, and which buttons together make one switch with named
 //! positions. A [`Mapper`] turns raw [`Inputs`] into those [`Controls`]. It reads only.
@@ -74,7 +74,7 @@ impl AxisRole {
 /// The on/off controls, in the order they are shown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OnOffRole {
-    /// Whether gcscode has control. Later rungs send only while it is on.
+    /// Whether the ground station has control. A sender sends only while it is on.
     Control,
     /// Return to launch while held.
     Rtl,
@@ -206,7 +206,7 @@ pub struct Profile {
     pub switches: Vec<Switch>,
 }
 
-/// The profiles that ship with gcscode, compiled in.
+/// The profiles that ship with this library, compiled in.
 pub const BUNDLED: [(&str, &str); 1] = [(
     "profiles/gcscode-adv.toml",
     include_str!("../profiles/gcscode-adv.toml"),

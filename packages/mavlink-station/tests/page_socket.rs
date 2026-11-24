@@ -5,7 +5,7 @@ use std::time::Duration;
 use futures_util::{SinkExt, StreamExt};
 use mavlink_station::api::router;
 use mavlink_station::snapshot::{Radio, Snapshot};
-use radio_probe::probe::{Inputs, RadioInfo};
+use radio_input::probe::{Inputs, RadioInfo};
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tokio::sync::watch;
