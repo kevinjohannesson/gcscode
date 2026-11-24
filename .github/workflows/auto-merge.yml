@@ -51,7 +51,9 @@ name: Auto-merge
 #         included, holds the gate, and a re-run that fails closes it again.
 #         A PR waiting only on CI is re-evaluated when the CI workflow
 #         completes (the `workflow_run` trigger, which runs master's copy of
-#         this file, and only for the first PR GitHub lists for that head).
+#         this file, and only for the first PR GitHub lists for that head; it
+#         lists none for a PR from a fork, which waits for its next review or
+#         label event instead).
 #
 # Specs: docs/specs/2026-05-14-auto-merge-on-user-approval.md,
 #        docs/specs/2026-10-22-review-loop-v2.md (Gate 3b).

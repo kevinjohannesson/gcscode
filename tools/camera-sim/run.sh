@@ -39,6 +39,14 @@ cleanup() {
   local pid
   for pid in ${CHROME_PID} ${VITE_PID}; do kill "${pid}" 2>/dev/null || true; done
   for pid in ${CHROME_PID} ${VITE_PID}; do wait "${pid}" 2>/dev/null || true; done
+  # VITE_PID is pnpm's, and Vite's own node process can outlive it by a moment
+  # (seen on Linux after SIGHUP), so wait, up to 5 s, for the port to close too.
+  if [[ -n "${VITE_PID}" ]]; then
+    local tries=0
+    while nc -z localhost "${PORT}" 2>/dev/null && ((tries++ < 50)); do
+      { sleep 0.1; } 2>/dev/null
+    done
+  fi
   [[ -z "${PROFILE}" ]] || rm -rf "${PROFILE}"
 }
 trap cleanup EXIT
