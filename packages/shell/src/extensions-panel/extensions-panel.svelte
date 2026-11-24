@@ -9,6 +9,24 @@
 
   let query = $state('');
   let highlightIndex = $state(0);
+  let dialog: HTMLDivElement | undefined = $state();
+  let input: HTMLInputElement | undefined = $state();
+
+  // Focus the search box on open, or the panel itself when there is nothing to
+  // search, so Escape always reaches `onKeyDown`. Not the `autofocus`
+  // attribute: Svelte only honours it while nothing else has focus, and a click
+  // anywhere in the layout leaves focus on a dockview tab or view.
+  $effect(() => {
+    (input ?? dialog)?.focus();
+  });
+
+  // Keep focus in the search box when a row or its Enable/Disable button is
+  // clicked. A focused button is replaced when it flips between Enable and
+  // Disable, which dropped focus to the page: the arrow keys and Escape then
+  // stopped working, and with the dispatcher paused so did Ctrl+Shift+P.
+  function keepFocusInInput(event: MouseEvent) {
+    if (input !== undefined && event.target !== input) event.preventDefault();
+  }
 
   // The workbench is the sole entry in `main.ts`'s `builtIns` list, and a
   // record's manifest id is the only thing that identifies it as a built-in —
@@ -99,9 +117,13 @@
 </script>
 
 <div
-  class="fixed left-1/2 top-16 z-50 w-[520px] -translate-x-1/2 overflow-hidden rounded-md border border-widget-border bg-widget shadow-[0_8px_24px_var(--gcscode-widget-shadow)]"
+  bind:this={dialog}
+  class="fixed left-1/2 top-7 z-50 w-[520px] -translate-x-1/2 overflow-hidden rounded-b-md border border-t-0 border-widget-border bg-widget shadow-[0_8px_24px_var(--gcscode-widget-shadow)] outline-none"
   role="dialog"
   aria-label="Extensions"
+  tabindex="-1"
+  onkeydown={onKeyDown}
+  onmousedown={keepFocusInInput}
 >
   <div
     class="border-b border-widget-border bg-panel px-3 py-1.5 text-xs uppercase tracking-wider text-fg-muted"
@@ -111,14 +133,12 @@
   {#if records.length === 0}
     <div class="px-3 py-6 text-center text-sm text-fg-muted">No extensions installed.</div>
   {:else}
-    <!-- svelte-ignore a11y_autofocus -->
     <input
       type="text"
+      bind:this={input}
       bind:value={query}
-      onkeydown={onKeyDown}
       placeholder="Search extensions…"
       class="w-full border-none bg-input px-3 py-2 text-sm text-input-fg outline-none placeholder:text-fg-muted"
-      autofocus
     />
     {#if filtered.length === 0}
       <div class="px-3 py-4 text-center text-sm text-fg-muted">No matching extensions.</div>

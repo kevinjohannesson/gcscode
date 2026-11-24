@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createExtensionManager } from '../extension-host/extension-manager';
 import { createRegistry } from '../extension-host/registry';
-import { modalState } from '../modal-state.svelte';
 import ExtensionsPanelHost from './extensions-panel-host.svelte';
 import { extensionsPanelState } from './extensions-panel-state.svelte';
 
@@ -17,7 +16,6 @@ function setup() {
 describe('extensions-panel-host.svelte', () => {
   afterEach(() => {
     extensionsPanelState.close();
-    modalState.active = false;
   });
 
   it('renders nothing when extensionsPanelState.isOpen is false', () => {
@@ -37,20 +35,6 @@ describe('extensions-panel-host.svelte', () => {
     extensionsPanelState.close();
     flushSync();
     expect(screen.queryByRole('dialog', { name: 'Extensions' })).not.toBeInTheDocument();
-  });
-
-  it('sets modalState.active true while open and false when closed', () => {
-    const { manager } = setup();
-    render(ExtensionsPanelHost, { props: { manager } });
-    expect(modalState.active).toBe(false);
-
-    extensionsPanelState.open();
-    flushSync();
-    expect(modalState.active).toBe(true);
-
-    extensionsPanelState.close();
-    flushSync();
-    expect(modalState.active).toBe(false);
   });
 
   it('click outside the dialog closes the panel', async () => {

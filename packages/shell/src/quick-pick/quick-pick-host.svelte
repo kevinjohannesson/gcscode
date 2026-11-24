@@ -1,14 +1,8 @@
 <script lang="ts">
-  import { modalState } from '../modal-state.svelte';
   import QuickPick from './quick-pick.svelte';
   import { quickPickState } from './quick-pick-state.svelte';
 
   const open = $derived(quickPickState.current !== null);
-
-  // Mirror open/close into the dispatcher's pause flag.
-  $effect(() => {
-    modalState.active = open;
-  });
 
   // Click-outside-to-dismiss. We attach a global click listener while open;
   // if the click target is not inside the dialog, dismiss. Reattaching only

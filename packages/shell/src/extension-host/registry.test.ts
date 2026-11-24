@@ -10,6 +10,7 @@ import type {
   ViewContribution,
 } from '@gcscode/extension-api';
 
+import { extensionsPanelState } from '../extensions-panel/extensions-panel-state.svelte';
 import { quickPickState } from '../quick-pick/quick-pick-state.svelte';
 import { ExtensionActivationError } from './activation-error';
 import { createRegistry } from './registry';
@@ -1248,6 +1249,24 @@ describe('createRegistry', () => {
       await expect(host!.window.showQuickPick([{ label: 'second' }])).rejects.toThrow(
         'Quick pick already open',
       );
+    });
+
+    it('replaces an open extensions panel: one overlay at a time', () => {
+      const registry = createRegistry();
+      let host: ExtensionHost | undefined;
+      registry.activate(
+        extension('ext.a', (ctx) => {
+          host = ctx.host;
+        }),
+      );
+      extensionsPanelState.open();
+      try {
+        void host!.window.showQuickPick([{ label: 'a' }]);
+        expect(extensionsPanelState.isOpen).toBe(false);
+        expect(quickPickState.current).not.toBeNull();
+      } finally {
+        extensionsPanelState.close();
+      }
     });
   });
 });
