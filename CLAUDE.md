@@ -60,7 +60,7 @@ An extension module exports a named `const` of type `Extension` with `{ manifest
 - Executing a plan: `superpowers:subagent-driven-development`, one implementer per task, reviewed per the `review-loop` skill.
 - Review fixes go in separate `Code-review-followup:` commits on the same branch. Never amend a pushed commit or squash: the review trail is part of the history.
 - After a spec or ADR PR merges, implement it on a `feat/` branch. Only purely mechanical docs edits whose exact text the spec gives go straight to master; if you find yourself making a decision the spec didn't, use a branch.
-- The owner merges, or a controller under its skill's rule. The `auto-merge` label hands it to `.github/workflows/auto-merge.yml`, whose header comment describes the gates; `test/*` branches stay manual.
+- The owner merges, or a controller under its skill's rule. The `auto-merge` label hands it to `.github/workflows/auto-merge.yml`, whose header comment describes the gates; which paths need the owner is `.github/merge-policy.json`, read from the PR's base branch; `test/*` branches stay manual.
 - Never `--no-verify`. No force pushes to master, nor to a PR branch once it has reviews.
 
 ## Subagent worktree discipline

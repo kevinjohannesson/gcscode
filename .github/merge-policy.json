@@ -1,0 +1,35 @@
+{
+  "$comment": "Which changes the auto-merge workflow may merge on its own, and which need the owner. Read by .github/workflows/auto-merge.yml (Gate 6) from the PR's base branch, never from the PR, so a PR's own copy cannot loosen the policy its run is judged by. Limit: a PR that edits the workflow itself runs its edited copy of the gate, which can skip this check; the policy holds only while the PR leaves the workflow intact. The file is exactly one JSON object with version 1 and a non-empty list of rules; anything else holds every merge. A rule matches when any changed file (both names on a rename) matches one of its paths: a path ending in / matches everything under it, any other path matches that file only, and a leading **/ matches at any depth. No other * is allowed, and no path starts with /. decision 'owner' (the only one) means the owner merges by hand. mode 'enforce' holds the merge; mode 'observe' only logs that it would have, for trying a rule before relying on it.",
+  "version": 1,
+  "rules": [
+    {
+      "id": "workflows",
+      "description": "Workflow files. A PR that changes them is left to the owner, because the gate it runs is the PR's own copy of the workflow. GitHub also refuses some of these merges for the workflow's token (PR #91), though not all (PR #67), so the refusal is no protection.",
+      "paths": [".github/workflows/"],
+      "decision": "owner",
+      "mode": "enforce"
+    },
+    {
+      "id": "merge-policy",
+      "description": "This file. Enforced from the start, so the policy cannot be weakened for the next PR (a rule switched to observe, its paths emptied, or the file deleted) by a PR that merges on one review.",
+      "paths": [".github/merge-policy.json"],
+      "decision": "owner",
+      "mode": "enforce"
+    },
+    {
+      "id": "review-process",
+      "description": "The review process itself: this policy, the reviewer registry, agents, skills, commands, scripts and settings. One final review should not be able to change how the next PR is reviewed or merged.",
+      "paths": [
+        ".github/",
+        "**/.claude/agents/",
+        "**/.claude/skills/",
+        "**/.claude/commands/",
+        "**/.claude/scripts/",
+        "**/.claude/agent-config.json",
+        "**/.claude/settings.json"
+      ],
+      "decision": "owner",
+      "mode": "observe"
+    }
+  ]
+}

@@ -66,6 +66,23 @@ name: Auto-merge
 #         this file, and only for the first PR GitHub lists for that head; it
 #         lists none for a PR from a fork, which waits for its next review or
 #         label event instead).
+# Gate 6: The merge policy, `.github/merge-policy.json`, read from the base
+#         branch (never the PR's copy), lets this PR merge on its own. Each
+#         rule lists paths; a changed file (both names on a rename) on a path
+#         of a rule whose decision is `owner` holds the merge when the rule's
+#         mode is `enforce`, and only logs that it would have when the mode is
+#         `observe`. The file's `$comment` gives the syntax. A base branch
+#         without the file has no policy yet, which logs and passes; a policy
+#         that is empty, not one JSON object, of another version, or has a rule
+#         with an unknown decision or mode or unsupported paths, holds every
+#         merge, whatever the PR changes. So does a files list shorter than the
+#         PR's changed-file count (the API stops at 3000). Limit: like every
+#         gate, Gate 6 runs from the PR's own copy of this workflow on
+#         `pull_request` and `pull_request_review` events, so a PR that edits
+#         this file can skip it; the policy's enforced `workflows` rule holds
+#         only while the PR leaves the gate intact. GitHub refusing the
+#         workflow token's merge of workflow changes is not relied on: it
+#         refused PR #91, but merged PR #67.
 #
 # Specs: docs/specs/2026-05-14-auto-merge-on-user-approval.md,
 #        docs/specs/2026-10-22-review-loop-v2.md (Gate 3b). The docs/ class was
@@ -111,10 +128,11 @@ jobs:
           fi
           echo "Evaluating PR #${PR_NUMBER}"
 
-          PR_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRefOid,baseRefName,labels,mergeable,isDraft)
+          PR_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRefOid,baseRefName,labels,mergeable,isDraft,changedFiles)
           HEAD_REF=$(echo "$PR_JSON" | jq -r .headRefName)
           HEAD_SHA=$(echo "$PR_JSON" | jq -r .headRefOid)
           BASE_REF=$(echo "$PR_JSON" | jq -r .baseRefName)
+          CHANGED_COUNT=$(echo "$PR_JSON" | jq -r .changedFiles)
 
           # Succeeds when a review posted on commit $1 covers the head (header,
           # Gate 3): it is the head, or the PR's own changes, from where each
@@ -344,6 +362,70 @@ jobs:
             exit 0
           fi
           echo "Gate 5 OK: CI succeeded on head ${HEAD_SHA}"
+
+          # Gate 6: merge policy, from the base branch (header).
+          git fetch -q --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}" || { echo "Gate 6 FAILED: could not fetch ${BASE_REF} to read the merge policy. Exiting cleanly."; exit 0; }
+          if ! git cat-file -e "origin/${BASE_REF}:.github/merge-policy.json" 2>/dev/null; then
+            echo "Gate 6 OK: ${BASE_REF} has no .github/merge-policy.json yet, so no policy applies"
+          else
+            POLICY=$(git show "origin/${BASE_REF}:.github/merge-policy.json")
+            # Every changed file, both names on a rename, as one exact JSON list.
+            # The files API stops at 3000 entries, so a list shorter than the PR's
+            # own count holds the merge rather than judge it on part of the diff.
+            FILES_JSON=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '[.[] | {filename, previous_filename}]' | jq -s 'add // []')
+            if [[ "$(echo "$FILES_JSON" | jq length)" != "$CHANGED_COUNT" ]]; then
+              echo "Gate 6 FAILED: the files API listed $(echo "$FILES_JSON" | jq length) of the PR's ${CHANGED_COUNT} changed files, so the merge policy cannot see the whole diff. Exiting cleanly."
+              exit 0
+            fi
+            CHANGED_FILES=$(echo "$FILES_JSON" | jq -c '[.[] | .filename, (.previous_filename // empty)]')
+            # The whole policy is checked before any file is matched, so a broken
+            # one holds every PR, not only those whose files reach the broken rule:
+            # exactly one JSON object, version 1, a non-empty rule list, and each
+            # rule with a string id, a known decision and mode, and non-empty paths
+            # in the supported syntax (header; the file's $comment). Then one line
+            # per (rule, file) match: mode, rule id, file.
+            if ! POLICY_MATCHES=$(echo "$POLICY" | jq -r -s --argjson files "$CHANGED_FILES" '
+                def fail($why): error("merge policy: " + $why);
+                def valid_path:
+                  type == "string" and length > 0 and (startswith("/") | not)
+                  and ((if startswith("**/") then .[3:] else . end) | (contains("*") | not) and length > 0);
+                def covers($f):
+                  . as $p
+                  | if ($p | startswith("**/")) then $p[3:] as $q
+                      | if ($q | endswith("/")) then ($f | startswith($q)) or ($f | contains("/" + $q))
+                        else $f == $q or ($f | endswith("/" + $q)) end
+                    elif ($p | endswith("/")) then $f | startswith($p)
+                    else $f == $p end;
+                if length != 1 then fail("the file must hold exactly one JSON document") else .[0] end
+                | if type != "object" then fail("the document is not an object") else . end
+                | if .version != 1 then fail("version must be 1") else . end
+                | if (.rules | type) != "array" or (.rules | length) == 0 then fail("rules must be a non-empty list") else . end
+                | .rules[]
+                | if type != "object" then fail("a rule is not an object") else . end
+                | . as $rule
+                | if ($rule.id | type) != "string" then fail("a rule has no string id") else . end
+                | if $rule.decision != "owner" then fail("rule \($rule.id): decision must be owner") else . end
+                | if ($rule.mode != "enforce" and $rule.mode != "observe") then fail("rule \($rule.id): mode must be enforce or observe") else . end
+                | if ($rule.paths | type) != "array" or ($rule.paths | length) == 0 or (all($rule.paths[]; valid_path) | not) then fail("rule \($rule.id): paths must be a non-empty list of supported paths") else . end
+                | $files[] as $f
+                | select(any($rule.paths[]; covers($f)))
+                | "\($rule.mode)\t\($rule.id)\t\($f)"' 2>&1); then
+              echo "Gate 6 FAILED: ${BASE_REF}'s .github/merge-policy.json is not a valid policy, so every merge holds until it is fixed: ${POLICY_MATCHES}. Exiting cleanly."
+              exit 0
+            fi
+            OBSERVED=$(echo "$POLICY_MATCHES" | awk -F'\t' '$1 == "observe" { print "  " $2 ": " $3 }')
+            ENFORCED=$(echo "$POLICY_MATCHES" | awk -F'\t' '$1 == "enforce" { print "  " $2 ": " $3 }')
+            if [[ -n "$OBSERVED" ]]; then
+              echo "Gate 6 (observe only): these rules would hold the merge for the owner, and do not yet:"
+              echo "$OBSERVED"
+            fi
+            if [[ -n "$ENFORCED" ]]; then
+              echo "Gate 6 FAILED: the merge policy leaves this PR to the owner, who merges it by hand:"
+              echo "$ENFORCED"
+              exit 0
+            fi
+            echo "Gate 6 OK: no enforced merge-policy rule matches"
+          fi
 
           # All gates pass — merge
           # --match-head-commit: a push after the reads above fails the merge rather
