@@ -1,37 +1,40 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { themeVariables } from '@gcscode/extension-api';
 import { findStyleViolations, propertyOwner } from './extension-styles';
 
-// ADR-0017 Decision 5, run over the real extension sources.
-const packagesDir = resolve(__dirname, '../../..');
+// ADR-0017 Decision 5, run over the real extension sources. Vite reads them,
+// so the shell's browser-only types need no Node APIs.
+const sources = import.meta.glob<string>(
+  [
+    '../../../extension-*/src/**/*.{svelte,ts,css}',
+    '!../../../extension-*/src/**/*.test.ts',
+    '!../../../extension-api/**',
+  ],
+  { query: '?raw', import: 'default', eager: true },
+);
 
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) return sourceFiles(path);
-    return /\.(svelte|ts|css)$/.test(name) && !/\.test\.ts$/.test(name) ? [path] : [];
-  });
-}
+const files = Object.entries(sources).map(([key, text]) => {
+  const path = key.slice('../../../'.length);
+  return { path, slug: path.slice('extension-'.length, path.indexOf('/')), text };
+});
 
-const extensionSlugs = readdirSync(packagesDir)
-  .filter((name) => name.startsWith('extension-') && name !== 'extension-api')
-  .map((name) => name.slice('extension-'.length));
+const extensionSlugs = [...new Set(files.map((f) => f.slug))].sort();
 
 describe('extension styles (ADR-0017 Decision 5)', () => {
   it('finds the extension packages', () => {
     expect(extensionSlugs).toContain('mavlink');
     expect(extensionSlugs).toContain('mavlink-flight-overlay');
+    expect(extensionSlugs).not.toContain('api');
   });
 
   it.each(extensionSlugs)('extension-%s reads only theme names and its own properties', (slug) => {
-    const files = sourceFiles(join(packagesDir, `extension-${slug}`, 'src'));
-    const violations = files.flatMap((file) =>
-      findStyleViolations(readFileSync(file, 'utf8'), slug, extensionSlugs, themeVariables).map(
-        (v) => `${relative(packagesDir, file)}: ${v}`,
-      ),
-    );
+    const violations = files
+      .filter((f) => f.slug === slug)
+      .flatMap((f) =>
+        findStyleViolations(f.text, slug, extensionSlugs, themeVariables).map(
+          (v) => `${f.path}: ${v}`,
+        ),
+      );
     expect(violations).toEqual([]);
   });
 });
