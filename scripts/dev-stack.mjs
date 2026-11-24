@@ -123,6 +123,18 @@ export const stackServices = (vehicles) => [
     upWithinMs: 90000,
     addresses: [],
   },
+  {
+    // The station process (ADR-0016), built by its setup. It sends nothing to
+    // any vehicle yet, so it does not depend on SITL being up.
+    name: 'station',
+    command: join(ROOT, 'packages/mavlink-station/run.sh'),
+    args: [],
+    cwd: ROOT,
+    ports: [{ proto: 'tcp', port: 8091 }],
+    up: () => tcpAccepts(8091),
+    upWithinMs: 10000,
+    addresses: [['Station', 'ws://127.0.0.1:8091/ws']],
+  },
 ];
 
 /**
