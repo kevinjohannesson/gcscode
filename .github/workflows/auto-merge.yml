@@ -82,8 +82,11 @@ name: Auto-merge
 #         without the file has no policy yet, which logs and passes; a policy
 #         that is empty, not one JSON object, of another version, or has a rule
 #         with an unknown decision or mode or unsupported paths, holds every
-#         merge, whatever the PR changes. So does a files list shorter than the
-#         PR's changed-file count (the API stops at 3000).
+#         merge, whatever the PR changes. Gates 2 and 6 take the changed
+#         files from git (the diff from where the head leaves the base
+#         branch), not from the pulls/files API, which diffs against the base
+#         commit recorded when the PR was opened and so, on a branch that later
+#         merged master in, lists master's newer changes as the PR's (PR #97).
 #
 # Ruleset: the repository ruleset "master: CI must pass" (Settings → Rules)
 # makes GitHub itself refuse a merge into the default branch unless the head
@@ -157,11 +160,10 @@ jobs:
           fi
           echo "Evaluating PR #${PR_NUMBER}"
 
-          PR_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRefOid,baseRefName,isCrossRepository,labels,mergeable,isDraft,changedFiles)
+          PR_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRefOid,baseRefName,isCrossRepository,labels,mergeable,isDraft)
           HEAD_REF=$(echo "$PR_JSON" | jq -r .headRefName)
           HEAD_SHA=$(echo "$PR_JSON" | jq -r .headRefOid)
           BASE_REF=$(echo "$PR_JSON" | jq -r .baseRefName)
-          CHANGED_COUNT=$(echo "$PR_JSON" | jq -r .changedFiles)
           CROSS_REPO=$(echo "$PR_JSON" | jq -r .isCrossRepository)
 
           # Scope (header): only a same-repository PR into the default branch.
@@ -215,6 +217,20 @@ jobs:
           fi
           echo "Gate 1 OK: auto-merge label present"
 
+          # The PR's changed files, for Gates 2 and 6: every path the diff from
+          # where the head leaves the base branch touches, both names on a rename
+          # (--no-renames lists the old path as deleted and the new one as
+          # added), NUL-separated so no filename can split. Computed with git,
+          # not the pulls/files API: that diffs against the base commit GitHub
+          # recorded when the PR was opened, so a branch reused after a merge
+          # (PR #97) listed changes master had gained since as the PR's own.
+          git fetch -q --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}" "$HEAD_SHA" || { echo "Could not fetch ${BASE_REF} and the head from origin, so the changed files are unknown. Exiting cleanly."; exit 0; }
+          if ! PR_BASE=$(git merge-base "origin/${BASE_REF}" "$HEAD_SHA"); then
+            echo "The head ${HEAD_SHA} shares no history with ${BASE_REF}, so the changed files are unknown. Exiting cleanly."
+            exit 0
+          fi
+          CHANGED_FILES=$(git diff -z --no-renames --name-only "$PR_BASE" "$HEAD_SHA" | jq -c -R -s 'split("\u0000") | map(select(length > 0))')
+
           # Gate 2: PR class detection. A claude/* head (the only prefix cloud
           # sessions may push) takes its class from exactly one type label, read
           # as if it were the branch prefix; none or several fails closed.
@@ -239,9 +255,8 @@ jobs:
             spec/*|adr/*)
               # Spec and ADR PRs carry documents only. Anything else (scripts, agent
               # files, this workflow) belongs on a feat/ branch (or a claude/ one labelled
-              # feat) behind gate 3a, or is merged by hand. Renames count by both names;
-              # paginated like the reviews.
-              OUTSIDE_DOCS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '.[] | (.filename, (.previous_filename // empty)) | select(startswith("docs/") | not)')
+              # feat) behind gate 3a, or is merged by hand. Renames count by both names.
+              OUTSIDE_DOCS=$(echo "$CHANGED_FILES" | jq -r '.[] | select(startswith("docs/") | not)')
               if [[ -n "$OUTSIDE_DOCS" ]]; then
                 echo "Gate 2 FAILED: spec/ADR PR changes files outside docs/ (merge by hand, or move them to a feat/ branch; a claude/ head is relabelled feat instead):"
                 echo "$OUTSIDE_DOCS"
@@ -258,8 +273,8 @@ jobs:
               # single final review should not be able to rewrite unseen. Both match
               # at any depth: Claude Code loads skills, agents and commands from nested
               # .claude/ directories too (packages/shell/.claude/skills/... would
-              # otherwise pass). Same rename and pagination rule as spec/ADR above.
-              NOT_DOCS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '.[] | (.filename, (.previous_filename // empty)) | select(
+              # otherwise pass). Renames count by both names, as for spec/ADR above.
+              NOT_DOCS=$(echo "$CHANGED_FILES" | jq -r '.[] | select(
                   (endswith(".md") | not)
                   or startswith("docs/specs/") or startswith("docs/decisions/")
                   or test("(^|/)\\.github/")
@@ -412,15 +427,8 @@ jobs:
             echo "Gate 6 OK: ${BASE_REF} has no .github/merge-policy.json yet, so no policy applies"
           else
             POLICY=$(git show "origin/${BASE_REF}:.github/merge-policy.json")
-            # Every changed file, both names on a rename, as one exact JSON list.
-            # The files API stops at 3000 entries, so a list shorter than the PR's
-            # own count holds the merge rather than judge it on part of the diff.
-            FILES_JSON=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '[.[] | {filename, previous_filename}]' | jq -s 'add // []')
-            if [[ "$(echo "$FILES_JSON" | jq length)" != "$CHANGED_COUNT" ]]; then
-              echo "Gate 6 FAILED: the files API listed $(echo "$FILES_JSON" | jq length) of the PR's ${CHANGED_COUNT} changed files, so the merge policy cannot see the whole diff. Exiting cleanly."
-              exit 0
-            fi
-            CHANGED_FILES=$(echo "$FILES_JSON" | jq -c '[.[] | .filename, (.previous_filename // empty)]')
+            # CHANGED_FILES (above Gate 2) is every changed path, both names on a
+            # rename, from git, so there is no API page limit to check.
             # The whole policy is checked before any file is matched, so a broken
             # one holds every PR, not only those whose files reach the broken rule:
             # exactly one JSON object, version 1, a non-empty rule list, and each
