@@ -21,7 +21,7 @@ export const mapDemoExtension: Extension = {
     displayName: 'Map (demo)',
     version: '0.0.0',
     description:
-      'Throwaway scaffold: maplibre map with a drone marker driven by MAVLink telemetry. The real Map iteration replaces this.',
+      'Throwaway scaffold: maplibre map with a drone marker driven by MAVLink telemetry. Retired: Map replaces it.',
   },
   activate(context) {
     host = context.host;

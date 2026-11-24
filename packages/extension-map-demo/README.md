@@ -2,7 +2,9 @@
 
 Throwaway scaffold demonstrating maplibre integration + the consumer-side cross-extension pattern. Reads MAVLink telemetry via `host.extensions.getExtension<MavlinkExports>('gcscode.mavlink')` and renders a drone marker on a maplibre map. Camera tracks the marker.
 
-The real Map iteration (roadmap "Coming → Map") replaces this once it lands. Don't depend on the demo for anything; the package will be removed.
+Don't depend on the demo for anything; the package will be removed.
+
+**Retired, off by default.** The real Map (`@gcscode/extension-map`) has landed and replaces it, so the shell bundles this extension with `initialEnabled: false` (`packages/shell/src/extension-host/bundled-extensions.ts`): it stays installed and an operator can turn it on in the Extensions panel. That choice is not remembered across a reload, since the shell saves only which extensions were turned off.
 
 ## Contributions
 

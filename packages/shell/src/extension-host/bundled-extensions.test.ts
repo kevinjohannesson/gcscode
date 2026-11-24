@@ -45,6 +45,13 @@ describe('bundledExtensions', () => {
     expect(ids.slice(ids.indexOf('gcscode.map') + 1)).toEqual(['gcscode.mavlink-flight-overlay']);
   });
 
+  it('starts only the retired Map (demo) turned off', () => {
+    const off = bundledExtensions
+      .filter((entry) => entry.initialEnabled === false)
+      .map((entry) => entry.id);
+    expect(off).toEqual(['gcscode.map-demo']);
+  });
+
   it('lists the ids the two MAVLink extensions had before ADR-0014 renamed them', () => {
     const previousIds = Object.fromEntries(
       bundledExtensions
