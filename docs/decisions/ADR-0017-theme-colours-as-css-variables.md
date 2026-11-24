@@ -58,6 +58,10 @@ VS Code gives every theme colour an id, such as `editor.background` or `descript
 - Every view's chrome moves to the variables, in follow-up PRs, one per extension area. The map extension's controls use the widget and toolbar names. The flight overlay keeps its domain colours under Decision 3, and its armed green and max-distance red move off the level colours.
 - Extensions render into the shell's own document, not a sandboxed webview, so a shell utility class can still style extension markup. Decision 7 makes that off-limits, and review catches it; no check does.
 - An extension cannot add colours to the theme the way VS Code's `contributes.colors` allows, and colour set in script does not follow a theme change. Neither matters while there is one theme. There is no spacing variable, as VS Code has none; spacing and type are a later pass.
+- Left for the PR that ships the variables, from this ADR's review:
+  - PR #77 RT-7: spacing and type get no variables here. The spacing and type pass decides them, including columns of numbers that change width as their values change. _Trigger:_ that pass starts.
+  - PR #77 RT-11: one slug can begin another (`mavlink`, `mavlink-flight-overlay`), so the repo test of Decision 5 matches a prefix that is the whole slug followed by a dash, and checks that no slug plus a dash begins another. _Trigger:_ writing that test.
+  - PR #77 RT-12: a level colour drawn as text needs 4.5:1, not 3:1, which the flight overlay's current red can miss on a dark panel. The contrast test holds level colours to 4.5:1 wherever they are text. _Trigger:_ writing that test.
 - When the shell's variables ship, that PR also makes these edits:
   - `docs/out-of-scope.md` drops "Theme tokens / CSS-variable system for extension styling", and "Event bus, themes, i18n" drops themes, pointing here. It gains:
     - **Extension-contributed theme colours** (VS Code's `contributes.colors`). _Trigger to revisit:_ a second theme, since a domain colour then needs a value per theme.
