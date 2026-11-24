@@ -6,6 +6,7 @@ Every command block runs from the repo root of the main checkout, and each block
 
 | Test                                                  | Ticket / PR     | Branch   | Needs                 |
 | ----------------------------------------------------- | --------------- | -------- | --------------------- |
+| [Video health view](#video-health-view)               | GCS-15, PR #65  | `master` | SITL                  |
 | [Radio probe](#radio-probe)                           | GCS-13, PR #63  | `master` | TX16S, Rust and CMake |
 | [Several vehicles in SITL](#several-vehicles-in-sitl) | N8, PR #66      | `master` | SITL                  |
 | [Wire probe](#wire-probe)                             | GCS-17, PR #70  | `master` | SITL                  |
@@ -43,6 +44,50 @@ And let it go again:
 ```sh
 pkill -CONT -f 'tcp:127.0.0.1:5770'
 ```
+
+## Video health view
+
+**Goal:** the **Video health** tab tells a live picture from a frozen one: connection state, frames per second, time since the last new frame, bitrate and packet loss for the Video panel's stream. Its README: [`packages/extension-video`](../packages/extension-video/README.md#the-video-health-view).
+
+Start the stack (**runs until Ctrl-C**), then open gcscode and drag the **Video health** tab next to the **Video** panel, so both show at once:
+
+```sh
+pnpm dev:sitl
+```
+
+```sh
+open http://localhost:5173/
+```
+
+**Expect:** the Video panel plays vehicle 1's camera, and Video health reads `connected`, about 30 frames per second, a time since the last new frame under a second, and a bitrate above 0.
+
+**Scenario 1, a frozen picture:** freeze camera-sim's headless Chrome, so it stops sending frames while MediaMTX and the panel's connection stay up (each of its processes names the `camera-sim-chrome` profile on its command line):
+
+```sh
+pkill -STOP -f camera-sim-chrome
+```
+
+**Expect:** within a second the picture stops, frames per second drop to 0 and the time since the last new frame keeps growing, while the state still reads `connected`. Let it go again within about 10 s:
+
+```sh
+pkill -CONT -f camera-sim-chrome
+```
+
+**Expect:** the picture moves again, and within a few seconds it is back to about 30 frames per second and a time since the last new frame under a second.
+
+**Scenario 2, the media server goes away:** freeze MediaMTX, so it stops answering without exiting (an exit would stop the whole stack):
+
+```sh
+pkill -STOP -x mediamtx
+```
+
+**Expect:** frames per second drop to 0 at once, and within about 10 s the state leaves `connected` (`disconnected`, then `no connection` while the panel retries). Let it go again:
+
+```sh
+pkill -CONT -x mediamtx
+```
+
+**Expect:** within about 15 s the state is `connected` again and the picture moves, without touching the page.
 
 ## Radio probe
 
