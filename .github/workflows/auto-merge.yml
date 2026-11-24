@@ -87,14 +87,15 @@ name: Auto-merge
 #
 # Ruleset: the repository ruleset "master: CI must pass" (Settings → Rules)
 # makes GitHub itself refuse a merge into the default branch unless the head
-# has a successful `ci` check from GitHub Actions, whoever merges: this
-# workflow, a hand merge, or any other workflow's token. It requires no
-# reviews and no up-to-date branch (an up-to-date rule would force a new CI
-# run, and with it a new merge attempt, after every master merge). Repository
-# admins can bypass it. It matches the check by name and app, so a `ci` job in
+# has a successful `ci` check from GitHub Actions, whoever merges except a
+# repository admin, who can bypass it: this workflow, any other workflow's
+# token, or a hand merge by a non-admin. It requires no reviews and no
+# up-to-date branch (an up-to-date rule would force a new CI run, and with it
+# a new merge attempt, after every master merge). It matches the check by name and app, so a `ci` job in
 # a PR's own workflow would satisfy it; Gate 5 above reads `ci.yml`'s own runs
 # instead, and stays the stricter check. GitHub also counts a skipped check as
-# passing, and `ci` is skipped when its run is cancelled; Gate 5 does not.
+# passing, and `ci` may end skipped when its run is cancelled (not yet
+# observed here); Gate 5 does not count either as success.
 #
 # Limit: the gates hold only while no workflow on the PR's side is changed,
 # this one included. A PR can edit this file or any other workflow so that it
@@ -103,8 +104,10 @@ name: Auto-merge
 # without consulting the base's gates or the merge policy. The policy's
 # enforced `workflows` rule leaves such PRs to the owner only when the gate is
 # asked; the CI ruleset above does not close the route either (a PR's own
-# workflow can post a `ci` check), and closing it needs a ruleset that requires
-# a pull request and gives the workflow token no bypass. GitHub refusing the
+# workflow can post a `ci` check), and closing it needs a ruleset requirement
+# that a PR's own workflow token cannot meet, such as a required review or a
+# check from an app other than GitHub Actions, weighed against auto-merge,
+# which merges with that same token. GitHub refusing the
 # workflow token's merge of workflow changes is not relied on: it refused
 # PR #91, but merged PR #67.
 #
