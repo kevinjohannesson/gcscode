@@ -138,7 +138,9 @@ export interface ExtensionManifest extends ExtensionIdentity {
  * The host exposes no methods at the top level — every verb lives under one of
  * the four namespaces. New contribution kinds slot in as further `register*`
  * methods on the appropriate namespace; new cross-cutting capabilities (events,
- * settings, themes, i18n) land as new namespaces. See ADR-0006.
+ * settings, i18n) land as new namespaces. See ADR-0006. Theme colours landed as
+ * CSS variables (`themeVariables`, ADR-0017); the first theme call comes with
+ * theme switching, on `window`.
  */
 export interface ExtensionHost {
   readonly commands: {
@@ -349,3 +351,42 @@ export interface Extension {
   activate(context: ExtensionContext): unknown;
   deactivate?(): void | Promise<void>;
 }
+
+/**
+ * The theme's CSS variables (ADR-0017). The shell sets each one on the document
+ * root before any extension activates; extension chrome styles with
+ * `var(--gcscode-…)` and hardcodes no colour. Names follow VS Code's theme
+ * colour ids with the dot turned into a dash. Adding a name is additive;
+ * renaming or removing one is a breaking change.
+ */
+export const themeVariables = [
+  '--gcscode-foreground',
+  '--gcscode-descriptionForeground',
+  '--gcscode-errorForeground',
+  '--gcscode-focusBorder',
+  '--gcscode-panel-background',
+  '--gcscode-panel-border',
+  '--gcscode-widget-background',
+  '--gcscode-widget-border',
+  '--gcscode-widget-shadow',
+  '--gcscode-toolbar-hoverBackground',
+  '--gcscode-toolbar-activeBackground',
+  '--gcscode-input-background',
+  '--gcscode-input-foreground',
+  '--gcscode-input-border',
+  '--gcscode-button-background',
+  '--gcscode-button-foreground',
+  '--gcscode-button-hoverBackground',
+  '--gcscode-list-hoverBackground',
+  '--gcscode-list-activeSelectionBackground',
+  '--gcscode-textLink-foreground',
+  '--gcscode-statusBar-background',
+  '--gcscode-statusBar-foreground',
+  '--gcscode-level-warning',
+  '--gcscode-level-caution',
+  '--gcscode-level-normal',
+  '--gcscode-font-family',
+  '--gcscode-font-size',
+  '--gcscode-monospace-font-family',
+] as const;
+export type ThemeVariable = (typeof themeVariables)[number];

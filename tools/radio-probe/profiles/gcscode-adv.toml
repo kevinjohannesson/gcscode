@@ -1,0 +1,69 @@
+# The TX16S MK3 on its gcscode-adv model, EdgeTX's Advanced joystick mode, set up as
+# tools/radio-probe/tx16s-advanced-model.md describes: channels 1 to 8 are axes 0 to 7, the
+# switches SA to SG are Pulse buttons 0 to 19, and button 20 is the held control switch.
+#
+# Calibration is in SDL's raw units. The radio's own calibration already puts each stick's
+# ends at -32768 and 32767 and its centre at 0, so these are the full range. `min` is the raw
+# value at -100% (0% for throttle), `max` at 100%.
+name = "gcscode-adv"
+
+[match]
+vendor = 0x1209
+product = 0x4F54
+name = "TX16SMK3 Joystick"
+# Advanced mode reports the highest button used plus one, so 28 here; the Classic model
+# reports 24 and does not match.
+axes = 8
+buttons = 28
+
+[axes]
+roll = { axis = 0, min = -32768, centre = 0, max = 32767, deadband = 512 }
+pitch = { axis = 1, min = -32768, centre = 0, max = 32767, deadband = 512 }
+throttle = { axis = 2, min = -32768, centre = 0, max = 32767 }
+yaw = { axis = 3, min = -32768, centre = 0, max = 32767, deadband = 512 }
+aux1 = { axis = 4, min = -32768, centre = 0, max = 32767 } # S1
+aux2 = { axis = 5, min = -32768, centre = 0, max = 32767 } # S2
+aux3 = { axis = 6, min = -32768, centre = 0, max = 32767 } # LS
+aux4 = { axis = 7, min = -32768, centre = 0, max = 32767 } # RS
+
+[on-off]
+# CH16, a Normal button: held for as long as the control switch is on.
+control = { button = 20 }
+# No held RTL in this model yet.
+
+# Each switch's first button is its position at -100 in the channel monitor, which EdgeTX
+# gives the switch's up position.
+[[switches]]
+name = "SA"
+buttons = [0, 1, 2]
+positions = ["up", "middle", "down"]
+
+[[switches]]
+name = "SB"
+buttons = [3, 4, 5]
+positions = ["up", "middle", "down"]
+
+[[switches]]
+name = "SC"
+buttons = [6, 7, 8]
+positions = ["up", "middle", "down"]
+
+[[switches]]
+name = "SD"
+buttons = [9, 10, 11]
+positions = ["up", "middle", "down"]
+
+[[switches]]
+name = "SE"
+buttons = [12, 13, 14]
+positions = ["up", "middle", "down"]
+
+[[switches]]
+name = "SF"
+buttons = [15, 16]
+positions = ["up", "down"]
+
+[[switches]]
+name = "SG"
+buttons = [17, 18, 19]
+positions = ["up", "middle", "down"]

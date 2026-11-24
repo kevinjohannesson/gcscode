@@ -41,7 +41,7 @@
     align-items: center;
     justify-content: center;
     border: 1px dashed currentColor;
-    color: #999;
+    color: var(--gcscode-descriptionForeground);
     font-size: 0.75rem;
     line-height: 1;
     border-radius: 2px;

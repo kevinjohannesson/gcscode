@@ -8,6 +8,7 @@ import { createHomeSeeder } from './home-seed';
 import { createMavlinkClient, type MavlinkClient } from './mavlink-client';
 import MapInputView from './map-input-view.svelte';
 import MavlinkView from './mavlink-view.svelte';
+import { DEFAULT_STATION_URL, STATION_PROTOCOL, stationLink } from './station-link.svelte';
 import {
   applyMessage,
   reset,
@@ -30,6 +31,12 @@ import { vehicleInputs } from './vehicle-inputs.svelte';
  */
 export interface MavlinkExports {
   telemetry: Readonly<TelemetryState>;
+  /**
+   * The station protocol the page speaks. This extension owns the station session
+   * (ADR-0015 Decision 3), so other extensions that read the station check its
+   * `hello` against this rather than keeping their own copy.
+   */
+  stationProtocol: number;
 }
 
 const FILTER = '^(HEARTBEAT|GLOBAL_POSITION_INT|ATTITUDE|VFR_HUD|SYS_STATUS|HOME_POSITION)$';
@@ -68,7 +75,7 @@ export const mavlinkExtension: Extension = {
     displayName: 'MAVLink',
     version: '0.0.0',
     description:
-      'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export, and shows per vehicle what the map is fed and the state of the link.',
+      'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export, and shows per vehicle what the map is fed and the state of the link, the station process included.',
   },
   activate(context): MavlinkExports {
     context.subscriptions.push(
@@ -84,7 +91,25 @@ export const mavlinkExtension: Extension = {
       }),
     );
 
+    context.subscriptions.push(
+      context.host.configuration.registerConfiguration({
+        key: 'gcscode.mavlink.stationUrl',
+        schema: {
+          type: 'string',
+          format: 'uri',
+          description:
+            "WebSocket address of the station process, this extension's native half (packages/mavlink-station). The Link state view shows whether it is running.",
+        },
+        default: DEFAULT_STATION_URL,
+      }),
+    );
+
     const cfg = context.host.configuration.getConfiguration('gcscode.mavlink');
+
+    // The session to the station is this extension's (ADR-0015 Decision 3):
+    // started here, stopped through `subscriptions`. It only listens.
+    stationLink.start(cfg.get<string>('stationUrl', DEFAULT_STATION_URL));
+    context.subscriptions.push({ dispose: () => stationLink.stop() });
 
     // Resolved per message rather than here: the assets service may activate
     // after this one, and that lazy resolution is exactly why the bundling
@@ -130,6 +155,14 @@ export const mavlinkExtension: Extension = {
         homeSeeder.reset();
         void closeClient().then(() => openClient(newBase, handleMessage));
       }),
+      context.host.configuration.onDidChangeConfiguration((e) => {
+        if (!e.affectsConfiguration('gcscode.mavlink.stationUrl')) return;
+        stationLink.start(
+          context.host.configuration
+            .getConfiguration('gcscode.mavlink')
+            .get<string>('stationUrl', DEFAULT_STATION_URL),
+        );
+      }),
     );
 
     context.subscriptions.push(
@@ -172,7 +205,7 @@ export const mavlinkExtension: Extension = {
       }),
     );
 
-    return { telemetry: telemetryState };
+    return { telemetry: telemetryState, stationProtocol: STATION_PROTOCOL };
   },
   async deactivate() {
     await closeClient();

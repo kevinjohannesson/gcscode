@@ -3,6 +3,8 @@
 **Date:** 2026-10-16
 **Status:** Accepted
 
+_Note: theme colours landed as CSS variables, not a namespace, in [ADR-0017](ADR-0017-theme-colours-as-css-variables.md); the first theme call comes with theme switching, on `host.window`._
+
 ## Context
 
 [ADR-0006](ADR-0006-extensionhost-namespacing.md) made `ExtensionHost` topic-namespaced — `host.commands.*`, `host.window.*`, `host.keybindings.*`, `host.extensions.*` — and said future cross-cutting capabilities land as new namespaces. The fifth namespace, `host.configuration.*`, came later from [`docs/specs/2026-05-18-configuration-system-v1.md`](../specs/2026-05-18-configuration-system-v1.md); [ADR-0006](ADR-0006-extensionhost-namespacing.md) forecast it under a different name (`host.settings.*`). `CLAUDE.md`'s boundary-rule corollary says the same thing in operational form: if an extension needs a capability the host does not expose, add it to `@gcscode/extension-api` first — as a method on an existing namespace, as a new namespace if the capability is cross-cutting, or as a new field on `ExtensionContext`.

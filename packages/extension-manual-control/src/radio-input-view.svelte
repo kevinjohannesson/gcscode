@@ -3,11 +3,10 @@
 
   import { axisFill, buttonRows, eventsLine, isEdgeTx, pressedLine, usbId } from './radio-format';
   import { RadioInputState } from './radio-input-state.svelte';
-  import { getStationAddress } from './station-address';
-  import { PROTOCOL } from './station-protocol';
+  import { getStationAddress, getStationProtocol } from './station-address';
 
   const address = getStationAddress();
-  const station = new RadioInputState(address, (url) => new WebSocket(url));
+  const station = new RadioInputState(address, getStationProtocol(), (url) => new WebSocket(url));
 
   onMount(() => {
     station.start();
@@ -26,10 +25,15 @@
       view keeps trying. If it is running, it may have refused this page: its terminal says so, and
       <code>--allow-origin {location.origin}</code> lets this page in.
     </p>
+  {:else if station.status === 'unknown-protocol'}
+    <p class="message">
+      This page does not know which protocol the station speaks: the MAVLink extension, which owns
+      the station, is not loaded. Turn it on, then reopen this view.
+    </p>
   {:else if station.status === 'mismatch'}
     <p class="message">
-      The station speaks protocol {station.stationProtocol}, this page protocol {PROTOCOL}. Run the
-      two from the same checkout.
+      The station speaks protocol {station.stationProtocol}, this page protocol {station.pageProtocol}.
+      Run the two from the same checkout.
     </p>
   {:else if !radio}
     <p class="message">
@@ -48,7 +52,11 @@
 
     <table class="axes">
       <thead>
-        <tr><th>axis</th><th>value</th><th class="scale">-32768 · 0 · 32767</th></tr>
+        <tr>
+          <th class="index">axis</th><th class="value">value</th><th class="scale"
+            >-32768 · 0 · 32767</th
+          >
+        </tr>
       </thead>
       <tbody>
         {#each radio.axes as value, i (i)}
@@ -91,13 +99,16 @@
 
 <style>
   .view {
+    /* The axis bar is data, not chrome: the extension's own colour
+       (ADR-0017 Decision 3). */
+    --manual-control-axis-fill: #4fa3e0;
     height: 100%;
     overflow: auto;
-    padding: 0.75rem 1rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding: 0.75rem;
+    font-family: var(--gcscode-monospace-font-family);
     font-size: 0.85rem;
-    color: #ddd;
-    background: #1e1e1e;
+    font-variant-numeric: tabular-nums;
+    color: var(--gcscode-foreground);
     box-sizing: border-box;
   }
   p {
@@ -106,7 +117,7 @@
   .detail,
   .caption,
   .events {
-    color: #999;
+    color: var(--gcscode-descriptionForeground);
   }
   table {
     border-collapse: collapse;
@@ -114,43 +125,62 @@
   }
   th,
   td {
-    border: 1px solid #555;
+    box-sizing: border-box;
+    border: 1px solid var(--gcscode-widget-border);
     padding: 0.1rem 0.5rem;
   }
   th {
     font-weight: normal;
-    color: #999;
+    color: var(--gcscode-descriptionForeground);
+  }
+  /* Fixed columns, sized for the widest value ("-32768") plus padding, so
+     the table keeps its shape while values change sign and length. A fixed
+     layout needs the table's own width, which is the columns' sum. */
+  .axes {
+    --manual-control-index-width: 6ch;
+    --manual-control-value-width: 9ch;
+    --manual-control-scale-width: 16rem;
+    table-layout: fixed;
+    width: calc(
+      var(--manual-control-index-width) + var(--manual-control-value-width) +
+        var(--manual-control-scale-width)
+    );
+  }
+  .index {
+    width: var(--manual-control-index-width);
+  }
+  .value {
+    width: var(--manual-control-value-width);
+  }
+  .scale {
+    width: var(--manual-control-scale-width);
   }
   .num {
     text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-  .scale {
-    min-width: 16rem;
   }
   .bar {
     position: relative;
-    min-width: 16rem;
   }
   .fill {
     position: absolute;
     top: 25%;
     bottom: 25%;
-    background: #4fa3e0;
+    background: var(--manual-control-axis-fill);
   }
   .mid {
     position: absolute;
     left: 50%;
     top: 0;
     bottom: 0;
-    border-left: 1px solid #777;
+    border-left: 1px solid var(--gcscode-descriptionForeground);
   }
   .buttons td {
     width: 2.25rem;
     text-align: right;
   }
+  /* Inverted text, so foreground on panel-background is the tested pair. */
   .buttons td.pressed {
-    background: #ddd;
-    color: #1e1e1e;
+    background: var(--gcscode-foreground);
+    color: var(--gcscode-panel-background);
   }
 </style>

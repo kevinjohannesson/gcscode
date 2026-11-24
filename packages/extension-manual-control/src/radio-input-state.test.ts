@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RadioInputState, RETRY_DELAY_MS, SILENCE_LIMIT_MS } from './radio-input-state.svelte';
-import { FakeSocket, HELLO, inputText } from './test-fakes';
+import { FakeSocket, HELLO, advControls, inputText } from './test-fakes';
 
 const URL = 'ws://127.0.0.1:8091/ws';
 
 function started() {
-  const state = new RadioInputState(URL, (url) => new FakeSocket(url));
+  const state = new RadioInputState(URL, 1, (url) => new FakeSocket(url));
   state.start();
   return state;
 }
@@ -60,9 +60,9 @@ describe('RadioInputState', () => {
   it('says a station with another protocol does not match, and keeps trying', () => {
     const state = started();
     const first = FakeSocket.latest();
-    first.receive('{"type":"hello","protocol":1,"station":"0.2.0"}');
+    first.receive('{"type":"hello","protocol":0,"station":"0.1.0"}');
     expect(state.status).toBe('mismatch');
-    expect(state.stationProtocol).toBe(1);
+    expect(state.stationProtocol).toBe(0);
     expect(first.closeCalls).toBe(1);
 
     // Input on the refused socket is not shown.
@@ -75,6 +75,27 @@ describe('RadioInputState', () => {
     FakeSocket.latest().receive(HELLO);
     expect(state.status).toBe('live');
     expect(state.stationProtocol).toBeNull();
+  });
+
+  it('checks the hello against the protocol it was given, not one of its own', () => {
+    const state = new RadioInputState(URL, 2, (url) => new FakeSocket(url));
+    state.start();
+    expect(state.pageProtocol).toBe(2);
+    FakeSocket.latest().receive(HELLO);
+    expect(state.status).toBe('mismatch');
+    expect(state.stationProtocol).toBe(1);
+    vi.advanceTimersByTime(RETRY_DELAY_MS);
+    FakeSocket.latest().receive('{"type":"hello","protocol":2,"station":"0.2.0"}');
+    expect(state.status).toBe('live');
+  });
+
+  it('with no protocol to expect, says so and never connects', () => {
+    const state = new RadioInputState(URL, null, (url) => new FakeSocket(url));
+    state.start();
+    expect(state.status).toBe('unknown-protocol');
+    expect(state.pageProtocol).toBeNull();
+    vi.advanceTimersByTime(RETRY_DELAY_MS * 3);
+    expect(FakeSocket.instances).toHaveLength(0);
   });
 
   it('when the station goes, clears the radio and tries again after two seconds', () => {
@@ -124,7 +145,7 @@ describe('RadioInputState', () => {
 
   it('tries again when the socket cannot even be created', () => {
     let calls = 0;
-    const state = new RadioInputState(URL, (url) => {
+    const state = new RadioInputState(URL, 1, (url) => {
       calls++;
       if (calls === 1) throw new SyntaxError('bad url');
       return new FakeSocket(url);
@@ -154,5 +175,22 @@ describe('RadioInputState', () => {
     state.stop();
     vi.advanceTimersByTime(RETRY_DELAY_MS * 3);
     expect(FakeSocket.instances).toHaveLength(1);
+  });
+
+  it('keeps the controls the station mapped, and forgets them with the station', () => {
+    const state = started();
+    const socket = FakeSocket.latest();
+    socket.receive(HELLO);
+    socket.receive(inputText([1], [true], 5, advControls()));
+    expect(state.controls?.profile).toBe('gcscode-adv');
+    expect(state.controls?.switches[0].position).toBe('middle');
+
+    socket.receive(inputText([1], [true], 5, null));
+    expect(state.controls).toBeNull();
+    expect(state.radio?.axes).toEqual([1]);
+
+    socket.receive(inputText([1], [true], 5, advControls()));
+    socket.closeFromStation();
+    expect(state.controls).toBeNull();
   });
 });

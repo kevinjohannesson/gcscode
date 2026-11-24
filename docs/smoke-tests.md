@@ -10,8 +10,10 @@ Every command block runs from the repo root of the main checkout, and each block
 | [Several vehicles in SITL](#several-vehicles-in-sitl) | N8, PR #66     | `master`                              | SITL                  |
 | [Wire probe](#wire-probe)                             | GCS-17, PR #70 | `master`                              | SITL                  |
 | [Map input view](#map-input-view)                     | GCS-14, PR #71 | `master`                              | SITL                  |
-| [Link state view](#link-state-view)                   | GCS-24, PR #69 | draft: `claude/project-thread-0l1wrd` | SITL                  |
+| [Link state view](#link-state-view)                   | GCS-24, PR #69 | `master`                              | SITL                  |
 | [Radio input view](#radio-input-view)                 | GCS-38, PR #68 | `master`                              | TX16S, Rust and CMake |
+| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81 | `master`                              | SITL, Rust and CMake  |
+| [Controls view](#controls-view)                       | GCS-40, PR #82 | draft: `claude/project-thread-lk6dk0` | TX16S, Rust and CMake |
 
 ## Before you start
 
@@ -19,6 +21,12 @@ Bring the main checkout up to date:
 
 ```sh
 git switch master && git pull --ff-only && pnpm install
+```
+
+`pnpm dev:sitl` also starts the station process, which needs Rust and CMake and a build after each change to it:
+
+```sh
+pnpm --filter mavlink-station run setup
 ```
 
 A test on a draft branch runs in a worktree under `.worktrees/`, so the main checkout never changes branch. Each such test has its own setup block. Only one stack can run at a time, since they share ports: stop the last one with Ctrl-C before starting the next.
@@ -135,18 +143,12 @@ pnpm fly-sitl --circle 3
 
 ## Link state view
 
-**Goal:** the **Link state** tab shows whether the mavlink2rest bridge is up, and for each system ID how long ago its last heartbeat arrived.
+**Goal:** the **Link state** tab shows whether the mavlink2rest bridge is up, and for each system ID how long ago its last heartbeat arrived. Its `station` line, from PR #81, has a test of its own: [Station in the dev stack](#station-in-the-dev-stack).
 
-**Draft PR #69.** Set up its worktree once:
-
-```sh
-git fetch origin claude/project-thread-0l1wrd && git worktree add --detach .worktrees/link-state FETCH_HEAD && cd .worktrees/link-state && pnpm install
-```
-
-Start two vehicles from the worktree (**runs until Ctrl-C**), then open gcscode and click the **Link state** tab:
+Start two vehicles (**runs until Ctrl-C**), then open gcscode and click the **Link state** tab:
 
 ```sh
-cd .worktrees/link-state && pnpm dev:sitl --vehicles 2
+pnpm dev:sitl --vehicles 2
 ```
 
 ```sh
@@ -164,12 +166,6 @@ pkill -x mavlink2rest
 ```
 
 **Expect:** the bridge `down for …`, a line saying a reload is needed once mavlink2rest is back, and every age growing. gcscode does not reconnect yet, so stop the stack with Ctrl-C afterwards.
-
-Remove the worktree when the PR has merged:
-
-```sh
-git worktree remove .worktrees/link-state
-```
 
 ## Radio input view
 
@@ -202,6 +198,118 @@ pnpm --filter radio-probe start
 **Scenario 2, reload:** reload the page, then close the tab and open it again. **Expect:** the station's terminal shows nothing new and keeps running, and the page picks the input up again.
 
 **Scenario 3, station gone:** press Ctrl-C in the station's terminal. **Expect:** the page says the station is gone and retries every 2 s; start the station again and the page picks it up.
+
+## Station in the dev stack
+
+**Goal:** the station process starts with `pnpm dev:sitl`, the **Link state** tab shows `station: running` or `station: not running`, stopping the process flips it, and it sends nothing to any vehicle: the wire probe confirms.
+
+Build the station once, and again after its code changes (the first build compiles SDL and takes a few minutes):
+
+```sh
+pnpm --filter mavlink-station run setup
+```
+
+Start two vehicles (**runs until Ctrl-C**), then open gcscode and click the **Link state** tab:
+
+```sh
+pnpm dev:sitl --vehicles 2
+```
+
+```sh
+open http://localhost:5173/
+```
+
+**Expect:** the launcher prints `station | station: serving radio input on ws://127.0.0.1:8091/ws`, and once the vehicles are ready to fly, a `Station` line with `ws://127.0.0.1:8091/ws` among the addresses. The Link state tab shows `station` `running for …` with `(gcscode-station 0.1.0)`, the bridge up, and systems 1 and 2 under a second ago.
+
+**Scenario 1, it sends nothing:** start the wire probe in a second terminal (**runs until Ctrl-C**):
+
+```sh
+pnpm --filter wire-probe start
+```
+
+**Expect:** the same rows as without the station: `HEARTBEAT` from systems 1 and 2 only, and no command or control frame among the latest frames. The station has no MAVLink code yet, so nothing it does can show up here.
+
+**Scenario 2, the station stops:** freeze it, so it goes quiet without exiting (an exit would stop the whole stack):
+
+```sh
+pkill -STOP -x gcscode-station
+```
+
+**Expect:** within 3 s the Link state tab shows `station` `not running for …` in red, with a line saying nothing answers at `ws://127.0.0.1:8091/ws` and how to start it. Mavlink2rest and the vehicles' ages are unaffected. Let it go again:
+
+```sh
+pkill -CONT -x gcscode-station
+```
+
+**Expect:** within about 2 s it is `running` again, its time counting from 0.
+
+**Scenario 3, one Ctrl-C:** press Ctrl-C in the stack's terminal. **Expect:** `Stopping sitl, mediamtx, gcscode, camera-sim, station`, then `Stopped.` This prints any port still listening, or `all stopped`:
+
+```sh
+lsof -nP -iTCP -sTCP:LISTEN | grep -E ':(5760|5770|8088|5173|5174|8889|8091)\b' || echo 'all stopped'
+```
+
+## Controls view
+
+**Goal:** a profile file says what each radio input means to gcscode. With the gcscode-adv profile, the **Controls** tab and `radio-probe --mapped` show "throttle 37%", "SA middle" and "control on" live, next to the raw values. **Proof is a screen recording** (Cmd-Shift-5) with the page and the probe side by side.
+
+**Draft PR #82.** Needs the TX16S on USB as a joystick, on its `gcscode-adv` model ([`tools/radio-probe/tx16s-advanced-model.md`](../tools/radio-probe/tx16s-advanced-model.md)), and Rust and CMake. No SITL. Set up its worktree once:
+
+```sh
+git fetch origin claude/project-thread-lk6dk0 && git worktree add --detach .worktrees/controls FETCH_HEAD && cd .worktrees/controls && pnpm install
+```
+
+Plug in the radio on `gcscode-adv` first, then start the station (**runs until Ctrl-C**):
+
+```sh
+cd .worktrees/controls && pnpm --filter mavlink-station start
+```
+
+**Expect:** `station: radio profiles gcscode-adv`, the `opened … TX16SMK3 Joystick` lines with `buttons 28`, then `station: mapped with profile gcscode-adv`.
+
+Start the dev server in a second terminal (**runs until Ctrl-C**), then open gcscode and click the **Controls** tab:
+
+```sh
+cd .worktrees/controls && pnpm dev
+```
+
+```sh
+open http://localhost:5173/
+```
+
+Start the probe with the profile in a third terminal (**runs until Ctrl-C**):
+
+```sh
+cd .worktrees/controls && pnpm --filter radio-probe start -- --mapped
+```
+
+**Scenario 1, no position yet:** before touching a switch, look at the Controls tab. **Expect:** every switch reads `unknown`, since the radio's connect burst came before the station opened it.
+
+**Scenario 2, sticks:** start the recording. Let the sticks rest, then move each to both ends. **Expect:** roll, pitch and yaw read `0%` at rest and `-100%` and `100%` at their ends; throttle reads `0%` to `100%`; the probe's control column shows the same numbers.
+
+**Scenario 3, a Pulse switch:** move SA to the middle and wait a second. **Expect:** `SA middle`, still there after the 0.2 s press has ended (the Radio input tab shows button 1 flash, then nothing). Move it up and down. **Expect:** `up`, then `down`. Do the same for SB to SG.
+
+**Scenario 4, the control switch:** turn the control switch on, then off. **Expect:** `control on`, highlighted, then `control off`.
+
+**Scenario 5, unmapped inputs:** press SH and SW1 to SW6. **Expect:** nothing named changes, and `unmapped buttons: 21, 22, 23, 24, 25, 26, 27` lists them.
+
+**Scenario 6, the connect burst:** unplug the radio, set SA up and SF down, and plug it back in. **Expect:** the station opens it again and the switches show their positions right away, or `unknown` if the burst came before the station opened the radio. Write down which: it decides whether a later rung can count on the burst.
+
+**Scenario 7, a refused profile:** stop the station, then start it with a profile that maps the control switch to a switch position (**exits at once**):
+
+```sh
+cd .worktrees/controls && sed 's/^control = .*/control = { switch = "SF", position = "down" }/' tools/radio-probe/profiles/gcscode-adv.toml > /tmp/refused.toml && pnpm --filter mavlink-station start -- --profile /tmp/refused.toml
+```
+
+**Expect:** `station: profile /tmp/refused.toml refused: control may only map to a held button …`, and the station exits.
+
+**Scenario 8, no profile:** select the Classic `gcscode` model and replug, then start the station again. **Expect:** `no profile matches this radio (8 axes, 24 buttons)` in its terminal, and the Controls tab says no profile matches; the Radio input tab still shows raw input.
+
+Remove the worktree when the PR has merged:
+
+```sh
+git worktree remove .worktrees/controls
+```
 
 ## Adding a test
 

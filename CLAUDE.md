@@ -26,7 +26,7 @@ ESLint enforces all of this (`@typescript-eslint/no-restricted-imports` with `al
 
 Corollary: if an extension needs a capability the host doesn't yet expose, first ask **whether the host would have to own the surface that capability mutates** ([ADR-0012](docs/decisions/ADR-0012-service-extensions-vs-host-namespaces.md)).
 
-- **Platform concern** (the host must own it — contributions, commands, keybindings, extension lookup, configuration, and later events/themes/i18n/storage): add it to `@gcscode/extension-api` first — as a new method under an existing `ExtensionHost` namespace (`host.commands.*`, `host.window.*`, `host.keybindings.*`, `host.extensions.*`, `host.configuration.*`), as a new namespace if the capability is cross-cutting, or as a new field on `ExtensionContext` where it is per-extension rather than shared — land that, then use it.
+- **Platform concern** (the host must own it — contributions, commands, keybindings, extension lookup, configuration, and later events/themes/i18n/storage; theme colours landed as CSS variables in [ADR-0017](docs/decisions/ADR-0017-theme-colours-as-css-variables.md), and the first theme call comes with theme switching, on `host.window`): add it to `@gcscode/extension-api` first — as a new method under an existing `ExtensionHost` namespace (`host.commands.*`, `host.window.*`, `host.keybindings.*`, `host.extensions.*`, `host.configuration.*`), as a new namespace if the capability is cross-cutting, or as a new field on `ExtensionContext` where it is per-extension rather than shared — land that, then use it.
 - **Domain concern** (about what gcscode controls or displays — maps, assets, live state, video): ship it as a **service extension**, not a host namespace. Its package exports the vocabulary types and the API; consumers `import type` from it and look up the live API via `host.extensions.getExtension<T>(id)?.exports`. A service extension exports types from its entry point, never its live registry.
 
 Either way: never reach around the API.
@@ -49,17 +49,18 @@ An extension module exports a named `const` of type `Extension` with `{ manifest
 
 - Co-located `*.test.ts` next to the code they test.
 - **Smoke tests:** a PR that adds a proof tool (a probe or view that makes one thing visible, the `proof-tool` label in Linear) also adds its smoke test to [`docs/smoke-tests.md`](docs/smoke-tests.md), following its [Adding a test](docs/smoke-tests.md#adding-a-test) section.
+- **Proof views stay as they are:** a new rung adds its own panel and leaves the older proof views alone, so each smoke test keeps checking just its own rung. Change an older view only when the new rung clearly grows that same thing, and then update its smoke test in the same PR.
 - A new test counts only once it has been seen failing. Mutate each branch you changed, watch the specific test fail for the right reason, restore, and list the mutations — and any that survived — in the task report. A new test that passes on its first run is suspect.
 - A test that compares two paths sharing the logic under test (`A(x) === B(x)` over one lookup) proves they agree, not that they are right. Give every value an absolute expected answer taken from the spec, ideally one the type system makes impossible to omit.
 
 ## Branching and merging
 
-- Code goes on `feat/<topic>` branches, specs on `spec/<topic>`, ADRs on `adr/<slug>` (take the next free ADR number when you create the branch), all off master. Plans and architecture notes may land on master directly. An ADR needed in the middle of a feature ships as its own PR first. A desktop-app worktree starts on a `claude/<slug>` branch: create the `feat/`, `spec/` or `adr/` branch before the first commit, since the merge gates read the prefix. A cloud session can push only its `claude/` branch, so it stays there and gives the PR exactly one of the labels `feat`, `spec` or `adr`, which the merge gates read in place of the prefix.
+- Code goes on `feat/<topic>` branches, specs on `spec/<topic>`, ADRs on `adr/<slug>` (take the next free ADR number when you create the branch), other Markdown-only changes (the roadmap, playbooks, READMEs, `CLAUDE.md`, `.claude/rules/`) on `docs/<topic>`, all off master. Plans and architecture notes may land on master directly. An ADR needed in the middle of a feature ships as its own PR first. A desktop-app worktree starts on a `claude/<slug>` branch: create the `feat/`, `spec/`, `adr/` or `docs/` branch before the first commit, since the merge gates read the prefix. A cloud session can push only its `claude/` branch, so it stays there and gives the PR exactly one of the labels `feat`, `spec`, `adr` or `docs`, which the merge gates read in place of the prefix.
 - Open PRs as drafts, and push every commit before any reviewer is dispatched. Reviewing, fixing findings, merging and reporting: the `review-loop` skill. Who reviews: `.claude/agent-config.json`.
 - Executing a plan: `superpowers:subagent-driven-development`, one implementer per task, reviewed per the `review-loop` skill.
 - Review fixes go in separate `Code-review-followup:` commits on the same branch. Never amend a pushed commit or squash: the review trail is part of the history.
 - After a spec or ADR PR merges, implement it on a `feat/` branch. Only purely mechanical docs edits whose exact text the spec gives go straight to master; if you find yourself making a decision the spec didn't, use a branch.
-- The owner merges, or a controller under its skill's rule. The `auto-merge` label hands it to `.github/workflows/auto-merge.yml`, whose header comment describes the gates; `test/*` branches stay manual.
+- The owner merges, or a controller under its skill's rule. The `auto-merge` label hands it to `.github/workflows/auto-merge.yml`, whose header comment describes the gates; which paths need the owner is `.github/merge-policy.json`, read from the PR's base branch; `test/*` branches stay manual.
 - Never `--no-verify`. No force pushes to master, nor to a PR branch once it has reviews.
 
 ## Subagent worktree discipline
@@ -79,7 +80,7 @@ One worker session per PR or iteration; one controller per initiative (the `cont
 ## Commands
 
 - `pnpm dev` — run the shell's dev server
-- `pnpm dev:sitl [--vehicles N]` — run SITL (1 to 5 vehicles, default 1), MediaMTX, camera-sim and the dev server together, until one Ctrl-C (`scripts/dev-stack.mjs`)
+- `pnpm dev:sitl [--vehicles N]` — run SITL (1 to 5 vehicles, default 1), MediaMTX, camera-sim, the station process and the dev server together, until one Ctrl-C (`scripts/dev-stack.mjs`)
 - `pnpm build` — build all packages
 - `pnpm test` — all package tests, then the root tooling tests (`pnpm test:scripts`)
 - `pnpm check` — svelte-check + tsc across all packages

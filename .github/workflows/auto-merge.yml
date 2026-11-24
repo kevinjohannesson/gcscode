@@ -1,22 +1,41 @@
 name: Auto-merge
 
-# Auto-merges PRs when:
+# Auto-merges PRs when the gates below pass. This file's triggers all run the
+# base branch's copy, never the PR's: `pull_request_target` for labels, and
+# `workflow_run` for reviews (relayed by `review-relay.yml`) and for CI. So a
+# PR that edits a gate's lines is still judged by the base's gates. That is
+# not a lock: see the Limit paragraph below. Because these runs hold a write
+# token on a PR's behalf, nothing here may check out, build or run the PR's
+# code: the head is only fetched as git objects, for Gate 3's patch-id
+# comparison. The gate also takes only same-repository PRs into the default
+# branch: `pull_request_target` runs the base branch's copy, so a PR into some
+# other branch would run whatever copy that branch holds, and the gates were
+# written for branches this repository's sessions push, not a fork's.
+#
 # Pre-gate: PR is not in draft state.
 # Gate 1: The `auto-merge` label is present (user's opt-in signal).
-# Gate 2: The PR's headRefName is `feat/*`, `spec/*`, or `adr/*`, or it is
-#         `claude/*` and the PR carries exactly one of the labels `feat`, `spec`
-#         or `adr`, which then stands in for the prefix (cloud sessions can push
-#         only `claude/*` branches). A `spec/*` or `adr/*` PR, or a `claude/*`
-#         one labelled `spec` or `adr`, changes nothing outside `docs/`, so code
-#         cannot merge on a spec reviewer's count instead of gate 3a's final
-#         review. Below, "feat/*" and "spec/* or adr/*" include those labelled
-#         `claude/*` PRs.
+# Gate 2: The PR's headRefName is `feat/*`, `spec/*`, `adr/*` or `docs/*`, or
+#         it is `claude/*` and the PR carries exactly one of the labels `feat`,
+#         `spec`, `adr` or `docs`, which then stands in for the prefix (cloud
+#         sessions can push only `claude/*` branches). A `spec/*` or `adr/*` PR,
+#         or a `claude/*` one labelled `spec` or `adr`, changes nothing outside
+#         `docs/`, so code cannot merge on a spec reviewer's count instead of
+#         gate 3a's final review. A `docs/*` PR, or a `claude/*` one labelled
+#         `docs`, changes only Markdown files, and none under `docs/specs/` or
+#         `docs/decisions/` (a design is approved through gate 3b's reviewers),
+#         a `.github/` directory, or a `.claude/` directory at any depth other
+#         than the root's `.claude/rules/` (agents, skills, commands and
+#         scripts are the review process itself, and Claude Code also loads
+#         them from nested directories). Below, "feat/*",
+#         "spec/* or adr/*" and "docs/*" include those labelled `claude/*` PRs.
 # Gate 3: Bot signal — class-aware, and in both classes read from the reviews
 #         API rather than from GitHub's computed reviewDecision, matching the bot
 #         logins exactly (`[bot]` suffix included):
-#         - feat/*: `gcscode-final-review`'s latest verdict-bearing review is
-#           APPROVED. Was `reviewDecision == APPROVED` until 2026-10-20, which
-#           could never pass: GitHub only computes reviewDecision when the base
+#         - feat/* and docs/*: `gcscode-final-review`'s latest verdict-bearing
+#           review is APPROVED. A docs/* PR has no per-task reviews, so this
+#           one review is all it gets; feat/* PRs already merge code on it.
+#           Was `reviewDecision == APPROVED` until 2026-10-20, which could
+#           never pass: GitHub only computes reviewDecision when the base
 #           branch has review requirements, and `master` is unprotected, so it
 #           stayed empty however many approvals existed. PR #34 was the first
 #           feat/* PR to reach this gate and exposed it.
@@ -29,31 +48,90 @@ name: Auto-merge
 #           the owner decides. Was a review count (red-team >= 2,
 #           spec-quality >= 1) until review-loop-v2 dropped the Sonnet red-team
 #           and spec-quality roles.
+#         In both classes the review that passes must cover the PR's current
+#         head: for feat/* and docs/*, that final approval; for spec/* or
+#         adr/*, the newest review by either of those two reviewers. It covers
+#         the head when it was posted on the head commit (the review's
+#         `commit_id`), or when the PR's own changes are the same as at the
+#         reviewed commit: the diff
+#         from where each commit leaves the base branch, compared by
+#         `git patch-id --verbatim`, which ignores line numbers but not
+#         whitespace. So merging the base branch in, or a rebase,
+#         keeps the review, and a new commit, or a conflict resolution that
+#         changes the PR's own lines, holds the merge until it is reviewed in
+#         turn. A base-branch change right next to the PR's lines also changes
+#         the diff's context, and holds it too. The merge names the head it
+#         checked (`--match-head-commit`), so a push in between fails the merge
+#         instead of riding in on the earlier review.
 # Gate 4: The PR is mergeable (no conflicts).
+# Gate 5: The latest run of `.github/workflows/ci.yml` on the head commit
+#         completed with success. It reads that workflow's runs, not checks by
+#         name, so a job called `ci` in some other workflow counts for
+#         nothing. A run still in progress, a re-run of a passing run
+#         included, holds the gate, and a re-run that fails closes it again.
+#         A PR waiting only on CI is re-evaluated when the CI workflow
+#         completes. Both `workflow_run` triggers act only on the first PR
+#         GitHub lists for the run's head, and GitHub lists none for a PR from
+#         a fork: such a PR is evaluated only on its label event.
+# Gate 6: The merge policy, `.github/merge-policy.json`, read from the base
+#         branch (never the PR's copy), lets this PR merge on its own. Each
+#         rule lists paths; a changed file (both names on a rename) on a path
+#         of a rule whose decision is `owner` holds the merge when the rule's
+#         mode is `enforce`, and only logs that it would have when the mode is
+#         `observe`. The file's `$comment` gives the syntax. A base branch
+#         without the file has no policy yet, which logs and passes; a policy
+#         that is empty, not one JSON object, of another version, or has a rule
+#         with an unknown decision or mode or unsupported paths, holds every
+#         merge, whatever the PR changes. So does a files list shorter than the
+#         PR's changed-file count (the API stops at 3000).
+#
+# Limit: the gates hold only while no workflow on the PR's side is changed,
+# this one included. A PR can edit this file or any other workflow so that it
+# runs on the PR's own `pull_request` or `pull_request_review` events, with
+# whatever token permissions that copy asks for, and reach the merge API
+# without consulting the base's gates or the merge policy. The policy's
+# enforced `workflows` rule leaves such PRs to the owner only when the gate is
+# asked; closing the route needs a repository ruleset. GitHub refusing the
+# workflow token's merge of workflow changes is not relied on: it refused
+# PR #91, but merged PR #67.
 #
 # Specs: docs/specs/2026-05-14-auto-merge-on-user-approval.md,
-#        docs/specs/2026-10-22-review-loop-v2.md (Gate 3b).
+#        docs/specs/2026-10-22-review-loop-v2.md (Gate 3b). The docs/ class was
+#        added without a spec, at the owner's request, for docs-only PRs
+#        (playbooks, roadmap rungs, agent-doc rules) that fit no other class.
 # The review loop itself: .claude/skills/review-loop/SKILL.md.
 
 on:
-  pull_request_review:
-    types: [submitted]
-  pull_request:
+  # Runs the base branch's copy of this file. Never add a checkout of the
+  # PR's head here (header).
+  pull_request_target:
     types: [labeled]
+  workflow_run:
+    workflows: [CI, Review relay]
+    types: [completed]
 
 permissions:
   contents: write
   pull-requests: write
+  actions: read
 
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
     steps:
+      # Full history of the base branch's checkout (no ref: on these triggers
+      # that is the base, never the PR), for comparing the reviewed commit's
+      # changes with the head's (Gate 3). Nothing from the checkout is run.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - name: Check gates and merge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number || github.event.review.pull_request.number }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number }}
         run: |
           set -euo pipefail
 
@@ -63,10 +141,46 @@ jobs:
           fi
           echo "Evaluating PR #${PR_NUMBER}"
 
-          PR_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,labels,mergeable,isDraft)
+          PR_JSON=$(gh pr view "$PR_NUMBER" --json headRefName,headRefOid,baseRefName,isCrossRepository,labels,mergeable,isDraft,changedFiles)
           HEAD_REF=$(echo "$PR_JSON" | jq -r .headRefName)
+          HEAD_SHA=$(echo "$PR_JSON" | jq -r .headRefOid)
+          BASE_REF=$(echo "$PR_JSON" | jq -r .baseRefName)
+          CHANGED_COUNT=$(echo "$PR_JSON" | jq -r .changedFiles)
+          CROSS_REPO=$(echo "$PR_JSON" | jq -r .isCrossRepository)
+
+          # Scope (header): only a same-repository PR into the default branch.
+          # A PR into another branch runs that branch's copy of this file; a
+          # fork's PR would merge with this run's write token on gates written
+          # for this repository's own branches.
+          if [[ "$BASE_REF" != "${DEFAULT_BRANCH:-}" ]]; then
+            echo "Scope FAILED: the PR's base '${BASE_REF}' is not the default branch '${DEFAULT_BRANCH:-}'; merge by hand. Exiting cleanly."
+            exit 0
+          fi
+          if [[ "$CROSS_REPO" != "false" ]]; then
+            echo "Scope FAILED: the PR comes from another repository (a fork); merge by hand. Exiting cleanly."
+            exit 0
+          fi
+
+          # Succeeds when a review posted on commit $1 covers the head (header,
+          # Gate 3): it is the head, or the PR's own changes, from where each
+          # leaves the base branch, have the same patch ID. A commit the checkout
+          # lacks (one a rebase left behind) is fetched by SHA; anything that
+          # cannot be compared fails closed. --verbatim, not --stable: --stable
+          # ignores whitespace, so a whitespace-only commit (YAML indentation, a
+          # space in a string) would ride in on the earlier review.
+          review_covers_head() {
+            local reviewed="$1" approved current
+            [[ -n "$reviewed" ]] || return 1
+            [[ "$reviewed" == "$HEAD_SHA" ]] && return 0
+            # Anonymous fetches: this works while the repository is public.
+            git fetch -q --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}" "$HEAD_SHA" || { echo "Could not fetch ${BASE_REF} and the head from origin; cannot compare the reviewed changes."; return 1; }
+            git cat-file -e "${reviewed}^{commit}" 2>/dev/null || git fetch -q --no-tags origin "$reviewed" || { echo "Could not fetch the reviewed commit ${reviewed} from origin; cannot compare the reviewed changes."; return 1; }
+            approved=$(git diff --binary "$(git merge-base "origin/${BASE_REF}" "$reviewed")" "$reviewed" | git patch-id --verbatim | cut -d' ' -f1) || return 1
+            current=$(git diff --binary "$(git merge-base "origin/${BASE_REF}" "$HEAD_SHA")" "$HEAD_SHA" | git patch-id --verbatim | cut -d' ' -f1) || return 1
+            [[ -n "$approved" && "$approved" == "$current" ]]
+          }
           # The class a claude/* PR's type label names; the joined names when not exactly one.
-          TYPE_LABELS=$(echo "$PR_JSON" | jq -r '[.labels[].name | select(. == "feat" or . == "spec" or . == "adr")] | unique | join(",")')
+          TYPE_LABELS=$(echo "$PR_JSON" | jq -r '[.labels[].name | select(. == "feat" or . == "spec" or . == "adr" or . == "docs")] | unique | join(",")')
           IS_DRAFT=$(echo "$PR_JSON" | jq -r .isDraft)
           MERGEABLE=$(echo "$PR_JSON" | jq -r .mergeable)
           HAS_LABEL=$(echo "$PR_JSON" | jq -r '[.labels[] | select(.name == "auto-merge")] | length')
@@ -91,12 +205,12 @@ jobs:
           CLASS_REF="$HEAD_REF"
           if [[ "$HEAD_REF" == claude/* ]]; then
             case "$TYPE_LABELS" in
-              feat|spec|adr)
+              feat|spec|adr|docs)
                 CLASS_REF="${TYPE_LABELS}/${HEAD_REF}"
                 echo "Gate 2: claude/ head '${HEAD_REF}' typed '${TYPE_LABELS}' by its label"
                 ;;
               *)
-                echo "Gate 2 FAILED: claude/ head '${HEAD_REF}' needs exactly one of the labels feat, spec or adr (has '${TYPE_LABELS}'). Exiting cleanly."
+                echo "Gate 2 FAILED: claude/ head '${HEAD_REF}' needs exactly one of the labels feat, spec, adr or docs (has '${TYPE_LABELS}'). Exiting cleanly."
                 exit 0
                 ;;
             esac
@@ -120,14 +234,36 @@ jobs:
               echo "Gate 2 OK: spec/ADR PR (head=${HEAD_REF}), documents only; gate 3b (reviewers' Blocking: 0) applies"
               PR_CLASS=spec_or_adr
               ;;
+            docs/*)
+              # Docs PRs carry Markdown only, outside the places that need another
+              # class: specs and ADRs approve a design (gate 3b's reviewers), and
+              # .github/ and .claude/ (but the root's .claude/rules/) hold the
+              # workflows, agents, skills and scripts the review loop runs on, which a
+              # single final review should not be able to rewrite unseen. Both match
+              # at any depth: Claude Code loads skills, agents and commands from nested
+              # .claude/ directories too (packages/shell/.claude/skills/... would
+              # otherwise pass). Same rename and pagination rule as spec/ADR above.
+              NOT_DOCS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '.[] | (.filename, (.previous_filename // empty)) | select(
+                  (endswith(".md") | not)
+                  or startswith("docs/specs/") or startswith("docs/decisions/")
+                  or test("(^|/)\\.github/")
+                  or (test("(^|/)\\.claude/") and (startswith(".claude/rules/") | not)))')
+              if [[ -n "$NOT_DOCS" ]]; then
+                echo "Gate 2 FAILED: docs PR changes files a docs PR may not (merge by hand, or relabel it feat, spec or adr):"
+                echo "$NOT_DOCS"
+                exit 0
+              fi
+              echo "Gate 2 OK: docs PR (head=${HEAD_REF}), Markdown only; gate 3a (final-review verdict) applies"
+              PR_CLASS=docs
+              ;;
             *)
-              echo "Gate 2 FAILED: head '${HEAD_REF}' is not feat/, spec/, adr/ or a labelled claude/. Exiting cleanly."
+              echo "Gate 2 FAILED: head '${HEAD_REF}' is not feat/, spec/, adr/, docs/ or a labelled claude/. Exiting cleanly."
               exit 0
               ;;
           esac
 
           # Gate 3: bot signal (class-aware)
-          if [[ "$PR_CLASS" == "feat" ]]; then
+          if [[ "$PR_CLASS" == "feat" || "$PR_CLASS" == "docs" ]]; then
             # Gate 3a: `gcscode-final-review`'s latest verdict-bearing review must be
             # APPROVED. Latest-review-per-user semantics, the same thing PR #1's
             # validation established: take that author's most recent review, so a
@@ -157,19 +293,26 @@ jobs:
             # silently, which is how the first version of this block broke.
             # `.user.login // ""` guards a null author (a deleted account), so one such
             # review cannot abort the gate alongside a valid final APPROVED.
-            FINAL_REVIEWS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews" --jq '.[] | {login: (.user.login // ""), state, submittedAt: .submitted_at}' | jq -s '{reviews: .}')
-            FINAL_REVIEW_STATE=$(echo "$FINAL_REVIEWS" | jq -r '
+            FINAL_REVIEWS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews" --jq '.[] | {login: (.user.login // ""), state, submittedAt: .submitted_at, commitId: (.commit_id // "")}' | jq -s '{reviews: .}')
+            FINAL_REVIEW=$(echo "$FINAL_REVIEWS" | jq -c '
               [ .reviews[]
                 | select(.login == "gcscode-final-review[bot]")
                 | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED") ]
               | sort_by(.submittedAt)
               | last
-              | .state // "NONE"')
+              | {state: (.state // "NONE"), commitId: (.commitId // "")}')
+            FINAL_REVIEW_STATE=$(echo "$FINAL_REVIEW" | jq -r .state)
+            FINAL_REVIEW_COMMIT=$(echo "$FINAL_REVIEW" | jq -r .commitId)
             if [[ "$FINAL_REVIEW_STATE" != "APPROVED" ]]; then
               echo "Gate 3a FAILED: latest verdict-bearing review by gcscode-final-review is '${FINAL_REVIEW_STATE}' (expected APPROVED). Exiting cleanly."
               exit 0
             fi
-            echo "Gate 3a OK: gcscode-final-review's latest verdict-bearing review is APPROVED"
+            # The approval covers the changes it saw, not later ones (header, Gate 3).
+            if ! review_covers_head "$FINAL_REVIEW_COMMIT"; then
+              echo "Gate 3a FAILED: gcscode-final-review approved '${FINAL_REVIEW_COMMIT}', and the PR's changes at head '${HEAD_SHA}' differ from it; the difference is unreviewed. Exiting cleanly."
+              exit 0
+            fi
+            echo "Gate 3a OK: gcscode-final-review's latest verdict-bearing review is APPROVED, of ${FINAL_REVIEW_COMMIT}, which carries the head ${HEAD_SHA}'s changes"
           else
             # Gate 3b: the last non-blank line of `gcscode-red-team[bot]`'s latest review
             # is `Blocking: 0`, and the same for `gcscode-extension-architect[bot]` if it
@@ -179,12 +322,15 @@ jobs:
             # `[blocking]` — so a miscounted trailer cannot wave a listed blocker through.
             # Every other outcome fails closed: no red-team review yet, a missing
             # trailer, a count mismatch, or any non-zero count.
-            # This gate does not see commits pushed after the latest review. The
-            # review-loop skill keeps the PR in draft until the loop's last review,
-            # and the pre-gate refuses drafts; that is what keeps an unreviewed
-            # trailing commit out.
+            # Commits pushed after the latest review are caught twice: the review-loop
+            # skill keeps the PR in draft until the loop's last review (the pre-gate
+            # refuses drafts), and the newest review by either reviewer must cover
+            # the head (checked below; header, Gate 3). Only the newest across both is read,
+            # because the loop's closing fix check comes only from the role whose
+            # findings the closing commit records, so the other's latest review is
+            # legitimately of an earlier commit.
             # Same exact logins, null-author guard and pagination as gate 3a above.
-            SPEC_REVIEWS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews" --jq '.[] | {login: (.user.login // ""), submittedAt: .submitted_at, body: (.body // "")}' | jq -s '{reviews: .}')
+            SPEC_REVIEWS=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/reviews" --jq '.[] | {login: (.user.login // ""), submittedAt: .submitted_at, commitId: (.commit_id // ""), body: (.body // "")}' | jq -s '{reviews: .}')
             # Prints the N of the trailer when it agrees with the blocking tags; NONE if
             # the login never reviewed; MISSING if the latest review has no `Blocking: N`
             # last line; MISMATCH(...) if N and the tags disagree.
@@ -215,7 +361,16 @@ jobs:
               echo "Gate 3b FAILED: gcscode-extension-architect's latest review reads Blocking=${ARCHITECT_BLOCKING} (expected 0). Exiting cleanly."
               exit 0
             fi
-            echo "Gate 3b OK: red-team Blocking=0, extension-architect Blocking=${ARCHITECT_BLOCKING}"
+            NEWEST_SPEC_REVIEW_COMMIT=$(echo "$SPEC_REVIEWS" | jq -r '
+              [ .reviews[]
+                | select(.login == "gcscode-red-team[bot]" or .login == "gcscode-extension-architect[bot]")
+                | select(.submittedAt != null) ]
+              | sort_by(.submittedAt) | last | .commitId // ""')
+            if ! review_covers_head "$NEWEST_SPEC_REVIEW_COMMIT"; then
+              echo "Gate 3b FAILED: the newest red-team or extension-architect review is of '${NEWEST_SPEC_REVIEW_COMMIT}', and the PR's changes at head '${HEAD_SHA}' differ from it; the difference is unreviewed. Exiting cleanly."
+              exit 0
+            fi
+            echo "Gate 3b OK: red-team Blocking=0, extension-architect Blocking=${ARCHITECT_BLOCKING}, newest review of ${NEWEST_SPEC_REVIEW_COMMIT}, which carries the head ${HEAD_SHA}'s changes"
           fi
 
           # Gate 4: PR is mergeable
@@ -225,6 +380,82 @@ jobs:
           fi
           echo "Gate 4 OK: PR is mergeable"
 
+          # Gate 5: CI green on the head. Reads ci.yml's own workflow runs (header);
+          # a run that has not completed reads as pending, whatever it concluded
+          # before a re-run.
+          CI_CONCLUSION=$(gh api --paginate "repos/${GH_REPO}/actions/workflows/ci.yml/runs?head_sha=${HEAD_SHA}" --jq '.workflow_runs[] | {createdAt: .created_at, status, conclusion}' | jq -rs 'sort_by(.createdAt) | last | if . == null then "NONE" elif .status != "completed" then "pending" else (.conclusion // "NONE") end')
+          if [[ "$CI_CONCLUSION" != "success" ]]; then
+            echo "Gate 5 FAILED: the latest CI run on head ${HEAD_SHA} is '${CI_CONCLUSION}' (expected success). The CI workflow's completion re-runs this gate. Exiting cleanly."
+            exit 0
+          fi
+          echo "Gate 5 OK: CI succeeded on head ${HEAD_SHA}"
+
+          # Gate 6: merge policy, from the base branch (header).
+          git fetch -q --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}" || { echo "Gate 6 FAILED: could not fetch ${BASE_REF} to read the merge policy. Exiting cleanly."; exit 0; }
+          if ! git cat-file -e "origin/${BASE_REF}:.github/merge-policy.json" 2>/dev/null; then
+            echo "Gate 6 OK: ${BASE_REF} has no .github/merge-policy.json yet, so no policy applies"
+          else
+            POLICY=$(git show "origin/${BASE_REF}:.github/merge-policy.json")
+            # Every changed file, both names on a rename, as one exact JSON list.
+            # The files API stops at 3000 entries, so a list shorter than the PR's
+            # own count holds the merge rather than judge it on part of the diff.
+            FILES_JSON=$(gh api --paginate "repos/${GH_REPO}/pulls/${PR_NUMBER}/files" --jq '[.[] | {filename, previous_filename}]' | jq -s 'add // []')
+            if [[ "$(echo "$FILES_JSON" | jq length)" != "$CHANGED_COUNT" ]]; then
+              echo "Gate 6 FAILED: the files API listed $(echo "$FILES_JSON" | jq length) of the PR's ${CHANGED_COUNT} changed files, so the merge policy cannot see the whole diff. Exiting cleanly."
+              exit 0
+            fi
+            CHANGED_FILES=$(echo "$FILES_JSON" | jq -c '[.[] | .filename, (.previous_filename // empty)]')
+            # The whole policy is checked before any file is matched, so a broken
+            # one holds every PR, not only those whose files reach the broken rule:
+            # exactly one JSON object, version 1, a non-empty rule list, and each
+            # rule with a string id, a known decision and mode, and non-empty paths
+            # in the supported syntax (header; the file's $comment). Then one line
+            # per (rule, file) match: mode, rule id, file.
+            if ! POLICY_MATCHES=$(echo "$POLICY" | jq -r -s --argjson files "$CHANGED_FILES" '
+                def fail($why): error("merge policy: " + $why);
+                def valid_path:
+                  type == "string" and length > 0 and (startswith("/") | not)
+                  and ((if startswith("**/") then .[3:] else . end) | (contains("*") | not) and length > 0);
+                def covers($f):
+                  . as $p
+                  | if ($p | startswith("**/")) then $p[3:] as $q
+                      | if ($q | endswith("/")) then ($f | startswith($q)) or ($f | contains("/" + $q))
+                        else $f == $q or ($f | endswith("/" + $q)) end
+                    elif ($p | endswith("/")) then $f | startswith($p)
+                    else $f == $p end;
+                if length != 1 then fail("the file must hold exactly one JSON document") else .[0] end
+                | if type != "object" then fail("the document is not an object") else . end
+                | if .version != 1 then fail("version must be 1") else . end
+                | if (.rules | type) != "array" or (.rules | length) == 0 then fail("rules must be a non-empty list") else . end
+                | .rules[]
+                | if type != "object" then fail("a rule is not an object") else . end
+                | . as $rule
+                | if ($rule.id | type) != "string" then fail("a rule has no string id") else . end
+                | if $rule.decision != "owner" then fail("rule \($rule.id): decision must be owner") else . end
+                | if ($rule.mode != "enforce" and $rule.mode != "observe") then fail("rule \($rule.id): mode must be enforce or observe") else . end
+                | if ($rule.paths | type) != "array" or ($rule.paths | length) == 0 or (all($rule.paths[]; valid_path) | not) then fail("rule \($rule.id): paths must be a non-empty list of supported paths") else . end
+                | $files[] as $f
+                | select(any($rule.paths[]; covers($f)))
+                | "\($rule.mode)\t\($rule.id)\t\($f)"' 2>&1); then
+              echo "Gate 6 FAILED: ${BASE_REF}'s .github/merge-policy.json is not a valid policy, so every merge holds until it is fixed: ${POLICY_MATCHES}. Exiting cleanly."
+              exit 0
+            fi
+            OBSERVED=$(echo "$POLICY_MATCHES" | awk -F'\t' '$1 == "observe" { print "  " $2 ": " $3 }')
+            ENFORCED=$(echo "$POLICY_MATCHES" | awk -F'\t' '$1 == "enforce" { print "  " $2 ": " $3 }')
+            if [[ -n "$OBSERVED" ]]; then
+              echo "Gate 6 (observe only): these rules would hold the merge for the owner, and do not yet:"
+              echo "$OBSERVED"
+            fi
+            if [[ -n "$ENFORCED" ]]; then
+              echo "Gate 6 FAILED: the merge policy leaves this PR to the owner, who merges it by hand:"
+              echo "$ENFORCED"
+              exit 0
+            fi
+            echo "Gate 6 OK: no enforced merge-policy rule matches"
+          fi
+
           # All gates pass — merge
-          echo "All gates passed; merging PR #${PR_NUMBER} via --merge --delete-branch"
-          gh pr merge "$PR_NUMBER" --merge --delete-branch
+          # --match-head-commit: a push after the reads above fails the merge rather
+          # than merging a commit no gate looked at.
+          echo "All gates passed; merging PR #${PR_NUMBER} at ${HEAD_SHA} via --merge --delete-branch"
+          gh pr merge "$PR_NUMBER" --merge --delete-branch --match-head-commit "$HEAD_SHA"
