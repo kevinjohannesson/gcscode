@@ -71,7 +71,7 @@ pnpm --filter radio-probe start -- --mapped
 pnpm --filter radio-probe start -- --profile my-radio.toml
 ```
 
-The bundled profile is [`profiles/gcscode-adv.toml`](profiles/gcscode-adv.toml), for the TX16S on the model in [tx16s-advanced-model.md](tx16s-advanced-model.md). The axes table gets a control column, and lines under the button grid name each switch's position, each on/off control, what the profile leaves out and the inputs nothing reads:
+The bundled profile is [`gcscode-adv.toml`](../../libs/radio-input/profiles/gcscode-adv.toml), in `libs/radio-input`, for the TX16S on the model in [tx16s-advanced-model.md](tx16s-advanced-model.md). The axes table gets a control column, and lines under the button grid name each switch's position, each on/off control, what the profile leaves out and the inputs nothing reads:
 
 ```text
   mapped with profile gcscode-adv
@@ -89,7 +89,7 @@ not mapped: RTL
 unmapped axes: none   unmapped buttons: 21, 22, 23, 24, 25, 26, 27
 ```
 
-What a profile holds, and the rules it is checked against (`src/mapping.rs`):
+What a profile holds, and the rules it is checked against ([`libs/radio-input`](../../libs/radio-input/README.md), `src/mapping.rs`):
 
 - **Which radio.** `[match]` names the USB vendor and product id and text the joystick's name must contain: SDL may put the USB manufacturer first, so the TX16S shows as `OpenTX TX16SMK3 Joystick` on some systems and `TX16SMK3 Joystick` on others, and `TX16SMK3 Joystick` matches both; `axes` and `buttons`, when given, must match the radio's counts too. The TX16S reports 28 buttons on its Advanced model and 24 on a Classic one, so the counts tell the two apart. A profile also matches only a radio that has every input it reads. The first profile that matches wins, yours before the bundled ones, so when two could match one radio, order decides.
 - **When none matches.** The probe, and the station, print a line per profile naming what it expects that the radio is not, such as `profile gcscode-adv expects 28 buttons, the radio has 24`, or `expects a name containing "TX16SMK3 Joystick", the radio is "…"`.
@@ -117,4 +117,4 @@ For a TX16S model that gives every stick, switch and button its own number, usin
 pnpm --filter radio-probe test:rust
 ```
 
-or `cargo test` here. They use SDL's virtual joysticks in place of a radio, so they need no hardware. The radio itself is checked by running the probe.
+or `cargo test` here. They use SDL's virtual joysticks in place of a radio, so they need no hardware. The radio itself is checked by running the probe. The reading, the profiles and their rules are [`libs/radio-input`](../../libs/radio-input/README.md)'s, and are tested there (`pnpm --filter radio-input test:rust`).

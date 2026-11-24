@@ -5,6 +5,7 @@ import type { Extension, ExtensionContext } from '@gcscode/extension-api';
 import { createRegistry } from './extension-host/registry';
 import { parseKey, matchesKey, attachKeybindingDispatcher } from './keybinding-dispatcher';
 import { modalState } from './modal-state.svelte';
+import { quickPickState } from './quick-pick/quick-pick-state.svelte';
 
 function extension(id: string, activate: (context: ExtensionContext) => void): Extension {
   return { manifest: { id, displayName: id, version: '0.0.0' }, activate };
@@ -299,12 +300,16 @@ describe('attachKeybindingDispatcher', () => {
   });
 });
 
+function openOverlay(): void {
+  quickPickState.open({ items: [], options: undefined, resolve: () => {} });
+}
+
 describe('modal-pause hook', () => {
   afterEach(() => {
-    modalState.active = false;
+    quickPickState.dismiss();
   });
 
-  it('does not fire a matching command when modalState.active is true', () => {
+  it('does not fire a matching command while an overlay is open', () => {
     const registry = createRegistry();
     const run = vi.fn();
     registry.activate(
@@ -319,7 +324,8 @@ describe('modal-pause hook', () => {
     const target = document.createElement('div');
     attachKeybindingDispatcher(registry, target);
 
-    modalState.active = true;
+    openOverlay();
+    expect(modalState.active).toBe(true);
     target.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'g',
@@ -331,7 +337,7 @@ describe('modal-pause hook', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it('resumes firing when modalState.active flips back to false', async () => {
+  it('resumes firing once the overlay closes', async () => {
     const registry = createRegistry();
     const run = vi.fn();
     registry.activate(
@@ -346,7 +352,8 @@ describe('modal-pause hook', () => {
     const target = document.createElement('div');
     attachKeybindingDispatcher(registry, target);
 
-    modalState.active = true;
+    openOverlay();
+    expect(modalState.active).toBe(true);
     target.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'g',
@@ -357,7 +364,7 @@ describe('modal-pause hook', () => {
     );
     expect(run).not.toHaveBeenCalled();
 
-    modalState.active = false;
+    quickPickState.dismiss();
     target.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'g',
@@ -368,5 +375,36 @@ describe('modal-pause hook', () => {
     );
     await Promise.resolve();
     expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('fires a command allowed while active, and still skips the others', async () => {
+    const registry = createRegistry();
+    const allowedRun = vi.fn();
+    const otherRun = vi.fn();
+    registry.activate(
+      extension('ext.a', (ctx) => {
+        ctx.host.commands.registerCommand({ id: 'ext.a.allowed', run: allowedRun });
+        ctx.host.commands.registerCommand({ id: 'ext.a.other', run: otherRun });
+        ctx.host.keybindings.registerKeybinding({ key: 'Ctrl+Shift+X', command: 'ext.a.allowed' });
+        ctx.host.keybindings.registerKeybinding({ key: 'Ctrl+Shift+G', command: 'ext.a.other' });
+      }),
+    );
+    const target = document.createElement('div');
+    attachKeybindingDispatcher(registry, target);
+    const allowed = modalState.allowWhileActive('ext.a.allowed');
+    try {
+      openOverlay();
+      target.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'g', code: 'KeyG', ctrlKey: true, shiftKey: true }),
+      );
+      target.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'x', code: 'KeyX', ctrlKey: true, shiftKey: true }),
+      );
+      await Promise.resolve();
+      expect(otherRun).not.toHaveBeenCalled();
+      expect(allowedRun).toHaveBeenCalledTimes(1);
+    } finally {
+      allowed.dispose();
+    }
   });
 });

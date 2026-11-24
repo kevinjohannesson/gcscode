@@ -14,7 +14,7 @@ export interface RadioInput {
   readonly hats: readonly number[];
 }
 
-/** The controls an axis can drive, in the station's order (tools/radio-probe, src/mapping.rs). */
+/** The controls an axis can drive, in the station's order (libs/radio-input, src/mapping.rs). */
 export const AXIS_ROLES = [
   'roll',
   'pitch',

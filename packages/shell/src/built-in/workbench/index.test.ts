@@ -1,15 +1,39 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createExtensionManager } from '../../extension-host/extension-manager';
-import { createRegistry } from '../../extension-host/registry';
+import {
+  createExtensionManager,
+  type ExtensionManager,
+} from '../../extension-host/extension-manager';
+import { createRegistry, type Registry } from '../../extension-host/registry';
 import { extensionsPanelState } from '../../extensions-panel/extensions-panel-state.svelte';
+import { modalState } from '../../modal-state.svelte';
 import { quickPickState } from '../../quick-pick/quick-pick-state.svelte';
 import { createWorkbenchExtension } from './index';
 
+// Each test's workbench lets its overlay commands through the modal pause
+// until it is deactivated, so deactivate every one afterwards: a leftover from
+// one test would otherwise keep a command allowed in the next.
+const managers: ExtensionManager[] = [];
+const registries: Registry[] = [];
+function track(manager: ExtensionManager): ExtensionManager {
+  managers.push(manager);
+  return manager;
+}
+function trackRegistry(registry: Registry): Registry {
+  registries.push(registry);
+  return registry;
+}
+
 describe('workbench built-in extension', () => {
-  afterEach(() => {
+  afterEach(async () => {
     quickPickState.dismiss();
     extensionsPanelState.close();
+    for (const manager of managers.splice(0)) {
+      if (manager.listExtensions().some((r) => r.manifest.id === 'workbench' && r.enabled)) {
+        await manager.setEnabled('workbench', false);
+      }
+    }
+    for (const registry of registries.splice(0)) await registry.deactivate('workbench');
   });
 
   it('exports a factory that returns an Extension with id "workbench"', () => {
@@ -22,7 +46,7 @@ describe('workbench built-in extension', () => {
 
   it('registers workbench.action.showCommands with title + category', () => {
     const registry = createRegistry();
-    registry.activate(createWorkbenchExtension(registry));
+    trackRegistry(registry).activate(createWorkbenchExtension(registry));
     const cmd = registry.listCommands().find((c) => c.id === 'workbench.action.showCommands');
     expect(cmd).toBeDefined();
     expect(cmd?.title).toBe('Show All Commands');
@@ -31,7 +55,7 @@ describe('workbench built-in extension', () => {
 
   it('registers Ctrl+Shift+P pointing to workbench.action.showCommands', () => {
     const registry = createRegistry();
-    registry.activate(createWorkbenchExtension(registry));
+    trackRegistry(registry).activate(createWorkbenchExtension(registry));
     const kb = registry.listKeybindings().find((k) => k.key === 'Ctrl+Shift+P');
     expect(kb).toBeDefined();
     expect(kb?.command).toBe('workbench.action.showCommands');
@@ -39,7 +63,7 @@ describe('workbench built-in extension', () => {
 
   it('opens a quick pick when workbench.action.showCommands runs', async () => {
     const registry = createRegistry();
-    registry.activate(createWorkbenchExtension(registry));
+    trackRegistry(registry).activate(createWorkbenchExtension(registry));
     registry.activate({
       manifest: {
         id: 'ext.demo',
@@ -75,7 +99,7 @@ describe('workbench built-in extension', () => {
 
   it('executeCommand fires after the user picks an item', async () => {
     const registry = createRegistry();
-    registry.activate(createWorkbenchExtension(registry));
+    trackRegistry(registry).activate(createWorkbenchExtension(registry));
     const helloRun = vi.fn();
     registry.activate({
       manifest: {
@@ -107,7 +131,7 @@ describe('workbench built-in extension', () => {
 
   it('registers workbench.extensions.action.showInstalledExtensions command', () => {
     const registry = createRegistry();
-    const manager = createExtensionManager(registry);
+    const manager = track(createExtensionManager(registry));
     manager.register(createWorkbenchExtension(registry));
 
     const command = registry
@@ -120,7 +144,7 @@ describe('workbench built-in extension', () => {
 
   it('registers Ctrl+Shift+X keybinding pointing at the panel command', () => {
     const registry = createRegistry();
-    const manager = createExtensionManager(registry);
+    const manager = track(createExtensionManager(registry));
     manager.register(createWorkbenchExtension(registry));
 
     const keybinding = registry.listKeybindings().find((k) => k.key === 'Ctrl+Shift+X');
@@ -130,7 +154,7 @@ describe('workbench built-in extension', () => {
 
   it('running the panel command opens the extensions-panel state', async () => {
     const registry = createRegistry();
-    const manager = createExtensionManager(registry);
+    const manager = track(createExtensionManager(registry));
     manager.register(createWorkbenchExtension(registry));
 
     expect(extensionsPanelState.isOpen).toBe(false);
@@ -142,7 +166,7 @@ describe('workbench built-in extension', () => {
 
   it('disposing the workbench subscriptions also disposes the new command + keybinding', async () => {
     const registry = createRegistry();
-    const manager = createExtensionManager(registry);
+    const manager = track(createExtensionManager(registry));
     manager.register(createWorkbenchExtension(registry));
 
     expect(
@@ -160,5 +184,75 @@ describe('workbench built-in extension', () => {
         .some((c) => c.id === 'workbench.extensions.action.showInstalledExtensions'),
     ).toBe(false);
     expect(registry.listKeybindings().some((k) => k.key === 'Ctrl+Shift+X')).toBe(false);
+  });
+
+  it('the panel command replaces an open command palette', async () => {
+    const registry = createRegistry();
+    const manager = track(createExtensionManager(registry));
+    manager.register(createWorkbenchExtension(registry));
+
+    const palette = registry.executeCommand('workbench.action.showCommands');
+    await Promise.resolve();
+    expect(quickPickState.current).not.toBeNull();
+
+    await registry.executeCommand('workbench.extensions.action.showInstalledExtensions');
+    expect(quickPickState.current).toBeNull();
+    expect(extensionsPanelState.isOpen).toBe(true);
+    await expect(palette).resolves.toBeUndefined();
+  });
+
+  it('the panel command keeps an open panel open rather than throwing', async () => {
+    const registry = createRegistry();
+    const manager = track(createExtensionManager(registry));
+    manager.register(createWorkbenchExtension(registry));
+
+    await registry.executeCommand('workbench.extensions.action.showInstalledExtensions');
+    await expect(
+      registry.executeCommand('workbench.extensions.action.showInstalledExtensions'),
+    ).resolves.toBeUndefined();
+    expect(extensionsPanelState.isOpen).toBe(true);
+  });
+
+  it('the palette command replaces an open extensions panel', async () => {
+    const registry = createRegistry();
+    const manager = track(createExtensionManager(registry));
+    manager.register(createWorkbenchExtension(registry));
+
+    extensionsPanelState.open();
+    void registry.executeCommand('workbench.action.showCommands');
+    await Promise.resolve();
+    expect(extensionsPanelState.isOpen).toBe(false);
+    expect(quickPickState.current).not.toBeNull();
+  });
+
+  it('the palette command replaces an open quick pick, which resolves undefined', async () => {
+    const registry = createRegistry();
+    const manager = track(createExtensionManager(registry));
+    manager.register(createWorkbenchExtension(registry));
+
+    const earlier = vi.fn();
+    quickPickState.open({ items: [{ label: 'Apple' }], options: undefined, resolve: earlier });
+    void registry.executeCommand('workbench.action.showCommands');
+    await Promise.resolve();
+    expect(earlier).toHaveBeenCalledWith(undefined);
+    expect(quickPickState.current?.options?.placeholder).toBe('Type a command name');
+  });
+
+  it('lets both overlay commands through while an overlay is open, until disposed', async () => {
+    const registry = createRegistry();
+    const manager = track(createExtensionManager(registry));
+    manager.register(createWorkbenchExtension(registry));
+
+    expect(modalState.isAllowedWhileActive('workbench.action.showCommands')).toBe(true);
+    expect(
+      modalState.isAllowedWhileActive('workbench.extensions.action.showInstalledExtensions'),
+    ).toBe(true);
+
+    await manager.setEnabled('workbench', false);
+
+    expect(modalState.isAllowedWhileActive('workbench.action.showCommands')).toBe(false);
+    expect(
+      modalState.isAllowedWhileActive('workbench.extensions.action.showInstalledExtensions'),
+    ).toBe(false);
   });
 });

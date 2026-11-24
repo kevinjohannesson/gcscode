@@ -2,7 +2,7 @@
 
 `gcscode-station`, the station process: a native program that runs next to the gcscode page on the operator's machine. For now it does one thing. It reads an EdgeTX radio, such as the RadioMaster TX16S, and serves the radio's raw input to the page on a local WebSocket, together with what each input means through the radio's profile. It sends nothing to the radio or to any vehicle.
 
-It is the station process of [ADR-0016](../../docs/decisions/ADR-0016-one-station-process.md): one process, the only thing in gcscode that will send to a vehicle. Where it lives and how it reaches the page, in `packages/` and over a WebSocket on 127.0.0.1, follows [ADR-0015](../../docs/decisions/ADR-0015-native-sidecars.md). The radio reading is the one proven in [`tools/radio-probe`](../../tools/radio-probe/README.md), used as a library.
+It is the station process of [ADR-0016](../../docs/decisions/ADR-0016-one-station-process.md): one process, the only thing in gcscode that will send to a vehicle. Where it lives and how it reaches the page, in `packages/` and over a WebSocket on 127.0.0.1, follows [ADR-0015](../../docs/decisions/ADR-0015-native-sidecars.md). It reads the radio with [`libs/radio-input`](../../libs/radio-input/README.md), the same code [`tools/radio-probe`](../../tools/radio-probe/README.md) proves in a terminal.
 
 ## Running it
 
@@ -20,7 +20,7 @@ pnpm --filter mavlink-station start
 
 Then run `pnpm dev` and open the **Radio input** view (`@gcscode/extension-manual-control`). The MAVLink extension's **Link state** view shows `station: running` or `station: not running`. Ctrl-C or SIGTERM stops the station with exit status 0. It exits 1 when it cannot listen on 8091, for example when another station holds it. The page keeps running and says the station is gone, and picks it up again when it is back. Closing the page changes nothing for the station.
 
-`--profile <file>` (repeatable) adds a radio profile, tried before the bundled ones; a profile that breaks a rule stops the station with one line saying why. Profiles are described in [`tools/radio-probe`](../../tools/radio-probe/README.md#mapped-what-each-input-means), whose mapping code the station uses. On start the station prints the profiles it has, and on opening a radio which one it maps with, or that none matches and what each profile expects that the radio is not.
+`--profile <file>` (repeatable) adds a radio profile, tried before the bundled ones; a profile that breaks a rule stops the station with one line saying why. Profiles are described in [`tools/radio-probe`](../../tools/radio-probe/README.md#mapped-what-each-input-means), which shows them in a terminal; the profiles and their rules are [`libs/radio-input`](../../libs/radio-input/README.md)'s. On start the station prints the profiles it has, and on opening a radio which one it maps with, or that none matches and what each profile expects that the radio is not.
 
 `--allow-origin <origin>` (repeatable) adds a page origin besides the dev server's `http://localhost:5173` and `http://127.0.0.1:5173`. `pnpm dev` moves to the next free port when 5173 is taken; the station then refuses the page and prints the `--allow-origin` line that would serve it, and the view says it may have been refused.
 

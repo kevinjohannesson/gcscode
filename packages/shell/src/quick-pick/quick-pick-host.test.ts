@@ -2,14 +2,12 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { modalState } from '../modal-state.svelte';
 import { quickPickState } from './quick-pick-state.svelte';
 import QuickPickHost from './quick-pick-host.svelte';
 
 describe('quick-pick-host.svelte', () => {
   afterEach(() => {
     quickPickState.dismiss();
-    modalState.active = false;
   });
 
   it('renders nothing when quickPickState.current is null', () => {
@@ -29,23 +27,6 @@ describe('quick-pick-host.svelte', () => {
     quickPickState.dismiss();
     flushSync();
     expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument();
-  });
-
-  it('sets modalState.active true while open and false when closed', async () => {
-    render(QuickPickHost);
-    expect(modalState.active).toBe(false);
-
-    quickPickState.open({
-      items: [{ label: 'Apple' }],
-      options: undefined,
-      resolve: vi.fn(),
-    });
-    flushSync();
-    expect(modalState.active).toBe(true);
-
-    quickPickState.dismiss();
-    flushSync();
-    expect(modalState.active).toBe(false);
   });
 
   it('dismisses on click outside the panel', async () => {

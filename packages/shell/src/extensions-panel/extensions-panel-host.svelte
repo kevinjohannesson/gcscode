@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { modalState } from '../modal-state.svelte';
   import type { ExtensionManager } from '../extension-host/extension-manager';
   import ExtensionsPanel from './extensions-panel.svelte';
   import { extensionsPanelState } from './extensions-panel-state.svelte';
@@ -7,11 +6,6 @@
   let { manager }: { manager: ExtensionManager } = $props();
 
   const open = $derived(extensionsPanelState.isOpen);
-
-  // Mirror open/close into the dispatcher's pause flag.
-  $effect(() => {
-    modalState.active = open;
-  });
 
   // Click-outside-to-dismiss. We attach a global click listener while open;
   // if the click target is not inside the dialog, dismiss. Reattaching only

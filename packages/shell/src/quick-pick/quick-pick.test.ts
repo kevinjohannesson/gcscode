@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { flushSync } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { quickPickState } from './quick-pick-state.svelte';
@@ -86,5 +87,34 @@ describe('quick-pick.svelte', () => {
     });
     render(QuickPick);
     expect(screen.getByPlaceholderText('Custom placeholder text')).toBeInTheDocument();
+  });
+
+  // `autofocus` focused the box only when nothing else had focus, so a click in
+  // the layout beforehand (focus on a dockview tab) left the palette deaf to
+  // typing and the arrow keys.
+  it('focuses the search box on open even when something else has focus', () => {
+    const elsewhere = document.createElement('button');
+    document.body.appendChild(elsewhere);
+    try {
+      elsewhere.focus();
+      expect(document.activeElement).toBe(elsewhere);
+
+      openWithItems([{ label: 'Apple' }]);
+      render(QuickPick);
+      flushSync();
+
+      expect(document.activeElement).toBe(screen.getByRole('textbox'));
+    } finally {
+      elsewhere.remove();
+    }
+  });
+
+  it('keeps focus in the search box when a row is pressed', async () => {
+    openWithItems([{ label: 'Apple' }]);
+    render(QuickPick);
+    // fireEvent returns false when the handler called preventDefault, which is
+    // what stops the browser moving focus to the pressed row.
+    expect(await fireEvent.mouseDown(screen.getByText('Apple'))).toBe(false);
+    expect(await fireEvent.mouseDown(screen.getByRole('textbox'))).toBe(true);
   });
 });

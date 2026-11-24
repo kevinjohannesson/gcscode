@@ -1,7 +1,7 @@
 //! What the station knows about the radio at one moment, and how the page receives it.
 
-use radio_probe::mapping::Controls;
-use radio_probe::probe::{Inputs, RadioInfo};
+use radio_input::mapping::Controls;
+use radio_input::probe::{Inputs, RadioInfo};
 use serde::Serialize;
 
 /// The version of the page protocol. A page that sees another number says the two do not match.
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn input_carries_every_control_through_the_profile() {
-        use radio_probe::mapping::{AxisControl, AxisRole, OnOffControl, OnOffRole, SwitchControl};
+        use radio_input::mapping::{AxisControl, AxisRole, OnOffControl, OnOffRole, SwitchControl};
         let s = Snapshot {
             controls: Some(Controls {
                 profile: "gcscode-adv".into(),

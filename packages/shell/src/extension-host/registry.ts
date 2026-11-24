@@ -16,6 +16,7 @@ import { ConfigurationStore } from '../configuration/configuration-store.svelte'
 
 import { SvelteMap } from 'svelte/reactivity';
 
+import { extensionsPanelState } from '../extensions-panel/extensions-panel-state.svelte';
 import { quickPickState } from '../quick-pick/quick-pick-state.svelte';
 import { ExtensionActivationError } from './activation-error';
 
@@ -215,6 +216,8 @@ export function createRegistry(): Registry {
           options?: QuickPickOptions,
         ): Promise<T | undefined> {
           return new Promise<T | undefined>((resolve) => {
+            // One overlay at a time: a quick pick replaces the extensions panel.
+            extensionsPanelState.close();
             quickPickState.open<T>({ items, options, resolve });
           });
         },

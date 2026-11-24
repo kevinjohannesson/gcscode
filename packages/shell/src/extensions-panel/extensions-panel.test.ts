@@ -230,6 +230,65 @@ describe('extensions-panel.svelte', () => {
     expect(extensionsPanelState.isOpen).toBe(false);
   });
 
+  it('focuses the search box on open even when something else has focus', () => {
+    const elsewhere = document.createElement('button');
+    document.body.appendChild(elsewhere);
+    try {
+      elsewhere.focus();
+      const { manager } = setup([makeExtension({ id: 'ext.a', displayName: 'Alpha' })]);
+      render(ExtensionsPanel, { props: { manager } });
+      flushSync();
+
+      expect(document.activeElement).toBe(screen.getByRole('textbox'));
+    } finally {
+      elsewhere.remove();
+    }
+  });
+
+  it('focuses the panel itself when there is nothing to search, so Escape still closes it', async () => {
+    const { manager } = setup([]);
+    extensionsPanelState.open();
+    render(ExtensionsPanel, { props: { manager } });
+    flushSync();
+
+    const dialog = screen.getByRole('dialog', { name: 'Extensions' });
+    expect(document.activeElement).toBe(dialog);
+    await fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(extensionsPanelState.isOpen).toBe(false);
+  });
+
+  // Clicking Disable used to move focus onto the button, which is then replaced
+  // by Enable, dropping focus to the page: Escape and the arrow keys stopped
+  // working and the panel looked stuck.
+  it('keeps focus in the search box when a row button is pressed', async () => {
+    const { manager } = setup([makeExtension({ id: 'ext.a', displayName: 'Alpha' })]);
+    render(ExtensionsPanel, { props: { manager } });
+    expect(await fireEvent.mouseDown(screen.getByRole('button', { name: 'Disable' }))).toBe(false);
+    expect(await fireEvent.mouseDown(screen.getByRole('textbox'))).toBe(true);
+  });
+
+  it('handles keys that reach the panel from outside the search box', async () => {
+    const { manager } = setup([makeExtension({ id: 'ext.a', displayName: 'Alpha' })]);
+    extensionsPanelState.open();
+    render(ExtensionsPanel, { props: { manager } });
+    await fireEvent.keyDown(screen.getByRole('button', { name: 'Disable' }), { key: 'Escape' });
+    expect(extensionsPanelState.isOpen).toBe(false);
+  });
+
+  it('leaves Enter on a row button to that button, not the highlighted row', async () => {
+    const { manager } = setup([
+      makeExtension({ id: 'ext.a', displayName: 'Alpha' }),
+      makeExtension({ id: 'ext.b', displayName: 'Bravo' }),
+    ]);
+    extensionsPanelState.open();
+    render(ExtensionsPanel, { props: { manager } });
+    // Alpha is highlighted (row 0); the key goes to Bravo's Disable button.
+    const bravoButton = screen.getAllByRole('button', { name: 'Disable' })[1]!;
+    const notPrevented = await fireEvent.keyDown(bravoButton, { key: 'Enter' });
+    expect(notPrevented).toBe(true);
+    expect(manager.listExtensions().find((r) => r.manifest.id === 'ext.a')?.enabled).toBe(true);
+  });
+
   describe('failed activation rows', () => {
     // Spec validation case 22.
     it('shows a failed row with its message and a reload hint', () => {

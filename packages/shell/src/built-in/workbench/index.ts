@@ -2,6 +2,8 @@ import type { Extension, ExtensionContext, QuickPickItem } from '@gcscode/extens
 
 import type { Registry } from '../../extension-host/registry';
 import { extensionsPanelState } from '../../extensions-panel/extensions-panel-state.svelte';
+import { modalState } from '../../modal-state.svelte';
+import { quickPickState } from '../../quick-pick/quick-pick-state.svelte';
 
 interface CommandPickItem extends QuickPickItem {
   commandId: string;
@@ -44,6 +46,10 @@ export function createWorkbenchExtension(registry: Registry): Extension {
         title: 'Show All Commands',
         category: 'Workbench',
         run: async () => {
+          // One overlay at a time: a second Ctrl+Shift+P replaces whatever
+          // quick pick is open (that one resolves undefined, as if dismissed).
+          // `showQuickPick` itself closes an open extensions panel.
+          quickPickState.dismiss();
           const items: CommandPickItem[] = registry
             .listCommands()
             .filter((c) => c.title !== undefined)
@@ -70,7 +76,7 @@ export function createWorkbenchExtension(registry: Registry): Extension {
         title: 'Show Installed Extensions',
         category: 'Workbench',
         run: () => {
-          extensionsPanelState.open();
+          extensionsPanelState.show();
         },
       });
 
@@ -79,7 +85,21 @@ export function createWorkbenchExtension(registry: Registry): Extension {
         command: 'workbench.extensions.action.showInstalledExtensions',
       });
 
-      context.subscriptions.push(showCommands, keybinding, showExtensions, extensionsKeybinding);
+      // The two overlay openers stay reachable while an overlay is open, so
+      // each one's keybinding replaces the other overlay.
+      const commandsWhileOpen = modalState.allowWhileActive('workbench.action.showCommands');
+      const extensionsWhileOpen = modalState.allowWhileActive(
+        'workbench.extensions.action.showInstalledExtensions',
+      );
+
+      context.subscriptions.push(
+        showCommands,
+        keybinding,
+        showExtensions,
+        extensionsKeybinding,
+        commandsWhileOpen,
+        extensionsWhileOpen,
+      );
     },
   };
 }
