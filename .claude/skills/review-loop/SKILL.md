@@ -118,6 +118,8 @@ Then write the handoff note (`CLAUDE.md` § Sessions).
 
 ## PR templates
 
+Every feature PR carries one `Ticket:` line naming its Linear ticket, and a docs, spec or ADR PR carries one when it has a ticket. CI checks the line (`scripts/check-pr-ticket.mjs`, the `ticket` job), reading the PR as it is when the job runs, so after fixing the body re-run that job. It is `Fixes GCS-<n>` (or `Closes`), which closes the ticket on merge, or `Part of GCS-<n>` and `Related to GCS-<n>`, which link without closing. A ticket with a row in the table of [`docs/smoke-tests.md`](../../../docs/smoke-tests.md) waits for its smoke test, so its PR uses `Part of` (`Related to` when it changes neither code nor what a test checks) and keeps the ID out of its title and branch name; Linear closes a ticket on merge when either names it. Several tickets go on the one line, comma-separated.
+
 Feature PR (`gh pr create --draft --body ...`):
 
 ```md
@@ -128,6 +130,7 @@ Feature PR (`gh pr create --draft --body ...`):
 ## Links
 
 - Spec: [`docs/specs/YYYY-MM-DD-<topic>.md`](../blob/master/docs/specs/YYYY-MM-DD-<topic>.md)
+- Ticket: Fixes GCS-<n>
 - Plan: [`docs/plans/YYYY-MM-DD-<topic>.md`](../blob/master/docs/plans/YYYY-MM-DD-<topic>.md)
 - ADRs (if any): …
 
@@ -145,6 +148,7 @@ Spec or ADR PR:
 
 ## Links
 
+- Ticket: Fixes GCS-<n> (or leave this line out if there is no ticket)
 - Related spec/ADR: …
 
 ## Reviews
