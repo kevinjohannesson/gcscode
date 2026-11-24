@@ -10,8 +10,9 @@ Every command block runs from the repo root of the main checkout, and each block
 | [Several vehicles in SITL](#several-vehicles-in-sitl) | N8, PR #66     | `master`                              | SITL                  |
 | [Wire probe](#wire-probe)                             | GCS-17, PR #70 | `master`                              | SITL                  |
 | [Map input view](#map-input-view)                     | GCS-14, PR #71 | `master`                              | SITL                  |
-| [Link state view](#link-state-view)                   | GCS-24, PR #69 | draft: `claude/project-thread-0l1wrd` | SITL                  |
+| [Link state view](#link-state-view)                   | GCS-24, PR #69 | `master`                              | SITL                  |
 | [Radio input view](#radio-input-view)                 | GCS-38, PR #68 | `master`                              | TX16S, Rust and CMake |
+| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81 | draft: `claude/project-thread-2l93qj` | SITL, Rust and CMake  |
 | [Controls view](#controls-view)                       | GCS-40, PR #82 | draft: `claude/project-thread-lk6dk0` | TX16S, Rust and CMake |
 
 ## Before you start
@@ -20,6 +21,12 @@ Bring the main checkout up to date:
 
 ```sh
 git switch master && git pull --ff-only && pnpm install
+```
+
+Once PR #81 has merged, `pnpm dev:sitl` also starts the station process, which needs Rust and CMake and a build after each change to it:
+
+```sh
+pnpm --filter mavlink-station run setup
 ```
 
 A test on a draft branch runs in a worktree under `.worktrees/`, so the main checkout never changes branch. Each such test has its own setup block. Only one stack can run at a time, since they share ports: stop the last one with Ctrl-C before starting the next.
@@ -136,18 +143,12 @@ pnpm fly-sitl --circle 3
 
 ## Link state view
 
-**Goal:** the **Link state** tab shows whether the mavlink2rest bridge is up, and for each system ID how long ago its last heartbeat arrived.
+**Goal:** the **Link state** tab shows whether the mavlink2rest bridge is up, and for each system ID how long ago its last heartbeat arrived. Its `station` line, from PR #81, has a test of its own: [Station in the dev stack](#station-in-the-dev-stack).
 
-**Draft PR #69.** Set up its worktree once:
-
-```sh
-git fetch origin claude/project-thread-0l1wrd && git worktree add --detach .worktrees/link-state FETCH_HEAD && cd .worktrees/link-state && pnpm install
-```
-
-Start two vehicles from the worktree (**runs until Ctrl-C**), then open gcscode and click the **Link state** tab:
+Start two vehicles (**runs until Ctrl-C**), then open gcscode and click the **Link state** tab:
 
 ```sh
-cd .worktrees/link-state && pnpm dev:sitl --vehicles 2
+pnpm dev:sitl --vehicles 2
 ```
 
 ```sh
@@ -165,12 +166,6 @@ pkill -x mavlink2rest
 ```
 
 **Expect:** the bridge `down for …`, a line saying a reload is needed once mavlink2rest is back, and every age growing. gcscode does not reconnect yet, so stop the stack with Ctrl-C afterwards.
-
-Remove the worktree when the PR has merged:
-
-```sh
-git worktree remove .worktrees/link-state
-```
 
 ## Radio input view
 
@@ -203,6 +198,62 @@ pnpm --filter radio-probe start
 **Scenario 2, reload:** reload the page, then close the tab and open it again. **Expect:** the station's terminal shows nothing new and keeps running, and the page picks the input up again.
 
 **Scenario 3, station gone:** press Ctrl-C in the station's terminal. **Expect:** the page says the station is gone and retries every 2 s; start the station again and the page picks it up.
+
+## Station in the dev stack
+
+**Goal:** the station process starts with `pnpm dev:sitl`, the **Link state** tab shows `station: running` or `station: not running`, stopping the process flips it, and it sends nothing to any vehicle: the wire probe confirms.
+
+**Draft PR #81.** Set up its worktree once, which also builds the station (the first build compiles SDL and takes a few minutes):
+
+```sh
+git fetch origin claude/project-thread-2l93qj && git worktree add --detach .worktrees/station-startup FETCH_HEAD && cd .worktrees/station-startup && pnpm install && pnpm --filter mavlink-station run setup
+```
+
+Start two vehicles from the worktree (**runs until Ctrl-C**), then open gcscode and click the **Link state** tab:
+
+```sh
+cd .worktrees/station-startup && pnpm dev:sitl --vehicles 2
+```
+
+```sh
+open http://localhost:5173/
+```
+
+**Expect:** the launcher prints `station | station: serving radio input on ws://127.0.0.1:8091/ws`, and once the vehicles are ready to fly, a `Station` line with `ws://127.0.0.1:8091/ws` among the addresses. The Link state tab shows `station` `running for …` with `(gcscode-station 0.1.0)`, the bridge up, and systems 1 and 2 under a second ago.
+
+**Scenario 1, it sends nothing:** start the wire probe in a second terminal (**runs until Ctrl-C**):
+
+```sh
+cd .worktrees/station-startup && pnpm --filter wire-probe start
+```
+
+**Expect:** the same rows as without the station: `HEARTBEAT` from systems 1 and 2 only, and no command or control frame among the latest frames. The station has no MAVLink code yet, so nothing it does can show up here.
+
+**Scenario 2, the station stops:** freeze it, so it goes quiet without exiting (an exit would stop the whole stack):
+
+```sh
+pkill -STOP -x gcscode-station
+```
+
+**Expect:** within 3 s the Link state tab shows `station` `not running for …` in red, with a line saying nothing answers at `ws://127.0.0.1:8091/ws` and how to start it. Mavlink2rest and the vehicles' ages are unaffected. Let it go again:
+
+```sh
+pkill -CONT -x gcscode-station
+```
+
+**Expect:** within about 2 s it is `running` again, its time counting from 0.
+
+**Scenario 3, one Ctrl-C:** press Ctrl-C in the stack's terminal. **Expect:** `Stopping sitl, mediamtx, gcscode, camera-sim, station`, then `Stopped.` This prints any port still listening, or `all stopped`:
+
+```sh
+lsof -nP -iTCP -sTCP:LISTEN | grep -E ':(5760|5770|8088|5173|5174|8889|8091)\b' || echo 'all stopped'
+```
+
+Remove the worktree when the PR has merged:
+
+```sh
+git worktree remove .worktrees/station-startup
+```
 
 ## Controls view
 

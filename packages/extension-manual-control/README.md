@@ -4,13 +4,13 @@ The **Radio input** view: the raw input of the radio the station process has ope
 
 The **Controls** view, next to it: the same input through the radio's profile (see [`tools/radio-probe`](../../tools/radio-probe/README.md#mapped-what-each-input-means)). Each axis control by name with its percent and a bar, from the middle for roll, pitch, yaw and aux 1 to 4, from the left for throttle; each on/off control as on, off or not mapped; each switch's position, or `unknown` until the station has seen it; the axis or buttons each comes from; and the inputs no control reads. When no profile matches the radio it says so, with what the radio reports. It is a view of its own so the Radio input view, and its smoke test, stay as they were.
 
-Both views only listen. They send nothing to the station, the radio or any vehicle, and opening or closing one changes nothing for the station or its other pages. The station is [`packages/mavlink-station`](../mavlink-station/README.md); start it with `pnpm --filter mavlink-station start`.
+Both views only listen. They send nothing to the station, the radio or any vehicle, and opening or closing one changes nothing for the station or its other pages. The station is [`packages/mavlink-station`](../mavlink-station/README.md). `pnpm dev:sitl` starts it; without SITL, start it alone with `pnpm --filter mavlink-station start`. Either way it needs one build first: `pnpm --filter mavlink-station run setup`.
 
 While either has no input it says why in one line: connecting, no station at the address (it tries again every 2 seconds), a station with another protocol version, or a station with no radio open. Three seconds with no message from the station count as the station being gone, even if the socket has not closed.
 
-## The setting
+## The station's address
 
-`gcscode.manual-control.stationUrl` is the station's WebSocket. The default is `ws://127.0.0.1:8091/ws`. It is read once, when the extension activates, so a change takes effect after a reload; change it from the browser's devtools as described in [Operator UX in v1](../extension-api/README.md#operator-ux-in-v1).
+The view connects to `gcscode.mavlink.stationUrl`, the MAVLink extension's setting (default `ws://127.0.0.1:8091/ws`): the station is that extension's native half, so it owns the address ([ADR-0015](../../docs/decisions/ADR-0015-native-sidecars.md) Decision 3), and this extension registers no setting of its own. The view reads it each time it opens, so a change takes effect the next time the view opens or the page reloads; change it from the browser's devtools as described in [Operator UX in v1](../extension-api/README.md#operator-ux-in-v1).
 
 ## Where things are
 

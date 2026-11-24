@@ -16,9 +16,11 @@ Connects to `ws://localhost:8088/v1/ws/mavlink`, subscribes to `HEARTBEAT`, `GLO
 
 ## The Link state view
 
-**Link state** is a read-only view for checking the link rather than flying on it. It shows whether the mavlink2rest bridge is up, connecting or down and for how long, and for each system ID heard on it (with its `MAV_TYPE`) how long ago its last heartbeat arrived. A vehicle that stops shows its age growing while the others stay under a second; a system never drops out of the list.
+**Link state** is a read-only view for checking the link rather than flying on it. It shows whether the mavlink2rest bridge is up, connecting or down and for how long, whether the station process is running and for how long, and for each system ID heard on it (with its `MAV_TYPE`) how long ago its last heartbeat arrived. A vehicle that stops shows its age growing while the others stay under a second; a system never drops out of the list.
 
-It reads the extension's one WebSocket and opens none of its own (`src/link-state.svelte.ts` holds the state, fed from `index.ts`). gcscode does not reconnect after the bridge drops yet, so once the bridge shows as down it stays down, the view says so, and the ages keep growing until the page is reloaded.
+For the bridge it reads the extension's one mavlink2rest WebSocket (`src/link-state.svelte.ts` holds the state, fed from `index.ts`).
+
+**The station.** The station process (`packages/mavlink-station`, [ADR-0016](../../docs/decisions/ADR-0016-one-station-process.md)) is this extension's native half, so the extension owns its address, the setting `gcscode.mavlink.stationUrl` (default `ws://127.0.0.1:8091/ws`; a change takes effect at once, and the Link state view follows it), and the session to it, which `activate()` starts and its subscriptions stop (`src/station-link.svelte.ts`). The view shows `station: running` once the station says hello in protocol 1 and while it keeps sending, which it does at least once a second; `not running` when nothing answers or it has been silent for 3 s; and `not usable` when it speaks another protocol. It retries every 2 s. The session only listens: protocol 1 has nothing for a page to send. `@gcscode/extension-manual-control`'s Radio input view opens a connection of its own, to the same setting's address, read when that view opens; which page code may reach the station is open in ADR-0016. gcscode does not reconnect after the bridge drops yet, so once the bridge shows as down it stays down, the view says so, and the ages keep growing until the page is reloaded.
 
 ## Cross-extension exports
 

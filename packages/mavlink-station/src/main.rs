@@ -45,6 +45,7 @@ fn main() {
     let server_stop = stop.clone();
     let server = std::thread::spawn(move || {
         let runtime = tokio::runtime::Runtime::new().expect("a tokio runtime");
+        // True once it served: false when it could not listen at all.
         runtime.block_on(async move {
             let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, PORT));
             let listener = match tokio::net::TcpListener::bind(addr).await {
@@ -52,7 +53,7 @@ fn main() {
                 Err(e) => {
                     eprintln!("station: cannot listen on {addr}: {e}");
                     server_stop.store(true, Ordering::Relaxed);
-                    return;
+                    return false;
                 }
             };
             println!("station: serving radio input on ws://{addr}/ws");
@@ -72,7 +73,8 @@ fn main() {
                 eprintln!("station: server stopped: {e}");
             }
             server_stop.store(true, Ordering::Relaxed);
-        });
+            true
+        })
     });
 
     if let Err(e) = input::run(tx, stop, profiles) {
@@ -80,8 +82,12 @@ fn main() {
         eprintln!("station: {e}");
         std::process::exit(1);
     }
-    let _ = server.join();
+    let served = server.join().unwrap_or(false);
     println!("station: stopped.");
+    if !served {
+        // Nothing was served, so a launcher or script must not read this as a normal stop.
+        std::process::exit(1);
+    }
 }
 
 /// A profile file, read and checked. A profile that breaks a rule stops the station before it

@@ -2,13 +2,13 @@ import { render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ControlsView from './controls-view.svelte';
-import { setStationAddress } from './station-address';
+import { setStationAddressSource } from './station-address';
 import { FakeSocket, HELLO, advControls, inputText } from './test-fakes';
 
 beforeEach(() => {
   FakeSocket.instances = [];
   vi.stubGlobal('WebSocket', FakeSocket);
-  setStationAddress('ws://127.0.0.1:8091/ws');
+  setStationAddressSource(() => 'ws://127.0.0.1:8091/ws');
 });
 afterEach(() => {
   vi.unstubAllGlobals();

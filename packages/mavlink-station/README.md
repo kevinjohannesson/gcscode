@@ -6,13 +6,19 @@ It is the station process of [ADR-0016](../../docs/decisions/ADR-0016-one-statio
 
 ## Running it
 
-Needs Rust and CMake, as for the probe (`brew install cmake`). From the repo root:
+Needs Rust and CMake, as for the probe (`brew install cmake`). `pnpm dev:sitl` starts it with the rest of the dev stack, from the binary its setup built. Build it once, and again after its code changes, from the repo root:
+
+```sh
+pnpm --filter mavlink-station run setup
+```
+
+The first build compiles SDL and takes a few minutes. `run.sh` is what the dev stack starts: it runs that binary, says to run setup when there is none, and warns when the source is newer than the binary. To run the station alone, building as needed:
 
 ```sh
 pnpm --filter mavlink-station start
 ```
 
-The first build compiles SDL and takes a few minutes. Then run `pnpm dev` and open the **Radio input** view (`@gcscode/extension-manual-control`). Ctrl-C stops the station. The page keeps running and says the station is gone, and picks it up again when it is back. Closing the page changes nothing for the station.
+Then run `pnpm dev` and open the **Radio input** view (`@gcscode/extension-manual-control`). The MAVLink extension's **Link state** view shows `station: running` or `station: not running`. Ctrl-C or SIGTERM stops the station with exit status 0. It exits 1 when it cannot listen on 8091, for example when another station holds it. The page keeps running and says the station is gone, and picks it up again when it is back. Closing the page changes nothing for the station.
 
 `--profile <file>` (repeatable) adds a radio profile, tried before the bundled ones; a profile that breaks a rule stops the station with one line saying why. Profiles are described in [`tools/radio-probe`](../../tools/radio-probe/README.md#mapped-what-each-input-means), whose mapping code the station uses. On start the station prints the profiles it has, and on opening a radio which one it maps with, or that none matches.
 
@@ -78,4 +84,4 @@ Version 1 added `controls`. A page of version 0 sees another version in `hello` 
 pnpm --filter mavlink-station test:rust
 ```
 
-Unit tests pin the exact JSON and the origin rule. `tests/mapped_input.rs` drives the radio side with SDL's virtual joysticks on the gcscode-adv profile, and a radio on its Classic model that no profile matches. `tests/page_socket.rs` serves the socket on a real port and checks hello, the input, a change pushed within 300 ms, the one-second repeat, the 403, and that a page leaving or sending something changes nothing for the station. Like the probe, it is not part of `pnpm test` yet.
+Unit tests pin the exact JSON and the origin rule. `tests/mapped_input.rs` drives the radio side with SDL's virtual joysticks on the gcscode-adv profile, and a radio on its Classic model that no profile matches. `tests/process.rs` runs the built binary: SIGTERM stops it with 0, and with 8091 taken it exits 1 (it skips itself when a station is already running on this machine). `tests/page_socket.rs` serves the socket on a real port and checks hello, the input, a change pushed within 300 ms, the one-second repeat, the 403, and that a page leaving or sending something changes nothing for the station. Like the probe, it is not part of `pnpm test` yet.

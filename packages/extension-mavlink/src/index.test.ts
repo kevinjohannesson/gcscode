@@ -5,6 +5,7 @@ import type { AssetDescription, AssetSource, AssetsApi } from '@gcscode/extensio
 
 import { mavlinkExtension, type MavlinkExports } from './index';
 import { linkState } from './link-state.svelte';
+import { DEFAULT_STATION_URL, stationLink } from './station-link.svelte';
 import LinkStateView from './link-state-view.svelte';
 import MapInputView from './map-input-view.svelte';
 import MavlinkView from './mavlink-view.svelte';
@@ -55,8 +56,17 @@ class MockWebSocket {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** The station link's sockets go to the station's address; every other one is the bridge's. */
+function bridgeMocks(): MockWebSocket[] {
+  return mockInstances.filter((m) => m.url !== DEFAULT_STATION_URL);
+}
+
+function stationMocks(): MockWebSocket[] {
+  return mockInstances.filter((m) => m.url === DEFAULT_STATION_URL);
+}
+
 function lastMock(): MockWebSocket {
-  const mock = mockInstances[mockInstances.length - 1];
+  const mock = bridgeMocks().at(-1);
   if (!mock) throw new Error('No MockWebSocket instance was constructed');
   return mock;
 }
@@ -194,6 +204,7 @@ describe('mavlinkExtension', () => {
 
   afterEach(async () => {
     await mavlinkExtension.deactivate?.();
+    stationLink.stop();
     vi.unstubAllGlobals();
   });
 
@@ -203,8 +214,9 @@ describe('mavlinkExtension', () => {
     expect(typeof mavlinkExtension.manifest.version).toBe('string');
   });
 
-  it('registers three views, a command, a keybinding, a configuration + change-listener, and the asset adapter; pushes all eight disposables', () => {
-    const { context, registerView, registerCommand, registerKeybinding } = makeContext();
+  it('registers three views, a command, a keybinding, two configurations + change-listeners, the asset adapter and the station link; pushes all eleven disposables', () => {
+    const { context, registerView, registerCommand, registerKeybinding, registerConfiguration } =
+      makeContext();
     const { subscriptions } = context;
 
     mavlinkExtension.activate(context);
@@ -234,7 +246,12 @@ describe('mavlinkExtension', () => {
       key: 'Alt+Shift+L',
       command: 'gcscode.mavlink.getLocation',
     });
-    expect(subscriptions).toHaveLength(8);
+    expect(registerConfiguration).toHaveBeenCalledWith({
+      key: 'gcscode.mavlink.stationUrl',
+      schema: expect.objectContaining({ type: 'string', format: 'uri' }),
+      default: 'ws://127.0.0.1:8091/ws',
+    });
+    expect(subscriptions).toHaveLength(11);
   });
 
   it('getLocation command returns current store location and logs it; returns null with no fix yet', () => {
@@ -302,6 +319,57 @@ describe('mavlinkExtension', () => {
     await mavlinkExtension.deactivate?.();
     expect(linkState.bridge).toBe('connecting');
     expect(linkState.systems).toEqual([]);
+  });
+
+  it('watches the station at the configured address, and its subscription stops the watch', () => {
+    const { context } = makeContext();
+    mavlinkExtension.activate(context);
+    expect(stationMocks()).toHaveLength(1);
+    const station = stationMocks()[0];
+    expect(stationLink.status).toBe('connecting');
+
+    station.onmessage?.({ data: '{"type":"hello","protocol":1,"station":"0.1.0"}' });
+    expect(stationLink.status).toBe('running');
+    expect(stationLink.version).toBe('0.1.0');
+
+    for (const s of context.subscriptions) s.dispose();
+    expect(station.closeArgs).not.toBeNull();
+    expect(stationLink.status).toBe('connecting');
+    expect(stationMocks()).toHaveLength(1);
+  });
+
+  it('watches the station at the address its setting gives at activation', () => {
+    const { context, getConfiguration } = makeContext();
+    getConfiguration.mockReturnValue({
+      get: (key: string, defaultValue?: unknown) =>
+        key === 'stationUrl' ? 'ws://127.0.0.1:9091/ws' : defaultValue,
+    });
+    mavlinkExtension.activate(context);
+    expect(mockInstances.filter((m) => m.url === 'ws://127.0.0.1:9091/ws')).toHaveLength(1);
+    expect(stationMocks()).toHaveLength(0);
+  });
+
+  it('watches the new address when gcscode.mavlink.stationUrl changes, and not on other changes', () => {
+    const { context, getConfiguration, onDidChangeConfiguration } = makeContext();
+    mavlinkExtension.activate(context);
+    const first = stationMocks()[0];
+    getConfiguration.mockReturnValue({
+      get: (key: string, defaultValue?: unknown) =>
+        key === 'stationUrl' ? 'ws://127.0.0.1:9091/ws' : defaultValue,
+    });
+    const fire = (key: string) => {
+      for (const [listener] of onDidChangeConfiguration.mock.calls) {
+        listener({ affectsConfiguration: (k: string) => k === key });
+      }
+    };
+
+    fire('gcscode.mavlink.somethingElse');
+    expect(mockInstances.filter((m) => m.url === 'ws://127.0.0.1:9091/ws')).toHaveLength(0);
+
+    fire('gcscode.mavlink.stationUrl');
+    expect(first.closeArgs).not.toBeNull();
+    expect(mockInstances.filter((m) => m.url === 'ws://127.0.0.1:9091/ws')).toHaveLength(1);
+    expect(stationLink.url).toBe('ws://127.0.0.1:9091/ws');
   });
 
   it('defines a deactivate hook that returns a promise', () => {
@@ -431,7 +499,7 @@ describe('mavlinkExtension', () => {
     onDidChangeConfiguration.mock.calls[0][0]({
       affectsConfiguration: (k: string) => k === 'gcscode.mavlink.connectionUrl',
     });
-    await vi.waitFor(() => expect(mockInstances).toHaveLength(2));
+    await vi.waitFor(() => expect(bridgeMocks()).toHaveLength(2));
     deliver(POSITION_FRAME);
     expect(vi.mocked(fetch).mock.calls[1]).toEqual([
       'http://192.168.1.42:8088/v1/mavlink/vehicles/1/components/1/messages/HOME_POSITION',
@@ -463,8 +531,8 @@ describe('mavlinkExtension', () => {
     await Promise.resolve();
 
     // A new mock WebSocket should have been constructed against the new URL.
-    expect(mockInstances.length).toBeGreaterThanOrEqual(2);
-    const latest = mockInstances[mockInstances.length - 1];
+    expect(bridgeMocks().length).toBeGreaterThanOrEqual(2);
+    const latest = lastMock();
     expect(latest.url).toMatch(/^ws:\/\/192\.168\.1\.42:8088\/v1\/ws\/mavlink/);
   });
 
