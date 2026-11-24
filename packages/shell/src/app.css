@@ -1,1 +1,40 @@
 @import 'tailwindcss';
+
+/*
+ * The theme's values are written to the root by `applyTheme` (theme/dark-theme.ts)
+ * before anything renders. This file only uses them (ADR-0017).
+ */
+html,
+body {
+  margin: 0;
+  background: var(--gcscode-panel-background);
+  color: var(--gcscode-foreground);
+  font-family: var(--gcscode-font-family);
+  font-size: var(--gcscode-font-size);
+}
+
+:focus-visible {
+  outline: 1px solid var(--gcscode-focusBorder);
+  outline-offset: -1px;
+}
+
+/* Dockview's colours, mapped onto the theme. Layout comes from dockview-theme-dark. */
+.dockview-theme-gcscode {
+  --dv-group-view-background-color: var(--gcscode-panel-background);
+  --dv-tabs-and-actions-container-background-color: var(--gcscode-widget-background);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--gcscode-panel-background);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--gcscode-widget-background);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--gcscode-panel-background);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--gcscode-widget-background);
+  --dv-tab-divider-color: var(--gcscode-panel-border);
+  --dv-activegroup-visiblepanel-tab-color: var(--gcscode-foreground);
+  --dv-activegroup-hiddenpanel-tab-color: var(--gcscode-descriptionForeground);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--gcscode-descriptionForeground);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--gcscode-descriptionForeground);
+  --dv-separator-border: var(--gcscode-panel-border);
+  --dv-paneview-header-border-color: var(--gcscode-panel-border);
+  --dv-paneview-active-outline-color: var(--gcscode-focusBorder);
+  --dv-icon-hover-background-color: var(--gcscode-toolbar-hoverBackground);
+  --dv-floating-border: 1px solid var(--gcscode-widget-border);
+  --dv-tab-font-size: var(--gcscode-font-size);
+}

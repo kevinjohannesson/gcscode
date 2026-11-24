@@ -221,6 +221,49 @@ Known sharp edges of the devtools-only path: silent schema-validation failure on
 
 For the full design rationale see [`docs/specs/2026-05-18-configuration-system-v1.md`](../../docs/specs/2026-05-18-configuration-system-v1.md).
 
+## Theme colours (`themeVariables`)
+
+The shell sets the theme as CSS variables on the document root before any extension activates ([ADR-0017](../../docs/decisions/ADR-0017-theme-colours-as-css-variables.md)). Style your view's chrome with them and hardcode no colour:
+
+```svelte
+<style>
+  .panel {
+    background: var(--gcscode-panel-background);
+    color: var(--gcscode-foreground);
+  }
+  .value {
+    font-family: var(--gcscode-monospace-font-family);
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+```
+
+| Variable                                                                                         | Meaning                                                       |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| `--gcscode-foreground`                                                                           | Default text                                                  |
+| `--gcscode-descriptionForeground`                                                                | Secondary text: labels, units, hints                          |
+| `--gcscode-errorForeground`                                                                      | Error text                                                    |
+| `--gcscode-focusBorder`                                                                          | Keyboard focus outline                                        |
+| `--gcscode-panel-background`, `--gcscode-panel-border`                                           | A view's body and the lines between panels                    |
+| `--gcscode-widget-background`, `--gcscode-widget-border`, `--gcscode-widget-shadow`              | Raised surfaces over a view: map controls, the quick pick     |
+| `--gcscode-toolbar-hoverBackground`, `--gcscode-toolbar-activeBackground`                        | Icon buttons when hovered and pressed                         |
+| `--gcscode-input-background`, `--gcscode-input-foreground`, `--gcscode-input-border`             | Text inputs                                                   |
+| `--gcscode-button-background`, `--gcscode-button-foreground`, `--gcscode-button-hoverBackground` | Primary buttons                                               |
+| `--gcscode-list-hoverBackground`, `--gcscode-list-activeSelectionBackground`                     | Rows in lists and tables                                      |
+| `--gcscode-textLink-foreground`                                                                  | Links                                                         |
+| `--gcscode-statusBar-background`, `--gcscode-statusBar-foreground`                               | The status bar and the text of status items                   |
+| `--gcscode-level-warning`, `--gcscode-level-caution`, `--gcscode-level-normal`                   | Alert levels (red, amber, green), for levels and nothing else |
+| `--gcscode-font-family`, `--gcscode-font-size`                                                   | Body text                                                     |
+| `--gcscode-monospace-font-family`                                                                | Numbers and raw values that must not shift as they change     |
+
+The rules, which a shell test checks over every extension's source:
+
+- Read only these names, never declare a `--gcscode-*` property, and never style `:root` or write `document.documentElement.style`.
+- A colour with its own meaning (armed, home, a boundary) is yours: declare it as a custom property on an element you render, prefixed with your slug (`--mavlink-flight-overlay-armed`), or as a named constant in script.
+- Picture content (video frames, map tiles) is exempt.
+- Script that needs a theme colour, such as a MapLibre paint property, reads it once when it mounts: `getComputedStyle(document.documentElement).getPropertyValue('--gcscode-level-warning')`.
+- Never show a level by colour alone; put a label or a shape beside it.
+
 ## Lifecycle (`deactivate?()`)
 
 `Extension` may declare an optional `deactivate?(): void | Promise<void>` method for non-disposable / async cleanup (closing connections, flushing queues, awaiting workers). The host:

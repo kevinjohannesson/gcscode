@@ -8,6 +8,7 @@
   import GcscodeTab from './dockview-host/gcscode-tab.svelte';
   import EmptyStateWatermark from './dockview-host/empty-state-watermark.svelte';
   import ActivationFailureIndicator from './activation-failure-indicator.svelte';
+  import { gcscodeDockviewTheme } from './theme/dockview-theme';
 
   let { registry, manager }: { registry: Registry; manager: ExtensionManager } = $props();
 
@@ -57,6 +58,7 @@
       defaultTabComponent={GcscodeTab}
       watermarkComponent={EmptyStateWatermark}
       disableFloatingGroups={true}
+      theme={gcscodeDockviewTheme}
       onReady={handleReady}
     />
   </section>
