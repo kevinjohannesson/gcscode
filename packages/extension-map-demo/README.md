@@ -4,6 +4,8 @@ Throwaway scaffold demonstrating maplibre integration + the consumer-side cross-
 
 The real Map iteration (roadmap "Coming → Map") replaces this once it lands. Don't depend on the demo for anything; the package will be removed.
 
+**Retired, off by default.** The real Map has landed, so the shell bundles this extension with `initialEnabled: false` (`packages/shell/src/extension-host/bundled-extensions.ts`): it stays installed and an operator can turn it on in the Extensions panel. That choice is not remembered across a reload, since the shell saves only which extensions were turned off.
+
 ## Contributions
 
 - **View** — `gcscode.map-demo.main`, renders a 400px-tall maplibre canvas with a drone marker.
