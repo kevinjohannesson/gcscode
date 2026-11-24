@@ -63,6 +63,15 @@ fn reads_an_edgetx_radio_and_survives_unplug_and_replug() {
         )
     );
     assert_eq!(lines[1], "  serial (none)  axes 8  buttons 24  hats 0");
+    assert_eq!(
+        probe.info(),
+        Some(&radio_probe::probe::RadioInfo {
+            name: "TX16SMK3 Joystick".into(),
+            vendor: 0x1209,
+            product: 0x4F54,
+            serial: None,
+        })
+    );
 
     // Values set on the virtual device come back raw, by index.
     let j = probe.radio().unwrap();
@@ -118,6 +127,7 @@ fn reads_an_edgetx_radio_and_survives_unplug_and_replug() {
         Some("radio unplugged. Waiting for it to come back.")
     );
     assert!(probe.radio().is_none());
+    assert!(probe.info().is_none());
 
     // Plugged back in, it is opened again. This time it reports a hat (EdgeTX's Classic mode
     // has none, but a radio set up otherwise could), and the hat shows as its own line.

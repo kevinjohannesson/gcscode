@@ -79,7 +79,7 @@ pub const OFF: &str = "\x1b[0m";
 pub fn buttons_grid(buttons: &[bool]) -> Vec<String> {
     let rule = |l: &str, m: &str, r: &str| format!("{l}{}{r}", ["────"; ROW].join(m));
     let mut lines = vec![
-        format!("buttons, highlighted when pressed:"),
+        "buttons, highlighted when pressed:".to_string(),
         rule("┌", "┬", "┐"),
     ];
     for (row, chunk) in buttons.chunks(ROW).enumerate() {

@@ -7,6 +7,7 @@ import type { Extension } from '@gcscode/extension-api';
 import { assetsExtension } from '@gcscode/extension-assets';
 import { assetsDemoExtension } from '@gcscode/extension-assets-demo';
 import { exampleExtension } from '@gcscode/extension-example';
+import { manualControlExtension } from '@gcscode/extension-manual-control';
 import { mavlinkFlightOverlayExtension } from '@gcscode/extension-mavlink-flight-overlay';
 import { mapExtension } from '@gcscode/extension-map';
 import { mapDemoExtension } from '@gcscode/extension-map-demo';
@@ -57,6 +58,9 @@ export const bundledExtensions: readonly BundledExtensionEntry[] = [
   // layout is not saved. NOT an activation constraint: Video reads no
   // extension's exports and publishes none.
   { id: videoExtension.manifest.id, extension: videoExtension },
+  // Before Map for the same reason as Video: Map stays the front tab. Reads no
+  // extension's exports and publishes none, so no activation constraint.
+  { id: manualControlExtension.manifest.id, extension: manualControlExtension },
   // Map exposes a contribution API consumed by flight-overlay; it must
   // activate before flight-overlay. No ordering requirement vs. mavlink.
   // It must also stay the last entry that registers a view: the last view

@@ -15,6 +15,7 @@
     "@gcscode/extension-assets": "workspace:*",
     "@gcscode/extension-assets-demo": "workspace:*",
     "@gcscode/extension-example": "workspace:*",
+    "@gcscode/extension-manual-control": "workspace:*",
     "@gcscode/extension-mavlink-flight-overlay": "workspace:*",
     "@gcscode/extension-map": "workspace:*",
     "@gcscode/extension-map-demo": "workspace:*",
