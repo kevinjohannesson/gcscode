@@ -1,7 +1,13 @@
 import type { Extension } from '@gcscode/extension-api';
+import type { MavlinkExports } from '@gcscode/extension-mavlink';
 
+import ControlsView from './controls-view.svelte';
 import RadioInputView from './radio-input-view.svelte';
-import { DEFAULT_STATION_URL, setStationAddressSource } from './station-address';
+import {
+  DEFAULT_STATION_URL,
+  setStationAddressSource,
+  setStationProtocolSource,
+} from './station-address';
 
 export const manualControlExtension: Extension = {
   manifest: {
@@ -9,7 +15,7 @@ export const manualControlExtension: Extension = {
     displayName: 'Manual control',
     version: '0.0.0',
     description:
-      'Shows the raw input of the radio the station has open. Reads only: it sends nothing to the station, the radio or any vehicle.',
+      'Shows the raw input of the radio the station has open, and what each input means through its profile. Reads only: it sends nothing to the station, the radio or any vehicle.',
   },
   activate(context) {
     // The station's address is the MAVLink extension's setting, since the
@@ -22,12 +28,24 @@ export const manualControlExtension: Extension = {
         .getConfiguration('gcscode.mavlink')
         .get<string>('stationUrl', DEFAULT_STATION_URL),
     );
+    // The protocol is that extension's too, so a protocol bump changes it there
+    // and in the station, not here.
+    const extensions = context.host.extensions;
+    setStationProtocolSource(
+      () =>
+        extensions.getExtension<MavlinkExports>('gcscode.mavlink')?.exports.stationProtocol ?? null,
+    );
 
     context.subscriptions.push(
       context.host.window.registerView({
         id: 'gcscode.manual-control.radio-input',
         component: RadioInputView,
         title: 'Radio input',
+      }),
+      context.host.window.registerView({
+        id: 'gcscode.manual-control.controls',
+        component: ControlsView,
+        title: 'Controls',
       }),
     );
   },

@@ -142,6 +142,9 @@ importers:
       '@gcscode/extension-api':
         specifier: workspace:*
         version: link:../extension-api
+      '@gcscode/extension-mavlink':
+        specifier: workspace:*
+        version: link:../extension-mavlink
       svelte:
         specifier: ^5.0.0
         version: 5.55.5(@typescript-eslint/types@8.59.0)

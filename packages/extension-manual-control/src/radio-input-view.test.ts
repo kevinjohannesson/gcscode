@@ -2,13 +2,14 @@ import { render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import RadioInputView from './radio-input-view.svelte';
-import { setStationAddressSource } from './station-address';
+import { setStationAddressSource, setStationProtocolSource } from './station-address';
 import { FakeSocket, HELLO, inputText } from './test-fakes';
 
 beforeEach(() => {
   FakeSocket.instances = [];
   vi.stubGlobal('WebSocket', FakeSocket);
   setStationAddressSource(() => 'ws://127.0.0.1:8091/ws');
+  setStationProtocolSource(() => 1);
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -95,5 +96,30 @@ describe('RadioInputView', () => {
     await settle();
     result.unmount();
     expect(FakeSocket.latest().closeCalls).toBe(1);
+  });
+
+  it("says which protocol the station speaks when it is not this page's", async () => {
+    setStationProtocolSource(() => 2);
+    render(RadioInputView);
+    await settle();
+    FakeSocket.latest().receive(HELLO);
+    await vi.waitFor(() =>
+      expect(
+        screen.getByText(
+          'The station speaks protocol 1, this page protocol 2. Run the two from the same checkout.',
+        ),
+      ).toBeTruthy(),
+    );
+  });
+
+  it('says the MAVLink extension is missing when nothing gives the protocol, and does not connect', () => {
+    setStationProtocolSource(() => null);
+    render(RadioInputView);
+    expect(
+      screen.getByText(
+        'This page does not know which protocol the station speaks: the MAVLink extension, which owns the station, is not loaded.',
+      ),
+    ).toBeTruthy();
+    expect(FakeSocket.instances).toHaveLength(0);
   });
 });

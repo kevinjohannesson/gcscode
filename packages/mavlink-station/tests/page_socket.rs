@@ -61,6 +61,7 @@ fn radio(axis0: i16, button1: bool) -> Snapshot {
                 hats: vec![],
             },
         }),
+        controls: None,
         events_per_second: Some(12),
     }
 }
@@ -72,7 +73,7 @@ async fn a_page_gets_hello_then_the_current_input() {
 
     assert_eq!(
         next(&mut page).await,
-        json!({"type": "hello", "protocol": 0, "station": "0.1.0"})
+        json!({"type": "hello", "protocol": 1, "station": "0.1.0"})
     );
     assert_eq!(
         next(&mut page).await,
@@ -87,6 +88,7 @@ async fn a_page_gets_hello_then_the_current_input() {
                 "buttons": [false, true],
                 "hats": []
             },
+            "controls": null,
             "eventsPerSecond": 12
         })
     );
@@ -99,7 +101,7 @@ async fn a_change_reaches_the_page() {
     next(&mut page).await;
     assert_eq!(
         next(&mut page).await,
-        json!({"type": "input", "radio": null, "eventsPerSecond": null})
+        json!({"type": "input", "radio": null, "controls": null, "eventsPerSecond": null})
     );
 
     tx.send(radio(-5, false)).unwrap();

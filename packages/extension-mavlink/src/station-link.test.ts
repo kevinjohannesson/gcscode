@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   RETRY_DELAY_MS,
   SILENCE_LIMIT_MS,
+  STATION_PROTOCOL,
   StationLink,
   parseHello,
   type StationSocket,
@@ -38,7 +39,8 @@ class FakeSocket implements StationSocket {
 }
 
 const URL = 'ws://127.0.0.1:8091/ws';
-const HELLO = '{"type":"hello","protocol":0,"station":"0.1.0"}';
+/** A hello in whatever protocol this page speaks, so a protocol bump leaves these tests alone. */
+const HELLO = `{"type":"hello","protocol":${STATION_PROTOCOL},"station":"0.1.0"}`;
 const INPUT = '{"type":"input","radio":null,"eventsPerSecond":0}';
 
 function link(): StationLink {
@@ -55,7 +57,7 @@ afterEach(() => {
 });
 
 describe('StationLink', () => {
-  it('is running once the station says hello in protocol 0, since then', () => {
+  it("is running once the station says hello in this page's protocol, since then", () => {
     const station = link();
     station.start(URL);
     expect(FakeSocket.latest().url).toBe(URL);
@@ -163,15 +165,15 @@ describe('StationLink', () => {
   it('is a mismatch, not running, when the station speaks another protocol, and clears once it is gone', () => {
     const station = link();
     station.start(URL);
-    FakeSocket.latest().receive('{"type":"hello","protocol":1,"station":"0.2.0"}');
+    FakeSocket.latest().receive('{"type":"hello","protocol":0,"station":"0.0.9"}');
     expect(station.status).toBe('mismatch');
-    expect(station.stationProtocol).toBe(1);
+    expect(station.stationProtocol).toBe(0);
     expect(FakeSocket.instances[0].closeCalls).toBe(1);
     const since = station.since;
 
     // The same station again on the retry: still a mismatch, since unchanged.
     vi.advanceTimersByTime(RETRY_DELAY_MS);
-    FakeSocket.latest().receive('{"type":"hello","protocol":1,"station":"0.2.0"}');
+    FakeSocket.latest().receive('{"type":"hello","protocol":0,"station":"0.0.9"}');
     expect(station.status).toBe('mismatch');
     expect(station.since).toBe(since);
 
@@ -243,8 +245,11 @@ describe('StationLink', () => {
 });
 
 describe('parseHello', () => {
-  it('reads protocol 0 hello', () => {
-    expect(parseHello(HELLO)).toEqual({ protocol: 0, station: '0.1.0' });
+  it('reads protocol 1 hello', () => {
+    expect(parseHello('{"type":"hello","protocol":1,"station":"0.1.0"}')).toEqual({
+      protocol: 1,
+      station: '0.1.0',
+    });
   });
 
   it.each([

@@ -1,4 +1,4 @@
-import { PROTOCOL, parseStationMessage, type RadioInput } from './station-protocol';
+import { parseStationMessage, type Controls, type RadioInput } from './station-protocol';
 
 /** How long after losing the station the view tries again. */
 export const RETRY_DELAY_MS = 2000;
@@ -8,7 +8,8 @@ export const RETRY_DELAY_MS = 2000;
  */
 export const SILENCE_LIMIT_MS = 3000;
 
-export type StationStatus = 'connecting' | 'live' | 'unreachable' | 'mismatch';
+/** `unknown-protocol`: nothing says which protocol to expect, so it does not connect. */
+export type StationStatus = 'connecting' | 'live' | 'unreachable' | 'mismatch' | 'unknown-protocol';
 
 /** The part of a browser WebSocket this view uses, so tests can stand in for it. */
 export interface StationSocket {
@@ -22,17 +23,19 @@ export interface StationSocket {
 export type OpenStationSocket = (url: string) => StationSocket;
 
 /**
- * The station connection behind the Radio input view: one socket at a time,
+ * The station connection behind the Radio input and Controls views: one socket at a time,
  * a retry every two seconds after it goes, and the newest input it sent.
  * It only listens; nothing it does reaches the station's other pages or the radio.
  */
 export class RadioInputState {
   private _status = $state<StationStatus>('connecting');
   private _radio = $state.raw<RadioInput | null>(null);
+  private _controls = $state.raw<Controls | null>(null);
   private _eventsPerSecond = $state<number | null>(null);
   private _stationProtocol = $state<number | null>(null);
 
   private readonly url: string;
+  private readonly protocol: number | null;
   private readonly openSocket: OpenStationSocket;
   private socket: StationSocket | null = null;
   private greeted = false;
@@ -41,8 +44,10 @@ export class RadioInputState {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private silenceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  public constructor(url: string, openSocket: OpenStationSocket) {
+  /** `protocol` is the one this page speaks, or null when nothing says. */
+  public constructor(url: string, protocol: number | null, openSocket: OpenStationSocket) {
     this.url = url;
+    this.protocol = protocol;
     this.openSocket = openSocket;
   }
 
@@ -53,6 +58,10 @@ export class RadioInputState {
   public get radio(): RadioInput | null {
     return this._radio;
   }
+  /** The radio's input through its profile, or null when no profile is for it. */
+  public get controls(): Controls | null {
+    return this._controls;
+  }
   public get eventsPerSecond(): number | null {
     return this._eventsPerSecond;
   }
@@ -60,10 +69,18 @@ export class RadioInputState {
   public get stationProtocol(): number | null {
     return this._stationProtocol;
   }
+  /** The protocol this page speaks, or null when nothing says. */
+  public get pageProtocol(): number | null {
+    return this.protocol;
+  }
 
   public start(): void {
     if (this.started || this.stopped) return;
     this.started = true;
+    if (this.protocol === null) {
+      this._status = 'unknown-protocol';
+      return;
+    }
     this.connect();
   }
 
@@ -99,7 +116,7 @@ export class RadioInputState {
     const message = typeof data === 'string' ? parseStationMessage(data) : null;
     if (!message) return;
     if (message.type === 'hello') {
-      if (message.protocol !== PROTOCOL) {
+      if (message.protocol !== this.protocol) {
         this._stationProtocol = message.protocol;
         this._status = 'mismatch';
         this.lost();
@@ -112,6 +129,7 @@ export class RadioInputState {
     }
     if (!this.greeted) return;
     this._radio = message.radio;
+    this._controls = message.controls;
     this._eventsPerSecond = message.eventsPerSecond;
   }
 
@@ -128,6 +146,7 @@ export class RadioInputState {
     this.drop();
     if (this._status !== 'mismatch') this._status = 'unreachable';
     this._radio = null;
+    this._controls = null;
     this._eventsPerSecond = null;
     this.retryTimer = setTimeout(() => this.connect(), RETRY_DELAY_MS);
   }

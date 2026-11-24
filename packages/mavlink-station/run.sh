@@ -13,7 +13,7 @@ if [[ ! -x "${STATION_BIN}" ]]; then
 fi
 
 # A binary older than its source still runs, but it is not this checkout's code.
-if [[ -n "$(find "${SCRIPT_DIR}/src" "${SCRIPT_DIR}/Cargo.toml" "${SCRIPT_DIR}/Cargo.lock" "${SCRIPT_DIR}/../../tools/radio-probe/src" -newer "${STATION_BIN}" -print -quit)" ]]; then
+if [[ -n "$(find "${SCRIPT_DIR}/src" "${SCRIPT_DIR}/Cargo.toml" "${SCRIPT_DIR}/Cargo.lock" "${SCRIPT_DIR}/../../tools/radio-probe/src" "${SCRIPT_DIR}/../../tools/radio-probe/profiles" -newer "${STATION_BIN}" -print -quit)" ]]; then
   echo "WARNING: the station's source changed since it was built. Rebuild it with:  pnpm --filter mavlink-station run setup" >&2
 fi
 

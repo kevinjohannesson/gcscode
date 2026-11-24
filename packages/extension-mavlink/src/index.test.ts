@@ -5,7 +5,7 @@ import type { AssetDescription, AssetSource, AssetsApi } from '@gcscode/extensio
 
 import { mavlinkExtension, type MavlinkExports } from './index';
 import { linkState } from './link-state.svelte';
-import { DEFAULT_STATION_URL, stationLink } from './station-link.svelte';
+import { DEFAULT_STATION_URL, STATION_PROTOCOL, stationLink } from './station-link.svelte';
 import LinkStateView from './link-state-view.svelte';
 import MapInputView from './map-input-view.svelte';
 import MavlinkView from './mavlink-view.svelte';
@@ -328,7 +328,9 @@ describe('mavlinkExtension', () => {
     const station = stationMocks()[0];
     expect(stationLink.status).toBe('connecting');
 
-    station.onmessage?.({ data: '{"type":"hello","protocol":0,"station":"0.1.0"}' });
+    station.onmessage?.({
+      data: `{"type":"hello","protocol":${STATION_PROTOCOL},"station":"0.1.0"}`,
+    });
     expect(stationLink.status).toBe('running');
     expect(stationLink.version).toBe('0.1.0');
 
@@ -642,6 +644,7 @@ describe('mavlinkExtension', () => {
       expect(exports.telemetry).toBeDefined();
       // Identity check — the exported telemetry IS the live store, not a snapshot.
       expect(exports.telemetry).toBe(telemetryState);
+      expect(exports.stationProtocol).toBe(STATION_PROTOCOL);
     } finally {
       vi.unstubAllGlobals();
       // Clean up — the activate() opened a (mock) WebSocket; close it.
