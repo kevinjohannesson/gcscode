@@ -186,7 +186,6 @@ describe('app.svelte', () => {
 describe('app.svelte — quick pick integration', () => {
   afterEach(() => {
     quickPickState.dismiss();
-    modalState.active = false;
   });
 
   it('renders the QuickPickHost and shows the palette when state opens', () => {
@@ -256,7 +255,6 @@ describe('app.svelte — activation-failure indicator', () => {
   afterEach(() => {
     extensionsPanelState.close();
     quickPickState.dismiss();
-    modalState.active = false;
   });
 
   it('is host-owned: survives when every extension failed, one of them mid-contribution', () => {

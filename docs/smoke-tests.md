@@ -4,16 +4,17 @@ Hands-on checks for each rung, run on the owner's Mac against the real stack. A 
 
 Every command block runs from the repo root of the main checkout, and each block stands on its own, so a markdown viewer that runs blocks can play them one at a time. A block marked **runs until Ctrl-C** gets a terminal of its own.
 
-| Test                                                  | Ticket / PR    | Branch   | Needs                 |
-| ----------------------------------------------------- | -------------- | -------- | --------------------- |
-| [Radio probe](#radio-probe)                           | GCS-13, PR #63 | `master` | TX16S, Rust and CMake |
-| [Several vehicles in SITL](#several-vehicles-in-sitl) | N8, PR #66     | `master` | SITL                  |
-| [Wire probe](#wire-probe)                             | GCS-17, PR #70 | `master` | SITL                  |
-| [Map input view](#map-input-view)                     | GCS-14, PR #71 | `master` | SITL                  |
-| [Link state view](#link-state-view)                   | GCS-24, PR #69 | `master` | SITL                  |
-| [Radio input view](#radio-input-view)                 | GCS-38, PR #68 | `master` | TX16S, Rust and CMake |
-| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81 | `master` | SITL, Rust and CMake  |
-| [Controls view](#controls-view)                       | GCS-40, PR #82 | `master` | TX16S, Rust and CMake |
+| Test                                                  | Ticket / PR     | Branch                                | Needs                 |
+| ----------------------------------------------------- | --------------- | ------------------------------------- | --------------------- |
+| [Radio probe](#radio-probe)                           | GCS-13, PR #63  | `master`                              | TX16S, Rust and CMake |
+| [Several vehicles in SITL](#several-vehicles-in-sitl) | N8, PR #66      | `master`                              | SITL                  |
+| [Wire probe](#wire-probe)                             | GCS-17, PR #70  | `master`                              | SITL                  |
+| [Map input view](#map-input-view)                     | GCS-14, PR #71  | `master`                              | SITL                  |
+| [Link state view](#link-state-view)                   | GCS-24, PR #69  | `master`                              | SITL                  |
+| [Radio input view](#radio-input-view)                 | GCS-38, PR #68  | `master`                              | TX16S, Rust and CMake |
+| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81  | `master`                              | SITL, Rust and CMake  |
+| [Controls view](#controls-view)                       | GCS-40, PR #82  | `master`                              | TX16S, Rust and CMake |
+| [Palettes](#palettes)                                 | GCS-104, PR #99 | draft: `claude/project-thread-nlbirm` | nothing               |
 
 ## Before you start
 
@@ -300,6 +301,38 @@ sed 's/^control = .*/control = { switch = "SF", position = "down" }/' tools/radi
 **Expect:** `station: profile /tmp/refused.toml refused: control may only map to a held button …`, and the station exits.
 
 **Scenario 8, no profile:** select the Classic `gcscode` model and replug, then start the station again. **Expect:** `no profile matches this radio (8 axes, 24 buttons)` in its terminal, then `profile gcscode-adv expects 28 buttons, the radio has 24`, and the Controls tab says no profile matches; the Radio input tab still shows raw input.
+
+## Palettes
+
+**Goal:** the command palette and the extensions panel take the keyboard as soon as they open, only one of them is open at a time, both hang from the bottom of the title bar, and the app still reads as working with every extension disabled.
+
+**Draft PR #99.** Check the branch out in a worktree:
+
+```sh
+git fetch origin claude/project-thread-nlbirm && git worktree add .worktrees/palettes FETCH_HEAD && cd .worktrees/palettes && pnpm install
+```
+
+Start the dev server (**runs until Ctrl-C**), then open gcscode:
+
+```sh
+cd .worktrees/palettes && pnpm dev
+```
+
+```sh
+open http://localhost:5173/
+```
+
+**Scenario 1, focus:** click a tab, then press Ctrl+Shift+P and type `show`. **Expect:** the letters appear in the palette's box without clicking it, the up and down arrows move the highlight, and the palette sits flush against the bottom of the title bar.
+
+**Scenario 2, one at a time:** with the palette open, press Ctrl+Shift+X. **Expect:** the palette closes and the extensions panel opens in its place, ready to type in. Press Ctrl+Shift+P. **Expect:** the panel closes and the palette opens.
+
+**Scenario 3, every extension disabled:** in the extensions panel, click Disable on every row. **Expect:** the arrow keys and Escape still work after each click, and Escape closes the panel. The empty layout says **No views open** and names Ctrl+Shift+X and Ctrl+Shift+P; Ctrl+Shift+P opens a palette that lists the two Workbench commands. Turn the extensions back on with Ctrl+Shift+X.
+
+Remove the worktree when the PR has merged:
+
+```sh
+git worktree remove .worktrees/palettes
+```
 
 ## Adding a test
 

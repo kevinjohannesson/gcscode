@@ -5,6 +5,21 @@
 
   let query = $state('');
   let highlightIndex = $state(0);
+  let input: HTMLInputElement | undefined = $state();
+
+  // Focus the search box on open. Not the `autofocus` attribute: Svelte only
+  // honours it while nothing else has focus, and a click anywhere in the
+  // layout leaves focus on a dockview tab or view, so the operator could not
+  // type or use the arrow keys until they clicked the box.
+  $effect(() => {
+    input?.focus();
+  });
+
+  // Keep focus in the search box when a row is clicked, so the keyboard keeps
+  // working after a mouse pick and Escape still reaches `onKeyDown`.
+  function keepFocusInInput(event: MouseEvent) {
+    if (event.target !== input) event.preventDefault();
+  }
 
   // The current request — non-null when this component is mounted (the host
   // only mounts us when quickPickState.current !== null). We keep a nullable
@@ -108,23 +123,24 @@
 
 {#if request}
   <div
-    class="fixed left-1/2 top-16 z-50 w-[440px] -translate-x-1/2 overflow-hidden rounded-md border border-widget-border bg-widget shadow-[0_8px_24px_var(--gcscode-widget-shadow)]"
+    class="fixed left-1/2 top-7 z-50 w-[440px] -translate-x-1/2 overflow-hidden rounded-b-md border border-t-0 border-widget-border bg-widget shadow-[0_8px_24px_var(--gcscode-widget-shadow)] outline-none"
     role="dialog"
     aria-label="Command palette"
+    tabindex="-1"
+    onmousedown={keepFocusInInput}
   >
     {#if request.options?.title}
       <div class="border-b border-widget-border bg-panel px-3 py-1.5 text-xs text-fg-muted">
         {request.options.title}
       </div>
     {/if}
-    <!-- svelte-ignore a11y_autofocus -->
     <input
       type="text"
+      bind:this={input}
       bind:value={query}
       onkeydown={onKeyDown}
       placeholder={placeholder()}
       class="w-full border-none bg-input px-3 py-2 text-sm text-input-fg outline-none placeholder:text-fg-muted"
-      autofocus
     />
     {#if filtered.length === 0}
       <div class="px-3 py-4 text-center text-sm text-fg-muted">No matching commands</div>

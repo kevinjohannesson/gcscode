@@ -60,9 +60,12 @@ export function matchesKey(event: KeyboardEvent, parsed: ParsedKey): boolean {
 
 export function attachKeybindingDispatcher(registry: Registry, target: EventTarget): Disposable {
   const handler = (event: Event): void => {
-    if (modalState.active) return;
     if (!(event instanceof KeyboardEvent)) return;
+    const paused = modalState.active;
     for (const kb of registry.listKeybindings()) {
+      // While an overlay is open only the commands it lets through fire; every
+      // other keybinding is skipped, so typing in the overlay runs nothing.
+      if (paused && !modalState.isAllowedWhileActive(kb.command)) continue;
       let parsed: ParsedKey;
       try {
         parsed = parseKey(kb.key);

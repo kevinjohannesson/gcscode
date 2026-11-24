@@ -108,11 +108,21 @@ function makeLaunchableHome(name) {
   );
   script(join(home, 'bin/mavlink2rest'), 'exec sleep 30');
   script(join(fakes, 'nc'), 'test -e "$MARKS/$3"');
+  // The background MAVProxies (vehicles 2 and up) are started with `&`, so
+  // nothing orders them against vehicle 1's foreground one, which returns at
+  // once and lets the script stop the rest. The foreground stand-in therefore
+  // waits, up to five seconds, until every background one has recorded itself:
+  // otherwise a slow runner records vehicle 1 first, or never records a
+  // background one at all (GCS-106).
   script(
     join(fakes, 'python'),
     '[ "$1" = -c ] && exit 0\n' +
-      'echo "$*" >> "$MARKS/mavproxy"\n' +
-      'case "$*" in *--non-interactive*) exec sleep 30;; esac',
+      'case "$*" in *--non-interactive*) echo "$*" >> "$MARKS/mavproxy"; exec sleep 30;; esac\n' +
+      'n=0\n' +
+      'while [ "$(cat "$MARKS/mavproxy" 2>/dev/null | wc -l)" -lt $((SITL_VEHICLES - 1)) ] && [ $n -lt 50 ]; do\n' +
+      '  sleep 0.1; n=$((n + 1))\n' +
+      'done\n' +
+      'echo "$*" >> "$MARKS/mavproxy"',
   );
   return { home, marks, fakes };
 }
