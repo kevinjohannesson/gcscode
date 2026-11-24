@@ -115,6 +115,8 @@
   .map-input {
     padding: 0.75rem;
     color: var(--gcscode-foreground);
+    /* The ages outside the table redraw every 250 ms and must not shift. */
+    font-variant-numeric: tabular-nums;
   }
   p {
     margin: 0 0 0.75rem;

@@ -43,7 +43,7 @@ describe('extension styles (ADR-0017 Decision 5)', () => {
 // one per follow-up PR. Each hardcodes no colour from then on.
 const themedExtensions = ['mavlink'];
 
-describe('themed extensions hardcode no colour', () => {
+describe('themed extensions write no hex or functional colour literal in their styles', () => {
   it.each(themedExtensions)('extension-%s', (slug) => {
     const literals = files
       .filter((f) => f.slug === slug && f.path.endsWith('.svelte'))
