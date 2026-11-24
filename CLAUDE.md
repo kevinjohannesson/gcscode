@@ -48,6 +48,7 @@ An extension module exports a named `const` of type `Extension` with `{ manifest
 ## Tests
 
 - Co-located `*.test.ts` next to the code they test.
+- **Smoke tests:** a PR that adds a proof tool (a probe or view that makes one thing visible, the `proof-tool` label in Linear) also adds its smoke test to [`docs/smoke-tests.md`](docs/smoke-tests.md), following its [Adding a test](docs/smoke-tests.md#adding-a-test) section.
 - A new test counts only once it has been seen failing. Mutate each branch you changed, watch the specific test fail for the right reason, restore, and list the mutations — and any that survived — in the task report. A new test that passes on its first run is suspect.
 - A test that compares two paths sharing the logic under test (`A(x) === B(x)` over one lookup) proves they agree, not that they are right. Give every value an absolute expected answer taken from the spec, ideally one the type system makes impossible to omit.
 

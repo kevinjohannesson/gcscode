@@ -2,6 +2,8 @@ import type { Extension } from '@gcscode/extension-api';
 import type { AssetsApi } from '@gcscode/extension-assets';
 
 import { createAssetAdapter } from './asset-adapter';
+import { linkState } from './link-state.svelte';
+import LinkStateView from './link-state-view.svelte';
 import { createHomeSeeder } from './home-seed';
 import { createMavlinkClient, type MavlinkClient } from './mavlink-client';
 import MapInputView from './map-input-view.svelte';
@@ -46,7 +48,10 @@ function openClient(baseUrl: string, onMessage: (json: unknown) => void): void {
   client = createMavlinkClient({
     url: composeUrl(baseUrl),
     onMessage,
-    onConnectionStateChange: setConnectionState,
+    onConnectionStateChange: (state) => {
+      setConnectionState(state);
+      linkState.setBridge(state);
+    },
   });
 }
 
@@ -63,7 +68,7 @@ export const mavlinkExtension: Extension = {
     displayName: 'MAVLink',
     version: '0.0.0',
     description:
-      'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export, and shows per vehicle what the map is fed.',
+      'Live ArduCopter telemetry via mavlink2rest WebSocket; publishes a telemetry export, and shows per vehicle what the map is fed and the state of the link.',
   },
   activate(context): MavlinkExports {
     context.subscriptions.push(
@@ -104,6 +109,7 @@ export const mavlinkExtension: Extension = {
       // depend on the newer one; the client deliberately does not catch what a
       // handler throws, which is why the adapter degrades rather than throws.
       applyMessage(json);
+      linkState.noteMessage(json);
       assetAdapter.onMessage(json);
       // Read-only, and it never throws: the Map input view's per-vehicle copy
       // of what `applyMessage` merges.
@@ -137,6 +143,11 @@ export const mavlinkExtension: Extension = {
         component: MapInputView,
         title: 'Map input',
       }),
+      context.host.window.registerView({
+        id: 'gcscode.mavlink.linkState',
+        component: LinkStateView,
+        title: 'Link state',
+      }),
       context.host.commands.registerCommand({
         id: 'gcscode.mavlink.getLocation',
         title: 'Get Location',
@@ -167,5 +178,6 @@ export const mavlinkExtension: Extension = {
     await closeClient();
     reset();
     vehicleInputs.reset();
+    linkState.reset();
   },
 };
