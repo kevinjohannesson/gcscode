@@ -31,6 +31,14 @@ pub fn origin_allowed(origin: Option<&str>, allowed: &[String]) -> bool {
     }
 }
 
+/// What the station prints when it refuses a page. The browser cannot see a 403's status, so
+/// the page can only guess; the operator reads the answer here.
+pub fn refusal_line(origin: &str) -> String {
+    format!(
+        "station: refused a page from {origin}; to serve it, restart the station with --allow-origin {origin}"
+    )
+}
+
 #[derive(Clone)]
 struct Shared {
     snapshots: watch::Receiver<Snapshot>,
@@ -47,6 +55,7 @@ pub fn router(snapshots: watch::Receiver<Snapshot>, allowed: Vec<String>) -> Rou
 async fn upgrade(State(s): State<Shared>, headers: HeaderMap, ws: WebSocketUpgrade) -> Response {
     let origin = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok());
     if !origin_allowed(origin, &s.allowed) {
+        eprintln!("{}", refusal_line(origin.unwrap_or_default()));
         return (StatusCode::FORBIDDEN, "origin not allowed").into_response();
     }
     ws.on_upgrade(move |socket| serve(socket, s.snapshots))
@@ -94,6 +103,14 @@ mod tests {
         assert!(!origin_allowed(Some("https://example.com"), &allowed()));
         assert!(!origin_allowed(Some("http://localhost:5174"), &allowed()));
         assert!(!origin_allowed(Some("null"), &allowed()));
+    }
+
+    #[test]
+    fn a_refused_page_is_named_with_the_flag_that_serves_it() {
+        assert_eq!(
+            refusal_line("http://localhost:5174"),
+            "station: refused a page from http://localhost:5174; to serve it, restart the station with --allow-origin http://localhost:5174"
+        );
     }
 
     #[test]

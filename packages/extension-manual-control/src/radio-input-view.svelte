@@ -23,7 +23,8 @@
   {:else if station.status === 'unreachable'}
     <p class="message">
       No station at {address}. Start it with <code>pnpm --filter mavlink-station start</code>; this
-      view keeps trying.
+      view keeps trying. If it is running, it may have refused this page: its terminal says so, and
+      <code>--allow-origin {location.origin}</code> lets this page in.
     </p>
   {:else if station.status === 'mismatch'}
     <p class="message">

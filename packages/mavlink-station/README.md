@@ -14,7 +14,7 @@ pnpm --filter mavlink-station start
 
 The first build compiles SDL and takes a few minutes. Then run `pnpm dev` and open the **Radio input** view (`@gcscode/extension-manual-control`). Ctrl-C stops the station. The page keeps running and says the station is gone, and picks it up again when it is back. Closing the page changes nothing for the station.
 
-`--allow-origin <origin>` (repeatable) adds a page origin besides the dev server's `http://localhost:5173` and `http://127.0.0.1:5173`.
+`--allow-origin <origin>` (repeatable) adds a page origin besides the dev server's `http://localhost:5173` and `http://127.0.0.1:5173`. `pnpm dev` moves to the next free port when 5173 is taken; the station then refuses the page and prints the `--allow-origin` line that would serve it, and the view says it may have been refused.
 
 ## The page protocol, version 0
 

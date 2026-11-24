@@ -87,6 +87,7 @@ describe('RadioInputView', () => {
     await vi.waitFor(() =>
       expect(screen.getByText(/No station at ws:\/\/127\.0\.0\.1:8091\/ws\./)).toBeTruthy(),
     );
+    expect(screen.getByText(`--allow-origin ${location.origin}`)).toBeTruthy();
   });
 
   it('closes its socket when it is unmounted', async () => {
