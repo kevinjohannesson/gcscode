@@ -5,7 +5,8 @@
 // spawn, never processes found by name: the owner runs their own copies of
 // these services with the same command lines.
 //
-// Spec: docs/specs/2026-11-10-dev-stack.md (§ The launcher).
+// Spec: docs/specs/2026-11-10-dev-stack.md (§ The launcher), and for the
+// station's entry docs/specs/2026-11-24-station-in-dev-stack.md.
 
 import { execFile, spawn } from 'node:child_process';
 import { createSocket } from 'node:dgram';
