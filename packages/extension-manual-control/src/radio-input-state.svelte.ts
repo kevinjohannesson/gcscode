@@ -1,4 +1,4 @@
-import { PROTOCOL, parseStationMessage, type RadioInput } from './station-protocol';
+import { PROTOCOL, parseStationMessage, type Controls, type RadioInput } from './station-protocol';
 
 /** How long after losing the station the view tries again. */
 export const RETRY_DELAY_MS = 2000;
@@ -22,13 +22,14 @@ export interface StationSocket {
 export type OpenStationSocket = (url: string) => StationSocket;
 
 /**
- * The station connection behind the Radio input view: one socket at a time,
+ * The station connection behind the Radio input and Controls views: one socket at a time,
  * a retry every two seconds after it goes, and the newest input it sent.
  * It only listens; nothing it does reaches the station's other pages or the radio.
  */
 export class RadioInputState {
   private _status = $state<StationStatus>('connecting');
   private _radio = $state.raw<RadioInput | null>(null);
+  private _controls = $state.raw<Controls | null>(null);
   private _eventsPerSecond = $state<number | null>(null);
   private _stationProtocol = $state<number | null>(null);
 
@@ -52,6 +53,10 @@ export class RadioInputState {
   /** The radio the station has open, or null when it has none, or none is known. */
   public get radio(): RadioInput | null {
     return this._radio;
+  }
+  /** The radio's input through its profile, or null when no profile is for it. */
+  public get controls(): Controls | null {
+    return this._controls;
   }
   public get eventsPerSecond(): number | null {
     return this._eventsPerSecond;
@@ -112,6 +117,7 @@ export class RadioInputState {
     }
     if (!this.greeted) return;
     this._radio = message.radio;
+    this._controls = message.controls;
     this._eventsPerSecond = message.eventsPerSecond;
   }
 
@@ -128,6 +134,7 @@ export class RadioInputState {
     this.drop();
     if (this._status !== 'mismatch') this._status = 'unreachable';
     this._radio = null;
+    this._controls = null;
     this._eventsPerSecond = null;
     this.retryTimer = setTimeout(() => this.connect(), RETRY_DELAY_MS);
   }

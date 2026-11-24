@@ -4,13 +4,18 @@ import type { Disposable, ExtensionHost } from '@gcscode/extension-api';
 
 import { manualControlExtension } from './index';
 import { getStationAddress } from './station-address';
+import ControlsView from './controls-view.svelte';
 import RadioInputView from './radio-input-view.svelte';
 
 function makeFakeHost(configured?: string) {
   const configurationDisposable: Disposable = { dispose: vi.fn() };
-  const viewDisposable: Disposable = { dispose: vi.fn() };
+  const viewDisposables: Disposable[] = [];
   const registerConfiguration = vi.fn().mockReturnValue(configurationDisposable);
-  const registerView = vi.fn().mockReturnValue(viewDisposable);
+  const registerView = vi.fn((_view: { id: string; title: string; component: unknown }) => {
+    const d: Disposable = { dispose: vi.fn() };
+    viewDisposables.push(d);
+    return d;
+  });
   const get = vi.fn((_key: string, defaultValue?: unknown) => configured ?? defaultValue);
   const getConfiguration = vi.fn().mockReturnValue({
     get,
@@ -43,7 +48,7 @@ function makeFakeHost(configured?: string) {
     getConfiguration,
     get,
     configurationDisposable,
-    viewDisposable,
+    viewDisposables,
   };
 }
 
@@ -77,24 +82,24 @@ describe('manualControlExtension', () => {
     expect(contribution.default).toBe('ws://127.0.0.1:8091/ws');
   });
 
-  it('registers the Radio input view', () => {
+  it('registers the Radio input view, then the Controls view beside it', () => {
     const fake = makeFakeHost();
     activate(fake.host, []);
-    expect(fake.registerView).toHaveBeenCalledTimes(1);
-    const view = fake.registerView.mock.calls[0][0];
-    expect(view.id).toBe('gcscode.manual-control.radio-input');
-    expect(view.title).toBe('Radio input');
-    expect(view.component).toBe(RadioInputView);
+    expect(fake.registerView.mock.calls.map(([v]) => [v.id, v.title, v.component])).toEqual([
+      ['gcscode.manual-control.radio-input', 'Radio input', RadioInputView],
+      ['gcscode.manual-control.controls', 'Controls', ControlsView],
+    ]);
   });
 
-  it('pushes exactly the two disposables and returns undefined', () => {
+  it('pushes exactly the three disposables and returns undefined', () => {
     const fake = makeFakeHost();
     const subscriptions: Disposable[] = [];
     const result = activate(fake.host, subscriptions);
     expect(result).toBeUndefined();
-    expect(subscriptions).toHaveLength(2);
+    expect(subscriptions).toHaveLength(3);
     expect(subscriptions).toContain(fake.configurationDisposable);
-    expect(subscriptions).toContain(fake.viewDisposable);
+    expect(fake.viewDisposables).toHaveLength(2);
+    for (const d of fake.viewDisposables) expect(subscriptions).toContain(d);
   });
 
   it('reads the setting on each activation and hands it to the view', () => {
