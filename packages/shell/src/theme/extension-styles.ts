@@ -68,3 +68,15 @@ export function findStyleViolations(
 
   return found.sort((a, b) => a.index - b.index).map((f) => f.message);
 }
+
+/**
+ * Colours written as literals in a component's style blocks: hex and the
+ * functional forms such as `rgb()` or `hsl()`. A view on the theme has none
+ * (ADR-0017 Consequences).
+ */
+export function findHardcodedColours(source: string): string[] {
+  const styles = [...source.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
+  const css = styles.join('\n');
+  const literals = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/g;
+  return [...css.matchAll(literals)].map((m) => m[0]);
+}

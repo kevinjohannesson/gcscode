@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { themeVariables } from '@gcscode/extension-api';
-import { findStyleViolations, propertyOwner } from './extension-styles';
+import { findHardcodedColours, findStyleViolations, propertyOwner } from './extension-styles';
 
 // ADR-0017 Decision 5, run over the real extension sources. Vite reads them,
 // so the shell's browser-only types need no Node APIs.
@@ -36,6 +36,37 @@ describe('extension styles (ADR-0017 Decision 5)', () => {
         ),
       );
     expect(violations).toEqual([]);
+  });
+});
+
+// Extensions whose views have moved onto the theme (ADR-0017 Consequences),
+// one per follow-up PR. Each hardcodes no colour from then on.
+const themedExtensions = ['mavlink'];
+
+describe('themed extensions write no hex or functional colour literal in their styles', () => {
+  it.each(themedExtensions)('extension-%s', (slug) => {
+    const literals = files
+      .filter((f) => f.slug === slug && f.path.endsWith('.svelte'))
+      .flatMap((f) => findHardcodedColours(f.text).map((c) => `${f.path}: ${c}`));
+    expect(literals).toEqual([]);
+  });
+});
+
+describe('findHardcodedColours', () => {
+  it('finds hex and functional colours in a style block', () => {
+    expect(
+      findHardcodedColours(
+        '<style>.a { color: #ddd; background: rgba(0, 0, 0, 0.5); border-color: #1f1f1fcc; fill: oklch(0.7 0.1 200); }</style>',
+      ),
+    ).toEqual(['#ddd', 'rgba(', '#1f1f1fcc', 'oklch(']);
+  });
+
+  it('accepts theme variables and ignores markup outside the style block', () => {
+    expect(
+      findHardcodedColours(
+        '<a href="#top">#fff</a><style>.a { color: var(--gcscode-foreground); }</style>',
+      ),
+    ).toEqual([]);
   });
 });
 
