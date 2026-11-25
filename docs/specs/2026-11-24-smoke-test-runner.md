@@ -150,3 +150,11 @@ The **Linear integration** item under "Considering (not yet committed)" becomes:
 - **Linear's upload limit.** A screen recording can run to hundreds of megabytes, and Linear's per-file limit for uploads is not checked yet. If a file is over it, the runner says so before Submit and the owner trims or compresses it.
 - **Linear API rate limits.** A run writes a handful of mutations; Linear's personal-key limit is far above that. Not checked against the live API yet.
 - **Parsing drift.** If a section ever needs a shape these rules lack, the parser test fails first and the "Adding a test" template is extended in the same PR.
+- **Left open when this spec's review stopped** (for the plan and the feat PR to settle, or the owner):
+  - PR #103 RT-24 (blocking at the last review): a flip of a draft row to `master` names the rung's ticket with `Related to`, which makes it one of the row's PRs, so from the rung's merge until the flip merges the runner refuses a result on master's tip and Count waits. Proposed fix: a PR that changes neither code nor what a test checks, the flip included, names no ticket (`Ticket: none`) and is not one of a row's PRs.
+  - PR #103 RT-19: closed by RT-24's fix; otherwise list only the rows whose PRs include the one the owner picks.
+  - PR #103 RT-25: Linear's upload `PUT` runs on the server, so the recording needs one route that takes the raw file as `application/octet-stream`, under the same Host and Origin checks, streamed on to Linear, not base64 inside JSON.
+  - PR #103 RT-26: a PR closed without merging does not count as one of a row's PRs; a PR never meant to merge names no row's ticket; and the runner says so when it cannot find the merge commit of a PR GitHub reports merged (a squash or rebase merge).
+  - PR #103 RT-27: a draft result names the picked PR (`PR #<n>, draft`) in the comment heading, the Count line, the summary line and a finding's description, instead of a branch.
+  - PR #103 RT-28: the GCS-40 example in Submit does not hold, since #94, #97 and #100 carry no `Part of GCS-40`; drop the numbers or say a follow-up needs `Part of` to be listed.
+  - PR #103 RT-29: the PR body's list of _(My call.)_ items lacks the definition of a row's PRs and of merged, and the pick of the PR a worktree holds.
