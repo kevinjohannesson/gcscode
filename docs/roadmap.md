@@ -77,7 +77,7 @@ What the repo holds besides gcscode itself (the shell, the extension API and the
 ### Libraries
 
 - [x] **dockview-svelte** (`libs/dockview-svelte`) — Svelte 5 bindings for `dockview-core`. The shell hosts registered views in a tabbed `DockviewSvelte` instance (`packages/shell/src/app.svelte`). This started as an experiment that "may be removed"; on 2026-10-15 the owner settled it as the direction. Still owed from the original spec: the alignment-ledger rows and `out-of-scope.md` non-goals it deferred. Publishing it to npm is a separate, independent iteration. Specs: [`specs/2026-05-05-dockview-svelte.md`](specs/2026-05-05-dockview-svelte.md), [`specs/2026-05-13-shell-dockview-host.md`](specs/2026-05-13-shell-dockview-host.md). Manual-test checklist: [`dockview-svelte-manual-checklist.md`](dockview-svelte-manual-checklist.md).
-- [x] **map-gl-svelte** (`libs/map-gl-svelte`) — a Svelte 5 port of `@vis.gl/react-maplibre`, built out of curiosity about how vis.gl binds MapLibre to a reactive framework. No gcscode package uses it; `extension-map` drives MapLibre directly. Spec: [`specs/2026-10-24-map-gl-svelte.md`](specs/2026-10-24-map-gl-svelte.md).
+- [x] **map-gl-svelte** (`libs/map-gl-svelte`) — a Svelte 5 port of `@vis.gl/react-maplibre`, built out of curiosity about how vis.gl binds MapLibre to a reactive framework. `extension-map` builds its view on it; no other package imports it ([`specs/2026-11-25-map-on-map-gl-svelte.md`](specs/2026-11-25-map-on-map-gl-svelte.md)). Spec: [`specs/2026-10-24-map-gl-svelte.md`](specs/2026-10-24-map-gl-svelte.md).
 
 ### Tools — coming (committed — will ship)
 

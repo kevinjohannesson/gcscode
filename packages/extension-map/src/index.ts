@@ -19,8 +19,7 @@ export const mapExtension: Extension = {
     id: 'gcscode.map',
     displayName: 'Map',
     version: '0.0.0',
-    description:
-      'Geographical view. Exposes a contribution API for other extensions to register map layers.',
+    description: 'Geographical view of the vehicles and the ground around them.',
   },
   activate(context): MapApi {
     setHost(context.host);

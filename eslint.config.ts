@@ -37,6 +37,38 @@ const shellRelativeEscapes = Array.from({ length: SHELL_MAX_DEPTH + 1 }, (_, dep
   },
 }));
 
+// The extensions' half of the boundary (ADR-0005), one pattern per rule it
+// enforces. Kept as constants because flat config replaces a rule's options
+// wholesale: the block that lets `extension-map` import `map-gl-svelte` must
+// repeat every other pattern, or it would drop them for that package.
+const EXTENSION_BOUNDARY_PATTERNS = [
+  {
+    group: ['@gcscode/shell', '@gcscode/shell/*'],
+    message:
+      'Extensions must only import from @gcscode/extension-api. Shell internals are not part of the extension API.',
+  },
+  {
+    group: ['../../*', '../../../*'],
+    message: 'Extensions must not use relative imports that escape the package root.',
+  },
+  {
+    group: ['@gcscode/extension-*', '!@gcscode/extension-api'],
+    allowTypeImports: true,
+    message:
+      'Extensions may only type-import from sibling extension packages (use `import type`). Runtime imports must go through @gcscode/extension-api. (ADR-0005)',
+  },
+];
+
+// `map-gl-svelte` stays inside `extension-map`, which builds its view on it:
+// no other package imports it, not even its types, so no extension can tell
+// which map engine runs underneath (docs/specs/2026-11-25-map-on-map-gl-svelte.md,
+// Goal 2).
+const MAP_GL_SVELTE_PATTERN = {
+  group: ['map-gl-svelte', 'map-gl-svelte/*'],
+  message:
+    'Only @gcscode/extension-map may import map-gl-svelte. Other extensions draw on the map through its MapApi (docs/specs/2026-11-25-map-on-map-gl-svelte.md).',
+};
+
 export default [
   js.configs.recommended,
   ...ts.configs.recommended,
@@ -64,25 +96,18 @@ export default [
       'no-restricted-imports': 'off',
       '@typescript-eslint/no-restricted-imports': [
         'error',
-        {
-          patterns: [
-            {
-              group: ['@gcscode/shell', '@gcscode/shell/*'],
-              message:
-                'Extensions must only import from @gcscode/extension-api. Shell internals are not part of the extension API.',
-            },
-            {
-              group: ['../../*', '../../../*'],
-              message: 'Extensions must not use relative imports that escape the package root.',
-            },
-            {
-              group: ['@gcscode/extension-*', '!@gcscode/extension-api'],
-              allowTypeImports: true,
-              message:
-                'Extensions may only type-import from sibling extension packages (use `import type`). Runtime imports must go through @gcscode/extension-api. (ADR-0005)',
-            },
-          ],
-        },
+        { patterns: [...EXTENSION_BOUNDARY_PATTERNS, MAP_GL_SVELTE_PATTERN] },
+      ],
+    },
+  },
+  {
+    // The one package that may import `map-gl-svelte`: the same boundary
+    // without that pattern.
+    files: ['packages/extension-map/**/*.{ts,svelte}'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        { patterns: EXTENSION_BOUNDARY_PATTERNS },
       ],
     },
   },
@@ -106,9 +131,18 @@ export default [
               message:
                 'The shell must not import extension packages, not even their types: the host stays domain-agnostic (ADR-0012). Only the allowlist in eslint.config.ts may, starting with bundled-extensions.ts.',
             },
+            MAP_GL_SVELTE_PATTERN,
           ],
         },
       ],
+    },
+  },
+  {
+    // The allowlisted files may import extension packages, but not the map's
+    // engine either.
+    files: SHELL_EXTENSION_IMPORTERS,
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', { patterns: [MAP_GL_SVELTE_PATTERN] }],
     },
   },
   ...shellRelativeEscapes,

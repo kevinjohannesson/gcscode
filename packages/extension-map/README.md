@@ -1,6 +1,8 @@
 # @gcscode/extension-map
 
-Geographical view contributing the `gcscode.map.main` view. Renders a maplibre canvas with a hardcoded basemap (OpenFreeMap positron style). Exposes a contribution API for other extensions to register map layers.
+Geographical view contributing the `gcscode.map.main` view. Renders a MapLibre canvas with a hardcoded basemap (OpenFreeMap positron style), built on [`map-gl-svelte`](../../libs/map-gl-svelte). Exposes a contribution API other extensions draw into.
+
+`map-gl-svelte` is this package's own: no other package may import it, not even its types (`eslint.config.ts`), so no extension can tell which map engine runs underneath ([spec 2026-11-25-map-on-map-gl-svelte](../../docs/specs/2026-11-25-map-on-map-gl-svelte.md)).
 
 This is the **first service-style extension** in gcscode — its primary value is the API surface other extensions render INTO, not the visible UI it contributes itself. The closest VS Code analogue is the editor-with-decorations / language-services pattern.
 
@@ -17,14 +19,15 @@ import type { MapApi } from '@gcscode/extension-map';
 
 const map = host.extensions.getExtension<MapApi>('gcscode.map')?.exports;
 if (map) {
-  context.subscriptions.push(map.registerLayer(MyLayerComponent));
-  // map.camera.zoom = 14;  // editable; field-level writes apply instantly
+  map.camera.zoom = 14; // editable; field-level writes apply instantly
 }
 ```
 
-### `registerLayer(component): Disposable`
+### `registerLayer(component): Disposable` — deprecated
 
-Mounts `component` as a child of the map view's tree. The component receives the live maplibre `Map` instance via Svelte context (key `'gcscode.map.maplibre'`). The returned `Disposable.dispose()` unmounts the component; idempotent.
+**Deprecated, and takes no new users.** `registerLayer` and its context key are the raw-map bridge: transitional, used only by the flight overlay's layers, and removed, context key included, once the map items contract, their successor, carries what the overlay draws ([spec 2026-11-25-map-on-map-gl-svelte](../../docs/specs/2026-11-25-map-on-map-gl-svelte.md), Goal 3). No other extension may use them.
+
+Mounts `component` in the map view, beside the map rather than inside it. The component receives a getter for the raw MapLibre `Map` via Svelte context (key `'gcscode.map.maplibre'`), which returns `null` until the map exists. The returned `Disposable.dispose()` unmounts the component; idempotent.
 
 Layer components must be Svelte. They typically render no visible DOM; their job is to read the maplibre instance from context and call maplibre APIs imperatively from `$effect` blocks (add markers, sources, layers, etc.) and clean up on `onDestroy`.
 
@@ -71,8 +74,6 @@ context.subscriptions.push(
 );
 ```
 
-The component reads the maplibre `Map` instance via the same Svelte context layers use — `getContext<() => maplibregl.Map | null>('gcscode.map.maplibre')`.
-
 #### Errors and limits
 
 - `id` must be unique across all controls. Re-using a still-registered `id` throws.
@@ -97,7 +98,9 @@ Writes from inside maplibre's own pan/zoom interactions are written back to `cam
 
 **Multiple consumers writing the camera in the same tick: last-write-wins.** No locking, no priorities. If a coordination need surfaces, add it as a follow-up iteration.
 
-### Svelte context key
+### Svelte context key — deprecated
+
+Part of the raw-map bridge, deprecated with `registerLayer` above. Only registered layers get it; controls do not.
 
 ```ts
 import { getContext } from 'svelte';
@@ -108,7 +111,7 @@ const getMap = getContext<() => maplibregl.Map | null>('gcscode.map.maplibre');
 
 The string literal `'gcscode.map.maplibre'` is the public contract. Re-declare it in your consumer; do not `import` it from this package at runtime (ADR-0005 forbids runtime sibling imports). The entry point deliberately does **not** export the constant: nothing could legitimately reach it — `import type` cannot carry a `const string`, and the runtime sibling import is the thing ADR-0005 forbids — so an export would read less like documentation than like an invitation to cross the boundary. The duplication this section prescribes is a known tension in [ADR-0005](../../docs/decisions/ADR-0005-extension-boundaries.md): a public-contract _value_ has no sanctioned sharing mechanism, so nothing detects a consumer whose copy drifts.
 
-The getter form is intentional — children mount before the parent's `onMount` runs, so the underlying `Map` is null at the time `setContext` registers the value. Layer components call the getter at `$effect` time to read the current value.
+The getter form is intentional — layers mount before the map exists, so the getter returns `null` until then. Layer components call it at `$effect` time to read the current value, and their effect re-runs once the map exists.
 
 ## Tile source
 

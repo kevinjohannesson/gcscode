@@ -70,8 +70,7 @@ export interface MapControlContribution {
  *
  * The component renders inside the same host-owned slot wrapper as declarative
  * controls (positioning + spacing chrome), but the component itself owns its
- * visual. It can read the maplibre `Map` instance via the same Svelte context
- * key layers use (`'gcscode.map.maplibre'`).
+ * visual.
  */
 export interface MapControlComponentRegistration {
   /** Same uniqueness and naming contract as {@link MapControlContribution.id}. */
@@ -87,16 +86,23 @@ export type ControlRegistration = MapControlContribution | MapControlComponentRe
  * from `@gcscode/extension-map` and look up the live value via
  * `host.extensions.getExtension<MapApi>('gcscode.map')?.exports`.
  *
- * `registerLayer(component)` mounts `component` as a child of the map view's
- * tree (so the component's `getContext('gcscode.map.maplibre')` resolves to
- * the live maplibre `Map` instance). Returns a `Disposable` that removes the
- * mount on `dispose()`.
- *
  * `camera` is `$state`-backed; reads inside `$derived` / template / `$effect`
  * track field changes. Writes apply via maplibre `jumpTo` (no animation).
  * Multiple writers in the same tick: last-write-wins.
  */
 export interface MapApi {
+  /**
+   * Mounts `component` in the map view, where
+   * `getContext('gcscode.map.maplibre')` hands it a getter for the raw MapLibre
+   * `Map` (`null` until the map exists). Returns a `Disposable` that removes
+   * the mount on `dispose()`.
+   *
+   * @deprecated The raw-map bridge is transitional and takes no new users:
+   * only the flight overlay's layers use it. Its successor is the map items
+   * contract, and it is removed, context key included, once that contract
+   * carries what the overlay draws
+   * (docs/specs/2026-11-25-map-on-map-gl-svelte.md, Goal 3).
+   */
   registerLayer(component: Component): Disposable;
   /**
    * Register an interactive control rendered over the map canvas. Two
@@ -185,9 +191,14 @@ class MapApiImpl implements MapApi {
 export const mapApi = new MapApiImpl();
 
 /**
- * Stable Svelte context key. Part of the public API contract — consumer
- * extensions (flight-overlay and any future consumer) declare this same string
+ * Stable Svelte context key of the raw-map bridge, which only registered
+ * layers get. Its one consumer, the flight overlay, declares this same string
  * independently rather than runtime-importing the constant (forbidden by
  * ADR-0005). Documented in this package's README.
+ *
+ * @deprecated Transitional, like {@link MapApi.registerLayer}: no new
+ * consumer may read it, and it is removed once the map items contract carries
+ * what the flight overlay draws (docs/specs/2026-11-25-map-on-map-gl-svelte.md,
+ * Goal 3).
  */
 export const MAPLIBRE_CONTEXT_KEY = 'gcscode.map.maplibre';
