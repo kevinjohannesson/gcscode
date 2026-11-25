@@ -16,7 +16,7 @@ Every command block runs from the repo root of the main checkout, and each block
 | [Station in the dev stack](#station-in-the-dev-stack)     | GCS-29, PR #81    | `master`                       | SITL, Rust and CMake  |
 | [Controls view](#controls-view)                           | GCS-40, PR #82    | `master`                       | TX16S, Rust and CMake |
 | [Palettes](#palettes)                                     | GCS-104, PR #99   | `master`                       | nothing               |
-| [Radio recording and replay](#radio-recording-and-replay) | GCS-95, PR #PRNUM | `claude/project-thread-0gahoi` | TX16S, Rust and CMake |
+| [Radio recording and replay](#radio-recording-and-replay) | GCS-95, PR #109 | `claude/project-thread-0gahoi` | TX16S, Rust and CMake |
 
 ## Before you start
 
@@ -372,7 +372,7 @@ open http://localhost:5173/
 
 **Goal:** `radio-probe --record` writes a TX16S session to a file, and `--replay` plays it back so the probe shows what the radio did, moves, switches, unplug and replug included, while a real radio plugged in beside it is ignored. The two recordings made here become the station's test recordings.
 
-**Draft PR #PRNUM.** Set up its worktree:
+**Draft PR #109.** Set up its worktree:
 
 ```sh
 git fetch origin claude/project-thread-0gahoi && git worktree add .worktrees/gcs-95 FETCH_HEAD && cd .worktrees/gcs-95 && pnpm install
