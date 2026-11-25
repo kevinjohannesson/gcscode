@@ -407,14 +407,14 @@ open http://localhost:5173/
 
 ## Radio recording and replay
 
-**Goal:** `radio-probe --record` writes a TX16S session to a file, and `--replay` plays it back so the probe shows what the radio did, moves, switches, unplug and replug included, while a real radio plugged in beside it is ignored. The two recordings made here become the station's test recordings.
+**Goal:** `radio-probe --record` writes a TX16S session to a file, and `--replay` plays it back so the probe shows what the radio did, moves, switches, unplug and replug included, while a real radio plugged in beside it is ignored. The recordings go to `scratch/` (gitignored), so the committed test recordings in `packages/mavlink-station/tests/recordings/` stay as they are.
 
 Needs the TX16S on USB as a joystick, on its `gcscode-adv` model ([`tools/radio-probe/tx16s-advanced-model.md`](../tools/radio-probe/tx16s-advanced-model.md)), and Rust and CMake. No SITL. Plug in the radio, choose **USB Joystick (HID)**, and leave every stick centred and every switch up.
 
 **Scenario 1, record a sweep:** start the probe recording (**runs until Ctrl-C**):
 
 ```sh
-pnpm --filter radio-probe start -- --mapped --record "$PWD/packages/mavlink-station/tests/recordings/adv-sweep.jsonl"
+mkdir -p scratch && pnpm --filter radio-probe start -- --mapped --record "$PWD/scratch/adv-sweep.jsonl"
 ```
 
 Then, within about 30 s: move each stick slowly to both ends and back to the centre, one at a time; move each switch, SA to SH, through every position and back up; turn the control switch on and off. Press Ctrl-C. **Expect:** `radio-probe: recording to …`, the usual live block while you move, and a file of a few hundred kilobytes.
@@ -422,7 +422,7 @@ Then, within about 30 s: move each stick slowly to both ends and back to the cen
 **Scenario 2, record a replug with a stick held:** start a second recording (**runs until Ctrl-C**):
 
 ```sh
-pnpm --filter radio-probe start -- --mapped --record "$PWD/packages/mavlink-station/tests/recordings/adv-replug-deflected.jsonl"
+mkdir -p scratch && pnpm --filter radio-probe start -- --mapped --record "$PWD/scratch/adv-replug-deflected.jsonl"
 ```
 
 Wait two seconds, then unplug the radio. Push the throttle about halfway up and hold it there, plug the radio back in, choose **USB Joystick (HID)**, wait two seconds with the throttle still held, then let it go and press Ctrl-C. **Expect:** `radio unplugged`, then the radio opened again with the throttle bar already halfway, not at the bottom.
@@ -430,52 +430,24 @@ Wait two seconds, then unplug the radio. Push the throttle about halfway up and 
 **Scenario 3, replay:** unplug the radio, then play each recording back (**runs until Ctrl-C**; press it once the moves are over):
 
 ```sh
-pnpm --filter radio-probe start -- --mapped --replay "$PWD/packages/mavlink-station/tests/recordings/adv-sweep.jsonl"
+pnpm --filter radio-probe start -- --mapped --replay "$PWD/scratch/adv-sweep.jsonl"
 ```
 
 ```sh
-pnpm --filter radio-probe start -- --mapped --replay "$PWD/packages/mavlink-station/tests/recordings/adv-replug-deflected.jsonl"
+pnpm --filter radio-probe start -- --mapped --replay "$PWD/scratch/adv-replug-deflected.jsonl"
 ```
 
 **Expect:** `radio-probe: replaying …`, then the same moves, switch positions and control switch you made, at the same speed. In the second: `radio unplugged`, then the radio back with the throttle already halfway, then dropping when you let go.
 
 **Scenario 4, a real radio beside a replay:** plug the radio back in, choose **USB Joystick (HID)**, and run the first replay again. **Expect:** a `found … a real radio while replaying, ignored` line, and only the recording moves on screen, whatever you do with the sticks.
 
-**Scenario 5, the station reads them:** run the station's replay test, which now picks up both recordings:
+**Scenario 5, the station reads the committed recordings:** run the station's replay test:
 
 ```sh
 cd packages/mavlink-station && cargo test --test replay -- --nocapture
 ```
 
-**Expect:** a `… ticks matched` line for `adv-replug-deflected.jsonl`, `adv-sweep.jsonl` and the synthetic recording, and the test passes. Then attach the two `.jsonl` files from `packages/mavlink-station/tests/recordings/` in the project thread, so they are committed to the PR.
-
-## Smoke test runner
-
-**Goal:** `pnpm smoke` lists the tests waiting for a smoke test, records each result as a comment on its Linear ticket, moves the ticket as the result says, turns findings into tickets, and gives one line to paste into the project chat. Run it together with the Controls view retest, which it records.
-
-Needs a Linear key and `gh` signed in ([Recording results](#recording-results)). In the main checkout on master's tip, start the runner (**runs until Ctrl-C**):
-
-```sh
-pnpm smoke
-```
-
-**Expect:** the page opens at `http://127.0.0.1:5180/` and shows the checkout's commit "on master's tip". It lists Controls view with GCS-40 in Smoke Test and its earlier failed result, and this test with GCS-114, and no test whose last result passed on master.
-
-**Scenario 1, record the Controls view retest:** run [Controls view](#controls-view), marking each of its scenarios as you go, attach its screen recording, and press **Submit**. **Expect:** each write ticks off. GCS-40 has a comment that opens "Smoke test passed on <today> at `<commit>` (master)" (or failed, with your notes), lists every scenario of the test with its result and links the recording, and GCS-40 is Done (In Progress if it failed). The page shows a line that starts `Smoke run <today> at`, and **Copy** puts it on the clipboard.
-
-**Scenario 2, only its own page:** in a second terminal, ask as another site would:
-
-```sh
-curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: example.com' http://127.0.0.1:5180/api/state
-```
-
-```sh
-curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: text/plain' -d x http://127.0.0.1:5180/api/run
-```
-
-**Expect:** `403`, then `415`.
-
-**Scenario 3, a finding and this test's own result:** in this test's **Note a finding**, write `Smoke runner finding check, close me`. Mark Start and scenarios 1 and 2 as you saw them, and this one Pass, then press **Submit**. **Expect:** a new Backlog ticket with that title, related to GCS-114, whose ID the summary line lists under findings, and on GCS-114 a "Smoke test passed" comment listing the finding. GCS-114 is Done. If any of this is not so, record this test again with scenario 3 failed. Cancel the finding's ticket afterwards.
+**Expect:** a `… ticks matched` line for `adv-replug-deflected.jsonl`, `adv-sweep.jsonl` and the synthetic recording, and the test passes.
 
 ## Adding a test
 
