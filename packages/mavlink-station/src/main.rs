@@ -30,7 +30,8 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, &'static s
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            // pnpm passes the `--` of `pnpm start -- <args>` on to the station.
+            // pnpm passes the `--` of `pnpm start -- <args>` on to the station. A `--` anywhere
+            // is skipped, as radio-probe does.
             "--" => {}
             "--allow-origin" => parsed.origins.push(args.next().ok_or(USAGE)?),
             "--profile" => parsed.profiles.push(args.next().ok_or(USAGE)?),
@@ -135,10 +136,24 @@ mod tests {
     #[test]
     fn it_skips_the_double_dash_that_pnpm_passes_on() {
         assert_eq!(
-            parse(&["--", "--profile", "/tmp/refused.toml"]),
+            parse(&["--", "--profile", "refused.toml"]),
             Ok(Args {
                 origins: vec![],
-                profiles: vec!["/tmp/refused.toml".to_string()]
+                profiles: vec!["refused.toml".to_string()]
+            })
+        );
+        assert_eq!(
+            parse(&[
+                "--",
+                "--allow-origin",
+                "http://a",
+                "--",
+                "--profile",
+                "x.toml"
+            ]),
+            Ok(Args {
+                origins: vec!["http://a".to_string()],
+                profiles: vec!["x.toml".to_string()]
             })
         );
     }
