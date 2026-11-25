@@ -45,6 +45,15 @@ describe('mapExtension', () => {
     expect(typeof mapExtension.manifest.version).toBe('string');
   });
 
+  it('tells operators what the map shows, and offers no layer registration', () => {
+    // The Extensions panel shows this to operators; the raw-map bridge takes
+    // no new users, so the description stops offering it and carries no
+    // deprecation note (docs/specs/2026-11-25-map-on-map-gl-svelte.md, Goal 3).
+    expect(mapExtension.manifest.description).toBe(
+      'Geographical view of the vehicles and the ground around them.',
+    );
+  });
+
   it('activate registers exactly one view and returns mapApi as exports', () => {
     const captured: ViewContribution[] = [];
     const host = makeFakeHost({

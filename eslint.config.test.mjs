@@ -146,3 +146,77 @@ test('allowlisted files still may not escape the package root', async () => {
     [ESCAPE],
   );
 });
+
+// `map-gl-svelte` stays inside `extension-map`
+// (docs/specs/2026-11-25-map-on-map-gl-svelte.md, Goal 2). Each case names a
+// file in a package the guard covers, then the import it must flag.
+const MAP_GL_SVELTE_IMPORTS = [
+  "import { Map } from 'map-gl-svelte';",
+  "import type { MapRef } from 'map-gl-svelte';",
+  "import Map from 'map-gl-svelte/src/components/map.svelte';",
+];
+
+test('no extension but the map may import map-gl-svelte, not even its types', async () => {
+  for (const file of [
+    'packages/extension-mavlink-flight-overlay/src/layers/drone-icon-layer.svelte',
+    'packages/extension-vehicle-status/src/index.ts',
+    'packages/extension-map-demo/src/index.test.ts',
+  ]) {
+    for (const code of MAP_GL_SVELTE_IMPORTS) {
+      const snippet = file.endsWith('.svelte') ? `<script lang="ts">${code}</script>` : code;
+      assert.deepEqual(await restrictions(file, snippet), [PACKAGE], `${file}: ${code}`);
+    }
+  }
+});
+
+test('the shell may not import map-gl-svelte, the allowlisted files included', async () => {
+  for (const file of [
+    'packages/shell/src/app.ts',
+    'packages/shell/src/extension-host/bundled-extensions.ts',
+    'packages/shell/src/extension-host/asset-teardown.test.ts',
+  ]) {
+    for (const code of MAP_GL_SVELTE_IMPORTS) {
+      assert.deepEqual(await restrictions(file, code), [PACKAGE], `${file}: ${code}`);
+    }
+  }
+});
+
+test('the map extension may import map-gl-svelte', async () => {
+  assert.deepEqual(
+    await restrictions(
+      'packages/extension-map/src/map-view.svelte',
+      '<script lang="ts">import { Map } from \'map-gl-svelte\';</script>',
+    ),
+    [],
+  );
+  assert.deepEqual(
+    await restrictions(
+      'packages/extension-map/src/map-view.test.ts',
+      "import type { MapRef } from 'map-gl-svelte';",
+    ),
+    [],
+  );
+});
+
+// The guard's blocks replace the rule's options wholesale, so each must keep
+// the rest of the boundary: a shell import, a relative escape and a runtime
+// sibling import still fail in the map extension and in every other one.
+test('every extension, the map included, still may not import the shell, escape, or import a sibling at runtime', async () => {
+  for (const file of [
+    'packages/extension-map/src/map-view.ts',
+    'packages/extension-mavlink-flight-overlay/src/index.ts',
+  ]) {
+    for (const code of [
+      "import { createRegistry } from '@gcscode/shell';",
+      "import '../../shell/src/main';",
+      "import { assetsExtension } from '@gcscode/extension-assets';",
+    ]) {
+      assert.deepEqual(await restrictions(file, code), [PACKAGE], `${file}: ${code}`);
+    }
+    assert.deepEqual(
+      await restrictions(file, "import type { AssetsApi } from '@gcscode/extension-assets';"),
+      [],
+      `${file}: type-only sibling import`,
+    );
+  }
+});

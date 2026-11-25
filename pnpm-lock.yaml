@@ -159,12 +159,22 @@ importers:
       '@lucide/svelte':
         specifier: ^1.14.0
         version: 1.14.0(svelte@5.55.5(@typescript-eslint/types@8.59.0))
+      map-gl-svelte:
+        specifier: workspace:*
+        version: link:../../libs/map-gl-svelte
       maplibre-gl:
         specifier: ^5.24.0
         version: 5.24.0
       svelte:
         specifier: ^5.0.0
         version: 5.55.5(@typescript-eslint/types@8.59.0)
+    devDependencies:
+      '@vitest/browser-playwright':
+        specifier: 4.1.5
+        version: 4.1.5(playwright@1.64.1)(vite@8.0.10(@types/node@24.12.2)(jiti@2.6.1))(vitest@4.1.5)
+      playwright:
+        specifier: ^1.64.1
+        version: 1.64.1
 
   packages/extension-map-demo:
     dependencies:

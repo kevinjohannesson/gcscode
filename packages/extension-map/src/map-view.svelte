@@ -1,70 +1,47 @@
 <script lang="ts">
   import 'maplibre-gl/dist/maplibre-gl.css';
   import maplibregl from 'maplibre-gl';
-  import { onDestroy, onMount, setContext } from 'svelte';
+  import { Map as GlMap, type ErrorEvent, type ViewStateChangeEvent } from 'map-gl-svelte';
+  import { onDestroy, onMount } from 'svelte';
 
-  import { mapApi, MAPLIBRE_CONTEXT_KEY, type MapCamera } from './map-api.svelte';
+  import { TILE_STYLE } from './basemap';
+  import { mapApi } from './map-api.svelte';
   import MapControlButton from './map-control-button.svelte';
+  import MapReady from './map-ready.svelte';
+  import RegisteredLayers from './registered-layers.svelte';
 
   let container: HTMLDivElement | undefined = $state();
-  let map: maplibregl.Map | null = $state(null);
-
-  // Loop guard: when our $effect writes camera state INTO maplibre, maplibre
-  // fires a `move` event that would otherwise write right back, masking the
-  // original write or causing spurious re-renders.
-  let isUpdatingFromCamera = false;
-
-  // The camera as the `move` handler last copied it out of maplibre. Guards
-  // the other direction: that copy re-runs the camera $effect below, and a
-  // `jumpTo` there would hand maplibre back the camera it just reported. That
-  // is not harmless: `jumpTo` calls `stop()`, which ends the operator's drag
-  // or wheel zoom in progress, so a drag moved the map one mousemove's worth
-  // and stopped. Plain `let`, not `$state`: the effect must not track it.
-  let lastFromMap: MapCamera | null = null;
-
-  // Layer components access the maplibre Map via context. The getter form
-  // (() => map) resolves `map` lazily — children mount before the parent's
-  // onMount runs, so the value at setContext time is null. Layers read the
-  // current value at $effect time. Plus we gate {#each} on `map` below to
-  // avoid mounting layers before maplibre is ready.
-  setContext(MAPLIBRE_CONTEXT_KEY, () => map);
-
-  // OpenFreeMap "positron" — same tile source as map-demo. Free, no API key,
-  // monochrome (operator-friendly), permitted for production.
-  const TILE_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+  let glMap: GlMap | undefined = $state();
+  // The raw MapLibre map, for the registered layers' bridge and the resize
+  // below. `$state.raw`: a proxy around MapLibre's map would break it.
+  let map: maplibregl.Map | null = $state.raw(null);
+  let startFailed = $state(false);
 
   // Static list of corner positions iterated in the template. Declared once
   // here to avoid re-allocating an array tuple inside the {#each} key.
   const POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const;
 
-  onMount(() => {
-    if (!container) return;
-    map = new maplibregl.Map({
-      container,
-      style: TILE_STYLE,
-      center: mapApi.camera.center,
-      zoom: mapApi.camera.zoom,
-      pitch: mapApi.camera.pitch,
-      bearing: mapApi.camera.bearing,
-    });
+  // The camera is controlled: the library holds MapLibre to these props, and
+  // a gesture reaches them only through `onMove`. A writer's change moves the
+  // map once MapLibre is not moving, so it never stops the operator's drag.
+  function onMove(event: ViewStateChangeEvent): void {
+    const { longitude, latitude, zoom, pitch, bearing } = event.viewState;
+    mapApi.camera.center = [longitude, latitude];
+    mapApi.camera.zoom = zoom;
+    mapApi.camera.pitch = pitch;
+    mapApi.camera.bearing = bearing;
+  }
 
-    map.on('move', () => {
-      if (!map || isUpdatingFromCamera) return;
-      const c = map.getCenter();
-      lastFromMap = {
-        center: [c.lng, c.lat],
-        zoom: map.getZoom(),
-        pitch: map.getPitch(),
-        bearing: map.getBearing(),
-      };
-      mapApi.camera.center = lastFromMap.center;
-      mapApi.camera.zoom = lastFromMap.zoom;
-      mapApi.camera.pitch = lastFromMap.pitch;
-      mapApi.camera.bearing = lastFromMap.bearing;
-    });
-  });
+  // The library sends MapLibre's start-up throw (no WebGL context, say) here
+  // with `target: null`, and every `error` event of a running map, such as a
+  // failed tile, with the map as target. Only the first gets the notice; both
+  // are logged, as the library would log them without an `onError`.
+  function onError(event: ErrorEvent): void {
+    if (event.target === null) startFailed = true;
+    console.error(event.error);
+  }
 
-  // maplibre follows window resizes only; a dock panel resizes on its own
+  // MapLibre follows window resizes only; a dock panel resizes on its own
   // (a splitter drag, a group maximised), so the canvas follows its box.
   let resizeObserver: ResizeObserver | undefined;
   onMount(() => {
@@ -72,44 +49,36 @@
     resizeObserver = new ResizeObserver(() => map?.resize());
     resizeObserver.observe(container);
   });
-
-  onDestroy(() => {
-    resizeObserver?.disconnect();
-    map?.remove();
-    map = null;
-  });
-
-  // Camera state → maplibre. Re-runs on any field change. Guarded against the
-  // maplibre 'move' callback above, and skips the camera that callback just
-  // copied out (see `lastFromMap`), so only another writer's change moves
-  // the map.
-  $effect(() => {
-    if (!map) return;
-    const { center, zoom, pitch, bearing } = mapApi.camera;
-    if (
-      lastFromMap &&
-      center[0] === lastFromMap.center[0] &&
-      center[1] === lastFromMap.center[1] &&
-      zoom === lastFromMap.zoom &&
-      pitch === lastFromMap.pitch &&
-      bearing === lastFromMap.bearing
-    ) {
-      return;
-    }
-    isUpdatingFromCamera = true;
-    map.jumpTo({ center, zoom, pitch, bearing });
-    isUpdatingFromCamera = false;
-    // The map is now where this write sent it, not where it last reported
-    // (`jumpTo`'s own `move` was suppressed above). Without this, a later
-    // write back to the last reported camera (a pitch toggled 60 → 0 after
-    // a drag) would match and be skipped, leaving the map tilted.
-    lastFromMap = null;
-  });
+  onDestroy(() => resizeObserver?.disconnect());
 </script>
+
+<!-- Registered layers come first: siblings tear down in order, so each layer
+     removes what it drew before the library's `Map` destroys the map. They
+     mount outside the library's `Map`, so none reaches its components or
+     context. -->
+<RegisteredLayers getMap={() => map} />
 
 <div class="map-view">
   <div class="map-view__canvas-wrapper">
-    <div class="map-view__canvas" bind:this={container}></div>
+    <div class="map-view__canvas" bind:this={container}>
+      <GlMap
+        bind:this={glMap}
+        mapLib={maplibregl}
+        mapStyle={TILE_STYLE}
+        longitude={mapApi.camera.center[0]}
+        latitude={mapApi.camera.center[1]}
+        zoom={mapApi.camera.zoom}
+        pitch={mapApi.camera.pitch}
+        bearing={mapApi.camera.bearing}
+        {onMove}
+        {onError}
+      >
+        <MapReady onready={() => (map = glMap?.getMapRef()?.getMap() ?? null)} />
+      </GlMap>
+    </div>
+    {#if startFailed}
+      <p class="map-view__notice" role="status">The map could not start.</p>
+    {/if}
     {#if map}
       {#each POSITIONS as pos (pos)}
         <div class="map-view__controls map-view__controls--{pos}">
@@ -127,13 +96,6 @@
   </div>
 </div>
 
-{#if map}
-  {#each [...mapApi.layers] as [id, entry] (id)}
-    {@const Layer = entry.component}
-    <Layer />
-  {/each}
-{/if}
-
 <style>
   /* The map fills its dock panel; the tab already names it. */
   .map-view,
@@ -146,6 +108,17 @@
     position: absolute;
     inset: 0;
     overflow: hidden;
+  }
+  .map-view__notice {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    margin: 0;
+    padding: 0.25rem 0.5rem;
+    background: var(--gcscode-widget-background);
+    border: 1px solid var(--gcscode-widget-border);
+    border-radius: 4px;
+    color: var(--gcscode-errorForeground);
   }
   .map-view__controls {
     position: absolute;
