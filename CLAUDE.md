@@ -48,7 +48,10 @@ An extension module exports a named `const` of type `Extension` with `{ manifest
 ## Tests
 
 - Co-located `*.test.ts` next to the code they test.
-- **Smoke tests:** a PR that adds a proof tool (a probe or view that makes one thing visible, the `proof-tool` label in Linear) also adds its smoke test to [`docs/smoke-tests.md`](docs/smoke-tests.md), following its [Adding a test](docs/smoke-tests.md#adding-a-test) section.
+- **Smoke tests:** a PR that adds a proof tool (a probe or view that makes one thing visible) also adds its smoke test to [`docs/smoke-tests.md`](docs/smoke-tests.md), following its [Adding a test](docs/smoke-tests.md#adding-a-test) section. The playbook's table, not a Linear label, says which tickets have a smoke test ([spec](docs/specs/2026-11-24-smoke-test-runner.md)):
+  - A PR whose ticket has a row, or that adds a row or changes what a row's test checks, names that ticket with `Ticket: Part of GCS-<n>`, never `Fixes`, `Closes` or `Related to`, and keeps the ID out of its title and branch name. A PR that only rewords a rung's prose names no row's ticket (`Ticket: none`, with the `docs` label).
+  - Once the PR merges, the worker that opened it moves each `Part of` ticket to **Smoke Test**. Beyond that, a worker never touches a row's ticket: no hand-made PR link, no `smoke-test-result` comment, no move to Done. The owner records results with `pnpm smoke`, which does those.
+  - Before building on a rung or calling it proven, read its ticket's state and its latest `smoke-test-result` comment. A ticket in Smoke Test is merged but not yet proven.
 - **Proof views stay as they are:** a new rung adds its own panel and leaves the older proof views alone, so each smoke test keeps checking just its own rung. Change an older view only when the new rung clearly grows that same thing, or when the new rung makes something the view says false, and then correct only that and update its smoke test in the same PR.
 - A new test counts only once it has been seen failing. Mutate each branch you changed, watch the specific test fail for the right reason, restore, and list the mutations — and any that survived — in the task report. A new test that passes on its first run is suspect.
 - A test that compares two paths sharing the logic under test (`A(x) === B(x)` over one lookup) proves they agree, not that they are right. Give every value an absolute expected answer taken from the spec, ideally one the type system makes impossible to omit.
@@ -80,6 +83,7 @@ One worker session per PR or iteration; one controller per initiative (the `cont
 ## Commands
 
 - `pnpm dev` — run the shell's dev server
+- `pnpm smoke` — record smoke test results on their Linear tickets, from the checkout being tested (`scripts/smoke-runner.mjs`)
 - `pnpm dev:sitl [--vehicles N]` — run SITL (1 to 5 vehicles, default 1), MediaMTX, camera-sim, the station process and the dev server together, until one Ctrl-C (`scripts/dev-stack.mjs`)
 - `pnpm build` — build all packages
 - `pnpm test` — all package tests, then the root tooling tests (`pnpm test:scripts`)

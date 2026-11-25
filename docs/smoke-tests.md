@@ -2,36 +2,53 @@
 
 Hands-on checks for each rung, run on the owner's Mac against the real stack. A unit test proves the code; a smoke test proves the rung does what its ticket says with real SITL, a real radio and a real browser.
 
-Every command block runs from the repo root of the main checkout, and each block stands on its own, so a markdown viewer that runs blocks can play them one at a time. A block marked **runs until Ctrl-C** gets a terminal of its own.
+Every command block runs from the repo root of the checkout being tested: the main checkout for merged code, or a PR's worktree, `.worktrees/pr-<n>`, for a draft. Each block stands on its own, so a markdown viewer that runs blocks can play them one at a time. A block marked **runs until Ctrl-C** gets a terminal of its own.
 
-| Test                                                  | Ticket / PR     | Branch   | Needs                 |
-| ----------------------------------------------------- | --------------- | -------- | --------------------- |
-| [Video health view](#video-health-view)               | GCS-15, PR #65  | `master` | SITL                  |
-| [Radio probe](#radio-probe)                           | GCS-13, PR #63  | `master` | TX16S, Rust and CMake |
-| [Several vehicles in SITL](#several-vehicles-in-sitl) | N8, PR #66      | `master` | SITL                  |
-| [Wire probe](#wire-probe)                             | GCS-17, PR #70  | `master` | SITL                  |
-| [Map input view](#map-input-view)                     | GCS-14, PR #71  | `master` | SITL                  |
-| [Link state view](#link-state-view)                   | GCS-24, PR #69  | `master` | SITL                  |
-| [Radio input view](#radio-input-view)                 | GCS-38, PR #68  | `master` | TX16S, Rust and CMake |
-| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81  | `master` | SITL, Rust and CMake  |
-| [Controls view](#controls-view)                       | GCS-40, PR #82  | `master` | TX16S, Rust and CMake |
-| [Palettes](#palettes)                                 | GCS-104, PR #99 | `master` | nothing               |
+Results go to each test's Linear ticket, through `pnpm smoke` ([Recording results](#recording-results)). This page holds the tests only. A ticket in the table waits in **Smoke Test** after its PRs merge, until a pass moves it to Done.
+
+| Test                                                  | Ticket / PR      | Needs                  |
+| ----------------------------------------------------- | ---------------- | ---------------------- |
+| [Video health view](#video-health-view)               | GCS-15, PR #65   | SITL                   |
+| [Radio probe](#radio-probe)                           | GCS-13, PR #63   | TX16S, Rust and CMake  |
+| [Several vehicles in SITL](#several-vehicles-in-sitl) | GCS-16, PR #66   | SITL                   |
+| [Wire probe](#wire-probe)                             | GCS-17, PR #70   | SITL                   |
+| [Map input view](#map-input-view)                     | GCS-14, PR #71   | SITL                   |
+| [Link state view](#link-state-view)                   | GCS-24, PR #69   | SITL                   |
+| [Radio input view](#radio-input-view)                 | GCS-38, PR #68   | TX16S, Rust and CMake  |
+| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81   | SITL, Rust and CMake   |
+| [Controls view](#controls-view)                       | GCS-40, PR #82   | TX16S, Rust and CMake  |
+| [Palettes](#palettes)                                 | GCS-104, PR #99  | nothing                |
+| [Smoke test runner](#smoke-test-runner)               | GCS-114, PR #PRN | a Linear key, and `gh` |
 
 ## Before you start
 
-Bring the main checkout up to date:
+To test merged code, bring the main checkout up to date:
 
 ```sh
 git switch master && git pull --ff-only && pnpm install
 ```
 
-`pnpm dev:sitl` also starts the station process, which needs Rust and CMake and a build after each change to it:
+To test an open PR, give it a worktree named after it, so the main checkout never changes branch (replace `<n>` with the PR's number):
+
+```sh
+git fetch origin pull/<n>/head && git worktree add --detach .worktrees/pr-<n> FETCH_HEAD && cd .worktrees/pr-<n> && pnpm install
+```
+
+And after review pushes to the PR, bring that worktree up to the PR's latest head:
+
+```sh
+git -C .worktrees/pr-<n> fetch origin pull/<n>/head && git -C .worktrees/pr-<n> checkout --detach FETCH_HEAD && (cd .worktrees/pr-<n> && pnpm install)
+```
+
+Run each test's commands, and `pnpm smoke`, in the checkout being tested: the main checkout, or `.worktrees/pr-<n>` for a PR.
+
+`pnpm dev:sitl` also starts the station process, which needs Rust and CMake and a build after each change to it, in the checkout being tested:
 
 ```sh
 pnpm --filter mavlink-station run setup
 ```
 
-A test on a draft branch runs in a worktree under `.worktrees/`, so the main checkout never changes branch. Each such test has its own setup block. Only one stack can run at a time, since they share ports: stop the last one with Ctrl-C before starting the next.
+Only one stack can run at a time, since they share ports: stop the last one with Ctrl-C before starting the next.
 
 Two helpers the scenarios below use. Freeze vehicle 2's MAVProxy, so the vehicle goes quiet without anything exiting (vehicle 2's MAVProxy is the only process whose command line names TCP 5770):
 
@@ -44,6 +61,26 @@ And let it go again:
 ```sh
 pkill -CONT -f 'tcp:127.0.0.1:5770'
 ```
+
+## Recording results
+
+Start the runner in the checkout being tested (**runs until Ctrl-C**). It opens its page at `http://127.0.0.1:5180/`:
+
+```sh
+pnpm smoke
+```
+
+It needs a Linear personal API key (Linear, Settings, Security & access, Personal API keys), in `LINEAR_API_KEY` or in `~/.config/gcscode/linear-api-key`, and `gh` signed in. In the main checkout on master's tip it lists every test whose ticket waits, or closed without a pass. In `.worktrees/pr-<n>` it lists only the tests that PR belongs to, and records their results as that PR's draft.
+
+For each test, run its steps and mark each scenario **Pass**, **Fail** with a line on what went wrong, or **Not run**. Put anything else you noticed in **Note a finding**, one per line, and attach a screen recording if you made one. **Submit** then writes to each marked test's ticket:
+
+- every scenario passed: a "Smoke test passed" comment, and on merged code the ticket moves to Done;
+- any scenario failed: a "Smoke test failed" comment with your notes, and the ticket moves to In Progress;
+- some passed, the rest not run: a "Smoke test partly run" comment, and the ticket stays where it is.
+
+Each finding becomes a Backlog ticket related to the test's. If a write fails, the page says which, and **Send what did not land** sends only those. Then copy the summary line the page shows into the project chat.
+
+A test passed on a PR's draft is offered again on master once the PR merges, with **Count the draft pass** and the commits that PR gained after the pass, so you can count it or run the test again.
 
 ## Video health view
 
@@ -367,6 +404,34 @@ open http://localhost:5173/
 
 **Scenario 3, every extension disabled:** in the extensions panel, click Disable on every row. **Expect:** the arrow keys and Escape still work after each click, and Escape closes the panel. The empty layout says **No views open** and names Ctrl+Shift+X and Ctrl+Shift+P; Ctrl+Shift+P opens a palette that lists the two Workbench commands. Turn the extensions back on with Ctrl+Shift+X.
 
+## Smoke test runner
+
+**Goal:** `pnpm smoke` lists the tests waiting for a smoke test, records each result as a comment on its Linear ticket, moves the ticket as the result says, turns findings into tickets, and gives one line to paste into the project chat. Run it together with the Controls view retest, which it records.
+
+Needs a Linear key and `gh` signed in ([Recording results](#recording-results)). In the main checkout on master's tip, start the runner (**runs until Ctrl-C**):
+
+```sh
+pnpm smoke
+```
+
+**Expect:** the page opens at `http://127.0.0.1:5180/` and shows the checkout's commit "on master's tip". It lists Controls view with GCS-40 in Smoke Test and its earlier failed result, and this test with GCS-114, and no test whose last result passed on master.
+
+**Scenario 1, record the Controls view retest:** run [Controls view](#controls-view), marking each of its scenarios as you go, attach its screen recording, and press **Submit**. **Expect:** each write ticks off. GCS-40 has a comment that opens "Smoke test passed on <today> at `<commit>` (master)" (or failed, with your notes), lists every scenario of the test with its result and links the recording, and GCS-40 is Done (In Progress if it failed). The page shows a line that starts `Smoke run <today> at`, and **Copy** puts it on the clipboard.
+
+**Scenario 2, only its own page:** in a second terminal, ask as another site would:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: example.com' http://127.0.0.1:5180/api/state
+```
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: text/plain' -d x http://127.0.0.1:5180/api/run
+```
+
+**Expect:** `403`, then `415`.
+
+**Scenario 3, a finding and this test's own result:** in this test's **Note a finding**, write `Smoke runner finding check, close me`. Mark Start and scenarios 1 and 2 as you saw them, and this one Pass, then press **Submit**. **Expect:** a new Backlog ticket with that title, related to GCS-114, whose ID the summary line lists under findings, and on GCS-114 a "Smoke test passed" comment listing the finding. GCS-114 is Done. If any of this is not so, record this test again with scenario 3 failed. Cancel the finding's ticket afterwards.
+
 ## Adding a test
 
 Add a row to the table and a section in this shape, in the order the rungs land:
@@ -375,8 +440,6 @@ Add a row to the table and a section in this shape, in the order the rungs land:
 ## <View or tool name>
 
 **Goal:** <what the rung proves, in the ticket's words>.
-
-**Draft PR #<n>.** <only while it is a draft: the worktree setup block, as above>
 
 Start <what> (**runs until Ctrl-C**):
 
@@ -389,4 +452,4 @@ Start <what> (**runs until Ctrl-C**):
 **Scenario, <name>:** <what to do>. **Expect:** <what you should see>.
 ````
 
-When a draft PR merges, drop its worktree blocks and change its row's branch to `master`.
+The row names the rung's one ticket and the PR that adds the test, and never changes when that PR merges. The PR names the ticket with `Ticket: Part of GCS-<n>`, so the merge leaves it open for its smoke test. A scenario runs from its `**Scenario …:**` paragraph to the next one, and an **Expect** before the first scenario starts one named "Start". No command names a worktree: blocks run from the checkout being tested. `pnpm test` checks all of this.
