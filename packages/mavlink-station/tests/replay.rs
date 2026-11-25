@@ -43,6 +43,8 @@ fn every_recording_reads_through_the_station_as_it_was_recorded() {
         player.start().unwrap();
         let t0 = Instant::now();
         let tick = TICK.as_micros() as u64;
+        // The recording folded forward, tick by tick: what the station should serve.
+        let mut expected = recording.fold();
         let (mut t, mut ticks, mut unplugged_ticks) = (0, 0, 0);
         while t <= recording.end() + 1_000_000 {
             player.play_until(t).unwrap();
@@ -55,7 +57,8 @@ fn every_recording_reads_through_the_station_as_it_was_recorded() {
                 .radio
                 .as_ref()
                 .map(|r| RadioState::new(&r.info, &r.inputs));
-            assert_eq!(served, recording.state_at(t), "{name} at t={t}");
+            expected.advance(t);
+            assert_eq!(served, expected.state, "{name} at t={t}");
             // The replay keeps the radio's name and USB ID, so its profile maps it.
             assert_eq!(s.controls.is_some(), served.is_some(), "{name} at t={t}");
             if served.is_none() {

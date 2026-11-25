@@ -178,16 +178,42 @@ impl Recording {
     /// The radio at `t`, folded straight from the recording, or `None` while it is
     /// unplugged: what any replay of it must read at that instant.
     pub fn state_at(&self, t: u64) -> Option<RadioState> {
-        let mut state = Some(self.radio.clone());
-        for c in self.changes.iter().take_while(|c| c.t() <= t) {
-            apply(&mut state, c).expect("a parsed recording folds");
+        let mut fold = self.fold();
+        fold.advance(t);
+        fold.state
+    }
+
+    /// The radio's state from the header on, advanced through the changes in time order:
+    /// [`Recording::state_at`] for one instant, this for many in a row.
+    pub fn fold(&self) -> Fold<'_> {
+        Fold {
+            changes: &self.changes,
+            next: 0,
+            state: Some(self.radio.clone()),
         }
-        state
     }
 
     /// The time of the last change, 0 when there is none.
     pub fn end(&self) -> u64 {
         self.changes.last().map(Change::t).unwrap_or(0)
+    }
+}
+
+/// A recording folded up to some instant. See [`Recording::fold`].
+pub struct Fold<'a> {
+    changes: &'a [Change],
+    next: usize,
+    /// The radio's state, `None` while it is unplugged.
+    pub state: Option<RadioState>,
+}
+
+impl Fold<'_> {
+    /// Applies every change up to and including `t`; an earlier `t` than last time does nothing.
+    pub fn advance(&mut self, t: u64) {
+        while let Some(c) = self.changes.get(self.next).filter(|c| c.t() <= t) {
+            apply(&mut self.state, c).expect("a parsed recording folds");
+            self.next += 1;
+        }
     }
 }
 

@@ -375,17 +375,15 @@ open http://localhost:5173/
 **Draft PR #109.** Set up its worktree:
 
 ```sh
-git fetch origin claude/project-thread-0gahoi && git worktree add .worktrees/gcs-95 FETCH_HEAD && cd .worktrees/gcs-95 && pnpm install
+git fetch origin claude/project-thread-0gahoi && git worktree add .worktrees/gcs-95 FETCH_HEAD && (cd .worktrees/gcs-95 && pnpm install)
 ```
-
-Every command below runs from that worktree's root, where the setup leaves you.
 
 Needs the TX16S on USB as a joystick, on its `gcscode-adv` model ([`tools/radio-probe/tx16s-advanced-model.md`](../tools/radio-probe/tx16s-advanced-model.md)), and Rust and CMake. No SITL. Plug in the radio, choose **USB Joystick (HID)**, and leave every stick centred and every switch up.
 
 **Scenario 1, record a sweep:** start the probe recording (**runs until Ctrl-C**):
 
 ```sh
-pnpm --filter radio-probe start -- --mapped --record "$PWD/packages/mavlink-station/tests/recordings/adv-sweep.jsonl"
+cd .worktrees/gcs-95 && pnpm --filter radio-probe start -- --mapped --record "$PWD/packages/mavlink-station/tests/recordings/adv-sweep.jsonl"
 ```
 
 Then, within about 30 s: move each stick slowly to both ends and back to the centre, one at a time; move each switch, SA to SH, through every position and back up; turn the control switch on and off. Press Ctrl-C. **Expect:** `radio-probe: recording to …`, the usual live block while you move, and a file of a few hundred kilobytes.
@@ -393,7 +391,7 @@ Then, within about 30 s: move each stick slowly to both ends and back to the cen
 **Scenario 2, record a replug with a stick held:** start a second recording (**runs until Ctrl-C**):
 
 ```sh
-pnpm --filter radio-probe start -- --mapped --record "$PWD/packages/mavlink-station/tests/recordings/adv-replug-deflected.jsonl"
+cd .worktrees/gcs-95 && pnpm --filter radio-probe start -- --mapped --record "$PWD/packages/mavlink-station/tests/recordings/adv-replug-deflected.jsonl"
 ```
 
 Wait two seconds, then unplug the radio. Push the throttle about halfway up and hold it there, plug the radio back in, choose **USB Joystick (HID)**, wait two seconds with the throttle still held, then let it go and press Ctrl-C. **Expect:** `radio unplugged`, then the radio opened again with the throttle bar already halfway, not at the bottom.
@@ -401,11 +399,11 @@ Wait two seconds, then unplug the radio. Push the throttle about halfway up and 
 **Scenario 3, replay:** unplug the radio, then play each recording back (**runs until Ctrl-C**; press it once the moves are over):
 
 ```sh
-pnpm --filter radio-probe start -- --mapped --replay "$PWD/packages/mavlink-station/tests/recordings/adv-sweep.jsonl"
+cd .worktrees/gcs-95 && pnpm --filter radio-probe start -- --mapped --replay "$PWD/packages/mavlink-station/tests/recordings/adv-sweep.jsonl"
 ```
 
 ```sh
-pnpm --filter radio-probe start -- --mapped --replay "$PWD/packages/mavlink-station/tests/recordings/adv-replug-deflected.jsonl"
+cd .worktrees/gcs-95 && pnpm --filter radio-probe start -- --mapped --replay "$PWD/packages/mavlink-station/tests/recordings/adv-replug-deflected.jsonl"
 ```
 
 **Expect:** `radio-probe: replaying …`, then the same moves, switch positions and control switch you made, at the same speed. In the second: `radio unplugged`, then the radio back with the throttle already halfway, then dropping when you let go.
@@ -415,10 +413,10 @@ pnpm --filter radio-probe start -- --mapped --replay "$PWD/packages/mavlink-stat
 **Scenario 5, the station reads them:** run the station's replay test, which now picks up both recordings:
 
 ```sh
-(cd packages/mavlink-station && cargo test --test replay -- --nocapture)
+cd .worktrees/gcs-95/packages/mavlink-station && cargo test --test replay -- --nocapture
 ```
 
-**Expect:** a `… ticks matched` line for `adv-replug-deflected.jsonl`, `adv-sweep.jsonl` and the synthetic recording, and the test passes. Then attach the two `.jsonl` files from `packages/mavlink-station/tests/recordings/` in the project thread, so they are committed to the PR.
+**Expect:** a `… ticks matched` line for `adv-replug-deflected.jsonl`, `adv-sweep.jsonl` and the synthetic recording, and the test passes. Then attach the two `.jsonl` files from `.worktrees/gcs-95/packages/mavlink-station/tests/recordings/` in the project thread, so they are committed to the PR.
 
 ## Adding a test
 
