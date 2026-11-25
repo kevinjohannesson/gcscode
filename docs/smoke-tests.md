@@ -4,19 +4,19 @@ Hands-on checks for each rung, run on the owner's Mac against the real stack. A 
 
 Every command block runs from the repo root of the main checkout, and each block stands on its own, so a markdown viewer that runs blocks can play them one at a time. A block marked **runs until Ctrl-C** gets a terminal of its own.
 
-| Test                                                      | Ticket / PR     | Branch                         | Needs                 |
-| --------------------------------------------------------- | --------------- | ------------------------------ | --------------------- |
-| [Video health view](#video-health-view)                   | GCS-15, PR #65  | `master`                       | SITL                  |
-| [Radio probe](#radio-probe)                               | GCS-13, PR #63  | `master`                       | TX16S, Rust and CMake |
-| [Several vehicles in SITL](#several-vehicles-in-sitl)     | N8, PR #66      | `master`                       | SITL                  |
-| [Wire probe](#wire-probe)                                 | GCS-17, PR #70  | `master`                       | SITL                  |
-| [Map input view](#map-input-view)                         | GCS-14, PR #71  | `master`                       | SITL                  |
-| [Link state view](#link-state-view)                       | GCS-24, PR #69  | `master`                       | SITL                  |
-| [Radio input view](#radio-input-view)                     | GCS-38, PR #68  | `master`                       | TX16S, Rust and CMake |
-| [Station in the dev stack](#station-in-the-dev-stack)     | GCS-29, PR #81  | `master`                       | SITL, Rust and CMake  |
-| [Controls view](#controls-view)                           | GCS-40, PR #82  | `master`                       | TX16S, Rust and CMake |
-| [Palettes](#palettes)                                     | GCS-104, PR #99 | `master`                       | nothing               |
-| [Radio recording and replay](#radio-recording-and-replay) | GCS-95, PR #109 | `claude/project-thread-0gahoi` | TX16S, Rust and CMake |
+| Test                                                      | Ticket / PR     | Branch   | Needs                 |
+| --------------------------------------------------------- | --------------- | -------- | --------------------- |
+| [Video health view](#video-health-view)                   | GCS-15, PR #65  | `master` | SITL                  |
+| [Radio probe](#radio-probe)                               | GCS-13, PR #63  | `master` | TX16S, Rust and CMake |
+| [Several vehicles in SITL](#several-vehicles-in-sitl)     | N8, PR #66      | `master` | SITL                  |
+| [Wire probe](#wire-probe)                                 | GCS-17, PR #70  | `master` | SITL                  |
+| [Map input view](#map-input-view)                         | GCS-14, PR #71  | `master` | SITL                  |
+| [Link state view](#link-state-view)                       | GCS-24, PR #69  | `master` | SITL                  |
+| [Radio input view](#radio-input-view)                     | GCS-38, PR #68  | `master` | TX16S, Rust and CMake |
+| [Station in the dev stack](#station-in-the-dev-stack)     | GCS-29, PR #81  | `master` | SITL, Rust and CMake  |
+| [Controls view](#controls-view)                           | GCS-40, PR #82  | `master` | TX16S, Rust and CMake |
+| [Palettes](#palettes)                                     | GCS-104, PR #99 | `master` | nothing               |
+| [Radio recording and replay](#radio-recording-and-replay) | GCS-95, PR #109 | `master` | TX16S, Rust and CMake |
 
 ## Before you start
 
@@ -370,20 +370,14 @@ open http://localhost:5173/
 
 ## Radio recording and replay
 
-**Goal:** `radio-probe --record` writes a TX16S session to a file, and `--replay` plays it back so the probe shows what the radio did, moves, switches, unplug and replug included, while a real radio plugged in beside it is ignored. The two recordings made here become the station's test recordings.
-
-**Draft PR #109.** Set up its worktree:
-
-```sh
-git fetch origin claude/project-thread-0gahoi && git worktree add .worktrees/gcs-95 FETCH_HEAD && (cd .worktrees/gcs-95 && pnpm install)
-```
+**Goal:** `radio-probe --record` writes a TX16S session to a file, and `--replay` plays it back so the probe shows what the radio did, moves, switches, unplug and replug included, while a real radio plugged in beside it is ignored. The recordings go to `scratch/` (gitignored), so the committed test recordings in `packages/mavlink-station/tests/recordings/` stay as they are.
 
 Needs the TX16S on USB as a joystick, on its `gcscode-adv` model ([`tools/radio-probe/tx16s-advanced-model.md`](../tools/radio-probe/tx16s-advanced-model.md)), and Rust and CMake. No SITL. Plug in the radio, choose **USB Joystick (HID)**, and leave every stick centred and every switch up.
 
 **Scenario 1, record a sweep:** start the probe recording (**runs until Ctrl-C**):
 
 ```sh
-cd .worktrees/gcs-95 && pnpm --filter radio-probe start -- --mapped --record "$PWD/packages/mavlink-station/tests/recordings/adv-sweep.jsonl"
+mkdir -p scratch && pnpm --filter radio-probe start -- --mapped --record "$PWD/scratch/adv-sweep.jsonl"
 ```
 
 Then, within about 30 s: move each stick slowly to both ends and back to the centre, one at a time; move each switch, SA to SH, through every position and back up; turn the control switch on and off. Press Ctrl-C. **Expect:** `radio-probe: recording to …`, the usual live block while you move, and a file of a few hundred kilobytes.
@@ -391,7 +385,7 @@ Then, within about 30 s: move each stick slowly to both ends and back to the cen
 **Scenario 2, record a replug with a stick held:** start a second recording (**runs until Ctrl-C**):
 
 ```sh
-cd .worktrees/gcs-95 && pnpm --filter radio-probe start -- --mapped --record "$PWD/packages/mavlink-station/tests/recordings/adv-replug-deflected.jsonl"
+mkdir -p scratch && pnpm --filter radio-probe start -- --mapped --record "$PWD/scratch/adv-replug-deflected.jsonl"
 ```
 
 Wait two seconds, then unplug the radio. Push the throttle about halfway up and hold it there, plug the radio back in, choose **USB Joystick (HID)**, wait two seconds with the throttle still held, then let it go and press Ctrl-C. **Expect:** `radio unplugged`, then the radio opened again with the throttle bar already halfway, not at the bottom.
@@ -399,24 +393,24 @@ Wait two seconds, then unplug the radio. Push the throttle about halfway up and 
 **Scenario 3, replay:** unplug the radio, then play each recording back (**runs until Ctrl-C**; press it once the moves are over):
 
 ```sh
-cd .worktrees/gcs-95 && pnpm --filter radio-probe start -- --mapped --replay "$PWD/packages/mavlink-station/tests/recordings/adv-sweep.jsonl"
+pnpm --filter radio-probe start -- --mapped --replay "$PWD/scratch/adv-sweep.jsonl"
 ```
 
 ```sh
-cd .worktrees/gcs-95 && pnpm --filter radio-probe start -- --mapped --replay "$PWD/packages/mavlink-station/tests/recordings/adv-replug-deflected.jsonl"
+pnpm --filter radio-probe start -- --mapped --replay "$PWD/scratch/adv-replug-deflected.jsonl"
 ```
 
 **Expect:** `radio-probe: replaying …`, then the same moves, switch positions and control switch you made, at the same speed. In the second: `radio unplugged`, then the radio back with the throttle already halfway, then dropping when you let go.
 
 **Scenario 4, a real radio beside a replay:** plug the radio back in, choose **USB Joystick (HID)**, and run the first replay again. **Expect:** a `found … a real radio while replaying, ignored` line, and only the recording moves on screen, whatever you do with the sticks.
 
-**Scenario 5, the station reads them:** run the station's replay test, which now picks up both recordings:
+**Scenario 5, the station reads the committed recordings:** run the station's replay test:
 
 ```sh
-cd .worktrees/gcs-95/packages/mavlink-station && cargo test --test replay -- --nocapture
+cd packages/mavlink-station && cargo test --test replay -- --nocapture
 ```
 
-**Expect:** a `… ticks matched` line for `adv-replug-deflected.jsonl`, `adv-sweep.jsonl` and the synthetic recording, and the test passes. Then attach the two `.jsonl` files from `.worktrees/gcs-95/packages/mavlink-station/tests/recordings/` in the project thread, so they are committed to the PR.
+**Expect:** a `… ticks matched` line for `adv-replug-deflected.jsonl`, `adv-sweep.jsonl` and the synthetic recording, and the test passes.
 
 ## Adding a test
 
