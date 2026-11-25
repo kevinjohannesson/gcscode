@@ -27,18 +27,25 @@ fn the_running_station_reads_a_recording_played_in_real_time() {
     let stop = Arc::new(AtomicBool::new(false));
     let stopper = stop.clone();
     let length = Duration::from_micros(recording.end()) + Duration::from_millis(500);
-    std::thread::spawn(move || {
-        std::thread::sleep(length);
-        stopper.store(true, Ordering::Relaxed);
-    });
 
     let mut played = None;
     input::run(tx, stop, Profile::bundled(), true, || {
         played = Some(play_in_real_time(recording, true));
+        // The station stops half a second after the recording ends, counted from the attach.
+        std::thread::spawn(move || {
+            std::thread::sleep(length);
+            stopper.store(true, Ordering::Relaxed);
+        });
     })
     .unwrap();
 
-    assert!(played.is_some(), "run never called ready");
+    let played = played.expect("run never called ready");
+    // A player that holds the last values never returns; one that has, failed.
+    assert!(
+        !played.is_finished(),
+        "the player stopped: {:?}",
+        played.join()
+    );
     let s = rx.borrow().clone();
     let r = s.radio.expect("the station has the replayed radio open");
     assert_eq!(RadioState::new(&r.info, &r.inputs), last);

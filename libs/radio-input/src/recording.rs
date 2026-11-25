@@ -102,6 +102,16 @@ impl Change {
             | Change::Plugged { t, .. } => *t,
         }
     }
+
+    fn t_mut(&mut self) -> &mut u64 {
+        match self {
+            Change::Axis { t, .. }
+            | Change::Button { t, .. }
+            | Change::Hat { t, .. }
+            | Change::Unplugged { t, .. }
+            | Change::Plugged { t, .. } => t,
+        }
+    }
 }
 
 /// A whole recorded session.
@@ -299,11 +309,16 @@ pub fn now_ns() -> u64 {
 /// Those are not the radio's: [`Recorder::unplugged`] drops the waiting changes of that kind
 /// stamped less than [`RECENTRE_WINDOW_NS`] before the removal, so a replay goes from the
 /// radio's last values straight to unplugged.
+///
+/// Times never go backwards in what it writes: a change stamped before the last line written
+/// is written at that line's time. On Linux SDL stamps an event with the kernel's time, so an
+/// event that arrived just before a settle can carry an earlier time than the settle's.
 pub struct Recorder<W: Write> {
     out: W,
     start_ns: Option<u64>,
     last: Option<RadioState>,
     waiting: Vec<(Change, u64)>,
+    written_t: u64,
 }
 
 /// How close before a removal a change must be stamped to count as SDL's re-centring. SDL
@@ -317,7 +332,16 @@ impl<W: Write> Recorder<W> {
             start_ns: None,
             last: None,
             waiting: Vec::new(),
+            written_t: 0,
         }
+    }
+
+    /// The line for `c`, at the last written time when `c` is stamped before it.
+    fn line(&mut self, mut c: Change) -> String {
+        let t = c.t_mut();
+        *t = (*t).max(self.written_t);
+        self.written_t = *t;
+        change_line(&c)
     }
 
     fn t(&self, ns: u64) -> u64 {
@@ -338,7 +362,7 @@ impl<W: Write> Recorder<W> {
                 self.start_ns = Some(now_ns);
                 header_line(&state)
             }
-            Some(_) => change_line(&Change::Plugged {
+            Some(_) => self.line(Change::Plugged {
                 t: self.t(now_ns),
                 plugged: state.clone(),
             }),
@@ -356,7 +380,7 @@ impl<W: Write> Recorder<W> {
             !(removed_ns.saturating_sub(*ns) < RECENTRE_WINDOW_NS && recentres(c))
         });
         self.flush()?;
-        let line = change_line(&Change::Unplugged {
+        let line = self.line(Change::Unplugged {
             t: self.t(removed_ns),
             unplugged: true,
         });
@@ -364,11 +388,8 @@ impl<W: Write> Recorder<W> {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        let lines: String = self
-            .waiting
-            .drain(..)
-            .map(|(c, _)| change_line(&c))
-            .collect();
+        let waiting = std::mem::take(&mut self.waiting);
+        let lines: String = waiting.into_iter().map(|(c, _)| self.line(c)).collect();
         if lines.is_empty() {
             return Ok(());
         }
@@ -495,6 +516,34 @@ mod tests {
     #[test]
     fn the_header_is_the_page_protocols_radio_without_its_serial() {
         assert_eq!(recorded(|_| {}), vec![HEADER]);
+    }
+
+    #[test]
+    fn a_change_stamped_before_the_last_line_is_written_at_that_lines_time() {
+        let lines = recorded(|r| {
+            // A settle finds axis 0 moved at 6 s; the kernel's event for the next move is
+            // stamped earlier than that settle.
+            r.settle(&inputs(&[50, -32768], &[false, false]), 6_000_000)
+                .unwrap();
+            r.event(Input::Axis(0, 60), 5_950_000).unwrap();
+            r.settle(&inputs(&[60, -32768], &[false, false]), 6_100_000)
+                .unwrap();
+            r.unplugged(6_200_000).unwrap();
+            // Opened again with a time before the removal's.
+            r.opened(&info(), &inputs(&[0, -32768], &[false, false]), 6_150_000)
+                .unwrap();
+        });
+        assert_eq!(
+            lines[1..],
+            [
+                r#"{"t":1000,"axis":0,"value":50}"#,
+                r#"{"t":1000,"axis":0,"value":60}"#,
+                r#"{"t":1200,"unplugged":true}"#,
+                r#"{"t":1200,"plugged":{"name":"TX16SMK3 Joystick","vendorId":4617,"productId":20308,"serial":null,"axes":[0,-32768],"buttons":[false,false],"hats":[0]}}"#,
+            ]
+        );
+        let text = lines.join("\n");
+        assert!(Recording::parse(&text).is_ok());
     }
 
     #[test]

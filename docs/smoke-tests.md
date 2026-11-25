@@ -408,7 +408,7 @@ cd .worktrees/gcs-95 && pnpm --filter radio-probe start -- --mapped --replay "$P
 
 **Expect:** `radio-probe: replaying …`, then the same moves, switch positions and control switch you made, at the same speed. In the second: `radio unplugged`, then the radio back with the throttle already halfway, then dropping when you let go.
 
-**Scenario 4, a real radio beside a replay:** plug the radio back in and run the first replay again. **Expect:** a `found … a real radio while replaying, ignored` line, and only the recording moves on screen, whatever you do with the sticks.
+**Scenario 4, a real radio beside a replay:** plug the radio back in, choose **USB Joystick (HID)**, and run the first replay again. **Expect:** a `found … a real radio while replaying, ignored` line, and only the recording moves on screen, whatever you do with the sticks.
 
 **Scenario 5, the station reads them:** run the station's replay test, which now picks up both recordings:
 

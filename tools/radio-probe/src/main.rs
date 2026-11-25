@@ -103,7 +103,7 @@ fn run() -> Result<(), String> {
     let mut events = sdl.event_pump().map_err(|e| e.to_string())?;
 
     let mut probe = Probe::default();
-    let _replaying = match replay {
+    let mut player = match replay {
         Some((file, recording)) => {
             println!("radio-probe: replaying {file}. A real radio is ignored. Ctrl-C quits.");
             probe = Probe::replays_only();
@@ -197,6 +197,15 @@ fn run() -> Result<(), String> {
             _ => {}
         };
         pump::until(&mut events, Instant::now() + REDRAW, &mut handle);
+        // A player that holds its last values never returns, so one that has, failed.
+        if let Some(p) = player.take_if(|p| p.is_finished()) {
+            let why = match p.join() {
+                Ok(Err(e)) => e,
+                _ => "the player stopped".into(),
+            };
+            emit(&panel.clear());
+            return Err(format!("the replay failed: {why}"));
+        }
         if recording {
             // Settle only once no event is left, so every queued change is written from its
             // own event first.
