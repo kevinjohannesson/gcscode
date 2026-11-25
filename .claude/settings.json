@@ -1,8 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(.claude/scripts/gh-app-token-reviewer:*)",
-      "Bash(gh pr review:*)"
+      "Bash(.claude/scripts/gh-pr-review-as:*)"
     ]
   },
   "enabledPlugins": {

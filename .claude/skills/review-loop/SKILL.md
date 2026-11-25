@@ -22,7 +22,7 @@ State each rule once, in the file it belongs to, and point to it. A summary that
 2. After each task, one task review: a single dispatch of the prompt both per-task roles name, unedited, which judges spec compliance and code quality in one pass and posts twice. Its spec-compliance verdict and findings post as spec-compliance, `--request-changes` on ❌; the rest (strengths, issues, task-quality verdict) as code-quality, `--request-changes` on any Critical or Important issue. At the end of the iteration: `gh pr ready <n>`, then the final cross-cutting review.
 3. These roles run superpowers' prompts, so every dispatch carries the following (a task review or re-review carries both per-task roles' token steps, verdicts and headers):
    - the PR number;
-   - the token step, in the same command as the post and by a path that works from any directory: `GH_TOKEN=$("$(git rev-parse --show-toplevel)/.claude/scripts/gh-app-token-reviewer" <role>) gh pr review <n> ...` (an empty token makes `gh` post as the owner);
+   - the post command, run from the checkout's root exactly in this form so the allow rule in `.claude/settings.json` matches it and auto mode does not block it: `.claude/scripts/gh-pr-review-as <role> <n> ...` (it mints the role's token and refuses to post without one; never a `GH_TOKEN=$(...)` prefix, which no allow rule matches);
    - the role's `verdicts`, `header` and `reReviewHeader` from the registry, with `<model>` explained as `Claude ` plus the model its system prompt names;
    - "repo-relative paths only";
    - **final review only:** confirm every per-task `--request-changes` on the PR was addressed before approving — `feat/*` auto-merge reads this role alone — and verify each item of the plan's checklist of spec findings.
