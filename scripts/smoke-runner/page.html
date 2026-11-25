@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Smoke test runner</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f6f4;
+        --card: #ffffff;
+        --ink: #1d1d1b;
+        --muted: #6b6b66;
+        --line: #deded8;
+        --code: #efefea;
+        --pass: #1f7a3f;
+        --fail: #b3261e;
+        --warn: #8a5a00;
+        --accent: #2457c5;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #161615;
+          --card: #1f1f1d;
+          --ink: #ececea;
+          --muted: #a3a39c;
+          --line: #34342f;
+          --code: #2a2a27;
+          --pass: #5cc185;
+          --fail: #ff8a80;
+          --warn: #e0b45c;
+          --accent: #8fb0ff;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.5 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      main {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 24px 16px 120px;
+      }
+      h1 {
+        font-size: 22px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 0;
+      }
+      a {
+        color: var(--accent);
+      }
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 13px;
+      }
+      code {
+        background: var(--code);
+        padding: 1px 4px;
+        border-radius: 4px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .banner {
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--warn);
+        background: var(--card);
+        padding: 10px 14px;
+        border-radius: 6px;
+        margin: 12px 0;
+      }
+      .banner.bad {
+        border-left-color: var(--fail);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 16px 18px;
+        margin: 18px 0;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        margin: 6px 0 10px;
+        font-size: 13px;
+      }
+      .pill {
+        display: inline-block;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0 8px;
+        font-size: 12px;
+      }
+      .pill.bad {
+        color: var(--fail);
+        border-color: var(--fail);
+      }
+      .pill.good {
+        color: var(--pass);
+        border-color: var(--pass);
+      }
+      .code {
+        position: relative;
+        margin: 8px 0;
+      }
+      .code pre {
+        background: var(--code);
+        padding: 10px 70px 10px 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 0;
+        white-space: pre;
+      }
+      .code button {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+      }
+      button {
+        font: inherit;
+        font-size: 13px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        color: var(--ink);
+        border-radius: 6px;
+        padding: 3px 10px;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--bg);
+      }
+      .scenario {
+        border-top: 1px dashed var(--line);
+        margin-top: 10px;
+        padding-top: 8px;
+      }
+      .marks {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 8px 0 4px;
+        padding: 8px 10px;
+        background: var(--code);
+        border-radius: 6px;
+      }
+      .marks strong {
+        margin-right: 4px;
+      }
+      .marks button[aria-pressed='true'][data-mark='pass'] {
+        background: var(--pass);
+        border-color: var(--pass);
+        color: var(--bg);
+      }
+      .marks button[aria-pressed='true'][data-mark='fail'] {
+        background: var(--fail);
+        border-color: var(--fail);
+        color: var(--bg);
+      }
+      .marks button[aria-pressed='true'][data-mark='not run'] {
+        background: var(--muted);
+        border-color: var(--muted);
+        color: var(--bg);
+      }
+      .marks input {
+        flex: 1 1 240px;
+      }
+      input[type='text'],
+      textarea,
+      select {
+        font: inherit;
+        font-size: 14px;
+        color: var(--ink);
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 4px 8px;
+      }
+      textarea {
+        width: 100%;
+        min-height: 54px;
+      }
+      .extras {
+        margin-top: 14px;
+        display: grid;
+        gap: 8px;
+      }
+      .bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--card);
+        border-top: 1px solid var(--line);
+        padding: 10px 16px;
+      }
+      .bar > div {
+        max-width: 880px;
+        margin: 0 auto;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .writes li.done {
+        color: var(--pass);
+      }
+      .writes li.failed {
+        color: var(--fail);
+      }
+      .summary {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+      }
+      .summary code {
+        flex: 1;
+        padding: 8px 10px;
+        white-space: normal;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Smoke tests</h1>
+      <div id="checkout" class="muted">Reading the checkout, GitHub and Linear…</div>
+      <div id="banners"></div>
+      <div id="results"></div>
+      <div id="tests"></div>
+    </main>
+    <div class="bar">
+      <div>
+        <button id="submit" class="primary" disabled>Submit</button>
+        <button id="resend" hidden>Send what did not land</button>
+        <button id="discard" hidden>Discard this Submit</button>
+        <span id="status" class="muted"></span>
+      </div>
+    </div>
+    <script>
+      const $ = (sel, el = document) => el.querySelector(sel);
+      const h = (tag, attrs = {}, ...kids) => {
+        const el = document.createElement(tag);
+        for (const [k, v] of Object.entries(attrs)) {
+          if (v === false || v === null || v === undefined) continue;
+          if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+          else if (k === 'html') el.innerHTML = v;
+          else el.setAttribute(k, v === true ? '' : v);
+        }
+        for (const kid of kids.flat())
+          if (kid !== null && kid !== undefined && kid !== false)
+            el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+        return el;
+      };
+      const esc = (s) =>
+        s.replace(
+          /[&<>"']/g,
+          (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+        );
+
+      /** Inline Markdown: code spans, bold, links. Everything else is text. */
+      function inline(md) {
+        return esc(md)
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, url) => {
+            if (/^https?:\/\//.test(url))
+              return `<a href="${url}" target="_blank" rel="noreferrer">${text}</a>`;
+            if (url.startsWith('#')) return `<a href="${url}">${text}</a>`;
+            return `${text} <span class="muted">(${url.replace(/^\.\.\//, '')})</span>`;
+          })
+          .replace(/\n/g, ' ');
+      }
+
+      const STORE = 'smoke-runner-marks';
+      let state = null;
+      let marks = {};
+      const files = {};
+      try {
+        marks = JSON.parse(localStorage.getItem(STORE) || '{}');
+      } catch {
+        marks = {};
+      }
+      const saveMarks = () => {
+        try {
+          localStorage.setItem(STORE, JSON.stringify(marks));
+        } catch {
+          /* private window: marks live until reload */
+        }
+      };
+      const keyOf = (t) => `${state.checkout.short}:${t.anchor}`;
+      const markOf = (t) => (marks[keyOf(t)] ??= { scenarios: {}, findings: '' });
+
+      async function api(path, body, type = 'application/json') {
+        const res = await fetch(path, {
+          method: body === undefined ? 'GET' : 'POST',
+          headers: body === undefined ? {} : { 'content-type': type },
+          body:
+            body === undefined
+              ? undefined
+              : type === 'application/json'
+                ? JSON.stringify(body)
+                : body,
+        });
+        const json = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+        return json;
+      }
+
+      async function load() {
+        $('#status').textContent = 'Loading…';
+        try {
+          state = await api('/api/state');
+        } catch (e) {
+          $('#checkout').textContent = `Could not load: ${e.message}`;
+          $('#status').textContent = '';
+          return;
+        }
+        render();
+        $('#status').textContent = '';
+      }
+
+      function whereText(w) {
+        return w.kind === 'master' ? '(master)' : `(PR #${w.pr}, draft)`;
+      }
+
+      function render() {
+        const c = state.checkout;
+        $('#checkout').replaceChildren(
+          h('code', {}, c.short),
+          ' ',
+          c.onMaster ? "on master's tip" : c.pr ? `PR #${c.pr}, draft` : 'not on master',
+          c.dirty ? ', with uncommitted changes' : '',
+          h('span', { class: 'muted' }, ` · ${c.root}`),
+        );
+        const banners = [];
+        if (!state.key)
+          banners.push(
+            h(
+              'div',
+              { class: 'banner bad' },
+              'No Linear key, so nothing can be recorded. Create a personal API key in Linear (Settings, Security & access, Personal API keys), then either set ',
+              h('code', {}, 'LINEAR_API_KEY'),
+              ' or save it to ',
+              h('code', {}, '~/.config/gcscode/linear-api-key'),
+              ', and restart ',
+              h('code', {}, 'pnpm smoke'),
+              '.',
+            ),
+          );
+        for (const p of state.problems) banners.push(h('div', { class: 'banner bad' }, p));
+        if (state.notice) banners.push(h('div', { class: 'banner' }, state.notice));
+        if (!c.onMaster && c.worktree === null) {
+          const input = h('input', {
+            type: 'text',
+            inputmode: 'numeric',
+            placeholder: 'PR number',
+            value: c.pr ?? '',
+          });
+          banners.push(
+            h(
+              'div',
+              { class: 'banner' },
+              'This checkout holds PR #',
+              input,
+              ' ',
+              h(
+                'button',
+                {
+                  onclick: async () => {
+                    try {
+                      await api('/api/pr', { pr: Number(input.value) || null });
+                    } catch (e) {
+                      $('#status').textContent = e.message;
+                      return;
+                    }
+                    load();
+                  },
+                },
+                'Use it',
+              ),
+              state.openPrs.length
+                ? h(
+                    'span',
+                    { class: 'muted' },
+                    ` Open PRs with a row: ${state.openPrs.map((n) => `#${n}`).join(', ')}`,
+                  )
+                : '',
+            ),
+          );
+        }
+        $('#banners').replaceChildren(...banners);
+        $('#tests').replaceChildren(
+          ...(state.listed.length
+            ? state.listed.map(renderTest)
+            : [
+                h('p', { class: 'muted' }, 'Nothing is waiting for a smoke test in this checkout.'),
+              ]),
+        );
+        renderRun();
+        updateSubmit();
+      }
+
+      function renderTest(t) {
+        const card = h('section', { class: 'card', id: t.anchor });
+        const meta = h(
+          'div',
+          { class: 'meta' },
+          t.issue
+            ? h(
+                'a',
+                { href: t.issue.url, target: '_blank', rel: 'noreferrer' },
+                `${t.issue.identifier} · ${t.issue.state}`,
+              )
+            : h('span', {}, t.ticket ?? 'no ticket'),
+          ...t.prs.map((p) =>
+            h(
+              'span',
+              { class: `pill ${p.state === 'merged' ? 'good' : ''}` },
+              `PR #${p.number} `,
+              p.state === 'merged'
+                ? p.mergeCommit
+                  ? 'merged'
+                  : 'merged, commit not found'
+                : p.state,
+            ),
+          ),
+          t.closedWithoutTest ? h('span', { class: 'pill bad' }, 'closed without a test') : '',
+          h('span', { class: 'muted' }, `Needs: ${t.needs}`),
+        );
+        card.append(h('h2', {}, t.name), meta);
+        if (t.latest)
+          card.append(
+            h(
+              'p',
+              { class: 'muted' },
+              `Last result: ${t.latest.outcome} on ${t.latest.date}`,
+              t.latest.sha ? ` at ${t.latest.sha}` : '',
+              ` ${whereText(t.latest.where)}`,
+              t.latest.countedFrom ? `, counted from ${t.latest.countedFrom.sha}` : '',
+            ),
+          );
+        if (t.why) card.append(h('div', { class: 'banner' }, t.why));
+        if (t.count) card.append(renderCount(t));
+        const section = t.section;
+        if (!section) return card;
+        const recordable = Boolean(t.where) && state.key;
+        const m = markOf(t);
+        const ends = new Map(section.scenarios.map((s, i) => [s.to - 1, i]));
+        section.blocks.forEach((b, bi) => {
+          const scenarioHere = section.scenarios.findIndex((s) => s.from === bi);
+          if (scenarioHere !== -1 && section.scenarios[scenarioHere].name !== 'Start')
+            card.append(h('div', { class: 'scenario' }));
+          if (b.kind === 'code') {
+            card.append(
+              h(
+                'div',
+                { class: 'code' },
+                h('pre', {}, b.text),
+                h('button', { onclick: (e) => copy(b.text, e.target) }, 'Copy'),
+              ),
+            );
+          } else {
+            card.append(h('p', { html: inline(b.text) }));
+          }
+          if (ends.has(bi)) card.append(renderMarks(t, ends.get(bi), m, recordable));
+        });
+        if (recordable) {
+          const findings = h('textarea', {
+            placeholder:
+              'Note a finding: one per line. Each becomes a Backlog ticket related to this one.',
+          });
+          findings.value = m.findings;
+          findings.addEventListener('input', () => {
+            m.findings = findings.value;
+            saveMarks();
+          });
+          const picker = h('input', { type: 'file' });
+          picker.addEventListener('change', () => {
+            files[t.anchor] = picker.files[0] ?? null;
+          });
+          card.append(
+            h(
+              'div',
+              { class: 'extras' },
+              h('label', {}, h('strong', {}, 'Note a finding')),
+              findings,
+              h('label', {}, h('strong', {}, 'Attach recording '), picker),
+            ),
+          );
+        }
+        return card;
+      }
+
+      function renderMarks(t, i, m, recordable) {
+        const s = t.section.scenarios[i];
+        const cur = m.scenarios[i] ?? {};
+        const row = h('div', { class: 'marks' }, h('strong', {}, s.name));
+        const note = h('input', {
+          type: 'text',
+          placeholder: 'What went wrong?',
+          hidden: cur.mark !== 'fail',
+          value: cur.note ?? '',
+        });
+        note.addEventListener('input', () => {
+          (m.scenarios[i] ??= {}).note = note.value;
+          saveMarks();
+        });
+        for (const [mark, label] of [
+          ['pass', 'Pass'],
+          ['fail', 'Fail'],
+          ['not run', 'Not run'],
+        ]) {
+          row.append(
+            h(
+              'button',
+              {
+                'data-mark': mark,
+                'aria-pressed': String(cur.mark === mark),
+                disabled: !recordable,
+                onclick: (e) => {
+                  (m.scenarios[i] ??= {}).mark = mark;
+                  saveMarks();
+                  for (const b of row.querySelectorAll('button'))
+                    b.setAttribute('aria-pressed', String(b === e.target));
+                  note.hidden = mark !== 'fail';
+                  if (mark === 'fail') note.focus();
+                  updateSubmit();
+                },
+              },
+              label,
+            ),
+          );
+        }
+        row.append(note);
+        return row;
+      }
+
+      function renderCount(t) {
+        const box = h('div', { class: 'banner' });
+        box.append(
+          h(
+            'p',
+            {},
+            `A draft pass on ${t.count.from.date} at `,
+            h('code', {}, t.count.from.sha),
+            ` ${whereText(t.count.from.where)}. Commits after it, per PR:`,
+          ),
+        );
+        const list = h('ul');
+        for (const c of t.count.commits) {
+          list.append(
+            h(
+              'li',
+              {},
+              `PR #${c.pr}: `,
+              c.commits === null
+                ? "the pass's commit is not in this repository"
+                : c.commits.length
+                  ? h('ul', {}, ...c.commits.map((x) => h('li', {}, h('code', {}, x))))
+                  : 'none',
+            ),
+          );
+        }
+        box.append(
+          list,
+          h(
+            'button',
+            { onclick: () => start({ tests: [], counts: [t.anchor] }) },
+            'Count the draft pass',
+          ),
+          h('span', { class: 'muted' }, ' or run the test again below.'),
+        );
+        return box;
+      }
+
+      function collect() {
+        const tests = [];
+        const warnings = [];
+        for (const t of state.listed) {
+          if (!t.where || !t.section) continue;
+          const m = markOf(t);
+          const list = t.section.scenarios.map((_, i) => {
+            const s = m.scenarios[i];
+            return s?.mark ? { mark: s.mark, note: s.note ?? '' } : null;
+          });
+          const marked = list.some((x) => x && x.mark !== 'not run');
+          const findings = m.findings
+            .split('\n')
+            .map((x) => x.trim())
+            .filter(Boolean);
+          const file = files[t.anchor];
+          if (!marked) {
+            if (findings.length || file)
+              warnings.push(
+                `${t.name} has a finding or recording but no Pass or Fail, so it writes nothing.`,
+              );
+            continue;
+          }
+          const unnoted = list.some((x) => x?.mark === 'fail' && !x.note.trim());
+          if (unnoted)
+            warnings.push(`${t.name}: a failed scenario needs a line saying what went wrong.`);
+          tests.push({
+            anchor: t.anchor,
+            marks: list,
+            findings,
+            recording: file
+              ? { name: file.name, type: file.type || 'application/octet-stream', size: file.size }
+              : null,
+          });
+        }
+        return { tests, warnings };
+      }
+
+      function updateSubmit() {
+        const { tests } = collect();
+        const pending = state.run && !state.run.done;
+        $('#submit').disabled = !state.key || tests.length === 0 || pending;
+        $('#resend').hidden = !pending;
+        $('#discard').hidden = !pending;
+      }
+
+      async function start(body) {
+        const { warnings } = collect();
+        const blocking = warnings.filter((w) => w.includes('needs a line'));
+        if (body.tests.length && blocking.length) {
+          $('#status').textContent = blocking[0];
+          return;
+        }
+        try {
+          const res = await api('/api/run', body);
+          state.run = res.run;
+          if (res.skipped.length)
+            $('#status').textContent = `Nothing marked, nothing written: ${res.skipped.join(', ')}`;
+        } catch (e) {
+          $('#status').textContent = e.message;
+          return;
+        }
+        await pump();
+      }
+
+      async function pump() {
+        $('#submit').disabled = true;
+        $('#resend').hidden = true;
+        $('#discard').hidden = true;
+        $('#status').textContent = 'Writing to Linear…';
+        for (let ti = 0; ti < state.run.tests.length; ti++) {
+          for (;;) {
+            const t = state.run.tests[ti];
+            const wi = t.writes.findIndex((w) => w.status !== 'done');
+            if (wi === -1) break;
+            const w = t.writes[wi];
+            try {
+              let res;
+              if (w.kind === 'recording') {
+                const file = files[t.anchor];
+                if (!file)
+                  throw new Error(
+                    `Pick ${t.name}'s recording again, then press Send what did not land.`,
+                  );
+                res = await api(
+                  `/api/run/recording?test=${ti}&write=${wi}`,
+                  file,
+                  'application/octet-stream',
+                );
+              } else {
+                res = await api('/api/run/write', { test: ti, write: wi });
+              }
+              state.run = res.run;
+            } catch (e) {
+              w.status = 'failed';
+              w.error = e.message;
+            }
+            renderRun();
+            if (state.run.tests[ti].writes[wi].status !== 'done') break;
+          }
+        }
+        const done = state.run.done;
+        if (done) {
+          for (const t of state.run.tests) {
+            delete marks[`${state.checkout.short}:${t.anchor}`];
+            delete files[t.anchor];
+          }
+          saveMarks();
+          const run = state.run;
+          await load();
+          state.run = run;
+          renderRun();
+        }
+        $('#status').textContent = done
+          ? 'Done. Copy the line above into the project chat.'
+          : 'Some writes did not land: see above, then press Send what did not land.';
+        updateSubmit();
+      }
+
+      function renderRun() {
+        const run = state.run;
+        if (!run) return $('#results').replaceChildren();
+        const describe = (w) =>
+          w.kind === 'finding'
+            ? `Finding “${w.title}”${w.result ? `: ${w.result}` : ''}`
+            : w.kind === 'recording'
+              ? 'Recording'
+              : w.kind === 'comment'
+                ? 'Result comment'
+                : `Move to ${w.to}`;
+        const card = h('section', { class: 'card' }, h('h2', {}, 'This Submit'));
+        for (const t of run.tests) {
+          card.append(
+            h(
+              'p',
+              {},
+              h('strong', {}, `${t.name} (${t.ticket})`),
+              ` ${t.outcome} ${whereText(t.where)}`,
+            ),
+            h(
+              'ul',
+              { class: 'writes' },
+              ...t.writes.map((w) =>
+                h(
+                  'li',
+                  { class: w.status },
+                  `${w.status === 'done' ? '✓' : w.status === 'failed' ? '✗' : '○'} ${describe(w)}`,
+                  w.error ? `: ${w.error}` : '',
+                ),
+              ),
+            ),
+          );
+        }
+        card.append(
+          h('p', { class: 'muted' }, 'Paste this line into the project chat:'),
+          h(
+            'div',
+            { class: 'summary' },
+            h('code', {}, run.summary),
+            h('button', { onclick: (e) => copy(run.summary, e.target) }, 'Copy'),
+          ),
+        );
+        $('#results').replaceChildren(card);
+      }
+
+      async function copy(text, button) {
+        try {
+          await navigator.clipboard.writeText(text);
+          button.textContent = 'Copied';
+          setTimeout(() => (button.textContent = 'Copy'), 1500);
+        } catch {
+          button.textContent = 'Copy failed';
+        }
+      }
+
+      $('#submit').addEventListener('click', () => start({ tests: collect().tests, counts: [] }));
+      $('#resend').addEventListener('click', pump);
+      // Drops the unsent writes so a new Submit can start; what landed stays in Linear.
+      $('#discard').addEventListener('click', async () => {
+        try {
+          await api('/api/run', { discard: true });
+        } catch (e) {
+          $('#status').textContent = e.message;
+          return;
+        }
+        state.run = null;
+        $('#status').textContent = 'Discarded: what had not landed was not sent.';
+        await load();
+      });
+      load();
+    </script>
+  </body>
+</html>

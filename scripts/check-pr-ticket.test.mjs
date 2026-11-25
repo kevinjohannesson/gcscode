@@ -2,7 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { checkPrTicket, playbookTickets, prClass, run, stripFences } from './check-pr-ticket.mjs';
+import {
+  checkPrTicket,
+  playbookTickets,
+  prClass,
+  run,
+  stripFences,
+  ticketEntries,
+} from './check-pr-ticket.mjs';
 
 const playbook = `# Smoke tests
 
@@ -94,12 +101,24 @@ test('Part of keeps the ID out of the title and the branch', () => {
   assert.deepEqual(check({ title: 'GCS-170: other', body: '- Ticket: Part of GCS-17' }), []);
 });
 
-test('Related to links a smoke-tested ticket without closing it, and keeps its ID out of the title', () => {
-  assert.deepEqual(check({ labels: ['docs'], body: '- Ticket: Related to GCS-17' }), []);
-  assert.deepEqual(
-    check({ title: 'GCS-17 row runs from master', body: '- Ticket: Related to GCS-17' }),
-    ['Take GCS-17 out of the title: Linear closes it on merge.'],
-  );
+test('Related to fails for a smoke-tested ticket and passes for any other', () => {
+  const related17 =
+    'GCS-17 has a smoke test in docs/smoke-tests.md, so its PRs name it with "Part of GCS-17", not "Related to": a PR that changes neither its code nor its test leaves it off the line.';
+  assert.deepEqual(check({ labels: ['docs'], body: '- Ticket: Related to GCS-17' }), [related17]);
+  assert.deepEqual(check({ body: '- Ticket: Part of GCS-42, related to GCS-17' }), [related17]);
+  assert.deepEqual(check({ body: '- Ticket: Related to GCS-42' }), []);
+  assert.deepEqual(check({ title: 'GCS-42 tidy', body: '- Ticket: Related to GCS-42' }), [
+    'Take GCS-42 out of the title: Linear closes it on merge.',
+  ]);
+});
+
+test('ticketEntries reads every entry on the Ticket line, outside fences', () => {
+  assert.deepEqual(ticketEntries('## Links\n\n- **Ticket:** Part of GCS-16, Fixes GCS-2\n'), [
+    { word: 'Part of', n: 16 },
+    { word: 'Fixes', n: 2 },
+  ]);
+  assert.deepEqual(ticketEntries('```\n- Ticket: Part of GCS-16\n```\n'), []);
+  assert.deepEqual(ticketEntries(null), []);
 });
 
 test('a malformed ticket line fails with what it expected', () => {

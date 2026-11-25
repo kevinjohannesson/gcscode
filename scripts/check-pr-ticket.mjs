@@ -13,11 +13,14 @@
 //
 // A ticket with a row in the smoke-test playbook's table (`docs/smoke-tests.md`)
 // waits for its smoke test, so a merge must not close it: its PR links it with
-// `Part of` (or `Related to`, for a PR that changes neither code nor what a test
-// checks), no closing word anywhere in the body names it, and no PR names it in
-// its title or branch. Linear closes a ticket on merge when its ID is in the
-// title or branch, or follows a closing word in the body. A ticket the line
-// links without closing stays out of the title and branch for the same reason.
+// `Part of`, never `Related to`, no closing word anywhere in the body names it,
+// and no PR names it in its title or branch. A PR that changes neither code nor
+// what a test checks leaves the row's ticket off its line (`Ticket: none` for a
+// docs PR). Spec: docs/specs/2026-11-24-smoke-test-runner.md.
+//
+// Linear closes a ticket on merge when its ID is in the title or branch, or
+// follows a closing word in the body. A ticket the line links without closing
+// stays out of the title and branch for the same reason.
 //
 // auto-merge's Gate 7 runs it too, from the base branch, just before merging,
 // with PR_NUMBER and the head's playbook, since a label or body change re-runs
@@ -57,6 +60,22 @@ export function stripFences(body) {
   // An unclosed fence quotes nothing: GitHub would show the rest as code, but
   // the safe reading is to check it.
   return fence === null ? kept.join('\n') : body;
+}
+
+/**
+ * The entries on a PR body's `Ticket:` lines, outside fenced code blocks.
+ * @param {string | null} body
+ * @returns {{ word: string, n: number }[]} e.g. `{ word: 'Part of', n: 16 }`
+ */
+export function ticketEntries(body) {
+  const entries = [];
+  for (const [, line] of stripFences(body ?? '').matchAll(TICKET_LINE)) {
+    for (const entry of line.trim().split(/\s*,\s*/)) {
+      const m = ENTRY.exec(entry);
+      if (m) entries.push({ word: m[1], n: Number(m[2]) });
+    }
+  }
+  return entries;
 }
 
 /**
@@ -139,6 +158,11 @@ export function checkPrTicket({ title, body, branch, labels, playbook }) {
       if (closes && waiting.has(n)) {
         problems.push(
           `GCS-${n} has a smoke test in docs/smoke-tests.md, so a merge must not close it: write "Part of GCS-${n}".`,
+        );
+      }
+      if (/^related to$/i.test(m[1]) && waiting.has(n)) {
+        problems.push(
+          `GCS-${n} has a smoke test in docs/smoke-tests.md, so its PRs name it with "Part of GCS-${n}", not "Related to": a PR that changes neither its code nor its test leaves it off the line.`,
         );
       }
       if (!closes) keepOut.add(n);
