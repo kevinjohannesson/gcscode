@@ -44,6 +44,8 @@ fn args() -> Result<Args, String> {
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            // pnpm passes the `--` of `pnpm start -- <args>` on to the probe.
+            "--" => {}
             "--mapped" => mapped = true,
             "--record" => record = Some(args.next().ok_or(USAGE)?),
             "--replay" => {
