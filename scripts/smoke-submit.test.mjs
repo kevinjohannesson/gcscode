@@ -98,11 +98,13 @@ async function sendAll(run, deps) {
 }
 
 test('nextState follows the Submit table', () => {
-  assert.equal(nextState('passed', { kind: 'master' }), 'Done');
-  assert.equal(nextState('passed', { kind: 'draft', pr: 1 }), null);
-  assert.equal(nextState('failed', { kind: 'master' }), 'In Progress');
-  assert.equal(nextState('failed', { kind: 'draft', pr: 1 }), 'In Progress');
-  assert.equal(nextState('partly run', { kind: 'master' }), null);
+  assert.equal(nextState('passed', { kind: 'master' }, false), 'Done');
+  assert.equal(nextState('passed', { kind: 'master' }, true), null);
+  assert.equal(nextState('passed', { kind: 'draft', pr: 1 }, false), null);
+  assert.equal(nextState('failed', { kind: 'master' }, false), 'In Progress');
+  assert.equal(nextState('failed', { kind: 'master' }, true), 'In Progress');
+  assert.equal(nextState('failed', { kind: 'draft', pr: 1 }, false), 'In Progress');
+  assert.equal(nextState('partly run', { kind: 'master' }, false), null);
 });
 
 test('a pass on master writes findings, recording, comment, then Done, in that order', async () => {
@@ -369,5 +371,18 @@ test('a counted draft pass is never "with uncommitted changes", whatever this ch
   assert.match(
     linear.calls[0][2],
     /\*\*Smoke test passed\*\* on 2026-11-24 at `abc1234` \(master\)\n/,
+  );
+  assert.deepEqual(linear.calls[1], ['move', 'issue-13', 's-done']);
+});
+
+test('a pass on master with uncommitted changes is recorded but leaves the ticket open', () => {
+  const { run } = planRun({
+    listed: [listedOf({ kind: 'master' })],
+    tests: [{ anchor: 'radio-probe', marks: [{ mark: 'pass' }, { mark: 'pass' }] }],
+    context: { ...context, dirty: true },
+  });
+  assert.deepEqual(
+    run.tests[0].writes.map((w) => w.kind),
+    ['comment'],
   );
 });

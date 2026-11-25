@@ -75,7 +75,7 @@ It needs a Linear personal API key (Linear, Settings, Security & access, Persona
 
 For each test, run its steps and mark each scenario **Pass**, **Fail** with a line on what went wrong, or **Not run**. Put anything else you noticed in **Note a finding**, one per line, and attach a screen recording if you made one. **Submit** then writes to each marked test's ticket:
 
-- every scenario passed: a "Smoke test passed" comment, and on merged code the ticket moves to Done;
+- every scenario passed: a "Smoke test passed" comment, and on merged code the ticket moves to Done, unless the checkout had uncommitted changes, which the comment notes and which leaves the ticket where it is;
 - any scenario failed: a "Smoke test failed" comment with your notes, and the ticket moves to In Progress;
 - some passed, the rest not run: a "Smoke test partly run" comment, and the ticket stays where it is.
 

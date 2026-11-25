@@ -135,12 +135,12 @@ export function latestResult(comments) {
 }
 
 /**
- * Whether a result lets its ticket stay Done: a pass on merged code, or a
- * counted draft pass.
+ * Whether a result lets its ticket stay Done: a pass on merged code from a
+ * clean checkout, or a counted draft pass.
  * @param {Result | null} r
  */
 export function provenOnMaster(r) {
-  return r !== null && r.outcome === 'passed' && r.where.kind === 'master';
+  return r !== null && r.outcome === 'passed' && r.where.kind === 'master' && !r.dirty;
 }
 
 /**

@@ -240,3 +240,18 @@ test('a note keeps to its scenario’s line', () => {
     ],
   );
 });
+
+test('a pass with uncommitted changes does not prove master', () => {
+  const r = parseResult(
+    renderComment({
+      outcome: 'passed',
+      date: '2026-11-25',
+      sha: 'abc1234',
+      where: { kind: 'master' },
+      dirty: true,
+      scenarios: [{ name: 'Start', mark: 'pass' }],
+    }),
+  );
+  assert.equal(r?.dirty, true);
+  assert.equal(provenOnMaster(r), false);
+});

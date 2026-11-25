@@ -30,10 +30,13 @@ const MARKS = ['pass', 'fail', 'not run'];
  * The state a result moves its ticket to, or null to leave it.
  * @param {import('./result.mjs').Outcome} o
  * @param {import('./result.mjs').Where} where
+ * @param {boolean} dirty the run's checkout had uncommitted changes
  */
-export function nextState(o, where) {
+export function nextState(o, where, dirty) {
   if (o === 'failed') return 'In Progress';
-  if (o === 'passed' && where.kind === 'master') return 'Done';
+  // A pass with uncommitted changes did not test master as it is: it is
+  // recorded but closes nothing (the owner's call on PR #112).
+  if (o === 'passed' && where.kind === 'master' && !dirty) return 'Done';
   return null;
 }
 
@@ -92,6 +95,7 @@ export function planRun({ listed, tests, counts = [], context }) {
         l,
         { outcome: o, where, scenarios, recording: t.recording ?? null, countedFrom: null },
         findings,
+        context.dirty,
       ),
     );
   }
@@ -112,19 +116,20 @@ export function planRun({ listed, tests, counts = [], context }) {
           countedFrom: { sha: /** @type {string} */ (from.sha), pr: draft.pr },
         },
         [],
+        false,
       ),
     );
   }
   return { run, skipped };
 }
 
-function testRun(l, r, findings) {
+function testRun(l, r, findings, dirty) {
   const issue = /** @type {import('./linear.mjs').Issue} */ (l.issue);
   /** @type {Write[]} */
   const writes = findings.map((title) => ({ kind: 'finding', title, status: 'pending' }));
   if (r.recording) writes.push({ kind: 'recording', status: 'pending' });
   writes.push({ kind: 'comment', status: 'pending' });
-  const to = nextState(r.outcome, r.where);
+  const to = nextState(r.outcome, r.where, dirty);
   if (to && issue.state.name !== to) writes.push({ kind: 'state', to, status: 'pending' });
   return {
     anchor: l.row.anchor,
