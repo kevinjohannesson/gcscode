@@ -189,7 +189,10 @@ test('a Submit through the server writes the comment and moves the ticket', asyn
     async move(issueId, stateId) {
       calls.push(['move', issueId, stateId]);
     },
-    async finding() {
+    async createFinding() {
+      throw new Error('no findings here');
+    },
+    async relate() {
       throw new Error('no findings here');
     },
     async uploadTarget({ size }) {
@@ -277,4 +280,33 @@ test('a Submit through the server writes the comment and moves the ticket', asyn
     ['comment', 'issue-GCS-40', `**Smoke test passed** on 2026-11-24 at \`fffffff\` (master)`],
     ['move', 'issue-GCS-40', 's-done'],
   ]);
+});
+
+test('a Submit is refused when the checkout turned dirty or master moved since the page loaded', async () => {
+  for (const change of ['dirty', 'master']) {
+    let changed = false;
+    const base = fakeGit();
+    const git = (args) => {
+      const a = args.join(' ');
+      if (changed && change === 'dirty' && a === 'status --porcelain') return ' M x\n';
+      if (changed && change === 'master' && a === 'rev-parse origin/master')
+        return `${'e'.repeat(40)}\n`;
+      return base(args);
+    };
+    const linear = { issue: async () => null };
+    await withServer({ git, linear }, async () => {
+      assert.equal((await call({ path: '/api/state' })).status, 200);
+      changed = true;
+      const res = await call({
+        method: 'POST',
+        path: '/api/run',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ tests: [] }),
+      });
+      assert.equal(res.status, 409, change);
+      assert.deepEqual(JSON.parse(res.text), {
+        error: 'The checkout or master changed since the page loaded: reload it.',
+      });
+    });
+  }
 });

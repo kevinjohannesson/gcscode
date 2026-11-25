@@ -5,11 +5,13 @@
 
 import { outcome, renderComment, summaryLine } from './result.mjs';
 
+const MARKS = ['pass', 'fail', 'not run'];
+
 /**
  * @typedef {import('./listing.mjs').Listed} Listed
  * @typedef {import('./result.mjs').Mark} Mark
  * @typedef {{ kind: 'finding', title: string } | { kind: 'recording' } | { kind: 'comment' } | { kind: 'state', to: string }} WriteKind
- * @typedef {WriteKind & { status: 'pending' | 'done' | 'failed', error?: string, result?: string }} Write
+ * @typedef {WriteKind & { status: 'pending' | 'done' | 'failed', error?: string, result?: string, created?: { id: string, identifier: string } }} Write
  * @typedef {object} TestRun
  * @property {string} anchor
  * @property {string} name
@@ -67,6 +69,11 @@ export function planRun({ listed, tests, counts = [], context }) {
       throw new Error(
         `${l.row.name} has ${section.scenarios.length} scenarios, not ${t.marks.length}.`,
       );
+    }
+    for (const m of t.marks) {
+      if (m?.mark !== undefined && !MARKS.includes(m.mark)) {
+        throw new Error(`${l.row.name}: "${m.mark}" is not pass, fail or not run.`);
+      }
     }
     const scenarios = section.scenarios.map((s, i) => ({
       name: s.name,
@@ -169,14 +176,17 @@ export async function runWrite(run, testIndex, writeIndex, deps) {
   try {
     if (w.kind === 'finding') {
       const where = test.where.kind === 'master' ? 'master' : `PR #${test.where.pr}, a draft`;
-      w.result = await deps.linear.finding({
+      // A ticket created before its relation failed is kept, so a resend
+      // relates it rather than creating it twice.
+      w.created ??= await deps.linear.createFinding({
         teamId: test.issue.team.id,
         projectId: test.issue.projectId,
         stateId: stateId(test.issue, 'Backlog'),
         title: w.title,
         description: `Found during the smoke test of ${test.name} (${test.ticket}) at \`${run.short}\` (${where}), on ${run.date}.`,
-        relatedTo: test.issue.id,
       });
+      await deps.linear.relate(w.created.id, test.issue.id);
+      w.result = w.created.identifier;
     } else if (w.kind === 'recording') {
       if (!deps.upload || !test.recording) throw new Error('The recording comes as an upload.');
       const target = await deps.linear.uploadTarget({

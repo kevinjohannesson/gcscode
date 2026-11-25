@@ -89,20 +89,23 @@ export function linearClient(key, fetchImpl) {
     },
 
     /**
-     * Creates a finding and relates it to the rung's ticket.
-     * @returns {Promise<string>} the new ticket's identifier
+     * Creates a finding's ticket.
+     * @returns {Promise<{ id: string, identifier: string }>}
      */
-    async finding({ teamId, projectId, stateId, title, description, relatedTo }) {
+    async createFinding({ teamId, projectId, stateId, title, description }) {
       const data = await call(
         `mutation($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id identifier } } }`,
         { input: { teamId, title, description, stateId, ...(projectId ? { projectId } : {}) } },
       );
-      const created = data.issueCreate.issue;
+      return data.issueCreate.issue;
+    },
+
+    /** Relates a finding's ticket to the rung's. */
+    async relate(issueId, relatedIssueId) {
       await call(
         `mutation($input: IssueRelationCreateInput!) { issueRelationCreate(input: $input) { success } }`,
-        { input: { issueId: created.id, relatedIssueId: relatedTo, type: 'related' } },
+        { input: { issueId, relatedIssueId, type: 'related' } },
       );
-      return created.identifier;
     },
 
     /**

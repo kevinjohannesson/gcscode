@@ -59,10 +59,15 @@ function fakeLinear({ failOnce = new Set() } = {}) {
   };
   return {
     calls,
-    async finding(input) {
-      calls.push(['finding', input]);
-      maybeFail('finding');
-      return `GCS-${n++}`;
+    async createFinding(input) {
+      calls.push(['createFinding', input]);
+      maybeFail('createFinding');
+      const k = n++;
+      return { id: `new-${k}`, identifier: `GCS-${k}` };
+    },
+    async relate(issueId, relatedTo) {
+      calls.push(['relate', issueId, relatedTo]);
+      maybeFail('relate');
     },
     async uploadTarget(input) {
       calls.push(['uploadTarget', input]);
@@ -122,7 +127,7 @@ test('a pass on master writes findings, recording, comment, then Done, in that o
   await sendAll(run, { linear, upload: async (t) => uploads.push(t.uploadUrl) });
   assert.deepEqual(
     linear.calls.map((c) => c[0]),
-    ['finding', 'finding', 'uploadTarget', 'comment', 'move'],
+    ['createFinding', 'relate', 'createFinding', 'relate', 'uploadTarget', 'comment', 'move'],
   );
   assert.deepEqual(uploads, ['https://upload']);
   assert.deepEqual(linear.calls[0][1], {
@@ -132,15 +137,15 @@ test('a pass on master writes findings, recording, comment, then Done, in that o
     title: 'The bars flicker',
     description:
       'Found during the smoke test of Radio probe (GCS-13) at `abc1234` (master), on 2026-11-24.',
-    relatedTo: 'issue-13',
   });
-  assert.deepEqual(linear.calls[2][1], {
+  assert.deepEqual(linear.calls[1], ['relate', 'new-200', 'issue-13']);
+  assert.deepEqual(linear.calls[4][1], {
     contentType: 'video/quicktime',
     filename: 'run.mov',
     size: 10,
   });
   assert.equal(
-    linear.calls[3][2],
+    linear.calls[5][2],
     `<!-- smoke-test-result v1 -->
 
 **Smoke test passed** on 2026-11-24 at \`abc1234\` (master)
@@ -152,7 +157,7 @@ Recording: [run.mov](https://asset/run.mov)
 
 Findings: GCS-200, GCS-201`,
   );
-  assert.deepEqual(linear.calls[4], ['move', 'issue-13', 's-done']);
+  assert.deepEqual(linear.calls[6], ['move', 'issue-13', 's-done']);
   assert.equal(
     runSummary(run),
     'Smoke run 2026-11-24 at `abc1234` (master): passed Radio probe (GCS-13); findings GCS-200, GCS-201.',
@@ -241,7 +246,7 @@ test('a failed write stops its test, and a second send runs only what did not la
   await sendAll(run, { linear });
   assert.deepEqual(
     linear.calls.map((c) => c[0]),
-    ['finding', 'comment', 'comment', 'move'],
+    ['createFinding', 'relate', 'comment', 'comment', 'move'],
   );
   assert.ok(run.tests[0].writes.every((w) => w.status === 'done'));
 });
@@ -309,5 +314,36 @@ test('planRun refuses tests that cannot take a result here', () => {
         context,
       }),
     /no draft pass to count/,
+  );
+});
+
+test('a finding whose relation failed is related on resend, not created twice', async () => {
+  const { run } = planRun({
+    listed: [listedOf({ kind: 'master' })],
+    tests: [
+      { anchor: 'radio-probe', marks: [{ mark: 'pass' }, { mark: 'pass' }], findings: ['f'] },
+    ],
+    context,
+  });
+  const linear = fakeLinear({ failOnce: new Set(['relate']) });
+  await sendAll(run, { linear });
+  assert.equal(run.tests[0].writes[0].status, 'failed');
+  await sendAll(run, { linear });
+  assert.deepEqual(
+    linear.calls.map((c) => c[0]),
+    ['createFinding', 'relate', 'relate', 'comment', 'move'],
+  );
+  assert.equal(run.tests[0].writes[0].result, 'GCS-200');
+});
+
+test('planRun refuses a mark that is not pass, fail or not run', () => {
+  assert.throws(
+    () =>
+      planRun({
+        listed: [listedOf({ kind: 'master' })],
+        tests: [{ anchor: 'radio-probe', marks: [{ mark: 'passed' }, null] }],
+        context,
+      }),
+    /Radio probe: "passed" is not pass, fail or not run/,
   );
 });

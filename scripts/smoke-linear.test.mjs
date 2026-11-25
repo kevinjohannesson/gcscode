@@ -80,15 +80,16 @@ test('a finding is created in Backlog and related to the rung’s ticket', async
     },
     { json: { data: { issueRelationCreate: { success: true } } } },
   ]);
-  const id = await linearClient('k', f.fn).finding({
+  const linear = linearClient('k', f.fn);
+  const created = await linear.createFinding({
     teamId: 't',
     projectId: null,
     stateId: 'backlog',
     title: 'Bars flicker',
     description: 'd',
-    relatedTo: 'rung',
   });
-  assert.equal(id, 'GCS-120');
+  assert.deepEqual(created, { id: 'new', identifier: 'GCS-120' });
+  await linear.relate('new', 'rung');
   assert.deepEqual(f.calls[0].body.variables.input, {
     teamId: 't',
     title: 'Bars flicker',

@@ -246,9 +246,18 @@ export function smokeServer(deps) {
       if (run && !runView(run).done) {
         throw new HttpError(409, 'The last Submit has writes still to send: send them first.');
       }
-      const head = deps.git(['rev-parse', 'HEAD']).trim();
-      if (head !== last.checkout.head) {
-        throw new HttpError(409, 'HEAD moved since the page loaded: reload it.');
+      // The comment records HEAD, the dirty flag and whether HEAD is master's
+      // tip as the page showed them, so each must still hold.
+      const now = readCheckout(deps.git);
+      if (
+        now.head !== last.checkout.head ||
+        now.dirty !== last.checkout.dirty ||
+        now.master !== last.checkout.master
+      ) {
+        throw new HttpError(
+          409,
+          'The checkout or master changed since the page loaded: reload it.',
+        );
       }
       try {
         const planned = planRun({

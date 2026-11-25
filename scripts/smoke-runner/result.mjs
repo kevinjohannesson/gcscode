@@ -62,7 +62,9 @@ export function renderComment(r) {
   ];
   for (const s of r.scenarios) {
     const mark = s.mark ?? 'not run';
-    const note = mark === 'fail' && s.note?.trim() ? `. ${s.note.trim()}` : '';
+    // One line per scenario: a note's own line breaks would read as more scenarios.
+    const text = s.note?.replace(/\s+/g, ' ').trim();
+    const note = mark === 'fail' && text ? `. ${text}` : '';
     lines.push(`- ${s.name}: ${mark}${note}`);
   }
   const tail = [];

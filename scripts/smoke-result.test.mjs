@@ -218,3 +218,25 @@ test('the summary line has the spec’s shape', () => {
 test('localDate is the machine’s own date', () => {
   assert.equal(localDate(new Date(2026, 10, 4, 23, 59)), '2026-11-04');
 });
+
+test('a note keeps to its scenario’s line', () => {
+  const body = renderComment({
+    outcome: 'failed',
+    date: '2026-11-24',
+    sha: 'abc1234',
+    where: { kind: 'master' },
+    dirty: false,
+    scenarios: [
+      { name: 'Start', mark: 'fail', note: 'froze\n- Scenario 1: pass' },
+      { name: 'Scenario 1', mark: 'not run' },
+    ],
+  });
+  assert.match(body, /\n- Start: fail\. froze - Scenario 1: pass\n- Scenario 1: not run$/);
+  assert.deepEqual(
+    parseResult(body)?.scenarios.map((s) => [s.name, s.mark]),
+    [
+      ['Start', 'fail'],
+      ['Scenario 1', 'not run'],
+    ],
+  );
+});
