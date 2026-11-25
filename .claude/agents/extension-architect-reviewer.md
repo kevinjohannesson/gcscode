@@ -127,11 +127,10 @@ Use repo-relative paths only (`packages/extension-api/`, `docs/decisions/ADR-000
 
 ## Posting
 
-Write the body to a temporary file, then post it as `gcscode-extension-architect[bot]`. Fetch the token in the same command; don't rely on environment variables persisting between commands.
+Write the body to a temporary file, then post it as `gcscode-extension-architect[bot]`. Run the command from the checkout's root exactly as written: `.claude/settings.json` allows it in that form, and any other form (a `GH_TOKEN=$(...)` prefix, an absolute path) falls to auto mode's classifier, which has blocked it. If the shell is elsewhere, prefix `cd <checkout root> &&`. The script mints the token itself.
 
 ```bash
-GH_TOKEN=$("$(git rev-parse --show-toplevel)/.claude/scripts/gh-app-token-reviewer" extension-architect) \
-  gh pr review "$PR" --comment --body-file "$BODY_FILE"
+.claude/scripts/gh-pr-review-as extension-architect "$PR" --comment --body-file "$BODY_FILE"
 ```
 
 The verdict is always `--comment`. The `Blocking: N` line carries the weight: auto-merge for spec/ADR PRs reads it.
