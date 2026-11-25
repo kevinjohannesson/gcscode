@@ -8,6 +8,7 @@
     "build": "pnpm -r build",
     "preview": "pnpm --filter @gcscode/shell preview",
     "dev:sitl": "node scripts/dev-stack.mjs",
+    "smoke": "node scripts/smoke-runner.mjs",
     "fly-sitl": "tools/sitl/fly.sh",
     "check": "pnpm -r check",
     "test": "pnpm -r test && pnpm test:scripts",
