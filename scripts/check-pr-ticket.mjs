@@ -16,9 +16,11 @@
 // `Part of`, never `Related to`, no closing word anywhere in the body names it,
 // and no PR names it in its title or branch. A PR that changes neither code nor
 // what a test checks leaves the row's ticket off its line (`Ticket: none` for a
-// docs PR). Spec: docs/specs/2026-11-24-smoke-test-runner.md. Linear closes a ticket on merge when its ID is in the
-// title or branch, or follows a closing word in the body. A ticket the line
-// links without closing stays out of the title and branch for the same reason.
+// docs PR). Spec: docs/specs/2026-11-24-smoke-test-runner.md.
+//
+// Linear closes a ticket on merge when its ID is in the title or branch, or
+// follows a closing word in the body. A ticket the line links without closing
+// stays out of the title and branch for the same reason.
 //
 // auto-merge's Gate 7 runs it too, from the base branch, just before merging,
 // with PR_NUMBER and the head's playbook, since a label or body change re-runs
