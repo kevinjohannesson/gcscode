@@ -449,6 +449,34 @@ cd packages/mavlink-station && cargo test --test replay -- --nocapture
 
 **Expect:** a `… ticks matched` line for `adv-replug-deflected.jsonl`, `adv-sweep.jsonl` and the synthetic recording, and the test passes.
 
+## Smoke test runner
+
+**Goal:** `pnpm smoke` lists the tests waiting for a smoke test, records each result as a comment on its Linear ticket, moves the ticket as the result says, turns findings into tickets, and gives one line to paste into the project chat. Run it together with the Controls view retest, which it records.
+
+Needs a Linear key and `gh` signed in ([Recording results](#recording-results)). In the main checkout on master's tip, start the runner (**runs until Ctrl-C**):
+
+```sh
+pnpm smoke
+```
+
+**Expect:** the page opens at `http://127.0.0.1:5180/` and shows the checkout's commit "on master's tip". It lists Controls view with GCS-40 in Smoke Test and its earlier failed result, and this test with GCS-114, and no test whose last result passed on master.
+
+**Scenario 1, record the Controls view retest:** run [Controls view](#controls-view), marking each of its scenarios as you go, attach its screen recording, and press **Submit**. **Expect:** each write ticks off. GCS-40 has a comment that opens "Smoke test passed on <today> at `<commit>` (master)" (or failed, with your notes), lists every scenario of the test with its result and links the recording, and GCS-40 is Done (In Progress if it failed). The page shows a line that starts `Smoke run <today> at`, and **Copy** puts it on the clipboard.
+
+**Scenario 2, only its own page:** in a second terminal, ask as another site would:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: example.com' http://127.0.0.1:5180/api/state
+```
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: text/plain' -d x http://127.0.0.1:5180/api/run
+```
+
+**Expect:** `403`, then `415`.
+
+**Scenario 3, a finding and this test's own result:** in this test's **Note a finding**, write `Smoke runner finding check, close me`. Mark Start and scenarios 1 and 2 as you saw them, and this one Pass, then press **Submit**. **Expect:** a new Backlog ticket with that title, related to GCS-114, whose ID the summary line lists under findings, and on GCS-114 a "Smoke test passed" comment listing the finding. GCS-114 is Done. If any of this is not so, record this test again with scenario 3 failed. Cancel the finding's ticket afterwards.
+
 ## Adding a test
 
 Add a row to the table and a section in this shape, in the order the rungs land:
