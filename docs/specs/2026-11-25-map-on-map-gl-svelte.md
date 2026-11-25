@@ -69,6 +69,8 @@ Click rule 1 and the layers-on-top rule still rest on convention for the bridge'
 - **The library's private reads.** `Layer` and `Source` read `map.style._loaded`, which a MapLibre upgrade can remove, and the port is pinned to react-maplibre 8.1.3. The out-of-scope row below is the trigger to revisit.
 - **Mount order without the library's context.** Registered layers mount beside the library's `Map` and wait for its ref, so a layer may mount before the map exists, as it can today before `onMount`. The context stays a getter that returns `null` until the map exists, as today, and P7's test covers a layer that mounts first.
 - **The command's name** is the builder's.
+- **Which set the set time names** (PR #110 RT-14). The map sets its one source whole, so the time of the last set moves for every feature, and set time minus arrival time would be P1's latency only for the vehicle that caused that set. GCS-62's PR defines the set time as when the map first set the feature with its current arrival time, which a later set repeating it leaves unchanged.
+- **Logging the start-up failure** (PR #110 RT-15). With `onError` set, the library does not log the start-up throw, which carries the browser's reason for refusing a WebGL context. The migration PR logs it as well as showing the notice, and its done line adds that a start-up failure shows the notice and a failed tile request on a running map is logged without one.
 
 ## Delivery
 
