@@ -37,13 +37,19 @@ export function mergeCommits(git, ref) {
 /**
  * The checkout's state.
  * @param {Git} git
- * @returns {{ root: string, head: string, short: string, dirty: boolean, master: string, behindMaster: number | null, merges: Map<number, string> }}
+ * @returns {{ root: string, head: string, short: string, dirty: boolean, master: string, behindMaster: number | null, merges: Map<number, string>, fetchError: string | null }}
+ *   `fetchError`: why `git fetch origin master` failed, when it did; master is then the last one fetched
  *   `behindMaster`: how many commits HEAD is behind master when it is an
  *   older commit of master, 0 on its tip, null when not on master at all
  */
 export function readCheckout(git) {
   const root = git(['rev-parse', '--show-toplevel']).trim();
-  git(['fetch', '--quiet', 'origin', 'master']);
+  let fetchError = null;
+  try {
+    git(['fetch', '--quiet', 'origin', 'master']);
+  } catch (e) {
+    fetchError = (e instanceof Error ? e.message : String(e)).split('\n')[0];
+  }
   const head = git(['rev-parse', 'HEAD']).trim();
   const master = git(['rev-parse', 'origin/master']).trim();
   const dirty = git(['status', '--porcelain']).trim() !== '';
@@ -55,6 +61,7 @@ export function readCheckout(git) {
     master,
     behindMaster: behind(git, head, master),
     merges: mergeCommits(git, 'origin/master'),
+    fetchError,
   };
 }
 

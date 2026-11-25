@@ -253,6 +253,7 @@
       <div>
         <button id="submit" class="primary" disabled>Submit</button>
         <button id="resend" hidden>Send what did not land</button>
+        <button id="discard" hidden>Discard this Submit</button>
         <span id="status" class="muted"></span>
       </div>
     </div>
@@ -387,7 +388,12 @@
                 'button',
                 {
                   onclick: async () => {
-                    await api('/api/pr', { pr: Number(input.value) || null });
+                    try {
+                      await api('/api/pr', { pr: Number(input.value) || null });
+                    } catch (e) {
+                      $('#status').textContent = e.message;
+                      return;
+                    }
                     load();
                   },
                 },
@@ -631,6 +637,7 @@
         const pending = state.run && !state.run.done;
         $('#submit').disabled = !state.key || tests.length === 0 || pending;
         $('#resend').hidden = !pending;
+        $('#discard').hidden = !pending;
       }
 
       async function start(body) {
@@ -655,6 +662,7 @@
       async function pump() {
         $('#submit').disabled = true;
         $('#resend').hidden = true;
+        $('#discard').hidden = true;
         $('#status').textContent = 'Writing to Linear…';
         for (let ti = 0; ti < state.run.tests.length; ti++) {
           for (;;) {
@@ -763,6 +771,18 @@
 
       $('#submit').addEventListener('click', () => start({ tests: collect().tests, counts: [] }));
       $('#resend').addEventListener('click', pump);
+      // Drops the unsent writes so a new Submit can start; what landed stays in Linear.
+      $('#discard').addEventListener('click', async () => {
+        try {
+          await api('/api/run', { discard: true });
+        } catch (e) {
+          $('#status').textContent = e.message;
+          return;
+        }
+        state.run = null;
+        $('#status').textContent = 'Discarded: what had not landed was not sent.';
+        await load();
+      });
       load();
     </script>
   </body>

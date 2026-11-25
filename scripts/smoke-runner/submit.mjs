@@ -223,7 +223,8 @@ export function commentFor(run, test) {
     date: run.date,
     sha: run.short,
     where: test.where,
-    dirty: run.dirty,
+    // A counted pass ran on the draft's commit, not in this checkout.
+    dirty: test.countedFrom ? false : run.dirty,
     scenarios: test.scenarios,
     recording:
       rec && test.recording

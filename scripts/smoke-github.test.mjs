@@ -21,7 +21,13 @@ test('rowPrs takes the row’s PR and the PRs that say Part of its ticket, witho
     calls.push(args.join(' '));
     if (args[1] === 'view') return JSON.stringify(bodies[Number(args[2])]);
     return JSON.stringify([
-      { number: 90, state: 'OPEN', title: 'follow-up', body: '- Ticket: Part of GCS-16' },
+      {
+        number: 90,
+        state: 'OPEN',
+        title: 'follow-up',
+        body: '- Ticket: Part of GCS-16',
+        baseRefName: 'stack',
+      },
       { number: 91, state: 'CLOSED', title: 'abandoned', body: '- Ticket: Part of GCS-16' },
       { number: 92, state: 'MERGED', title: 'mentions it', body: 'Part of GCS-16 in prose only.' },
       { number: 93, state: 'MERGED', title: 'related', body: '- Ticket: Related to GCS-16' },
@@ -29,11 +35,11 @@ test('rowPrs takes the row’s PR and the PRs that say Part of its ticket, witho
     ]);
   };
   assert.deepEqual(await rowPrs(gh, { ticket: 'GCS-16', prs: [66] }), [
-    { number: 66, state: 'merged', title: 'Several vehicles' },
-    { number: 90, state: 'open', title: 'follow-up' },
+    { number: 66, state: 'merged', title: 'Several vehicles', base: 'master' },
+    { number: 90, state: 'open', title: 'follow-up', base: 'stack' },
   ]);
   assert.deepEqual(calls, [
-    'pr view 66 --json number,state,title,body',
-    'pr list --state all --limit 100 --search "Part of GCS-16" in:body --json number,state,title,body',
+    'pr view 66 --json number,state,title,body,baseRefName',
+    'pr list --state all --limit 100 --search "Part of GCS-16" in:body --json number,state,title,body,baseRefName',
   ]);
 });

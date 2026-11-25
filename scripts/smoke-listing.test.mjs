@@ -31,7 +31,7 @@ const issue = (ticket, state, comments = []) => ({
   projectId: null,
   comments: comments.map((body, i) => ({ body, createdAt: `2026-11-24T0${i}:00:00.000Z` })),
 });
-const pr = (number, state) => ({ number, state, title: `PR ${number}` });
+const pr = (number, state, base = 'master') => ({ number, state, title: `PR ${number}`, base });
 const master = (merges = {}) => ({
   head: 'm',
   short: 'm',
@@ -228,5 +228,51 @@ test('without a Linear key every row is shown and none can record', () => {
       ['a', null, 'No Linear key: nothing can be recorded.'],
       ['b', null, 'No Linear key: nothing can be recorded.'],
     ],
+  );
+});
+
+test('a PR merged into another branch is not on master, so master takes no result', () => {
+  const { listed } = listTests({
+    rows: [rowOf('t', 'GCS-1', [1])],
+    checkout: master({}),
+    prContext: null,
+    issues: new Map([['GCS-1', issue('GCS-1', 'smoke')]]),
+    prs: new Map([['t', [pr(1, 'merged', 'feature-x')]]]),
+    commitsAfter: noCommits,
+  });
+  assert.equal(listed[0].where, null);
+  assert.equal(
+    listed[0].why,
+    'PR #1 merged into feature-x, not master: record it once it reaches master.',
+  );
+});
+
+test('in a worktree, a row whose PRs GitHub could not read is shown with why', () => {
+  const { listed } = listTests({
+    rows: [rowOf('t', 'GCS-1', [9])],
+    checkout: { ...master({}), head: 'h', short: 'h', behindMaster: null },
+    prContext: { pr: 9, prHead: 'h', behind: 0 },
+    issues: new Map([['GCS-1', issue('GCS-1', 'progress')]]),
+    prs: new Map([['t', new Error('gh: not logged in')]]),
+    commitsAfter: noCommits,
+  });
+  assert.deepEqual(
+    listed.map((l) => [l.row.anchor, l.where, l.why]),
+    [['t', null, 'Could not read its PRs from GitHub: gh: not logged in']],
+  );
+});
+
+test('in a worktree, a row whose PR merged into another branch is still a draft’s to record', () => {
+  const { listed } = listTests({
+    rows: [rowOf('t', 'GCS-1', [9])],
+    checkout: { ...master({}), head: 'h', short: 'h', behindMaster: null },
+    prContext: { pr: 9, prHead: 'h', behind: 0 },
+    issues: new Map([['GCS-1', issue('GCS-1', 'progress')]]),
+    prs: new Map([['t', [pr(9, 'merged', 'stack')]]]),
+    commitsAfter: noCommits,
+  });
+  assert.deepEqual(
+    listed.map((l) => l.where),
+    [{ kind: 'draft', pr: 9 }],
   );
 });

@@ -57,6 +57,11 @@ export async function gather(deps, chosenPr) {
   const checkout = readCheckout(deps.git);
   const playbook = readFileSync(`${checkout.root}/docs/smoke-tests.md`, 'utf8');
   const { rows, problems } = parsePlaybook(playbook);
+  if (checkout.fetchError) {
+    problems.push(
+      `Could not fetch master (${checkout.fetchError}), so where this checkout stands is unknown: the playbook is shown, and nothing can be recorded until a reload fetches it.`,
+    );
+  }
   const onMaster = checkout.behindMaster === 0;
   const pr = onMaster ? null : (worktreePr(checkout.root) ?? chosenPr);
   let prContext = null;
@@ -243,8 +248,18 @@ export function smokeServer(deps) {
     if (url.pathname === '/api/run') {
       const body = await readJson(req);
       if (!last || !deps.linear) throw new HttpError(409, 'Load the page first.');
+      if (body.discard === true) {
+        run = null;
+        return send(res, 200, { run: null, skipped: [] });
+      }
+      if (last.checkout.fetchError) {
+        throw new HttpError(409, 'Master could not be fetched: reload once online.');
+      }
       if (run && !runView(run).done) {
-        throw new HttpError(409, 'The last Submit has writes still to send: send them first.');
+        throw new HttpError(
+          409,
+          'The last Submit has writes still to send: send them first, or discard that Submit.',
+        );
       }
       // The comment records HEAD, the dirty flag and whether HEAD is master's
       // tip as the page showed them, so each must still hold.

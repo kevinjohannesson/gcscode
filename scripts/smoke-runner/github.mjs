@@ -5,7 +5,7 @@
 import { ticketEntries } from '../check-pr-ticket.mjs';
 
 /** @typedef {(args: string[]) => Promise<string>} Gh runs gh in the checkout and resolves to its stdout */
-/** @typedef {{ number: number, state: 'open' | 'merged' | 'closed', title: string }} Pr */
+/** @typedef {{ number: number, state: 'open' | 'merged' | 'closed', title: string, base: string }} Pr */
 
 const STATE = { OPEN: 'open', MERGED: 'merged', CLOSED: 'closed' };
 
@@ -27,7 +27,7 @@ export function namesPartOf(body, ticket) {
  * @returns {Promise<Pr[]>}
  */
 export async function rowPrs(gh, row) {
-  const fields = 'number,state,title,body';
+  const fields = 'number,state,title,body,baseRefName';
   /** @type {Map<number, { number: number, state: string, title: string, body: string }>} */
   const found = new Map();
   const named = await Promise.all(
@@ -53,7 +53,12 @@ export async function rowPrs(gh, row) {
     for (const pr of list) if (namesPartOf(pr.body, row.ticket)) found.set(pr.number, pr);
   }
   return [...found.values()]
-    .map((pr) => ({ number: pr.number, state: STATE[pr.state] ?? 'open', title: pr.title }))
+    .map((pr) => ({
+      number: pr.number,
+      state: STATE[pr.state] ?? 'open',
+      title: pr.title,
+      base: pr.baseRefName ?? 'master',
+    }))
     .filter((pr) => pr.state !== 'closed')
     .sort((a, b) => a.number - b.number);
 }

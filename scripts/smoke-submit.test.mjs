@@ -347,3 +347,27 @@ test('planRun refuses a mark that is not pass, fail or not run', () => {
     /Radio probe: "passed" is not pass, fail or not run/,
   );
 });
+
+test('a counted draft pass is never "with uncommitted changes", whatever this checkout holds', async () => {
+  const from = {
+    outcome: 'passed',
+    date: '2026-11-23',
+    sha: 'bbbbbbb',
+    where: { kind: 'draft', pr: 63 },
+    dirty: false,
+    countedFrom: null,
+    scenarios: [{ name: 'Start', mark: 'pass', note: '' }],
+  };
+  const { run } = planRun({
+    listed: [listedOf({ kind: 'master' }, 'Smoke Test', { count: { from, commits: [] } })],
+    tests: [],
+    counts: ['radio-probe'],
+    context: { ...context, dirty: true },
+  });
+  const linear = fakeLinear();
+  await sendAll(run, { linear });
+  assert.match(
+    linear.calls[0][2],
+    /\*\*Smoke test passed\*\* on 2026-11-24 at `abc1234` \(master\)\n/,
+  );
+});

@@ -73,6 +73,7 @@ async function withServer(deps, fn) {
   try {
     await fn();
   } finally {
+    server.closeAllConnections();
     await new Promise((r) => server.close(r));
   }
 }
@@ -83,6 +84,9 @@ function call({ method = 'GET', path = '/', headers = {}, body = undefined }) {
       {
         host: '127.0.0.1',
         port: PORT,
+        // A fresh connection each call: a kept-alive socket from the last
+        // test's server breaks the next one on Node 22.
+        agent: false,
         method,
         path,
         headers: { host: `127.0.0.1:${PORT}`, ...headers },
@@ -309,4 +313,103 @@ test('a Submit is refused when the checkout turned dirty or master moved since t
       });
     });
   }
+});
+
+test('offline, the page still loads and a Submit is refused until master is fetched', async () => {
+  const base = fakeGit();
+  const git = (args) => {
+    if (args[0] === 'fetch') throw new Error('fatal: unable to access origin');
+    return base(args);
+  };
+  await withServer({ git, linear: { issue: async () => null } }, async () => {
+    const res = await call({ path: '/api/state' });
+    assert.equal(res.status, 200);
+    const state = JSON.parse(res.text);
+    assert.ok(
+      state.problems.includes(
+        'Could not fetch master (fatal: unable to access origin), so where this checkout stands is unknown: the playbook is shown, and nothing can be recorded until a reload fetches it.',
+      ),
+    );
+    const submit = await call({
+      method: 'POST',
+      path: '/api/run',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tests: [] }),
+    });
+    assert.equal(submit.status, 409);
+    assert.deepEqual(JSON.parse(submit.text), {
+      error: 'Master could not be fetched: reload once online.',
+    });
+  });
+});
+
+test('a Submit whose write keeps failing can be discarded, so a new one can start', async () => {
+  const states = [
+    { id: 's-smoke', name: 'Smoke Test', type: 'started' },
+    { id: 's-done', name: 'Done', type: 'completed' },
+  ];
+  const linear = {
+    async issue(id) {
+      return {
+        id: `issue-${id}`,
+        identifier: id,
+        title: id,
+        url: 'u',
+        state: id === 'GCS-40' ? states[0] : states[1],
+        team: { id: 't', states },
+        projectId: null,
+        comments:
+          id === 'GCS-40'
+            ? []
+            : [
+                {
+                  body: '<!-- smoke-test-result v1 -->\n\n**Smoke test passed** by 2026-11-24 (master, commit not recorded).',
+                  createdAt: 'z',
+                },
+              ],
+      };
+    },
+    async comment() {
+      throw new Error('Linear is down');
+    },
+  };
+  const gh = async (args) =>
+    args[1] === 'view'
+      ? JSON.stringify({ number: Number(args[2]), state: 'MERGED', title: 't', body: '' })
+      : '[]';
+  const json = { 'content-type': 'application/json' };
+  await withServer({ linear, gh }, async () => {
+    const state = JSON.parse((await call({ path: '/api/state' })).text);
+    const t = state.listed[0];
+    const body = JSON.stringify({
+      tests: [{ anchor: t.anchor, marks: t.section.scenarios.map(() => ({ mark: 'pass' })) }],
+    });
+    assert.equal(
+      (await call({ method: 'POST', path: '/api/run', headers: json, body })).status,
+      200,
+    );
+    const failed = await call({
+      method: 'POST',
+      path: '/api/run/write',
+      headers: json,
+      body: JSON.stringify({ test: 0, write: 0 }),
+    });
+    assert.equal(JSON.parse(failed.text).run.tests[0].writes[0].status, 'failed');
+    const blocked = await call({ method: 'POST', path: '/api/run', headers: json, body });
+    assert.equal(blocked.status, 409);
+    assert.deepEqual(JSON.parse(blocked.text), {
+      error: 'The last Submit has writes still to send: send them first, or discard that Submit.',
+    });
+    const discarded = await call({
+      method: 'POST',
+      path: '/api/run',
+      headers: json,
+      body: JSON.stringify({ discard: true }),
+    });
+    assert.deepEqual(JSON.parse(discarded.text), { run: null, skipped: [] });
+    assert.equal(
+      (await call({ method: 'POST', path: '/api/run', headers: json, body })).status,
+      200,
+    );
+  });
 });

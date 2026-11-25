@@ -80,7 +80,10 @@ export function listTests({ rows, checkout, prContext, issues, prs, commitsAfter
       found instanceof Error || !found
         ? []
         : found.map((p) => ({ ...p, mergeCommit: checkout.merges.get(p.number) ?? null }));
-    const allMerged = rowPrs.length > 0 && rowPrs.every((p) => p.state === 'merged');
+    // A PR merged into another branch is not on master.
+    const onMasterMerged = (p) => p.state === 'merged' && p.base === 'master';
+    const elsewhere = rowPrs.filter((p) => p.state === 'merged' && p.base !== 'master');
+    const allMerged = rowPrs.length > 0 && rowPrs.every(onMasterMerged);
     const done = issue?.state.type === 'completed';
     const closedWithoutTest = done && !provenOnMaster(latest);
 
@@ -95,11 +98,19 @@ export function listTests({ rows, checkout, prContext, issues, prs, commitsAfter
       else if (rowPrs.length === 0) why = 'No PR found for this row.';
       else if (open.length) {
         why = `${open.map((p) => `PR #${p.number}`).join(', ')} still open: record it in that PR's worktree.`;
+      } else if (elsewhere.length) {
+        why = elsewhere
+          .map(
+            (p) =>
+              `PR #${p.number} merged into ${p.base}, not master: record it once it reaches master.`,
+          )
+          .join(' ');
       } else where = { kind: 'master' };
     } else {
       const pr = /** @type {PrContext} */ (prContext).pr;
-      if (!rowPrs.some((p) => p.number === pr) || allMerged) continue;
-      if (!issues) why = 'No Linear key: nothing can be recorded.';
+      if (found instanceof Error) why = `Could not read its PRs from GitHub: ${found.message}`;
+      else if (!rowPrs.some((p) => p.number === pr) || allMerged) continue;
+      else if (!issues) why = 'No Linear key: nothing can be recorded.';
       else if (!issue) why = `${row.ticket ?? 'Its ticket'} was not found in Linear.`;
       else where = { kind: 'draft', pr };
     }
