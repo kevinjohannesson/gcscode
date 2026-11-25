@@ -18,7 +18,7 @@ Results go to each test's Linear ticket, through `pnpm smoke` ([Recording result
 | [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81   | SITL, Rust and CMake   |
 | [Controls view](#controls-view)                       | GCS-40, PR #82   | TX16S, Rust and CMake  |
 | [Palettes](#palettes)                                 | GCS-104, PR #99  | nothing                |
-| [Smoke test runner](#smoke-test-runner)               | GCS-114, PR #PRN | a Linear key, and `gh` |
+| [Smoke test runner](#smoke-test-runner)               | GCS-114, PR #112 | a Linear key, and `gh` |
 
 ## Before you start
 
