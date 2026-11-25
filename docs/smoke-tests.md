@@ -4,18 +4,18 @@ Hands-on checks for each rung, run on the owner's Mac against the real stack. A 
 
 Every command block runs from the repo root of the main checkout, and each block stands on its own, so a markdown viewer that runs blocks can play them one at a time. A block marked **runs until Ctrl-C** gets a terminal of its own.
 
-| Test                                                      | Ticket / PR       | Branch                         | Needs                 |
-| --------------------------------------------------------- | ----------------- | ------------------------------ | --------------------- |
-| [Video health view](#video-health-view)                   | GCS-15, PR #65    | `master`                       | SITL                  |
-| [Radio probe](#radio-probe)                               | GCS-13, PR #63    | `master`                       | TX16S, Rust and CMake |
-| [Several vehicles in SITL](#several-vehicles-in-sitl)     | N8, PR #66        | `master`                       | SITL                  |
-| [Wire probe](#wire-probe)                                 | GCS-17, PR #70    | `master`                       | SITL                  |
-| [Map input view](#map-input-view)                         | GCS-14, PR #71    | `master`                       | SITL                  |
-| [Link state view](#link-state-view)                       | GCS-24, PR #69    | `master`                       | SITL                  |
-| [Radio input view](#radio-input-view)                     | GCS-38, PR #68    | `master`                       | TX16S, Rust and CMake |
-| [Station in the dev stack](#station-in-the-dev-stack)     | GCS-29, PR #81    | `master`                       | SITL, Rust and CMake  |
-| [Controls view](#controls-view)                           | GCS-40, PR #82    | `master`                       | TX16S, Rust and CMake |
-| [Palettes](#palettes)                                     | GCS-104, PR #99   | `master`                       | nothing               |
+| Test                                                      | Ticket / PR     | Branch                         | Needs                 |
+| --------------------------------------------------------- | --------------- | ------------------------------ | --------------------- |
+| [Video health view](#video-health-view)                   | GCS-15, PR #65  | `master`                       | SITL                  |
+| [Radio probe](#radio-probe)                               | GCS-13, PR #63  | `master`                       | TX16S, Rust and CMake |
+| [Several vehicles in SITL](#several-vehicles-in-sitl)     | N8, PR #66      | `master`                       | SITL                  |
+| [Wire probe](#wire-probe)                                 | GCS-17, PR #70  | `master`                       | SITL                  |
+| [Map input view](#map-input-view)                         | GCS-14, PR #71  | `master`                       | SITL                  |
+| [Link state view](#link-state-view)                       | GCS-24, PR #69  | `master`                       | SITL                  |
+| [Radio input view](#radio-input-view)                     | GCS-38, PR #68  | `master`                       | TX16S, Rust and CMake |
+| [Station in the dev stack](#station-in-the-dev-stack)     | GCS-29, PR #81  | `master`                       | SITL, Rust and CMake  |
+| [Controls view](#controls-view)                           | GCS-40, PR #82  | `master`                       | TX16S, Rust and CMake |
+| [Palettes](#palettes)                                     | GCS-104, PR #99 | `master`                       | nothing               |
 | [Radio recording and replay](#radio-recording-and-replay) | GCS-95, PR #109 | `claude/project-thread-0gahoi` | TX16S, Rust and CMake |
 
 ## Before you start
