@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use radio_input::mapping::{self, Mapper, Profile};
 use radio_input::probe::{self, Probe};
 use radio_input::pump;
+use sdl3::JoystickSubsystem;
 use sdl3::event::Event;
 use tokio::sync::watch;
 
@@ -69,12 +70,86 @@ pub fn mapper_for(probe: &Probe, profiles: &[Profile]) -> (Option<Mapper>, Vec<S
     }
 }
 
+/// The radio side's state between ticks: the probe, the mapper for the open radio and the
+/// event rate. [`run`] drives it on the real clock; a test, or a replay, can drive it on a
+/// clock of its own, so it runs the station's own handling of every SDL event.
+pub struct RadioSide {
+    pub probe: Probe,
+    mapper: Option<Mapper>,
+    rate: pump::Rate,
+    profiles: Vec<Profile>,
+}
+
+impl RadioSide {
+    /// `replays_only` opens only SDL virtual joysticks, for reading a replayed recording; a
+    /// real radio plugged in beside it is then ignored.
+    pub fn new(profiles: Vec<Profile>, replays_only: bool) -> Self {
+        RadioSide {
+            probe: if replays_only {
+                Probe::replays_only()
+            } else {
+                Probe::default()
+            },
+            mapper: None,
+            rate: pump::Rate::default(),
+            profiles,
+        }
+    }
+
+    /// Handles one SDL event at `now`, and returns the lines to print.
+    pub fn handle(
+        &mut self,
+        joysticks: &JoystickSubsystem,
+        event: Event,
+        now: Instant,
+    ) -> Vec<String> {
+        match event {
+            Event::JoyDeviceAdded { which, .. } => {
+                let had_radio = self.probe.radio().is_some();
+                let mut lines = self.probe.added(joysticks, which);
+                if !had_radio && self.probe.radio().is_some() {
+                    let (m, more) = mapper_for(&self.probe, &self.profiles);
+                    self.mapper = m;
+                    lines.extend(more);
+                }
+                lines
+            }
+            Event::JoyDeviceRemoved { which, .. } => match self.probe.removed(which) {
+                Some(line) => {
+                    self.mapper = None;
+                    vec![line]
+                }
+                None => Vec::new(),
+            },
+            Event::JoyAxisMotion { which, .. }
+            | Event::JoyButtonDown { which, .. }
+            | Event::JoyButtonUp { which, .. }
+            | Event::JoyHatMotion { which, .. }
+                if self.probe.radio().is_some_and(|j| j.id() == which) =>
+            {
+                self.rate.count(now);
+                Vec::new()
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// The snapshot at `now`, the end of a tick.
+    pub fn snapshot(&mut self, now: Instant) -> Snapshot {
+        let eps = self.rate.per_second(now);
+        snapshot(&self.probe, self.mapper.as_mut(), eps)
+    }
+}
+
 /// Reads the radio until `stop` is set, publishing into `out`. Runs on the thread that
-/// initialised SDL, which on macOS is best kept the main thread.
+/// initialised SDL, which on macOS is best kept the main thread. `ready` runs once SDL is up,
+/// before the first event is read: the place a replay attaches its virtual radio.
 pub fn run(
     out: watch::Sender<Snapshot>,
     stop: Arc<AtomicBool>,
     profiles: Vec<Profile>,
+    replays_only: bool,
+    ready: impl FnOnce(),
 ) -> Result<(), String> {
     // The process has no window, so without this SDL may deliver input only while a window of
     // ours is focused. Signals belong to the runtime that stops the whole process, not to SDL.
@@ -84,44 +159,18 @@ pub fn run(
     let sdl = sdl3::init().map_err(|e| e.to_string())?;
     let joysticks = sdl.joystick().map_err(|e| e.to_string())?;
     let mut events = sdl.event_pump().map_err(|e| e.to_string())?;
+    ready();
 
-    let mut probe = Probe::default();
-    let mut mapper: Option<Mapper> = None;
-    let mut rate = pump::Rate::default();
+    let mut side = RadioSide::new(profiles, replays_only);
 
     while !stop.load(Ordering::Relaxed) {
-        pump::until(&mut events, Instant::now() + TICK, |event| match event {
-            Event::JoyDeviceAdded { which, .. } => {
-                let had_radio = probe.radio().is_some();
-                for line in probe.added(&joysticks, which) {
-                    println!("station: {line}");
-                }
-                if !had_radio && probe.radio().is_some() {
-                    let (m, lines) = mapper_for(&probe, &profiles);
-                    mapper = m;
-                    for line in lines {
-                        println!("station: {line}");
-                    }
-                }
+        pump::until(&mut events, Instant::now() + TICK, |event| {
+            for line in side.handle(&joysticks, event, Instant::now()) {
+                println!("station: {line}");
             }
-            Event::JoyDeviceRemoved { which, .. } => {
-                if let Some(line) = probe.removed(which) {
-                    mapper = None;
-                    println!("station: {line}");
-                }
-            }
-            Event::JoyAxisMotion { which, .. }
-            | Event::JoyButtonDown { which, .. }
-            | Event::JoyButtonUp { which, .. }
-            | Event::JoyHatMotion { which, .. }
-                if probe.radio().is_some_and(|j| j.id() == which) =>
-            {
-                rate.count(Instant::now())
-            }
-            _ => {}
         });
 
-        let next = snapshot(&probe, mapper.as_mut(), rate.per_second(Instant::now()));
+        let next = side.snapshot(Instant::now());
         // send_if_modified never fails: with no page connected the snapshot is simply kept.
         out.send_if_modified(|current| {
             if *current == next {

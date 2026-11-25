@@ -28,9 +28,41 @@ pub struct Inputs {
 #[derive(Default)]
 pub struct Probe {
     radio: Option<(Joystick, RadioInfo)>,
+    replays_only: bool,
+}
+
+/// Whether a joystick SDL announces is opened as the radio.
+#[derive(Debug, PartialEq)]
+pub enum Admit {
+    Open,
+    NotEdgeTx,
+    Second,
+    NotAReplay,
+}
+
+/// The rule [`Probe::added`] follows: the first EdgeTX radio, and with `replays_only` only a
+/// virtual one, so a replay is never shadowed by a real radio plugged in beside it.
+pub fn admit(edgetx: bool, is_virtual: bool, have_radio: bool, replays_only: bool) -> Admit {
+    if !edgetx {
+        Admit::NotEdgeTx
+    } else if replays_only && !is_virtual {
+        Admit::NotAReplay
+    } else if have_radio {
+        Admit::Second
+    } else {
+        Admit::Open
+    }
 }
 
 impl Probe {
+    /// A probe that opens only SDL virtual joysticks, for reading a replayed recording.
+    pub fn replays_only() -> Self {
+        Probe {
+            radio: None,
+            replays_only: true,
+        }
+    }
+
     pub fn radio(&self) -> Option<&Joystick> {
         self.radio.as_ref().map(|(j, _)| j)
     }
@@ -44,11 +76,22 @@ impl Probe {
     pub fn added(&mut self, joysticks: &JoystickSubsystem, which: JoystickId) -> Vec<String> {
         let (name, vendor, product) = describe(which);
         let line = device::device_line(which.raw(), &name, vendor, product);
-        if !device::is_edgetx(vendor, product) {
-            return vec![format!("found {line}, not an EdgeTX radio, ignored")];
-        }
-        if self.radio.is_some() {
-            return vec![format!("found {line}, a second EdgeTX radio, ignored")];
+        // SAFETY: a plain getter on an instance ID SDL reported.
+        let is_virtual = unsafe { sdl3::sys::joystick::SDL_IsJoystickVirtual(which.into()) };
+        match admit(
+            device::is_edgetx(vendor, product),
+            is_virtual,
+            self.radio.is_some(),
+            self.replays_only,
+        ) {
+            Admit::NotEdgeTx => return vec![format!("found {line}, not an EdgeTX radio, ignored")],
+            Admit::Second => return vec![format!("found {line}, a second EdgeTX radio, ignored")],
+            Admit::NotAReplay => {
+                return vec![format!(
+                    "found {line}, a real radio while replaying, ignored"
+                )];
+            }
+            Admit::Open => {}
         }
         match joysticks.open(which) {
             Ok(j) => {
@@ -121,5 +164,22 @@ fn serial(j: &Joystick) -> Option<String> {
     unsafe {
         let p = sdl3::sys::joystick::SDL_GetJoystickSerial(j.raw());
         (!p.is_null()).then(|| CStr::from_ptr(p).to_string_lossy().into_owned())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_the_first_edgetx_radio_is_opened_and_while_replaying_only_a_virtual_one() {
+        assert_eq!(admit(true, false, false, false), Admit::Open);
+        assert_eq!(admit(true, true, false, false), Admit::Open);
+        assert_eq!(admit(false, true, false, false), Admit::NotEdgeTx);
+        assert_eq!(admit(true, false, true, false), Admit::Second);
+        assert_eq!(admit(true, true, false, true), Admit::Open);
+        assert_eq!(admit(true, false, false, true), Admit::NotAReplay);
+        assert_eq!(admit(true, true, true, true), Admit::Second);
+        assert_eq!(admit(false, true, false, true), Admit::NotEdgeTx);
     }
 }

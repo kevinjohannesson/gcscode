@@ -77,7 +77,7 @@ fn main() {
         })
     });
 
-    if let Err(e) = input::run(tx, stop, profiles) {
+    if let Err(e) = input::run(tx, stop, profiles, false, || {}) {
         // Without the radio side there is nothing to serve, so leave without waiting for pages.
         eprintln!("station: {e}");
         std::process::exit(1);
