@@ -9,3 +9,5 @@ pub mod device;
 pub mod mapping;
 pub mod probe;
 pub mod pump;
+pub mod recording;
+pub mod replay;

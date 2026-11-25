@@ -99,6 +99,19 @@ What a profile holds, and the rules it is checked against ([`libs/radio-input`](
 
 Without `--mapped` or `--profile` the probe prints raw values only, exactly as before.
 
+## Recording and replaying
+
+`--record <file>` writes everything the radio does to a recording, while the probe shows it as usual, until Ctrl-C. `--replay <file>` plays a recording back in real time instead of reading a radio: the probe then shows the recording as if the radio were plugged in, and ignores a real radio plugged in beside it. Either goes with `--mapped`. Give the file as a full path, since `pnpm --filter` runs the probe from this folder:
+
+```sh
+pnpm --filter radio-probe start -- --mapped --record "$PWD/session.jsonl"
+pnpm --filter radio-probe start -- --mapped --replay "$PWD/session.jsonl"
+```
+
+A recording is the format of the [virtual radio spec](../../docs/specs/2026-11-24-virtual-radio.md): JSON Lines, a first line with the radio's name, USB ID and every value when it was opened, then one line per change, with `t` in microseconds since then, and an `unplugged` and a `plugged` line (with every value it came back with) when you unplug it and plug it back in. The serial is always left out, since recordings are committed to this public repo. The replay is an SDL virtual joystick with the recorded name and USB ID, so it is read exactly as the radio was; it exists only inside the probe's own process. The station's tests replay the recordings in [`packages/mavlink-station/tests/recordings/`](../../packages/mavlink-station/tests/recordings/README.md).
+
+When the radio is unplugged, SDL first sets every input back to its resting value and only then reports the radio gone. The recorder leaves those out, so a recording goes from the radio's last values straight to `unplugged`.
+
 ## What it shows about the radio
 
 In EdgeTX's default Classic joystick mode, the radio reports its model's channel outputs, not its raw sticks: channels 1–8 as the eight axes and channels 9–32 as buttons 0–23, with a button pressed when its channel is above zero. So what you see depends on the radio's model and mixer, and changing a mix changes the output.

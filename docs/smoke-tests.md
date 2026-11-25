@@ -6,19 +6,20 @@ Every command block runs from the repo root of the checkout being tested: the ma
 
 Results go to each test's Linear ticket, through `pnpm smoke` ([Recording results](#recording-results)). This page holds the tests only. A ticket in the table waits in **Smoke Test** after its PRs merge, until a pass moves it to Done.
 
-| Test                                                  | Ticket / PR      | Needs                  |
-| ----------------------------------------------------- | ---------------- | ---------------------- |
-| [Video health view](#video-health-view)               | GCS-15, PR #65   | SITL                   |
-| [Radio probe](#radio-probe)                           | GCS-13, PR #63   | TX16S, Rust and CMake  |
-| [Several vehicles in SITL](#several-vehicles-in-sitl) | GCS-16, PR #66   | SITL                   |
-| [Wire probe](#wire-probe)                             | GCS-17, PR #70   | SITL                   |
-| [Map input view](#map-input-view)                     | GCS-14, PR #71   | SITL                   |
-| [Link state view](#link-state-view)                   | GCS-24, PR #69   | SITL                   |
-| [Radio input view](#radio-input-view)                 | GCS-38, PR #68   | TX16S, Rust and CMake  |
-| [Station in the dev stack](#station-in-the-dev-stack) | GCS-29, PR #81   | SITL, Rust and CMake   |
-| [Controls view](#controls-view)                       | GCS-40, PR #82   | TX16S, Rust and CMake  |
-| [Palettes](#palettes)                                 | GCS-104, PR #99  | nothing                |
-| [Smoke test runner](#smoke-test-runner)               | GCS-114, PR #112 | a Linear key, and `gh` |
+| Test                                                      | Ticket / PR      | Needs                  |
+| --------------------------------------------------------- | ---------------- | ---------------------- |
+| [Video health view](#video-health-view)                   | GCS-15, PR #65   | SITL                   |
+| [Radio probe](#radio-probe)                               | GCS-13, PR #63   | TX16S, Rust and CMake  |
+| [Several vehicles in SITL](#several-vehicles-in-sitl)     | GCS-16, PR #66   | SITL                   |
+| [Wire probe](#wire-probe)                                 | GCS-17, PR #70   | SITL                   |
+| [Map input view](#map-input-view)                         | GCS-14, PR #71   | SITL                   |
+| [Link state view](#link-state-view)                       | GCS-24, PR #69   | SITL                   |
+| [Radio input view](#radio-input-view)                     | GCS-38, PR #68   | TX16S, Rust and CMake  |
+| [Station in the dev stack](#station-in-the-dev-stack)     | GCS-29, PR #81   | SITL, Rust and CMake   |
+| [Controls view](#controls-view)                           | GCS-40, PR #82   | TX16S, Rust and CMake  |
+| [Palettes](#palettes)                                     | GCS-104, PR #99  | nothing                |
+| [Radio recording and replay](#radio-recording-and-replay) | GCS-95, PR #109  | TX16S, Rust and CMake  |
+| [Smoke test runner](#smoke-test-runner)                   | GCS-114, PR #112 | a Linear key, and `gh` |
 
 ## Before you start
 
@@ -403,6 +404,50 @@ open http://localhost:5173/
 **Scenario 2, one at a time:** with the palette open, press Ctrl+Shift+X. **Expect:** the palette closes and the extensions panel opens in its place, ready to type in. Press Ctrl+Shift+P. **Expect:** the panel closes and the palette opens.
 
 **Scenario 3, every extension disabled:** in the extensions panel, click Disable on every row. **Expect:** the arrow keys and Escape still work after each click, and Escape closes the panel. The empty layout says **No views open** and names Ctrl+Shift+X and Ctrl+Shift+P; Ctrl+Shift+P opens a palette that lists the two Workbench commands. Turn the extensions back on with Ctrl+Shift+X.
+
+## Radio recording and replay
+
+**Goal:** `radio-probe --record` writes a TX16S session to a file, and `--replay` plays it back so the probe shows what the radio did, moves, switches, unplug and replug included, while a real radio plugged in beside it is ignored. The two recordings made here become the station's test recordings.
+
+Needs the TX16S on USB as a joystick, on its `gcscode-adv` model ([`tools/radio-probe/tx16s-advanced-model.md`](../tools/radio-probe/tx16s-advanced-model.md)), and Rust and CMake. No SITL. Plug in the radio, choose **USB Joystick (HID)**, and leave every stick centred and every switch up.
+
+**Scenario 1, record a sweep:** start the probe recording (**runs until Ctrl-C**):
+
+```sh
+pnpm --filter radio-probe start -- --mapped --record "$PWD/packages/mavlink-station/tests/recordings/adv-sweep.jsonl"
+```
+
+Then, within about 30 s: move each stick slowly to both ends and back to the centre, one at a time; move each switch, SA to SH, through every position and back up; turn the control switch on and off. Press Ctrl-C. **Expect:** `radio-probe: recording to …`, the usual live block while you move, and a file of a few hundred kilobytes.
+
+**Scenario 2, record a replug with a stick held:** start a second recording (**runs until Ctrl-C**):
+
+```sh
+pnpm --filter radio-probe start -- --mapped --record "$PWD/packages/mavlink-station/tests/recordings/adv-replug-deflected.jsonl"
+```
+
+Wait two seconds, then unplug the radio. Push the throttle about halfway up and hold it there, plug the radio back in, choose **USB Joystick (HID)**, wait two seconds with the throttle still held, then let it go and press Ctrl-C. **Expect:** `radio unplugged`, then the radio opened again with the throttle bar already halfway, not at the bottom.
+
+**Scenario 3, replay:** unplug the radio, then play each recording back (**runs until Ctrl-C**; press it once the moves are over):
+
+```sh
+pnpm --filter radio-probe start -- --mapped --replay "$PWD/packages/mavlink-station/tests/recordings/adv-sweep.jsonl"
+```
+
+```sh
+pnpm --filter radio-probe start -- --mapped --replay "$PWD/packages/mavlink-station/tests/recordings/adv-replug-deflected.jsonl"
+```
+
+**Expect:** `radio-probe: replaying …`, then the same moves, switch positions and control switch you made, at the same speed. In the second: `radio unplugged`, then the radio back with the throttle already halfway, then dropping when you let go.
+
+**Scenario 4, a real radio beside a replay:** plug the radio back in, choose **USB Joystick (HID)**, and run the first replay again. **Expect:** a `found … a real radio while replaying, ignored` line, and only the recording moves on screen, whatever you do with the sticks.
+
+**Scenario 5, the station reads them:** run the station's replay test, which now picks up both recordings:
+
+```sh
+cd packages/mavlink-station && cargo test --test replay -- --nocapture
+```
+
+**Expect:** a `… ticks matched` line for `adv-replug-deflected.jsonl`, `adv-sweep.jsonl` and the synthetic recording, and the test passes. Then attach the two `.jsonl` files from `packages/mavlink-station/tests/recordings/` in the project thread, so they are committed to the PR.
 
 ## Smoke test runner
 

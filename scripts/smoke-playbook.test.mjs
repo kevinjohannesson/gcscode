@@ -29,6 +29,7 @@ test('every row of the real playbook has one ticket and a section', () => {
     'Controls view': 'GCS-40',
     Palettes: 'GCS-104',
     'Smoke test runner': 'GCS-114',
+    'Radio recording and replay': 'GCS-95',
   };
   for (const [name, ticket] of Object.entries(tickets)) {
     assert.equal(row(name).ticket, ticket);

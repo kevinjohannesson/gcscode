@@ -9,6 +9,8 @@ publish = false
 # Profiles (src/mapping.rs) are TOML files.
 serde = { version = "1", features = ["derive"] }
 toml = "1"
+# Recordings (src/recording.rs) are JSON Lines.
+serde_json = "1"
 # Built from source and linked statically, so the binary needs no SDL on the machine.
 # Building SDL needs CMake (`brew install cmake` on macOS).
 sdl3 = { version = "=0.22.1", features = ["build-from-source-static"] }
