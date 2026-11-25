@@ -1,5 +1,7 @@
 # The map owns its contract
 
+_Successor: [the map on `map-gl-svelte`](2026-11-25-map-on-map-gl-svelte.md) settles what a layer gets from the map, adds a PR before GCS-62's, and corrects how P1's probe reads the map._
+
 The map draws one symbol per vehicle, each from that vehicle's own data, through a contract it publishes and protocol extensions fill in. It copies the shape of the [vehicle status contract](2026-11-19-vehicle-status-contract.md), takes over `airframe`, the vehicle symbol and its heading line from the flight overlay, and fixes the rule for who gets a click on the map before anything takes one.
 
 Decisions are marked _(Owner.)_ or _(Controller.)_. The owner set the scope on 2026-11-24 (roadmap M2, the Map lane's GCS-62 and GCS-63) and called the work largely mechanical; every other decision here is _(Controller.)_, taken by the session that wrote this spec, and open to the owner in review. _(Controller, in review.)_ marks one taken on a finding of this spec's review, PR #79, and _(Owner, after review.)_ one the owner took during it.
