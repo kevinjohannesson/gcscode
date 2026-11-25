@@ -10,26 +10,54 @@ use radio_input::mapping::Profile;
 use tokio::sync::watch;
 
 const PORT: u16 = 8091;
+const USAGE: &str = "usage: gcscode-station [--allow-origin <origin>]... [--profile <file>]...";
+
+/// What the command line asks for, in the order it was given.
+#[derive(Debug, PartialEq)]
+struct Args {
+    /// Origins allowed besides the default ones.
+    origins: Vec<String>,
+    /// Profile files, tried before the bundled profiles.
+    profiles: Vec<String>,
+}
+
+/// Reads the arguments after the program name, or gives the usage line.
+fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, &'static str> {
+    let mut parsed = Args {
+        origins: Vec::new(),
+        profiles: Vec::new(),
+    };
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            // pnpm passes the `--` of `pnpm start -- <args>` on to the station. A `--` anywhere
+            // is skipped, as radio-probe does.
+            "--" => {}
+            "--allow-origin" => parsed.origins.push(args.next().ok_or(USAGE)?),
+            "--profile" => parsed.profiles.push(args.next().ok_or(USAGE)?),
+            _ => return Err(USAGE),
+        }
+    }
+    Ok(parsed)
+}
 
 fn main() {
+    let args = match parse_args(std::env::args().skip(1)) {
+        Ok(a) => a,
+        Err(usage) => {
+            eprintln!("{usage}");
+            std::process::exit(2);
+        }
+    };
     let mut allowed: Vec<String> = api::DEFAULT_ORIGINS.iter().map(|s| s.to_string()).collect();
+    allowed.extend(args.origins);
     // Profiles given with --profile are tried before the bundled ones.
     let mut profiles = Vec::new();
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        match (arg.as_str(), args.next()) {
-            ("--allow-origin", Some(origin)) => allowed.push(origin),
-            ("--profile", Some(file)) => match load_profile(&file) {
-                Ok(p) => profiles.push(p),
-                Err(e) => {
-                    eprintln!("station: {e}");
-                    std::process::exit(2);
-                }
-            },
-            _ => {
-                eprintln!(
-                    "usage: gcscode-station [--allow-origin <origin>]... [--profile <file>]..."
-                );
+    for file in &args.profiles {
+        match load_profile(file) {
+            Ok(p) => profiles.push(p),
+            Err(e) => {
+                eprintln!("station: {e}");
                 std::process::exit(2);
             }
         }
@@ -95,4 +123,70 @@ fn main() {
 fn load_profile(file: &str) -> Result<Profile, String> {
     let text = std::fs::read_to_string(file).map_err(|e| format!("cannot read {file}: {e}"))?;
     Profile::parse(&text).map_err(|e| format!("profile {file} refused: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(args: &[&str]) -> Result<Args, &'static str> {
+        parse_args(args.iter().map(|a| a.to_string()))
+    }
+
+    #[test]
+    fn it_skips_the_double_dash_that_pnpm_passes_on() {
+        assert_eq!(
+            parse(&["--", "--profile", "refused.toml"]),
+            Ok(Args {
+                origins: vec![],
+                profiles: vec!["refused.toml".to_string()]
+            })
+        );
+        assert_eq!(
+            parse(&[
+                "--",
+                "--allow-origin",
+                "http://a",
+                "--",
+                "--profile",
+                "x.toml"
+            ]),
+            Ok(Args {
+                origins: vec!["http://a".to_string()],
+                profiles: vec!["x.toml".to_string()]
+            })
+        );
+    }
+
+    #[test]
+    fn it_reads_origins_and_profiles_in_order() {
+        assert_eq!(
+            parse(&[
+                "--allow-origin",
+                "http://a",
+                "--profile",
+                "x.toml",
+                "--profile",
+                "y.toml"
+            ]),
+            Ok(Args {
+                origins: vec!["http://a".to_string()],
+                profiles: vec!["x.toml".to_string(), "y.toml".to_string()],
+            })
+        );
+        assert_eq!(
+            parse(&[]),
+            Ok(Args {
+                origins: vec![],
+                profiles: vec![]
+            })
+        );
+    }
+
+    #[test]
+    fn it_gives_the_usage_line_for_anything_else() {
+        assert_eq!(parse(&["--port", "1"]), Err(USAGE));
+        assert_eq!(parse(&["--profile"]), Err(USAGE));
+        assert_eq!(parse(&["--allow-origin"]), Err(USAGE));
+    }
 }
